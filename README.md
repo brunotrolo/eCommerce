@@ -13,6 +13,7 @@ Toda a informação para usar o MCP Tiops está em **[MCP_TIOPS_QUICK_START.md](
 ## 🎯 Guias Práticos
 
 - **[SHOPEE_CRIAR_ANUNCIO.md](./SHOPEE_CRIAR_ANUNCIO.md)** — Receita pronta e testada para criar anúncios na Shopee (payload exato, campos obrigatórios, reaproveitar imagens pelo EAN)
+- **[MERCADO_LIVRE_CRIAR_ANUNCIO.md](./MERCADO_LIVRE_CRIAR_ANUNCIO.md)** — Receita pronta e testada para criar anúncios no Mercado Livre (título automático, atributos obrigatórios, GTIN, kits)
 
 ## 🔗 Links
 

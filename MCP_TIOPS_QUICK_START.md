@@ -6,7 +6,11 @@
 
 MCP Tiops dá acesso a **260+ ações** de marketplaces (Mercado Livre, Shopee, Shein, Bling, Olist) através da ferramenta `mcp__Tiops__marketplace_action`. Em vez de navegar no site, você executa ações diretamente e recebe o resultado em tempo real.
 
-> 🎯 **Vai criar anúncio na Shopee?** Use o guia pronto **[SHOPEE_CRIAR_ANUNCIO.md](./SHOPEE_CRIAR_ANUNCIO.md)** — tem o payload testado, campos obrigatórios e o truque de reaproveitar imagens pelo EAN. Evita retrabalho e erros.
+> 🎯 **Vai criar anúncio?** Use os guias prontos e testados:
+> - Shopee → **[SHOPEE_CRIAR_ANUNCIO.md](./SHOPEE_CRIAR_ANUNCIO.md)**
+> - Mercado Livre → **[MERCADO_LIVRE_CRIAR_ANUNCIO.md](./MERCADO_LIVRE_CRIAR_ANUNCIO.md)**
+>
+> Têm payload testado, campos obrigatórios e as pegadinhas de cada plataforma. Evitam retrabalho e erros.
 
 ## Suas Contas Conectadas
 
