@@ -1,35 +1,35 @@
-# eCommerce Marketplace Connect API Integration
+# Integração eCommerce Marketplace Connect API
 
-A comprehensive TypeScript/Node.js integration for the Marketplace Connect API, enabling seamless multi-marketplace management across Mercado Livre, Shopee, Shein, Bling ERP, Olist, and more.
+Uma integração completa TypeScript/Node.js para a API Marketplace Connect, permitindo gerenciamento perfeito de múltiplos marketplaces incluindo Mercado Livre, Shopee, Shein, Bling ERP, Olist e mais.
 
-## Features
+## Recursos
 
-- **Multi-Marketplace Support**: Integrate with 6+ marketplaces and platforms
-- **Complete API Coverage**: 260+ available actions with discovery and introspection
-- **Service-Oriented Architecture**: Organized by functional domains (products, orders, campaigns, inventory, shipping)
-- **Type Safety**: Full TypeScript types for all API interactions
-- **Error Handling**: Comprehensive logging and error management
-- **Account Management**: Support for multiple connected accounts per marketplace
-- **Extensible**: Easy to add new services and operations
+- **Suporte Multi-Marketplace**: Integre com 6+ marketplaces e plataformas
+- **Cobertura Completa da API**: 260+ ações disponíveis com descoberta e introspection
+- **Arquitetura Orientada a Serviços**: Organizada por domínios funcionais (produtos, pedidos, campanhas, estoque, envios)
+- **Segurança de Tipos**: Tipos TypeScript completos para todas as interações da API
+- **Tratamento de Erros**: Log abrangente e gerenciamento de erros
+- **Gerenciamento de Contas**: Suporte para múltiplas contas conectadas por marketplace
+- **Extensível**: Fácil adicionar novos serviços e operações
 
-## Supported Marketplaces
+## Marketplaces Suportados
 
-- **Mercado Livre** - Items, orders, ads, questions, shipping, catalog
-- **Shopee** - Products, orders, ads, chat, returns, finance
-- **Shein** - Products, orders, inventory, finance, shipping, compliance (43+ actions)
-- **Bling ERP** - Products, orders, stock, contacts, invoices (60+ actions)
-- **Olist** - Orders, products, shipping, contacts (178+ actions)
-- **Shopee Affiliates** - Search, generate links
+- **Mercado Livre** - Itens, pedidos, anúncios, perguntas, envios, catálogo
+- **Shopee** - Produtos, pedidos, anúncios, chat, devoluções, financeiro
+- **Shein** - Produtos, pedidos, estoque, financeiro, envios, conformidade (43+ ações)
+- **Bling ERP** - Produtos, pedidos, estoque, contatos, notas fiscais (60+ ações)
+- **Olist** - Pedidos, produtos, envios, contatos (178+ ações)
+- **Shopee Affiliates** - Busca, gerar links
 
-## Installation
+## Instalação
 
 ```bash
 npm install
 ```
 
-## Configuration
+## Configuração
 
-Create a `.env` file in the root directory:
+Crie um arquivo `.env` no diretório raiz:
 
 ```env
 MARKETPLACE_API_KEY=mc_live_XXXXXX
@@ -38,37 +38,37 @@ LOG_LEVEL=info
 NODE_ENV=development
 ```
 
-For development, you can copy from `.env.example`:
+Para desenvolvimento, você pode copiar de `.env.example`:
 
 ```bash
 cp .env.example .env
 ```
 
-## Building
+## Compilação
 
 ```bash
 npm run build
 ```
 
-## Running
+## Execução
 
 ```bash
 npm start
 ```
 
-## Development
+## Desenvolvimento
 
-Run examples in development mode:
+Execute exemplos em modo de desenvolvimento:
 
 ```bash
 npm run dev
 ```
 
-## Core Services
+## Serviços Principais
 
-### 1. Discovery Service
+### 1. Serviço de Descoberta
 
-Discover available actions and connected accounts.
+Descubra ações disponíveis e contas conectadas.
 
 ```typescript
 import MarketplaceConnectAPI from './api';
@@ -76,48 +76,48 @@ import config from './config';
 
 const api = new MarketplaceConnectAPI(config);
 
-// List all available actions (260+)
+// Listar todas as ações disponíveis (260+)
 const allActions = await api.discovery.listAllActions();
 
-// Describe a specific action with its parameters
+// Descrever uma ação específica com seus parâmetros
 const actionDetails = await api.discovery.describeAction('shopee_sales_summary');
 
-// Get all connected accounts
+// Obter todas as contas conectadas
 const accounts = await api.discovery.listConnectedAccounts();
 
-// Get account for a specific marketplace
+// Obter conta para um marketplace específico
 const shopeeAccount = await api.discovery.getAccountByMarketplace('shopee');
 ```
 
-### 2. Products Service
+### 2. Serviço de Produtos
 
-Manage products across marketplaces.
+Gerencie produtos em múltiplos marketplaces.
 
 ```typescript
-// List active products
+// Listar produtos ativos
 const products = await api.products.listProducts({
   marketplaceId: 'shop123',
   limit: 50,
   status: 'active'
 });
 
-// Search for products
+// Buscar produtos
 const results = await api.products.searchProducts({
   marketplaceId: 'shop123',
   query: 'laptop',
   limit: 20
 });
 
-// Get detailed product information
+// Obter informações detalhadas do produto
 const product = await api.products.getProductDetails('shop123', 'prod456');
 ```
 
-### 3. Orders Service
+### 3. Serviço de Pedidos
 
-Manage and track orders.
+Gerencie e acompanhe pedidos.
 
 ```typescript
-// List orders with filters
+// Listar pedidos com filtros
 const orders = await api.orders.listOrders({
   marketplaceId: 'shop123',
   status: 'pending',
@@ -125,56 +125,56 @@ const orders = await api.orders.listOrders({
   endDate: '2024-12-31'
 });
 
-// Get order details
+// Obter detalhes do pedido
 const order = await api.orders.getOrderDetails('shop123', 'order789');
 
-// Update order status
+// Atualizar status do pedido
 await api.orders.updateOrderStatus('shop123', 'order789', 'shipped');
 
-// Get sales metrics
+// Obter métricas de vendas
 const metrics = await api.orders.getSalesMetrics('shop123');
-// Returns: { totalOrders, totalRevenue, averageOrderValue }
+// Retorna: { totalOrders, totalRevenue, averageOrderValue }
 ```
 
-### 4. Campaigns Service
+### 4. Serviço de Campanhas
 
-Manage advertising campaigns.
+Gerencie campanhas de publicidade.
 
 ```typescript
-// List active campaigns
+// Listar campanhas ativas
 const campaigns = await api.campaigns.listCampaigns({
   marketplaceId: 'shop123',
   status: 'active'
 });
 
-// Get campaign details
+// Obter detalhes da campanha
 const campaign = await api.campaigns.getCampaignDetails('shop123', 'camp123');
 
-// Create a new campaign
+// Criar nova campanha
 const newCampaign = await api.campaigns.createCampaign({
   marketplaceId: 'shop123',
-  name: 'Summer Sale 2024',
+  name: 'Venda de Verão 2024',
   type: 'sponsored',
   budget: 1000,
   dailyBudget: 100,
   productIds: ['prod1', 'prod2', 'prod3'],
-  keywords: ['laptop', 'computer']
+  keywords: ['laptop', 'computador']
 });
 
-// Update campaign status
+// Atualizar status da campanha
 await api.campaigns.updateCampaignStatus('shop123', 'camp123', 'paused');
 ```
 
-### 5. Inventory Service
+### 5. Serviço de Estoque
 
-Manage product stock and inventory.
+Gerencie estoque e inventário de produtos.
 
 ```typescript
-// Get stock information for a product
+// Obter informações de estoque de um produto
 const stock = await api.inventory.getStockInfo('shop123', 'prod456');
-// Returns: { productId, sku, currentStock, reservedStock, availableStock }
+// Retorna: { productId, sku, currentStock, reservedStock, availableStock }
 
-// Update stock (set/add/subtract)
+// Atualizar estoque (definir/adicionar/subtrair)
 const updated = await api.inventory.updateStock({
   marketplaceId: 'shop123',
   productId: 'prod456',
@@ -182,30 +182,30 @@ const updated = await api.inventory.updateStock({
   type: 'set'
 });
 
-// Bulk update multiple products
+// Atualização em lote de múltiplos produtos
 const result = await api.inventory.bulkUpdateStock('shop123', [
   { productId: 'prod1', quantity: 50, type: 'set' },
   { productId: 'prod2', quantity: 10, type: 'add' },
   { productId: 'prod3', quantity: 5, type: 'subtract' }
 ]);
-// Returns: { succeeded, failed }
+// Retorna: { succeeded, failed }
 
-// Find all products with low stock
+// Encontrar todos os produtos com estoque baixo
 const lowStock = await api.inventory.getLowStockProducts('shop123', 20);
 ```
 
-### 6. Shipping Service
+### 6. Serviço de Envios
 
-Manage shipments and shipping methods.
+Gerencie remessas e métodos de envio.
 
 ```typescript
-// Track a shipment
+// Rastrear remessa
 const shipment = await api.shipping.trackShipment({
   marketplaceId: 'shop123',
   orderId: 'order789'
 });
 
-// Get available shipping methods
+// Obter métodos de envio disponíveis
 const methods = await api.shipping.getShippingMethods({
   marketplaceId: 'shop123',
   origin: 'CEP_00000',
@@ -213,23 +213,23 @@ const methods = await api.shipping.getShippingMethods({
   weight: 2.5
 });
 
-// Generate shipping label
+// Gerar etiqueta de envio
 const label = await api.shipping.generateShippingLabel(
   'shop123',
   'order789',
   'ship_method_123'
 );
-// Returns: { labelUrl, trackingNumber }
+// Retorna: { labelUrl, trackingNumber }
 
-// Update shipment status
+// Atualizar status da remessa
 await api.shipping.updateShipmentStatus('shop123', 'ship123', 'in_transit');
 ```
 
-## API Reference
+## Referência da API
 
-### Multi-Account Support
+### Suporte Multi-Conta
 
-Each account has a unique identifier parameter based on the marketplace:
+Cada conta tem um parâmetro identificador único baseado no marketplace:
 
 - **Mercado Libre**: `meliUserId`
 - **Shopee**: `shopId`
@@ -237,11 +237,11 @@ Each account has a unique identifier parameter based on the marketplace:
 - **Olist**: `sellerId`
 - **Bling ERP**: `accountId`
 
-All services automatically map the marketplace name to the correct parameter.
+Todos os serviços mapeiam automaticamente o nome do marketplace para o parâmetro correto.
 
-## Response Format
+## Formato de Resposta
 
-All API responses follow a consistent format:
+Todas as respostas da API seguem um formato consistente:
 
 ```typescript
 interface ApiResponse<T> {
@@ -251,9 +251,9 @@ interface ApiResponse<T> {
 }
 ```
 
-## Error Handling
+## Tratamento de Erros
 
-All services include comprehensive error handling and logging:
+Todos os serviços incluem tratamento e log de erros abrangentes:
 
 ```typescript
 try {
@@ -262,107 +262,107 @@ try {
     limit: 50
   });
 } catch (error) {
-  // Errors are logged automatically
-  // Access error details via error.message
+  // Erros são registrados automaticamente
+  // Acesse detalhes do erro via error.message
   console.error(error.message);
 }
 ```
 
-Errors are automatically logged to:
-- Console (formatted output)
-- `logs/error.log` (errors only)
-- `logs/combined.log` (all logs)
+Erros são registrados automaticamente em:
+- Console (saída formatada)
+- `logs/error.log` (apenas erros)
+- `logs/combined.log` (todos os logs)
 
-## Testing
+## Testes
 
 ```bash
 npm test
 ```
 
-## Project Structure
+## Estrutura do Projeto
 
 ```
 src/
-├── api.ts              # Main API class combining all services
-├── client.ts           # HTTP client for API communication
-├── config.ts           # Configuration management
-├── discovery.ts        # Discovery and introspection service
-├── logger.ts           # Logging configuration
-├── types.ts            # TypeScript interfaces
+├── api.ts              # Classe API principal que combina todos os serviços
+├── client.ts           # Cliente HTTP para comunicação com a API
+├── config.ts           # Gerenciamento de configuração
+├── discovery.ts        # Serviço de descoberta e introspection
+├── logger.ts           # Configuração de logging
+├── types.ts            # Interfaces TypeScript
 ├── services/
-│   ├── campaigns.ts    # Campaign management
-│   ├── inventory.ts    # Inventory/stock management
-│   ├── orders.ts       # Order management
-│   ├── products.ts     # Product management
-│   └── shipping.ts     # Shipping management
-├── examples.ts         # Example usage
-└── index.ts            # Main exports
+│   ├── campaigns.ts    # Gerenciamento de campanhas
+│   ├── inventory.ts    # Gerenciamento de estoque
+│   ├── orders.ts       # Gerenciamento de pedidos
+│   ├── products.ts     # Gerenciamento de produtos
+│   └── shipping.ts     # Gerenciamento de envios
+├── examples.ts         # Exemplo de uso
+└── index.ts            # Exportações principais
 ```
 
-## Advanced Usage
+## Uso Avançado
 
-### Custom Actions
+### Ações Personalizadas
 
-Call any of the 260+ available actions directly:
+Chame qualquer uma das 260+ ações disponíveis diretamente:
 
 ```typescript
 const api = new MarketplaceConnectAPI(config);
 const client = api.getClient();
 
-// Direct API call
+// Chamada direta da API
 const response = await client.request('custom_action_name', {
   marketplaceId: 'shop123',
   customParam: 'value'
 });
 ```
 
-### Action Discovery with Parameters
+### Descoberta de Ações com Parâmetros
 
-Before calling an action, discover its parameters:
+Antes de chamar uma ação, descubra seus parâmetros:
 
 ```typescript
 const actionDetails = await api.discovery.describeAction('shopee_sales_summary');
 console.log(actionDetails);
 // {
 //   name: 'shopee_sales_summary',
-//   description: 'Get sales summary for a shop',
+//   description: 'Obter resumo de vendas de uma loja',
 //   params: { shopId, dateRange, ... },
 //   marketplace: 'shopee'
 // }
 ```
 
-### Health Checks
+### Verificação de Saúde
 
-Verify the API connection:
+Verifique a conexão com a API:
 
 ```typescript
 const isHealthy = await api.healthCheck();
 if (isHealthy) {
-  console.log('Connected to all marketplaces');
+  console.log('Conectado a todos os marketplaces');
 }
 ```
 
-## Troubleshooting
+## Solução de Problemas
 
-### Authentication Errors
+### Erros de Autenticação
 
-Ensure your `MARKETPLACE_API_KEY` is correct and includes the `mc_live_` prefix:
+Certifique-se de que seu `MARKETPLACE_API_KEY` está correto e inclui o prefixo `mc_live_`:
 
 ```bash
-# Wrong
+# Errado
 MARKETPLACE_API_KEY=XXXXXX
 
-# Correct
+# Correto
 MARKETPLACE_API_KEY=mc_live_XXXXXX
 ```
 
-### No Connected Accounts
+### Nenhuma Conta Conectada
 
-If `listConnectedAccounts()` returns empty, ensure you've connected at least one marketplace account through the Marketplace Connect dashboard.
+Se `listConnectedAccounts()` retornar vazio, certifique-se de ter conectado pelo menos uma conta de marketplace através do painel Marketplace Connect.
 
-### Rate Limiting
+### Limitação de Taxa
 
-The API supports pagination with `offset` and `limit` parameters. For large datasets:
+A API suporta paginação com parâmetros `offset` e `limit`. Para conjuntos de dados grandes:
 
 ```typescript
 const allProducts = [];
@@ -383,15 +383,15 @@ while (true) {
 }
 ```
 
-## Documentation Links
+## Links de Documentação
 
-- [Marketplace Connect API Docs](https://marketplaces.tiops.com.br/docs/api.html)
-- [API Endpoint](https://mcp.tiops.com.br)
+- [Documentação da API Marketplace Connect](https://marketplaces.tiops.com.br/docs/api.html)
+- [Endpoint da API](https://mcp.tiops.com.br)
 
-## License
+## Licença
 
 MIT
 
-## Support
+## Suporte
 
-For issues or questions, refer to the [Marketplace Connect documentation](https://marketplaces.tiops.com.br/docs/api.html).
+Para questões ou dúvidas, consulte a [documentação do Marketplace Connect](https://marketplaces.tiops.com.br/docs/api.html).
