@@ -117,6 +117,12 @@ A nota fiscal **não tem fotos**, e a Shopee exige no mínimo 1 imagem. Soluçã
 
 > `shopee_upload_image` aceita `image_url` (URL pública) **ou** `image_base64`.
 > `shopee_search_items` busca **só na sua própria loja** — não serve pra achar imagens de outros vendedores.
+> A Shopee aceita **até 9 imagens** por anúncio. A primeira da lista é a principal.
+
+### ⚠️ CRIAR vs. ATUALIZAR imagens usam campos DIFERENTES
+- **Criar** (`shopee_create_item`): use `images: [ "image_id1", "image_id2", ... ]` (array simples).
+- **Atualizar** (`shopee_update_item`): use `image: { "image_id_list": [ "image_id1", ... ] }` (objeto).
+- Se usar `images: [...]` no `update_item`, ele **não dá erro mas não aplica nada** (o `get_item` continua mostrando as imagens antigas). Sempre confirme a contagem pelo `get_item`.
 
 ### Se `list_items` do ML estourar o limite de tokens
 O retorno é grande. Delegue a leitura a um subagente pedindo para extrair, por produto: título, MLB id, preço, **GTIN/EAN** e **todas as URLs de imagem**.
