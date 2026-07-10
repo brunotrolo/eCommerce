@@ -59,7 +59,7 @@ Copie e substitua os valores. **Todos estes campos são necessários** — foram
 | `error_invalid_brand` / "Brand information required" | categoria exige marca | adicionar `brand: { "brand_id": 0, "original_brand_name": "" }` |
 | `invalid field seller_stock, value must Not Null` | faltou estoque no formato novo | adicionar `seller_stock: [{ "stock": N }]` |
 | `invalid field original_price, value must Not Null` | faltou preço no campo certo | adicionar `original_price` |
-| warning `gtin is a mandatory field...` | só um aviso, não bloqueia | opcional; o anúncio é criado mesmo assim |
+| warning `gtin is a mandatory field...` | aviso fixo que sempre aparece | não bloqueia; grave o GTIN depois via `update_item` (ver seção GTIN) |
 
 ---
 
@@ -74,10 +74,21 @@ Use sempre `logistic_info: [{ "logistic_id": 90006, "enabled": true }]`.
 
 ## Marca (brand) — obrigatória em perfume
 
-- `shopee_get_brand_list` **exige `offset`** (ex: `{ "category_id": 100661, "status": 1, "page_size": 100, "offset": 0 }`).
-- A lista é enorme e paginada (`has_next_page`, `next_offset`). Marcas árabes de nicho (Lattafa, Al Wataniah, Asdaaf, Maison Alhambra) **não estão no registro** → use **Sem marca** (`brand_id: 0`).
-- Marcas conhecidas encontradas: **Armaf → `brand_id 1146270`**.
-- Regra prática: se a marca não aparecer, use `brand_id: 0`. Não vale a pena paginar milhares de marcas.
+- `shopee_get_brand_list` **exige `offset`** (ex: `{ "category_id": 100661, "status": 1, "page_size": 100, "offset": 0 }`). Pagine com `offset = response.next_offset` até `has_next_page == false`.
+- A lista tem **milhares** de marcas: uma seção alfabética inicial + vários lotes ad-hoc no fim (é lá que ficam as marcas de perfumaria árabe, com `brand_id` na faixa de milhões). **Vale paginar fundo** — as marcas de nicho existem, só estão longe.
+- Passar `brand_id: 0` com `original_brand_name: "Lattafa"` **NÃO registra a marca** — fica "Sem marca". É obrigatório usar o `brand_id` real do catálogo.
+- **Dica:** delegue a paginação a um subagente que percorre até achar as marcas-alvo e retorna só os `brand_id` (as respostas são grandes; mantenha fora do contexto principal).
+
+### brand_id já mapeados (categoria 100661 — perfume)
+| Marca | brand_id |
+|-------|----------|
+| Lattafa | `6132242` |
+| Al Wataniah | `2798766` |
+| Asdaaf | `4461717` |
+| Maison Alhambra | `3857860` |
+| Armaf | `1146270` |
+
+> ⚠️ Cuidado com grafias erradas/compostas no catálogo: existe "Lataffa" (errado) e "Asad Lattafa" / "Lattafa Perfumes" (compostas). Prefira a entrada exata `lattafa` = `6132242`.
 
 ---
 
@@ -116,13 +127,20 @@ Isso economiza tokens e tempo (6 anúncios criados em ~1 minuto).
 - Perfumes (masc. e fem.) caíram em **`100661`**.
 - `shopee_get_attributes` está **suspensa (403)** no momento — não dá pra listar atributos obrigatórios; crie o item e trate os erros pela tabela acima.
 
-## GTIN / EAN — limitação atual ⚠️
+## GTIN / EAN — como gravar (FUNCIONA via API) ✅
 
-- O anúncio é criado com **GTIN vazio** (aparece só um *warning*, não bloqueia venda).
-- Na Shopee o GTIN é um **atributo da categoria** (`attribute_list`), não um campo simples. Passar `gtin` no topo do `shopee_update_item` **não persiste** (não há confirmação nem leitura de volta).
-- Para gravar via API seria preciso o `attribute_id` do GTIN, obtido por `shopee_get_attributes` — que está **suspensa (403)**. O `shopee_recommend_attributes` **não** retorna o atributo de GTIN.
-- Nenhum endpoint de leitura (`get_item`, `get_extra_info`) devolve o GTIN → **não dá nem pra verificar** se foi gravado.
-- **Solução prática:** (1) sempre incluir o **EAN na descrição** (feito no payload) e (2) preencher o **GTIN manualmente no Seller Center** (Produtos → Editar → Especificações → GTIN). Reavaliar quando `shopee_get_attributes` voltar do ar.
+- O `shopee_create_item` cria o anúncio com **GTIN vazio** (só gera um *warning*).
+- Para preencher, chame `shopee_update_item` com o campo **`gtin`** no topo:
+  ```json
+  { "shopId": "1880105398", "item_id": 58264007947, "gtin": "5055810012786" }
+  ```
+- O valor é salvo no campo **`gtin_code`** do produto.
+- ⚠️ **Pegadinha:** a resposta do `update_item` **não** confirma o GTIN, e a warning continua aparecendo. **Só o `shopee_get_item` (relido depois) mostra o `gtin_code` real.** Sempre valide pelo `get_item`, não pela resposta do update.
+- Mantenha também o **EAN na descrição** (redundância útil pro comprador).
+
+## Regra de ouro do update: valide pelo GET, não pela resposta
+
+Tanto para **GTIN** quanto para **marca**, a resposta do `shopee_update_item` costuma vir com o valor **desatualizado** (ex: `brand_id: 0` mesmo após gravar). Isso é normal. **A fonte da verdade é o `shopee_get_item`** — releia o item pra confirmar. Ao atualizar vários itens, delegue a verificação a um subagente que lê cada um e retorna só `brand_id` + `gtin_code`.
 
 ---
 
