@@ -116,6 +116,14 @@ Isso economiza tokens e tempo (6 anúncios criados em ~1 minuto).
 - Perfumes (masc. e fem.) caíram em **`100661`**.
 - `shopee_get_attributes` está **suspensa (403)** no momento — não dá pra listar atributos obrigatórios; crie o item e trate os erros pela tabela acima.
 
+## GTIN / EAN — limitação atual ⚠️
+
+- O anúncio é criado com **GTIN vazio** (aparece só um *warning*, não bloqueia venda).
+- Na Shopee o GTIN é um **atributo da categoria** (`attribute_list`), não um campo simples. Passar `gtin` no topo do `shopee_update_item` **não persiste** (não há confirmação nem leitura de volta).
+- Para gravar via API seria preciso o `attribute_id` do GTIN, obtido por `shopee_get_attributes` — que está **suspensa (403)**. O `shopee_recommend_attributes` **não** retorna o atributo de GTIN.
+- Nenhum endpoint de leitura (`get_item`, `get_extra_info`) devolve o GTIN → **não dá nem pra verificar** se foi gravado.
+- **Solução prática:** (1) sempre incluir o **EAN na descrição** (feito no payload) e (2) preencher o **GTIN manualmente no Seller Center** (Produtos → Editar → Especificações → GTIN). Reavaliar quando `shopee_get_attributes` voltar do ar.
+
 ---
 
 ## Checklist rápido antes de criar
