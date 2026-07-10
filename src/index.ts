@@ -7,6 +7,8 @@ export { OrdersService } from './services/orders';
 export { CampaignsService } from './services/campaigns';
 export { InventoryService } from './services/inventory';
 export { ShippingService } from './services/shipping';
+export { McpClient } from './mcp/mcp-client';
+export * as McpUtils from './mcp/mcp-utils';
 export * from './types';
 export { default as config } from './config';
 export { default as logger } from './logger';
