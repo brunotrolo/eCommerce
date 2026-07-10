@@ -10,6 +10,10 @@ Toda a informação para usar o MCP Tiops está em **[MCP_TIOPS_QUICK_START.md](
 - Instruções de uso oficiais da documentação Tiops
 - Contas conectadas, ações por marketplace e erros comuns
 
+## 🎯 Guias Práticos
+
+- **[SHOPEE_CRIAR_ANUNCIO.md](./SHOPEE_CRIAR_ANUNCIO.md)** — Receita pronta e testada para criar anúncios na Shopee (payload exato, campos obrigatórios, reaproveitar imagens pelo EAN)
+
 ## 🔗 Links
 
 - [Dashboard Marketplace Connect](https://marketplaces.tiops.com.br)
