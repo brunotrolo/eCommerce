@@ -119,6 +119,8 @@ A nota fiscal **não tem fotos**, e a Shopee exige no mínimo 1 imagem. Soluçã
 > `shopee_search_items` busca **só na sua própria loja** — não serve pra achar imagens de outros vendedores.
 > A Shopee aceita **até 9 imagens** por anúncio. A primeira da lista é a principal.
 
+> ⚠️ **A Shopee rejeita `.webp`** (`product.error_param: image is invalid or not supported`). O Mercado Livre serve muitas imagens em `.webp`. **Solução:** troque a extensão `.webp` por `.jpg` na URL do ML (`http2.mlstatic.com/...-O.webp` → `...-O.jpg`) — o CDN serve o mesmo arquivo em JPG e a Shopee aceita.
+
 ### ⚠️ CRIAR vs. ATUALIZAR imagens usam campos DIFERENTES
 - **Criar** (`shopee_create_item`): use `images: [ "image_id1", "image_id2", ... ]` (array simples).
 - **Atualizar** (`shopee_update_item`): use `image: { "image_id_list": [ "image_id1", ... ] }` (objeto).
