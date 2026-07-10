@@ -72,6 +72,19 @@ Use sempre `logistic_info: [{ "logistic_id": 90006, "enabled": true }]`.
 
 ---
 
+## Atualizar preço (shopee_update_price)
+
+Use a ação dedicada `shopee_update_price` — **não** passe `price` solto (dá erro `PriceList is required`). O formato é `price_list`:
+
+```json
+{ "shopId": "1880105398", "item_id": 58264007947, "price_list": [{ "original_price": 135 }] }
+```
+
+- A resposta é **confiável** (diferente do `update_item`): traz `success_list` (com o novo preço) e `failure_list`. Não precisa reler com `get_item`.
+- Para itens com variações, cada entrada do `price_list` leva também `model_id`.
+
+---
+
 ## Marca (brand) — obrigatória em perfume
 
 - `shopee_get_brand_list` **exige `offset`** (ex: `{ "category_id": 100661, "status": 1, "page_size": 100, "offset": 0 }`). Pagine com `offset = response.next_offset` até `has_next_page == false`.
