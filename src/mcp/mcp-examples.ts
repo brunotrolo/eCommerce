@@ -2,7 +2,7 @@ import McpClient from './mcp-client';
 import logger from '../logger';
 
 /**
- * Exemplos de uso do Cliente MCP
+ * Exemplos de uso do Cliente MCP para integração com Marketplace Connect API.
  */
 
 async function example1_DiscoverActions() {

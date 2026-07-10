@@ -38,8 +38,8 @@ export interface McpApiResponse<T = unknown> {
 }
 
 /**
- * Cliente MCP otimizado para Marketplace Connect API
- * Suporta descoberta de ações, introspection e execução com retry
+ * Cliente MCP otimizado para Marketplace Connect API.
+ * Suporta descoberta de ações, introspection e execução com retry automático.
  */
 export class McpClient {
   private client: AxiosInstance;
@@ -60,7 +60,7 @@ export class McpClient {
   }
 
   /**
-   * Chamar qualquer ação da API
+   * Chamar qualquer ação da API MCP.
    */
   async call<T = unknown>(
     action: string,
@@ -85,14 +85,14 @@ export class McpClient {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.error || error.message;
         logger.error(`[MCP] Falha ao executar ${action}: ${message}`);
-        throw new Error(`MCP Error: ${message}`);
+        throw new Error(`Erro MCP: ${message}`);
       }
       throw error;
     }
   }
 
   /**
-   * Descobrir todas as ações disponíveis (260+)
+   * Descobrir e listar todas as ações disponíveis (260+).
    */
   async discoverActions(useCache = true): Promise<McpAction[]> {
     try {
@@ -101,7 +101,7 @@ export class McpClient {
         return Array.from(this.actionsCache.values());
       }
 
-      logger.info('[MCP] Descobrindo todas as ações disponíveis');
+      logger.info('[MCP] Descobrindo todas as ações disponíveis da API');
       const response = await this.call<{
         total: number;
         actions: McpAction[];
@@ -125,7 +125,7 @@ export class McpClient {
   }
 
   /**
-   * Descrever parâmetros de uma ação específica
+   * Descrever os parâmetros e schema de uma ação específica.
    */
   async describeAction(
     actionName: string,
@@ -156,7 +156,7 @@ export class McpClient {
   }
 
   /**
-   * Listar contas conectadas com seus parâmetros
+   * Listar todas as contas conectadas com seus parâmetros de identificação.
    */
   async listAccounts(useCache = true): Promise<McpAccount[]> {
     try {
@@ -167,7 +167,7 @@ export class McpClient {
         return this.accountsCache.get(cacheKey)!;
       }
 
-      logger.info('[MCP] Listando contas conectadas');
+      logger.info('[MCP] Listando todas as contas conectadas');
       const response = await this.call<{
         accounts: McpAccount[];
         total: number;
@@ -190,7 +190,7 @@ export class McpClient {
   }
 
   /**
-   * Obter conta específica por marketplace
+   * Obter a primeira conta conectada de um marketplace específico.
    */
   async getAccountByMarketplace(
     marketplace: string,
@@ -211,7 +211,7 @@ export class McpClient {
   }
 
   /**
-   * Obter todas as contas de um marketplace específico
+   * Obter todas as contas conectadas de um marketplace específico.
    */
   async getAccountsByMarketplace(
     marketplace: string,
@@ -232,7 +232,7 @@ export class McpClient {
   }
 
   /**
-   * Buscar ações por marketplace
+   * Filtrar ações disponíveis para um marketplace específico.
    */
   async findActionsByMarketplace(
     marketplace: string,
@@ -254,7 +254,7 @@ export class McpClient {
   }
 
   /**
-   * Buscar ações por padrão de nome
+   * Buscar ações por padrão de nome ou descrição usando regex.
    */
   async searchActions(
     pattern: string,
@@ -276,7 +276,7 @@ export class McpClient {
   }
 
   /**
-   * Validar parâmetros contra o schema de uma ação
+   * Validar parâmetros contra o schema de uma ação específica.
    */
   async validateParams(
     actionName: string,
@@ -294,7 +294,7 @@ export class McpClient {
           errors.push(`Parâmetro obrigatório ausente: ${paramName}`);
         }
 
-        // Validar enum
+        // Validar valores enum permitidos
         if (
           paramName in params &&
           paramSpec.enum &&
@@ -319,7 +319,7 @@ export class McpClient {
   }
 
   /**
-   * Executar ação com validação e retry automático
+   * Executar ação com validação de parâmetros e retry automático.
    */
   async callWithValidation<T = unknown>(
     actionName: string,
@@ -327,7 +327,7 @@ export class McpClient {
     maxRetries = 3
   ): Promise<McpApiResponse<T>> {
     try {
-      // Validar parâmetros
+      // Validar parâmetros contra o schema da ação
       const validation = await this.validateParams(actionName, params);
       if (!validation.valid) {
         throw new Error(
@@ -335,7 +335,7 @@ export class McpClient {
         );
       }
 
-      // Executar com retry
+      // Executar ação com retry automático
       return await this.callWithRetry<T>(actionName, params, maxRetries);
     } catch (error) {
       logger.error(
@@ -347,7 +347,7 @@ export class McpClient {
   }
 
   /**
-   * Executar ação com retry automático e backoff exponencial
+   * Executar ação com retry automático e backoff exponencial para erros recuperáveis.
    */
   async callWithRetry<T = unknown>(
     action: string,
@@ -363,7 +363,7 @@ export class McpClient {
       } catch (error) {
         lastError = error as Error;
 
-        // Verificar se é erro recuperável
+        // Verificar se é um erro recuperável (rate limit, timeout, conexão)
         const errorMsg = lastError.message.toLowerCase();
         if (
           errorMsg.includes('rate_limit') ||
@@ -381,16 +381,16 @@ export class McpClient {
           }
         }
 
-        // Erro não recuperável
+        // Erro não é recuperável - desistir imediatamente
         throw lastError;
       }
     }
 
-    throw lastError || new Error('Máximo de tentativas excedido');
+    throw lastError || new Error('Máximo de tentativas de execução excedido');
   }
 
   /**
-   * Limpar cache
+   * Limpar cache em memória de ações, descritores ou contas.
    */
   clearCache(type?: 'actions' | 'descriptors' | 'accounts' | 'all'): void {
     if (type === 'actions' || type === 'all') {
@@ -406,7 +406,7 @@ export class McpClient {
   }
 
   /**
-   * Obter estatísticas do cache
+   * Obter estatísticas de uso do cache (quantidade de itens em cache).
    */
   getCacheStats() {
     return {
