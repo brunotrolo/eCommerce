@@ -42,37 +42,37 @@ jobs:
       - name: DEBUG - Full JSON validation with details
         run: |
           python3 << 'EOF'
-import json
-import sys
-import os
+          import json
+          import sys
+          import os
 
-filepath = os.path.expanduser('~/.clasprc.json')
+          filepath = os.path.expanduser('~/.clasprc.json')
 
-# Read and show raw stats
-with open(filepath, 'rb') as f:
-  raw = f.read()
+          # Read and show raw stats
+          with open(filepath, 'rb') as f:
+            raw = f.read()
 
-print(f"File size (bytes): {len(raw)}")
-print(f"First 50 bytes: {raw[:50]}")
-print(f"Last 50 bytes: {raw[-50:]}")
+          print(f"File size (bytes): {len(raw)}")
+          print(f"First 50 bytes: {raw[:50]}")
+          print(f"Last 50 bytes: {raw[-50:]}")
 
-# Try to decode as JSON
-try:
-  with open(filepath, 'r') as f:
-    data = json.load(f)
-  print("✓ Valid JSON structure")
-  print(f"  Keys: {list(data.keys())}")
-  if 'tokens' in data:
-    print(f"  tokens.default keys: {list(data['tokens']['default'].keys())}")
-except json.JSONDecodeError as e:
-  print(f"✗ JSON decode error: {e}")
-  print(f"  at position {e.pos}")
-  print(f"  context: {repr(raw[max(0, e.pos-20):e.pos+20])}")
-  sys.exit(1)
-except Exception as e:
-  print(f"✗ Error: {e}")
-  sys.exit(1)
-EOF
+          # Try to decode as JSON
+          try:
+            with open(filepath, 'r') as f:
+              data = json.load(f)
+            print("OK - Valid JSON structure")
+            print(f"  Keys: {list(data.keys())}")
+            if 'tokens' in data:
+              print(f"  tokens.default keys: {list(data['tokens']['default'].keys())}")
+          except json.JSONDecodeError as e:
+            print(f"FAIL - JSON decode error: {e}")
+            print(f"  at position {e.pos}")
+            print(f"  context: {repr(raw[max(0, e.pos-20):e.pos+20])}")
+            sys.exit(1)
+          except Exception as e:
+            print(f"FAIL - Error: {e}")
+            sys.exit(1)
+          EOF
 
       - name: Push source to Apps Script (dev)
         run: clasp push --force
