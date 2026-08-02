@@ -1,9 +1,26 @@
 <template id="dashboard-template">
-  <div class="card">
-    <h2>Dashboard</h2>
-    <button class="btn" id="btn-refresh">Atualizar</button>
-    <p class="alert alert-danger" id="error-box" hidden></p>
-    <div id="result-box" hidden></div>
+  <div class="widget-grid">
+    <div class="card">
+      <h2>Dashboard</h2>
+      <button class="btn" id="btn-refresh">Atualizar</button>
+      <p class="alert alert-danger" id="error-box" hidden></p>
+      <div id="result-box" hidden></div>
+    </div>
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="card table-container">
+      <h3>Pedidos recentes</h3>
+      <table class="table" id="orders-table">
+        <thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Total</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card table-container">
+      <h3>Estoque baixo (≤ 3 un.)</h3>
+      <table class="table" id="lowstock-table">
+        <thead><tr><th>Produto</th><th>Canal</th><th>Estoque</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </template>
 <script>
@@ -34,37 +51,70 @@
       }
     }
 
+    function formatBRL(value) {
+      if (value == null || isNaN(value)) return '-';
+      return 'R$ ' + Number(value).toFixed(2).replace('.', ',');
+    }
+
+    function marketplaceBadge(marketplace) {
+      return (
+        '<span class="badge badge-' + (marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' +
+        marketplace + '</span>'
+      );
+    }
+
+    function renderStats(shadow, data) {
+      var counts = { shopee: 0, mercado_livre: 0 };
+      (data.orders || []).forEach(function (order) {
+        counts[order.marketplace] = (counts[order.marketplace] || 0) + 1;
+      });
+      var income = data.shopeeIncome || {};
+      var lowStock = data.lowStock || [];
+      shadow.getElementById('stat-grid').innerHTML =
+        '<div class="stat-card">' +
+        '<span class="stat-label">Pedidos recentes</span>' +
+        '<span class="stat-value">' + (data.orders || []).length + '</span>' +
+        '<span class="stat-meta">' + marketplaceBadge('shopee') + marketplaceBadge('mercado_livre') +
+        ' <span>' + counts.shopee + ' / ' + counts.mercado_livre + '</span></span>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<span class="stat-label">Receita Shopee</span>' +
+        '<span class="stat-value stat-value--primary">' + formatBRL(income.gmv) + '</span>' +
+        '<span class="stat-meta">' + (income.orders || 0) + ' pedidos</span>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<span class="stat-label">Alertas estoque</span>' +
+        '<span class="stat-value stat-value--warning">' + lowStock.length + '</span>' +
+        '<span class="stat-meta">itens com ≤ 3 un.</span>' +
+        '</div>';
+    }
+
     function render(shadow, data) {
-      var box = shadow.getElementById('result-box');
-      var lowStockRows = (data.lowStock || [])
-        .map(function (item) {
-          return (
-            '<tr><td>' + item.title + '</td><td><span class="badge badge-' +
-            (item.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' +
-            item.marketplace + '</span></td><td>' + item.stock + '</td></tr>'
-          );
-        })
-        .join('');
+      renderStats(shadow, data);
 
       var orderRows = (data.orders || [])
         .slice(0, 10)
         .map(function (order) {
           return (
-            '<tr><td>' + order.id + '</td><td><span class="badge badge-' +
-            (order.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' +
-            order.marketplace + '</span></td><td>' + order.status + '</td><td>' +
-            (order.total != null ? Number(order.total).toFixed(2) : '-') + '</td></tr>'
+            '<tr><td>' + order.id + '</td><td>' + marketplaceBadge(order.marketplace) +
+            '</td><td>' + order.status + '</td><td>' +
+            (order.total != null ? formatBRL(order.total) : '-') + '</td></tr>'
           );
         })
         .join('');
+      shadow.querySelector('#orders-table tbody').innerHTML =
+        orderRows || '<tr><td colspan="4">Sem pedidos recentes.</td></tr>';
 
-      box.innerHTML +=
-        '<h3>Pedidos recentes</h3>' +
-        '<table class="table"><thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Total</th></tr></thead>' +
-        '<tbody>' + (orderRows || '<tr><td colspan="4">Sem pedidos recentes.</td></tr>') + '</tbody></table>' +
-        '<h3>Estoque baixo (≤ 3 un.)</h3>' +
-        '<table class="table"><thead><tr><th>Produto</th><th>Canal</th><th>Estoque</th></tr></thead>' +
-        '<tbody>' + (lowStockRows || '<tr><td colspan="3">Nenhum alerta.</td></tr>') + '</tbody></table>';
+      var lowStockRows = (data.lowStock || [])
+        .map(function (item) {
+          return (
+            '<tr><td>' + item.title + '</td><td>' + marketplaceBadge(item.marketplace) +
+            '</td><td>' + item.stock + '</td></tr>'
+          );
+        })
+        .join('');
+      shadow.querySelector('#lowstock-table tbody').innerHTML =
+        lowStockRows || '<tr><td colspan="3">Nenhum alerta.</td></tr>';
     }
 
     customElements.define('dashboard-widget', DashboardWidget);

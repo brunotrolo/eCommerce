@@ -192,6 +192,10 @@
     font-size: var(--font-size-md);
   }
 
+  .card h3:first-child {
+    margin-top: 0;
+  }
+
   /* ============================================================
      BUTTONS — primary, secondary, tertiary
      ============================================================ */
@@ -410,6 +414,139 @@
     color: inherit;
     font-weight: var(--font-weight-semibold);
     text-decoration: underline;
+  }
+
+  /* ============================================================
+     LAYOUT — estrutura de widgets (breathing room, grids)
+     ============================================================ */
+  .widget-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+  }
+
+  .card-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-lg);
+    align-items: stretch;
+  }
+
+  /* ============================================================
+     STAT CARDS — métricas de destaque (dashboard)
+     ============================================================ */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-lg);
+  }
+
+  .stat-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-lg);
+    text-align: center;
+  }
+
+  .stat-card .stat-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xs);
+  }
+
+  .stat-card .stat-value {
+    display: block;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-tight);
+  }
+
+  .stat-card .stat-value--primary { color: var(--color-primary); }
+  .stat-card .stat-value--warning { color: var(--color-warning); }
+
+  .stat-card .stat-meta {
+    display: block;
+    margin-top: var(--space-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+  }
+
+  .stat-meta .badge + .badge { margin-left: var(--space-xs); }
+
+  /* ============================================================
+     FILTER BAR — controles de filtro acima de tabelas
+     ============================================================ */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    align-items: flex-end;
+  }
+
+  .filter-bar .form-field {
+    flex: 0 0 auto;
+    min-width: 160px;
+    margin-bottom: 0;
+  }
+
+  /* ============================================================
+     TABLE CONTAINER — wrapper de tabela com scroll horizontal
+     ============================================================ */
+  .table-container {
+    overflow-x: auto;
+  }
+
+  /* ============================================================
+     RESULT CARDS — resultado destacado (pricing, inventory)
+     ============================================================ */
+  .result-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-lg);
+  }
+
+  .result-card--success { border-left-color: var(--color-success); }
+  .result-card--error { border-left-color: var(--color-error); }
+
+  .result-card h3 {
+    margin: 0 0 var(--space-md) 0;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .result-card .result-price {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
+    margin-bottom: var(--space-sm);
+  }
+
+  .result-card .result-line {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-xs);
+  }
+
+  .result-card .result-profit {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-success);
+    margin-top: var(--space-sm);
+  }
+
+  .result-card .result-error {
+    font-size: var(--font-size-sm);
+    color: var(--color-error);
   }
 
   /* ============================================================

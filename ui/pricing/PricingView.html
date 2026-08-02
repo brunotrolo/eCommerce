@@ -1,44 +1,41 @@
 <template id="pricing-calculator-template">
-  <div class="card">
-    <h2>Calculadora de Precificação</h2>
-    <div class="form-field">
-      <label for="unitCost">Custo unitário (R$)</label>
-      <input type="number" id="unitCost" step="0.01" min="0" />
-    </div>
-    <div class="form-field">
-      <label for="extraCosts">Custos extras por unidade (R$)</label>
-      <input type="number" id="extraCosts" step="0.01" min="0" value="0" />
-    </div>
-    <div class="form-field">
-      <label for="targetMarginPct">Margem alvo (%)</label>
-      <input type="number" id="targetMarginPct" step="1" min="0" max="99" value="25" />
-    </div>
-    <div class="form-field">
-      <label for="marginBasis">Margem calculada sobre</label>
-      <select id="marginBasis">
-        <option value="price">Preço de venda</option>
-        <option value="cost">Custo</option>
-      </select>
-    </div>
-    <div class="form-field">
-      <label for="marketAveragePrice">Preço médio de mercado (opcional, R$)</label>
-      <input type="number" id="marketAveragePrice" step="0.01" min="0" />
-    </div>
-    <button class="btn" id="btn-calc">Calcular</button>
-    <p class="alert alert-danger" id="error-box" hidden></p>
-    <div id="result-box" hidden>
-      <table class="table" id="result-table" hidden>
-        <thead>
-          <tr>
-            <th>Canal</th>
-            <th>Preço sugerido</th>
-            <th>Taxa do canal</th>
-            <th>Lucro líquido</th>
-            <th>Margem líquida</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+  <div class="widget-grid">
+    <div class="card">
+      <h2>Calculadora de Precificação</h2>
+      <div class="card-row">
+        <div class="card">
+          <h3>Custos</h3>
+          <div class="form-field">
+            <label for="unitCost">Custo unitário (R$)</label>
+            <input type="number" id="unitCost" step="0.01" min="0" />
+          </div>
+          <div class="form-field">
+            <label for="extraCosts">Custos extras por unidade (R$)</label>
+            <input type="number" id="extraCosts" step="0.01" min="0" value="0" />
+          </div>
+        </div>
+        <div class="card">
+          <h3>Margem alvo</h3>
+          <div class="form-field">
+            <label for="targetMarginPct">Margem alvo (%)</label>
+            <input type="number" id="targetMarginPct" step="1" min="0" max="99" value="25" />
+          </div>
+          <div class="form-field">
+            <label for="marginBasis">Margem calculada sobre</label>
+            <select id="marginBasis">
+              <option value="price">Preço de venda</option>
+              <option value="cost">Custo</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="marketAveragePrice">Preço médio de mercado (opcional, R$)</label>
+            <input type="number" id="marketAveragePrice" step="0.01" min="0" />
+          </div>
+        </div>
+      </div>
+      <button class="btn" id="btn-calc">Calcular</button>
+      <p class="alert alert-danger" id="error-box" hidden></p>
+      <div id="result-box" hidden></div>
     </div>
   </div>
 </template>
@@ -88,29 +85,33 @@
     }
 
     function renderResult(shadow, data) {
-      var tbody = shadow.querySelector('#result-table tbody');
-      tbody.innerHTML = '';
-      Object.keys(data).forEach(function (marketplace) {
-        var row = data[marketplace];
-        var tr = document.createElement('tr');
-        if (row.error) {
-          tr.innerHTML =
-            '<td>' + MARKETPLACE_LABELS[marketplace] + '</td>' +
-            '<td colspan="4"><span class="badge badge-error">' + row.error + '</span></td>';
-        } else {
-          var alertBadge = row.belowMarketAverage
-            ? ' <span class="badge badge-warning">abaixo do mercado</span>'
-            : '';
-          tr.innerHTML =
-            '<td>' + MARKETPLACE_LABELS[marketplace] + '</td>' +
-            '<td>' + formatBRL(row.suggestedPrice) + alertBadge + '</td>' +
-            '<td>' + formatBRL(row.marketplaceFee) + '</td>' +
-            '<td>' + formatBRL(row.netProfit) + '</td>' +
-            '<td>' + formatPct(row.netMarginPct) + '</td>';
-        }
-        tbody.appendChild(tr);
-      });
-      shadow.getElementById('result-table').hidden = false;
+      var box = shadow.getElementById('result-box');
+      box.innerHTML = '<div class="card-row">' +
+        Object.keys(data)
+          .map(function (marketplace) {
+            var row = data[marketplace];
+            var body;
+            if (row.error) {
+              body =
+                '<div class="result-error">' + row.error + '</div>';
+            } else {
+              var alertBadge = row.belowMarketAverage
+                ? ' <span class="badge badge-warning">abaixo do mercado</span>'
+                : '';
+              body =
+                '<div class="result-price">' + formatBRL(row.suggestedPrice) + alertBadge + '</div>' +
+                '<div class="result-line"><span>Taxa do canal</span><span>' + formatBRL(row.marketplaceFee) + '</span></div>' +
+                '<div class="result-line"><span>Margem líquida</span><span>' + formatPct(row.netMarginPct) + '</span></div>' +
+                '<div class="result-line result-profit"><span>Lucro líquido</span><span>' + formatBRL(row.netProfit) + '</span></div>';
+            }
+            return (
+              '<div class="result-card ' + (row.error ? 'result-card--error' : 'result-card--success') + '">' +
+              '<h3>' + MARKETPLACE_LABELS[marketplace] + '</h3>' + body +
+              '</div>'
+            );
+          })
+          .join('') +
+        '</div>';
     }
 
     customElements.define('pricing-calculator-widget', PricingCalculatorWidget);

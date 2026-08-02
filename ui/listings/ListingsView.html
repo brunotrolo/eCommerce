@@ -1,21 +1,27 @@
 <template id="listings-template">
-  <div class="card">
-    <h2>Anúncios</h2>
-    <div class="form-field">
-      <label for="marketplace-filter">Canal</label>
-      <select id="marketplace-filter">
-        <option value="all">Todos</option>
-        <option value="shopee">Shopee</option>
-        <option value="mercado_livre">Mercado Livre</option>
-      </select>
+  <div class="widget-grid">
+    <div class="card">
+      <h2>Anúncios</h2>
+      <div class="filter-bar">
+        <div class="form-field">
+          <label for="marketplace-filter">Canal</label>
+          <select id="marketplace-filter">
+            <option value="all">Todos</option>
+            <option value="shopee">Shopee</option>
+            <option value="mercado_livre">Mercado Livre</option>
+          </select>
+        </div>
+        <button class="btn" id="btn-refresh">Filtrar</button>
+      </div>
+      <p class="alert alert-danger" id="error-box" hidden></p>
+      <div id="result-box" hidden></div>
     </div>
-    <button class="btn" id="btn-refresh">Atualizar</button>
-    <p class="alert alert-danger" id="error-box" hidden></p>
-    <div id="result-box" hidden></div>
-    <table class="table" id="listings-table">
-      <thead><tr><th>Título</th><th>Canal</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div class="card table-container">
+      <table class="table" id="listings-table">
+        <thead><tr><th>Título</th><th>Canal</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </template>
 <script>
