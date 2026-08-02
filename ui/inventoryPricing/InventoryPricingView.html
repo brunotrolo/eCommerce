@@ -22,14 +22,14 @@
     </div>
     <button class="btn" id="btn-apply-price">Calcular e aplicar preço</button>
 
-    <div class="form-field">
+    <div class="form-field form-section">
       <label for="quantity">Novo estoque</label>
       <input type="number" id="quantity" step="1" min="0" />
     </div>
     <button class="btn" id="btn-apply-stock">Atualizar estoque</button>
 
     <p class="alert alert-danger" id="error-box" hidden></p>
-    <div id="result-box"></div>
+    <div id="result-box" hidden></div>
   </div>
 </template>
 <script>
@@ -42,21 +42,11 @@
         var shadow = this.attachShadow({ mode: 'open' });
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
-
-        var self = this;
-        shadow.getElementById('btn-apply-price').addEventListener('click', function () {
-          self._applyPrice(shadow);
-        });
-        shadow.getElementById('btn-apply-stock').addEventListener('click', function () {
-          self._applyStock(shadow);
-        });
+        shadow.getElementById('btn-apply-price').addEventListener('click', () => this._applyPrice(shadow));
+        shadow.getElementById('btn-apply-stock').addEventListener('click', () => this._applyStock(shadow));
       }
 
       _applyPrice(shadow) {
-        var errorBox = shadow.getElementById('error-box');
-        var resultBox = shadow.getElementById('result-box');
-        errorBox.hidden = true;
-
         var params = {
           marketplace: shadow.getElementById('marketplace').value,
           itemId: shadow.getElementById('itemId').value,
@@ -64,49 +54,35 @@
           targetMarginPct: parseFloat(shadow.getElementById('targetMarginPct').value) / 100
         };
 
-        google.script.run
-          .withSuccessHandler(function (response) {
-            if (response.error) {
-              errorBox.textContent = response.error;
-              errorBox.hidden = false;
-              return;
-            }
-            resultBox.innerHTML =
-              '<p class="badge badge-success">Preço aplicado: R$ ' +
-              Number(response.data.pricing.suggestedPrice).toFixed(2) + '</p>';
-          })
-          .withFailureHandler(function (err) {
-            errorBox.textContent = err.message || String(err);
-            errorBox.hidden = false;
-          })
-          .apiDispatch('inventoryPricing.applySuggestedPrice', params);
+        withLoading(
+          shadow.getElementById('btn-apply-price'),
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('inventoryPricing.applySuggestedPrice', params),
+          null,
+          (data) => 'Preço aplicado: R$ ' + Number(data.pricing.suggestedPrice).toFixed(2)
+        );
       }
 
       _applyStock(shadow) {
-        var errorBox = shadow.getElementById('error-box');
-        var resultBox = shadow.getElementById('result-box');
-        errorBox.hidden = true;
-
         var params = {
           marketplace: shadow.getElementById('marketplace').value,
           itemId: shadow.getElementById('itemId').value,
           quantity: parseInt(shadow.getElementById('quantity').value, 10)
         };
 
-        google.script.run
-          .withSuccessHandler(function (response) {
-            if (response.error) {
-              errorBox.textContent = response.error;
-              errorBox.hidden = false;
-              return;
-            }
-            resultBox.innerHTML = '<p class="badge badge-success">Estoque atualizado.</p>';
-          })
-          .withFailureHandler(function (err) {
-            errorBox.textContent = err.message || String(err);
-            errorBox.hidden = false;
-          })
-          .apiDispatch('inventoryPricing.updateStock', params);
+        withLoading(
+          shadow.getElementById('btn-apply-stock'),
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('inventoryPricing.updateStock', params),
+          null,
+          'Estoque atualizado.'
+        );
       }
     }
 

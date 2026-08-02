@@ -1,0 +1,65 @@
+<script>
+  // Helpers compartilhados dos widgets: loading state + feedback padronizado
+  // de erro/sucesso (#error-box / #result-box). Nenhum widget duplica essa
+  // lógica — sempre passe por withLoading para chamadas google.script.run.
+  //
+  // withLoading(button, invoke, onSuccess, successMessage)
+  //   - button: elemento <button> desabilitado e rotulado "Processando..."
+  //     durante a chamada;
+  //   - invoke(success, failure): monta e dispara a cadeia
+  //     google.script.run.withSuccessHandler(success)
+  //       .withFailureHandler(failure).apiDispatch(...);
+  //   - onSuccess(data): renderização específica do widget, chamada com
+  //     response.data após sucesso (opcional);
+  //   - successMessage: string fixa ou função(data) => string, exibida como
+  //     .badge.badge-success dentro de #result-box (opcional).
+  function withLoading(button, invoke, onSuccess, successMessage) {
+    var root = button.getRootNode();
+    var errorBox = root.getElementById('error-box');
+    var resultBox = root.getElementById('result-box');
+    var originalLabel = button.textContent;
+
+    function setLoading(on) {
+      button.disabled = on;
+      button.textContent = on ? 'Processando...' : originalLabel;
+    }
+
+    function showError(message) {
+      setLoading(false);
+      if (errorBox) {
+        errorBox.textContent = message;
+        errorBox.hidden = false;
+      }
+    }
+
+    function handleSuccess(response) {
+      setLoading(false);
+      if (response && response.error) {
+        showError(response.error);
+        return;
+      }
+      var data = response ? response.data : null;
+      if (resultBox) {
+        resultBox.hidden = false;
+        resultBox.innerHTML = '';
+        if (successMessage) {
+          var msg =
+            typeof successMessage === 'function' ? successMessage(data) : successMessage;
+          resultBox.innerHTML = '<span class="badge badge-success">' + msg + '</span>';
+        }
+      }
+      if (onSuccess) onSuccess(data);
+    }
+
+    setLoading(true);
+    if (errorBox) errorBox.hidden = true;
+    if (resultBox) {
+      resultBox.hidden = true;
+      resultBox.innerHTML = '';
+    }
+
+    return invoke(handleSuccess, function (err) {
+      showError(err.message || String(err));
+    });
+  }
+</script>

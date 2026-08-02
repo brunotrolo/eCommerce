@@ -11,6 +11,7 @@
     </div>
     <button class="btn" id="btn-refresh">Atualizar</button>
     <p class="alert alert-danger" id="error-box" hidden></p>
+    <div id="result-box" hidden></div>
     <table class="table" id="orders-table">
       <thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Comprador</th><th>Total</th><th>Data</th></tr></thead>
       <tbody></tbody>
@@ -27,32 +28,22 @@
         var shadow = this.attachShadow({ mode: 'open' });
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
-        var self = this;
-        shadow.getElementById('btn-refresh').addEventListener('click', function () {
-          self._load(shadow);
-        });
+        shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow));
         this._load(shadow);
       }
 
       _load(shadow) {
-        var errorBox = shadow.getElementById('error-box');
         var marketplace = shadow.getElementById('marketplace-filter').value;
-        errorBox.hidden = true;
-
-        google.script.run
-          .withSuccessHandler(function (response) {
-            if (response.error) {
-              errorBox.textContent = response.error;
-              errorBox.hidden = false;
-              return;
-            }
-            renderRows(shadow, response.data.orders || []);
-          })
-          .withFailureHandler(function (err) {
-            errorBox.textContent = err.message || String(err);
-            errorBox.hidden = false;
-          })
-          .apiDispatch('orders.listUnified', { marketplace: marketplace, limit: 30 });
+        withLoading(
+          shadow.getElementById('btn-refresh'),
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('orders.listUnified', { marketplace: marketplace, limit: 30 }),
+          (data) => renderRows(shadow, data.orders || []),
+          'Pedidos atualizados.'
+        );
       }
     }
 

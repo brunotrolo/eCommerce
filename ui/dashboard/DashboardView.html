@@ -1,8 +1,9 @@
 <template id="dashboard-template">
   <div class="card">
     <h2>Dashboard</h2>
+    <button class="btn" id="btn-refresh">Atualizar</button>
     <p class="alert alert-danger" id="error-box" hidden></p>
-    <div id="content">Carregando…</div>
+    <div id="result-box" hidden></div>
   </div>
 </template>
 <script>
@@ -15,30 +16,26 @@
         var shadow = this.attachShadow({ mode: 'open' });
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
+        shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow));
         this._load(shadow);
       }
 
       _load(shadow) {
-        var errorBox = shadow.getElementById('error-box');
-        google.script.run
-          .withSuccessHandler(function (response) {
-            if (response.error) {
-              errorBox.textContent = response.error;
-              errorBox.hidden = false;
-              return;
-            }
-            render(shadow, response.data);
-          })
-          .withFailureHandler(function (err) {
-            errorBox.textContent = err.message || String(err);
-            errorBox.hidden = false;
-          })
-          .apiDispatch('dashboard.getSummary', {});
+        withLoading(
+          shadow.getElementById('btn-refresh'),
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('dashboard.getSummary', {}),
+          (data) => render(shadow, data),
+          (data) => (data.fromCache ? 'Dados em cache (até 5 min).' : 'Dados atualizados agora.')
+        );
       }
     }
 
     function render(shadow, data) {
-      var content = shadow.getElementById('content');
+      var box = shadow.getElementById('result-box');
       var lowStockRows = (data.lowStock || [])
         .map(function (item) {
           return (
@@ -61,8 +58,7 @@
         })
         .join('');
 
-      content.innerHTML =
-        '<p>' + (data.fromCache ? 'Dados em cache (até 5 min).' : 'Dados atualizados agora.') + '</p>' +
+      box.innerHTML +=
         '<h3>Pedidos recentes</h3>' +
         '<table class="table"><thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Total</th></tr></thead>' +
         '<tbody>' + (orderRows || '<tr><td colspan="4">Sem pedidos recentes.</td></tr>') + '</tbody></table>' +

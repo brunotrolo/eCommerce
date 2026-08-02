@@ -26,18 +26,20 @@
     </div>
     <button class="btn" id="btn-calc">Calcular</button>
     <p class="alert alert-danger" id="error-box" hidden></p>
-    <table class="table" id="result-table" hidden>
-      <thead>
-        <tr>
-          <th>Canal</th>
-          <th>Preço sugerido</th>
-          <th>Taxa do canal</th>
-          <th>Lucro líquido</th>
-          <th>Margem líquida</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div id="result-box" hidden>
+      <table class="table" id="result-table" hidden>
+        <thead>
+          <tr>
+            <th>Canal</th>
+            <th>Preço sugerido</th>
+            <th>Taxa do canal</th>
+            <th>Lucro líquido</th>
+            <th>Margem líquida</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 </template>
 <script>
@@ -60,22 +62,10 @@
         var shadow = this.attachShadow({ mode: 'open' });
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
-        this._bind(shadow);
-      }
-
-      _bind(shadow) {
-        var self = this;
-        shadow.getElementById('btn-calc').addEventListener('click', function () {
-          self._calculate(shadow);
-        });
+        shadow.getElementById('btn-calc').addEventListener('click', () => this._calculate(shadow));
       }
 
       _calculate(shadow) {
-        var errorBox = shadow.getElementById('error-box');
-        var resultTable = shadow.getElementById('result-table');
-        errorBox.hidden = true;
-        resultTable.hidden = true;
-
         var params = {
           unitCost: parseFloat(shadow.getElementById('unitCost').value),
           extraCosts: parseFloat(shadow.getElementById('extraCosts').value) || 0,
@@ -84,20 +74,16 @@
           marketAveragePrice: parseFloat(shadow.getElementById('marketAveragePrice').value) || undefined
         };
 
-        google.script.run
-          .withSuccessHandler(function (response) {
-            if (response.error) {
-              errorBox.textContent = response.error;
-              errorBox.hidden = false;
-              return;
-            }
-            renderResult(shadow, response.data);
-          })
-          .withFailureHandler(function (err) {
-            errorBox.textContent = err.message || String(err);
-            errorBox.hidden = false;
-          })
-          .apiDispatch('pricing.compareMarketplaces', params);
+        withLoading(
+          shadow.getElementById('btn-calc'),
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('pricing.compareMarketplaces', params),
+          (data) => renderResult(shadow, data),
+          'Cálculo concluído.'
+        );
       }
     }
 
