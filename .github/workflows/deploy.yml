@@ -18,7 +18,22 @@ jobs:
         run: npm install -g @google/clasp
 
       - name: Restore clasp credentials
-        run: echo "${{ secrets.CLASP_CREDENTIALS }}" > ~/.clasprc.json
+        run: |
+          printf '%s' "${{ secrets.CLASP_CREDENTIALS }}" > "$HOME/.clasprc.json"
+          chmod 600 "$HOME/.clasprc.json"
+
+      - name: Validate clasp credentials JSON
+        run: |
+          python3 - <<'PY'
+import json, sys, os
+p = os.path.expanduser('~/.clasprc.json')
+try:
+  json.load(open(p))
+  print('✓ ~/.clasprc.json is valid JSON')
+except Exception as e:
+  print('✗ Invalid ~/.clasprc.json:', e)
+  sys.exit(1)
+PY
 
       - name: Push source to Apps Script (dev)
         run: clasp push --force
