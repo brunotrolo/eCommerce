@@ -4,12 +4,14 @@
 Approved
 
 ## Objetivo
-Ao sincronizar uma NFe (aba NFE_ENTRADA), extrair cada produto dela e registrar
-em uma aba `NFE_ENTRADA_PRODUTOS` com máximo detalhe (código, descrição, NCM, CFOP,
-quantidade, valores, impostos, dados da NF para referência). Resolve o problema: ter dados agregados na NFe
-mas precisar de granularidade por produto para gestão de estoque e auditoria
-de custos. A aba NFE_ENTRADA_PRODUTOS é um desdobramento direto de NFE_ENTRADA,
-mantendo referência aos dados da nota para auditoria cruzada entre abas.
+**Aba complementar a NFE_ENTRADA.** Enquanto NFE_ENTRADA armazena os dados agregados da nota fiscal
++ PRODUTOS_JSON (array de produtos como string), a aba NFE_ENTRADA_PRODUTOS **desagrega** cada produto
+dessa nota em uma linha separada, incluindo:
+- **Dados da NF** (NUMERO_NF, CHAVE_NF, DATA_EMISSAO, EMITENTE_CNPJ, EMITENTE_NOME) para servir como chave de relacionamento
+- **Todos os dados do produto** (código, descrição, NCM, CFOP, quantidade, preço de compra unitário e total, alíquota ICMS, valor ICMS calculado)
+
+Resolve o problema: ter dados agregados na NFe (NFE_ENTRADA) mas precisar de granularidade por produto
+(NFE_ENTRADA_PRODUTOS) para gestão de estoque, auditoria de custos e rastreabilidade de origem.
 
 ## Contrato da API Interna
 
