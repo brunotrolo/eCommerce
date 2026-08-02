@@ -27,3 +27,8 @@ ou uma view (`ui/<dominio>/*View.html`):
 
 Isso vale igualmente para sessões de Claude Code e de OpenCode — a regra
 está em `AGENTS.md`, não só nesta skill, para nenhuma ferramenta ter passe livre.
+No OpenCode, ative com `/spec-first`.
+
+**Aprovar uma spec é decisão do usuário, nunca do agente.** Um agente pode
+redigir o rascunho e recomendar aprovação, mas mudar `Status: Draft` para
+`Approved` por conta própria anula o gate inteiro — nesse caso, pare e peça.

@@ -1,8 +1,8 @@
 /**
  * ListingsService — anúncios (listar/detalhar/pausar/ativar) nos dois
  * canais. Regras completas, incluindo as pegadinhas de payload de cada
- * marketplace, em specs/listings.md (extraídas de SHOPEE_CRIAR_ANUNCIO.md e
- * MERCADO_LIVRE_CRIAR_ANUNCIO.md).
+ * marketplace, em specs/listings.md (extraídas de docs/referencia/SHOPEE_CRIAR_ANUNCIO.md e
+ * docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md).
  */
 var ListingsService = (function () {
   function describe() {
@@ -95,7 +95,7 @@ var ListingsService = (function () {
       });
     } else {
       // Mercado Livre: pause_item/activate_item usam itemId (camelCase),
-      // inconsistente com create_item (snake_case) — ver MERCADO_LIVRE_CRIAR_ANUNCIO.md.
+      // inconsistente com create_item (snake_case) — ver docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md.
       TiopsClient.call(shouldActivate ? 'activate_item' : 'pause_item', {
         meliUserId: ConfigService.getAccountId('mercado_livre'),
         itemId: params.itemId

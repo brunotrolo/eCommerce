@@ -48,7 +48,7 @@ var InventoryPricingService = (function () {
 
     if (params.marketplace === 'shopee') {
       // shopee_update_price exige price_list — nunca "price" solto
-      // (ver SHOPEE_CRIAR_ANUNCIO.md).
+      // (ver docs/referencia/SHOPEE_CRIAR_ANUNCIO.md).
       TiopsClient.call('shopee_update_price', {
         shopId: ConfigService.getAccountId('shopee'),
         item_id: params.itemId,

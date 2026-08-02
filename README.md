@@ -3,14 +3,27 @@
 Web App em Google Apps Script para controlar a loja pessoal na Shopee e no
 Mercado Livre: calculadora de precificação, dashboard unificado, pedidos,
 anúncios e sincronização de preço/estoque — tudo integrado via
-[MCP Tiops](./MCP_TIOPS_QUICK_START.md).
+[MCP Tiops](./docs/referencia/MCP_TIOPS_QUICK_START.md).
+
+**Status:** código das fases 0–5 escrito; nenhuma fase validada em produção
+ainda (falta o primeiro deploy). Ver [PLANO.md](./PLANO.md).
+
+## Por onde começar
+
+| Você quer... | Leia |
+|---|---|
+| entender escopo, fases e o que falta | [PLANO.md](./PLANO.md) |
+| escrever ou revisar código | [AGENTS.md](./AGENTS.md) |
+| executar uma fase no OpenCode | [docs/HANDOFF_OPENCODE.md](./docs/HANDOFF_OPENCODE.md) |
+| saber o contrato de um domínio | `specs/<dominio>.md` |
+| montar payload de marketplace | [docs/referencia/](./docs/referencia/) |
 
 ## Arquitetura
 
 Monólito modular: um único projeto Apps Script, domínios separados por
-arquivo (não múltiplos deploys). Ver **[AGENTS.md](./AGENTS.md)** para as
-convenções obrigatórias (namespaces, Spec-Driven Development, segredos,
-design system) — lido tanto por Claude Code quanto por OpenCode.
+arquivo (não múltiplos deploys). As convenções obrigatórias — namespaces,
+Spec-Driven Development, segredos, design system, divisão de papéis entre
+Claude Code e OpenCode — estão em **[AGENTS.md](./AGENTS.md)**.
 
 ```
 src/00_config       → ConfigService (contas, taxas, sheet)
@@ -20,6 +33,10 @@ src/03_services     → Pricing, Orders, Listings, InventoryPricing, Dashboard
 src/04_gateway      → ServiceRegistry + Router (doGet/doPost/apiDispatch)
 ui/                 → Shell + widgets (Web Components com Shadow DOM) + design tokens
 specs/              → uma spec por domínio (Spec-Driven Development)
+docs/referencia/    → playbooks de payload validados + análise da API Tiops
+docs/historico/     → planejamento superado, mantido só por histórico
+.claude/skills/     → regras executáveis (fonte única)
+.opencode/command/  → mesmas regras acionáveis por /comando no OpenCode
 ```
 
 ## Especificações (`specs/`)
@@ -45,12 +62,6 @@ aprovada correspondente (ver `AGENTS.md`).
 Todo push na branch `main` dispara `.github/workflows/deploy.yml`, que roda
 `clasp push` + `clasp deploy` automaticamente — sem passo manual depois do
 setup inicial.
-
-## Guias de marketplace
-
-- **[MCP_TIOPS_QUICK_START.md](./MCP_TIOPS_QUICK_START.md)** — uso geral do MCP Tiops.
-- **[SHOPEE_CRIAR_ANUNCIO.md](./SHOPEE_CRIAR_ANUNCIO.md)** — payload/regras validadas para anúncios Shopee.
-- **[MERCADO_LIVRE_CRIAR_ANUNCIO.md](./MERCADO_LIVRE_CRIAR_ANUNCIO.md)** — payload/regras validadas para anúncios Mercado Livre.
 
 ## Links
 

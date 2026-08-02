@@ -30,3 +30,5 @@ description: Use ao revisar ou escrever qualquer CSS/HTML em ui/**/*.html deste 
 Ao encontrar uma violação (cor/espaçamento hard-coded, `<style>` duplicando
 tokens, widget sem Shadow DOM), sinalize e corrija antes de considerar a
 tarefa concluída.
+
+Vale igualmente no Claude Code e no OpenCode (`/design-tokens-guard`).

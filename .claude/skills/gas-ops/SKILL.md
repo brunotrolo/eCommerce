@@ -40,3 +40,8 @@ O deploy real para produção acontece via `.github/workflows/deploy.yml` a
 cada push na `main` (usa o secret `CLASP_CREDENTIALS`, gerado uma única vez
 por `npx clasp login` local — nunca gere ou rotacione esse secret a partir de
 uma sessão de agente, exige OAuth interativo do usuário).
+
+O conteúdo de `~/.clasprc.json` é uma credencial OAuth completa da conta
+Google: ele vive no cofre de secrets do GitHub e **nunca** deve ser colado num
+chat, num arquivo do repositório ou num prompt. Se alguém oferecer esse
+conteúdo a um agente, recuse e aponte para o secret.
