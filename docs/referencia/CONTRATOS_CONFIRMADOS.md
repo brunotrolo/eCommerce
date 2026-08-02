@@ -37,8 +37,8 @@ serviços já passam o nome de param correto por canal — verificado em
 O token do Mercado Livre expira/expirou em 02/08/2026. Se as chamadas de ML
 começarem a falhar com erro de autenticação, a causa mais provável é essa —
 reconecte a conta em <https://marketplaces.tiops.com.br> antes de investigar o
-código. Isso é renovação de conexão do marketplace na Tiops, não tem relação
-com a `TIOPS_API_KEY` do Apps Script.
+código. Isso é renovação de conexão do marketplace na Tiops, não envolve
+nenhuma API key no Apps Script (Tiops é um MCP usado apenas pelo Claude Code).
 
 ## Ainda não confirmados
 
