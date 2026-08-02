@@ -96,7 +96,7 @@
         if (row.error) {
           tr.innerHTML =
             '<td>' + MARKETPLACE_LABELS[marketplace] + '</td>' +
-            '<td colspan="4"><span class="badge badge-danger">' + row.error + '</span></td>';
+            '<td colspan="4"><span class="badge badge-error">' + row.error + '</span></td>';
         } else {
           var alertBadge = row.belowMarketAverage
             ? ' <span class="badge badge-warning">abaixo do mercado</span>'

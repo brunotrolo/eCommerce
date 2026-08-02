@@ -21,6 +21,7 @@
 
     function setLoading(on) {
       button.disabled = on;
+      button.classList.toggle('loading', on);
       button.textContent = on ? 'Processando...' : originalLabel;
     }
 
