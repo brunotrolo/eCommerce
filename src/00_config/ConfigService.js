@@ -43,6 +43,19 @@ var ConfigService = (function () {
     return fee;
   }
 
+  var NFE_ENTRADA_KEY = 'SHEETS_ID_NFEENTRADA';
+
+  function getNfeEntradaSheetId() {
+    var id = PropertiesRepository.getScriptProperty(NFE_ENTRADA_KEY);
+    if (!id) return { error: 'Sheet ID not configured. Use the menu NFe Entrada > Configurar Sheet ID.' };
+    return id;
+  }
+
+  function setNfeEntradaSheetId(id) {
+    PropertiesRepository.setScriptProperty(NFE_ENTRADA_KEY, id);
+    return { success: true };
+  }
+
   function listMarketplaces() {
     return Object.keys(ACCOUNT_IDS);
   }
@@ -52,6 +65,8 @@ var ConfigService = (function () {
     getAccountId: getAccountId,
     getSheetId: getSheetId,
     getMarketplaceFee: getMarketplaceFee,
-    listMarketplaces: listMarketplaces
+    listMarketplaces: listMarketplaces,
+    getNfeEntradaSheetId: getNfeEntradaSheetId,
+    setNfeEntradaSheetId: setNfeEntradaSheetId
   };
 })();

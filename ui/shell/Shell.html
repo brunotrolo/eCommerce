@@ -13,6 +13,7 @@
         <button class="btn" data-route="orders">Pedidos</button>
         <button class="btn" data-route="listings">Anúncios</button>
         <button class="btn" data-route="inventoryPricing">Preço e Estoque</button>
+        <button class="btn" data-route="nfeEntrada">NFe Entrada</button>
         <button class="theme-toggle" id="theme-toggle" aria-label="Alternar tema claro/escuro"></button>
       </nav>
       <main id="app-view"></main>
@@ -25,6 +26,7 @@
     <?!= include('ui/orders/OrdersView'); ?>
     <?!= include('ui/listings/ListingsView'); ?>
     <?!= include('ui/inventoryPricing/InventoryPricingView'); ?>
+    <?!= include('ui/nfeEntrada/NFeEntradaView'); ?>
 
     <script>
       // Cada rota é um micro-frontend independente: um Web Component com
@@ -34,7 +36,8 @@
         pricing: 'pricing-calculator-widget',
         orders: 'orders-widget',
         listings: 'listings-widget',
-        inventoryPricing: 'inventory-pricing-widget'
+        inventoryPricing: 'inventory-pricing-widget',
+        nfeEntrada: 'nfe-entrada-widget'
       };
 
       function navigate(route) {

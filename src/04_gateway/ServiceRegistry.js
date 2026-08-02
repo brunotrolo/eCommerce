@@ -9,7 +9,8 @@ var ServiceRegistry = (function () {
     orders: OrdersService,
     listings: ListingsService,
     inventoryPricing: InventoryPricingService,
-    dashboard: DashboardService
+    dashboard: DashboardService,
+    nfeEntrada: NFeEntradaService
   };
 
   function listActions() {

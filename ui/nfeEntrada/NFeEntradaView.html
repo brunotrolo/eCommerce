@@ -1,0 +1,193 @@
+<template id="nfe-entrada-template">
+  <style>
+    .nfe-sync-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-card);
+    }
+    .nfe-sync-bar .btn { white-space: nowrap; }
+    .nfe-summary {
+      display: flex;
+      gap: var(--space-lg);
+      flex-wrap: wrap;
+    }
+    .nfe-summary .stat { text-align: center; }
+    .nfe-summary .stat-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nfe-summary .stat-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-micro);
+    }
+    .nfe-table { margin-top: var(--space-lg); }
+    .nfe-table .table { width: 100%; }
+    .nfe-empty {
+      text-align: center;
+      padding: var(--space-section) var(--space-lg);
+      color: var(--color-text-secondary);
+    }
+  </style>
+
+  <div class="widget-grid">
+    <div class="card">
+      <h1>NFe Entrada</h1>
+      <p class="page-subtitle">Sincroniza XMLs e PDFs de Notas Fiscais de uma pasta do Drive para o Sheets.</p>
+
+      <div class="nfe-sync-bar">
+        <button class="btn btn-primary" id="btn-sync">Sincronizar com Drive</button>
+        <span id="sync-status" style="color: var(--color-text-secondary); font-size: var(--font-size-sm);"></span>
+      </div>
+
+      <div id="error-box" class="alert alert-error" hidden></div>
+      <div id="result-box" hidden></div>
+    </div>
+
+    <div class="card" id="recent-card" hidden>
+      <h2>Últimas NFes Importadas</h2>
+      <div class="nfe-table" id="nfe-table-container"></div>
+    </div>
+  </div>
+</template>
+
+<script>
+  (function () {
+    var template = document.getElementById('nfe-entrada-template');
+
+    customElements.define(
+      'nfe-entrada-widget',
+      class extends HTMLElement {
+        constructor() {
+          super();
+          this.attachShadow({ mode: 'open' });
+          this.shadowRoot.appendChild(template.content.cloneNode(true));
+          if (window.__DESIGN_SHEET__) {
+            this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+          }
+        }
+
+        connectedCallback() {
+          var self = this;
+          var btn = this.shadowRoot.getElementById('btn-sync');
+          var status = this.shadowRoot.getElementById('sync-status');
+
+          btn.addEventListener('click', function () {
+            btn.disabled = true;
+            btn.textContent = 'Sincronizando…';
+            status.textContent = 'Lendo arquivos do Drive e processando…';
+            self._hideResults();
+
+            var folderId = '1tGl8zs9GOUA1L_i2FJNoimTl00_55qKu';
+
+            google.script.run
+              .withSuccessHandler(function (result) {
+                btn.disabled = false;
+                btn.textContent = 'Sincronizar com Drive';
+                status.textContent = '';
+
+                if (result.error) {
+                  self._showError(result.error);
+                  return;
+                }
+                self._showResult(result);
+                self._loadRecent();
+              })
+              .withFailureHandler(function (err) {
+                btn.disabled = false;
+                btn.textContent = 'Sincronizar com Drive';
+                status.textContent = '';
+                self._showError(err.message || String(err));
+              })
+              .apiDispatch('nfeEntrada.syncAndUpdateSheets', { driveFolder: folderId });
+          });
+
+          this._loadRecent();
+        }
+
+        _hideResults() {
+          this.shadowRoot.getElementById('error-box').hidden = true;
+          this.shadowRoot.getElementById('result-box').hidden = true;
+        }
+
+        _showError(msg) {
+          var box = this.shadowRoot.getElementById('error-box');
+          box.textContent = msg;
+          box.hidden = false;
+        }
+
+        _showResult(result) {
+          var box = this.shadowRoot.getElementById('result-box');
+          var inserted = result.inserted || 0;
+          var duplicated = result.duplicated || 0;
+          var errCount = (result.errors || []).length;
+
+          var html = '<div class="alert alert-success">Sync concluída: ' +
+            '<strong>' + inserted + '</strong> importada(s), ' +
+            '<strong>' + duplicated + '</strong> duplicada(s), ' +
+            '<strong>' + errCount + '</strong> erro(s).</div>';
+
+          if (errCount > 0) {
+            html += '<div class="alert alert-warning" style="margin-top: var(--space-md)">';
+            for (var i = 0; i < result.errors.length; i++) {
+              html += '<div>' + result.errors[i].file + ': ' + result.errors[i].reason + '</div>';
+            }
+            html += '</div>';
+          }
+
+          box.innerHTML = html;
+          box.hidden = false;
+        }
+
+        _loadRecent() {
+          var self = this;
+          google.script.run
+            .withSuccessHandler(function (result) {
+              if (result.error || !result.data || result.data.length === 0) {
+                self.shadowRoot.getElementById('recent-card').hidden = true;
+                return;
+              }
+              self.shadowRoot.getElementById('recent-card').hidden = false;
+              self._renderTable(result.data);
+            })
+            .withFailureHandler(function () {
+              self.shadowRoot.getElementById('recent-card').hidden = true;
+            })
+            .apiDispatch('nfeEntrada.getRecent', { limit: 20 });
+        }
+
+        _renderTable(rows) {
+          var container = this.shadowRoot.getElementById('nfe-table-container');
+          var html = '<div class="table-container"><table class="table">' +
+            '<thead><tr>' +
+            '<th>Nº NF</th><th>Emitente</th><th>Data</th><th>Valor Total</th><th>Status</th>' +
+            '</tr></thead><tbody>';
+
+          for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var statusClass = r.status_nfe === 'Autorizado' ? 'badge-success' : 'badge-warning';
+            html += '<tr>' +
+              '<td>' + (r.numero_nf || '') + '</td>' +
+              '<td>' + (r.emitente_nome || '') + '</td>' +
+              '<td>' + (r.data_emissao || '') + '</td>' +
+              '<td>R$ ' + formatNumber_(r.valor_total) + '</td>' +
+              '<td><span class="badge ' + statusClass + '">' + (r.status_nfe || '-') + '</span></td>' +
+              '</tr>';
+          }
+
+          html += '</tbody></table></div>';
+          container.innerHTML = html;
+        }
+      }
+    );
+
+    function formatNumber_(val) {
+      var num = parseFloat(val);
+      if (isNaN(num)) return '0,00';
+      return num.toFixed(2).replace('.', ',');
+    }
+  })();
+</script>
