@@ -1,281 +1,139 @@
-# Spec: Sistema de Logging (Auditoria e Debug)
+# Spec: Logging System
 
 ## Status
 Approved
 
 ## Objetivo
-Registrar todas as ações executadas no Web App, Editor GAS e Google Sheets em uma
-aba centralizada `LOGS` do Google Sheets. Cada log captura: timestamp, serviço,
-ação, status, resumo, detalhes completos (context), tempo de execução e erro (se houver).
-Resolve o problema de debug: quando algo falha, ir direto na aba LOGS e encontrar
-o que aconteceu, com total de contexto.
+Sistema de logging centralizado que registra todas as ações dos serviços na aba
+`LOGS` do Google Sheets, facilitando debug e auditoria. Logging é assíncrono
+e nunca bloqueia a ação principal.
 
 ## Contrato da API Interna
 
 ### `logging.log`
-- **Descrição:** Registra um evento (sucesso ou erro) na aba LOGS.
+- **Descrição:** Registra uma entrada de log na aba LOGS.
 - **Params:**
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
-  | service | string | sim | — | Nome do serviço (ex: "pricing", "nfeEntrada", "dashboard") |
-  | action | string | sim | — | Ação específica (ex: "calculateSuggestedPrice", "syncFromDrive") |
-  | status | string | sim | — | "success", "error", "warning", "info" |
-  | summary | string | sim | — | Resumo legível (ex: "Preço sugerido calculado: R$ 199.90") |
-  | context | object | não | {} | Dados completos (params, result, stack trace) — será JSON stringificado |
-  | durationMs | number | não | 0 | Tempo de execução em ms |
-  | errorMessage | string | não | — | Se status="error", mensagem do erro |
-  | caller | string | não | "automatic" | "WebApp" (google.script.run), "GASEditor" (direto), "GoogleSheets" (trigger) |
-  | environment | string | não | "prod" | "dev" ou "prod" |
-- **Retorno:**
-  ```javascript
-  {
-    success: boolean,     // true se log foi escrito
-    logId: string,        // ID da linha (timestamp_nonce)
-    message: string       // "Log recorded" ou erro
-  }
-  ```
-- **Erros esperados:**
-  - `Sheet ID not configured` — SHEETS_ID_NFEENTRADA não setada
-  - `LOGS sheet not found` — aba LOGS não existe
-  - `Context too large` — JSON > 50KB (truncar)
+  | service | string | sim | — | Nome do serviço (ex: 'nfeEntrada') |
+  | action | string | sim | — | Nome da ação (ex: 'syncAndUpdateSheets') |
+  | status | string | sim | — | 'OK' ou 'ERROR' |
+  | caller | string | não | 'system' | Quem chamou (ex: 'webapp', 'trigger', 'manual') |
+  | summary | string | não | '' | Resumo legível da ação |
+  | durationMs | number | não | 0 | Duração em milissegundos |
+  | errorMessage | string | não | '' | Mensagem de erro (se status=ERROR) |
+  | context | object | não | {} | Contexto adicional (JSON stringificado, máx 50KB) |
+- **Retorno:** `{ success: true, logId: string }`
+- **Erros:** Nunca lança exceção. Se falhar a escrita, loga em console.error().
 
-### `logging.queryLogs`
-- **Descrição:** Busca logs com filtros (serviço, status, data range, texto).
+### `logging.init`
+- **Descrição:** Cria a aba LOGS com headers e formatação. Idempotente.
+- **Params:** Nenhum
+- **Retorno:** `{ success: true, sheetId: string }`
+
+### `logging.getLogs`
+- **Descrição:** Retorna logs filtrados.
 - **Params:**
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
-  | filters | object | não | {} | {service, status, startDate, endDate, searchText} |
-  | limit | number | não | 100 | Máximo de linhas a retornar |
-- **Retorno:** Array de logs (últimas N linhas, ordenado por UPDATED_AT DESC)
-- **Erros esperados:** Nenhum (retorna [] se nenhum log encontrado).
+  | service | string | não | — | Filtrar por serviço |
+  | status | string | não | — | Filtrar por status |
+  | limit | number | não | 50 | Limite de resultados |
+- **Retorno:** `{ logs: Array }`
 
 ### `logging.clearOldLogs`
-- **Descrição:** Limpa logs com mais de X dias (housekeeping automático).
-- **Params:**
-  | Nome | Tipo | Obr. | Default | Descrição |
-  |------|------|------|---------|-----------|
-  | olderThanDays | number | não | 90 | Deletar logs mais antigos que X dias |
-- **Retorno:** `{success: boolean, deletedCount: number}`
-- **Notas:** Pode ser chamado por trigger automático (ex: uma vez por dia).
+- **Descrição:** Remove logs com mais de 90 dias.
+- **Params:** Nenhum
+- **Retorno:** `{ deleted: number }`
+
+## Formato da Aba LOGS
+
+Colunas (ordem fixa):
+```
+UPDATED_AT | SERVICE | ACTION | STATUS | CALLER | SUMMARY | DURATION_MS | ERROR_MESSAGE | CONTEXT | ENVIRONMENT | LOG_ID
+```
+
+- **UPDATED_AT:** ISO 8601 timestamp
+- **SERVICE:** Nome do serviço
+- **ACTION:** Nome da ação
+- **STATUS:** 'OK' ou 'ERROR'
+- **CALLER:** 'webapp', 'trigger', 'manual'
+- **SUMMARY:** Resumo legível
+- **DURATION_MS:** Duração em ms
+- **ERROR_MESSAGE:** Mensagem de erro (vazio se OK)
+- **CONTEXT:** JSON stringificado (máx 50KB, truncar se > 50KB)
+- **ENVIRONMENT:** 'dev' ou 'prod'
+- **LOG_ID:** Timestamp + nonce (único)
 
 ## Regras de Negócio
 
-### Colunas da aba LOGS (ordem fixa)
-1. **UPDATED_AT** — timestamp ISO 8601 (ex: "2026-08-02T15:30:45.123Z")
-2. **SERVICE** — nome do serviço (pricing, dashboard, orders, listings, nfeEntrada, inventoryPricing, logging)
-3. **ACTION** — ação específica dentro do serviço (ex: calculateSuggestedPrice, syncFromDrive)
-4. **STATUS** — "success", "error", "warning", "info"
-5. **CALLER** — "WebApp" (google.script.run), "GASEditor" (direto), "GoogleSheets" (trigger), "automatic"
-6. **SUMMARY** — resumo human-readable (máx 200 caracteres, sem quebras de linha)
-7. **DURATION_MS** — tempo de execução em ms (número inteiro)
-8. **ERROR_MESSAGE** — se status="error", mensagem do erro (máx 500 caracteres, null se success)
-9. **CONTEXT** — JSON stringificado com params, result, stack trace completo (máx 50KB, truncar se > 50KB)
-10. **ENVIRONMENT** — "dev" ou "prod"
-11. **LOG_ID** — ID único (timestamp + nonce, ex: "2026080215304512a3b4c")
+1. **Logging assíncrono:** Nunca bloqueia a ação principal. Se falhar a
+   escrita do log, loga em console.error() mas continua.
+2. **LOG_ID único:** Formato `YYYYMMDDHHMMSS-<nonce>` (nonce = random hex 8 chars).
+3. **Context truncation:** Se context > 50KB, truncar e adicionar
+   `{"_truncated": true}` no final.
+4. **Cleanup automático:** Trigger diário remove logs > 90 dias.
+5. **Init idempotente:** Se aba LOGS já existe, não recria.
 
-### Regras de logging
+## Critérios de Aceite
 
-1. **Quem loga:** Cada serviço (pricing, dashboard, etc) DEVE chamar `logging.log()` em seus
-   métodos principais, após conclusão ou erro.
-
-2. **O que logar:**
-   - Sucesso: chamar com status="success", resumo breve, context = {input, output}
-   - Erro: chamar com status="error", errorMessage = exception.message, context = {input, stack}
-   - Aviso (opcional): status="warning" para situações previstas mas incomuns
-
-3. **Contexto (máximo detalhe):**
-   ```javascript
-   context: {
-     input: {
-       // Todos os params recebidos pelo método
-       unitCost: 100,
-       targetMarginPct: 0.25,
-       marketplace: "shopee"
-     },
-     output: {
-       // Resultado completo (não sumariado)
-       suggestedPrice: 199.90,
-       netProfit: 44.95,
-       statusNfe: "Autorizado"
-     },
-     stack: undefined  // Se error, exception.stack completa
-   }
-   ```
-
-4. **Formato de SUMMARY:**
-   - "Preço sugerido calculado: R$ 199.90 (Shopee)"
-   - "NFe 731 sincronizada com sucesso (3 produtos)"
-   - "Erro ao ler pasta Drive: ID inválido"
-   - Sempre presente tense, máx 200 chars, sem quebras de linha
-
-5. **Retenção:** Logs mantidos por 90 dias, depois deletados automaticamente
-   (clearOldLogs chamado por trigger diário).
-
-6. **Limite de tamanho:** Se context > 50KB, truncar com aviso:
-   `context: {...truncated, truncatedAt: "50000 bytes"}`
-
-7. **Performance:** Logging é assíncrono (não bloqueia a ação principal). Se falhar
-   a escrita do log, log the failure em console.error() mas nunca faça a ação principal
-   falhar por causa de erro de logging.
-
-## Casos de Borda
-
-- **Aba LOGS não existe:** LoggingService.init() cria automaticamente (cabeçalho + formatação)
-- **Script Properties não setado:** logging.log() retorna erro mas não joga exception (falha silenciosa no log, ação continua)
-- **Context é circular/não-serializável:** JSON.stringify com replacer customizado, substituir [Circular] por string
-- **Muitos logs em pouco tempo:** Sem limite, escrever todos (Sheet suporta ~1M linhas)
-- **Query com data range inválida:** Retornar [] (sem erro)
-- **UPDATED_AT duplicado em mesma ação:** Usar nonce (timestamp + random suffix) para garantir unicidade
-
-## Critérios de Aceite (Given/When/Then)
-
-### Scenario 1: Log de sucesso de função
+### Scenario 1: Log de ação bem-sucedida
 ```
-Given: pricing.calculateSuggestedPrice é chamado com unitCost=100, targetMarginPct=0.25
-When: Função retorna suggestedPrice=199.90
+Given: Serviço qualquer executa ação
+When: LoggingService.log({service: 'test', action: 'doStuff', status: 'OK'})
 Then:
-  - Aba LOGS contém 1 nova linha
-  - UPDATED_AT ≈ agora (ISO 8601)
-  - SERVICE = "pricing"
-  - ACTION = "calculateSuggestedPrice"
-  - STATUS = "success"
-  - SUMMARY = "Preço sugerido calculado: R$ 199.90 (Shopee)"
-  - CONTEXT = JSON com {input: {unitCost: 100, ...}, output: {suggestedPrice: 199.90, ...}}
-  - DURATION_MS = tempo real em ms
-  - ERROR_MESSAGE = null
-  - CALLER = "WebApp" (ou outra origem)
+  - Retorna {success: true, logId: "YYYYMMDDHHMMSS-xxxxxxxx"}
+  - Aba LOGS contém 1 linha com SERVICE='test', STATUS='OK'
 ```
 
 ### Scenario 2: Log de erro
 ```
-Given: nfeEntrada.syncFromDrive chamado com driveFolder ID inválido
-When: DriveAdapter lança exceção "Folder not found"
+Given: Serviço falha
+When: LoggingService.log({service: 'test', action: 'fail', status: 'ERROR', errorMessage: 'oops'})
 Then:
-  - Aba LOGS contém 1 nova linha
-  - STATUS = "error"
-  - SUMMARY = "Erro ao sincronizar NFe: Pasta Drive não encontrada"
-  - ERROR_MESSAGE = "Folder not found"
-  - CONTEXT = {input: {driveFolder: "invalid_id"}, stack: "DriveApp.getFolderById... Error..."}
-  - Ação falha normalmente (erro é propagado)
+  - Aba LOGS contém linha com STATUS='ERROR', ERROR_MESSAGE='oops'
 ```
 
-### Scenario 3: Query com filtros
+### Scenario 3: Init idempotente
 ```
-Given: Aba LOGS tem 100+ linhas com múltiplos serviços e statuses
-When: logging.queryLogs({service: "nfeEntrada", status: "error", limit: 20})
-Then:
-  - Retorna array com até 20 logs
-  - Todos os logs têm SERVICE="nfeEntrada" E STATUS="error"
-  - Ordenados por UPDATED_AT DESC (mais recente primeiro)
-  - Cada log tem todos os 11 campos
+Given: Aba LOGS não existe
+When: LoggingService.init()
+Then: Aba LOGS criada com headers e formatação
+
+Given: Aba LOGS já existe
+When: LoggingService.init()
+Then: Aba não é recriada (idempotente)
 ```
 
-### Scenario 4: Limpeza automática
+### Scenario 4: Clear old logs
 ```
-Given: Aba LOGS tem logs com 100 dias de idade + logs recentes
-When: logging.clearOldLogs({olderThanDays: 90}) é chamado (trigger diário)
-Then:
-  - Linhas com UPDATED_AT > 90 dias atrás são deletadas
-  - Linhas recentes mantidas
-  - Retorna {success: true, deletedCount: N}
+Given: Aba LOGS com logs de 100 dias atrás
+When: LoggingService.clearOldLogs()
+Then: Logs > 90 dias removidos,返回 {deleted: N}
 ```
 
-### Scenario 5: Context muito grande
+### Scenario 5: Context truncation
 ```
-Given: pricing.calculateSuggestedPrice recebe array com 10k produtos (context > 50KB)
-When: logging.log() é chamado com esse context
-Then:
-  - CONTEXT é truncado pra 50KB
-  - Campo CONTEXT contém "...truncated, truncatedAt: 50000 bytes"
-  - Log escrito sem erro
+Given: Context com 60KB de dados
+When: LoggingService.log({context: hugeObject})
+Then: CONTEXT na aba contém JSON truncado com {_truncated: true}
 ```
 
 ## Fora de Escopo
 
-- Exportar logs pra CSV/email (ler diretamente do Sheets se necessário)
-- Dashboard de análise de logs (futura feature, por enquanto aba bruta)
-- Criptografia de logs sensíveis (por enquanto texto claro)
-- Replicação de logs em backup externo
-- Alertas em tempo real por erro (implementado depois se necessário)
+- Dashboard de logs em tempo real
+- Alertas por email/slack
+- Logs de audit trail para compliance
+- Log rotation por tamanho (apenas por tempo)
 
 ## Dependências
 
-### Services internos
-- `ConfigService.getSheetId()` — saber qual Sheets usar
-- `SheetsRepository` (ou novo `LoggingRepository`) — escrita/leitura em Sheets
+### Services
+- `ConfigService.getSheetId()` — ID da planilha
 
-### Adapters
-- `SpreadsheetApp` (nativo Apps Script) — acessar aba LOGS
+### Repositories
+- `LoggingRepository` — escrita/leitura na aba LOGS
 
-### Trigger (opcional, recomendado)
-- Trigger horário: chamar `logging.clearOldLogs()` uma vez por dia (ex: 2am UTC)
-
-## Notas de Implementação
-
-### Inicialização
-```javascript
-// LoggingService.init() — criar aba LOGS na primeira execução
-// Cabeçalho: UPDATED_AT | SERVICE | ACTION | STATUS | CALLER | SUMMARY | DURATION_MS | ERROR_MESSAGE | CONTEXT | ENVIRONMENT | LOG_ID
-// Formatação: header em negrito, colunas congeladas, alternância de cores
-```
-
-### Integração em cada serviço
-Cada serviço deve registrar sua execução. Exemplo:
-
-```javascript
-function calculateSuggestedPrice(params) {
-  var startTime = new Date().getTime();
-  try {
-    // ... lógica ...
-    var result = {suggestedPrice: 199.90, ...};
-    
-    LoggingService.log({
-      service: 'pricing',
-      action: 'calculateSuggestedPrice',
-      status: 'success',
-      summary: 'Preço sugerido calculado: R$ ' + result.suggestedPrice,
-      context: {input: params, output: result},
-      durationMs: new Date().getTime() - startTime,
-      caller: 'automatic'
-    });
-    
-    return result;
-  } catch (error) {
-    LoggingService.log({
-      service: 'pricing',
-      action: 'calculateSuggestedPrice',
-      status: 'error',
-      summary: 'Erro ao calcular preço: ' + error.message,
-      context: {input: params, stack: error.stack},
-      errorMessage: error.message,
-      durationMs: new Date().getTime() - startTime,
-      caller: 'automatic'
-    });
-    throw error;
-  }
-}
-```
-
-### JSON.stringify com replacer para circular references
-```javascript
-function stringifyContext(obj) {
-  var seen = new WeakSet();
-  return JSON.stringify(obj, function(key, value) {
-    if (typeof value === 'object' && value !== null) {
-      if (seen.has(value)) return '[Circular]';
-      seen.add(value);
-    }
-    return value;
-  });
-}
-```
-
-### Truncamento de context grande
-```javascript
-function truncateContext(contextStr, maxBytes = 50000) {
-  if (contextStr.length > maxBytes) {
-    return contextStr.substring(0, maxBytes) + '...truncated at ' + maxBytes + ' bytes';
-  }
-  return contextStr;
-}
-```
+### Google Apps Script
+- `SpreadsheetApp` — acesso à planilha
+- `Utilities` — geração de nonce

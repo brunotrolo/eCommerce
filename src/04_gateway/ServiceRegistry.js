@@ -10,7 +10,8 @@ var ServiceRegistry = (function () {
     listings: ListingsService,
     inventoryPricing: InventoryPricingService,
     dashboard: DashboardService,
-    nfeEntrada: NFeEntradaService
+    nfeEntrada: NFeEntradaService,
+    logging: LoggingService
   };
 
   function listActions() {

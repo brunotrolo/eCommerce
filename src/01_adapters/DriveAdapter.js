@@ -14,10 +14,24 @@ var DriveAdapter = (function () {
    */
   function readDriveFolder(folderId) {
     var results = [];
+
+    if (!folderId || folderId.trim().length === 0) {
+      return [{ name: '', mimeType: '', content: '', id: '', error: 'driveFolder parameter is empty' }];
+    }
+
+    var folder;
     try {
-      var folder = DriveApp.getFolderById(folderId);
+      folder = DriveApp.getFolderById(folderId);
     } catch (e) {
-      return [{ name: '', mimeType: '', content: '', id: '', error: 'DriveFolder not found' }];
+      var msg = e.message || String(e);
+      if (msg.indexOf('not found') !== -1 || msg.indexOf('No item') !== -1) {
+        return [{ name: '', mimeType: '', content: '', id: '', error: 'Folder not found. Verify the folder ID: ' + folderId }];
+      }
+      return [{ name: '', mimeType: '', content: '', id: '', error: 'Drive access error: ' + msg }];
+    }
+
+    if (!folder) {
+      return [{ name: '', mimeType: '', content: '', id: '', error: 'Folder returned null. Check if DriveApp scope is enabled.' }];
     }
 
     var files = [];
@@ -28,7 +42,7 @@ var DriveAdapter = (function () {
     while (pdfFiles.hasNext()) files.push(pdfFiles.next());
 
     if (files.length === 0) {
-      return [{ name: '', mimeType: '', content: '', id: '', error: 'No XML/PDF files found' }];
+      return [{ name: '', mimeType: '', content: '', id: '', error: 'No XML/PDF files found in folder: ' + folder.getName() }];
     }
 
     for (var i = 0; i < files.length; i++) {

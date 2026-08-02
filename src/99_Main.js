@@ -3,16 +3,21 @@
  * (nunca por trigger/Web App). setup_() configura a API key uma única vez;
  * runSmokeTests_() cobre os critérios de aceite de specs/pricing.md.
  * onOpen() cria o menu customizado no editor GAS.
+ * initLogging_() cria aba LOGS e configura trigger diário de limpeza.
  */
 
 function onOpen() {
-  SpreadsheetApp.getUi()
-    .createMenu('eCommerce')
-    .addSubMenu(
-      SpreadsheetApp.getUi().createMenu('NFe Entrada')
-        .addItem('Configurar Sheet ID', 'showNfeConfigDialog_')
-    )
-    .addToUi();
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('eCommerce')
+      .addSubMenu(
+        SpreadsheetApp.getUi().createMenu('NFe Entrada')
+          .addItem('Configurar Sheet ID', 'showNfeConfigDialog_')
+      )
+      .addToUi();
+  } catch (e) {
+    // Silently ignore when run from editor (no UI context)
+  }
 }
 
 function showNfeConfigDialog_() {
@@ -152,4 +157,36 @@ function runNfeSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de NFe Entrada passaram.');
+}
+
+function initLogging_() {
+  var result = LoggingService.init();
+  if (result.error) {
+    Logger.log('Erro ao inicializar logging: ' + result.error);
+    return;
+  }
+  Logger.log('ABA LOGS criada com sucesso. Sheet ID: ' + result.sheetId);
+  setupDailyCleanupTrigger_();
+}
+
+function setupDailyCleanupTrigger_() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'clearOldLogs_') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  ScriptApp.newTrigger('clearOldLogs_')
+    .timeBased()
+    .everyDays(1)
+    .atHour(3)
+    .create();
+
+  Logger.log('Trigger diário de limpeza de logs configurado (3h da manhã).');
+}
+
+function clearOldLogs_() {
+  var result = LoggingService.clearOldLogs();
+  Logger.log('Limpeza de logs: ' + result.deleted + ' registros removidos.');
 }
