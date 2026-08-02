@@ -7,11 +7,13 @@
   <body>
     <div class="app-shell">
       <nav class="app-nav">
-        <button class="btn btn-secondary" data-route="dashboard">Dashboard</button>
-        <button class="btn btn-secondary" data-route="pricing">Calculadora</button>
-        <button class="btn btn-secondary" data-route="orders">Pedidos</button>
-        <button class="btn btn-secondary" data-route="listings">Anúncios</button>
-        <button class="btn btn-secondary" data-route="inventoryPricing">Preço e Estoque</button>
+        <span class="nav-brand">eCommerce</span>
+        <button class="btn" data-route="dashboard">Dashboard</button>
+        <button class="btn" data-route="pricing">Calculadora</button>
+        <button class="btn" data-route="orders">Pedidos</button>
+        <button class="btn" data-route="listings">Anúncios</button>
+        <button class="btn" data-route="inventoryPricing">Preço e Estoque</button>
+        <button class="theme-toggle" id="theme-toggle" aria-label="Alternar tema claro/escuro"></button>
       </nav>
       <main id="app-view"></main>
     </div>
@@ -41,17 +43,37 @@
         var tag = ROUTES[route] ? route : 'dashboard';
         view.appendChild(document.createElement(ROUTES[tag]));
         window.location.hash = tag;
-        document.querySelectorAll('.app-nav button').forEach(function (btn) {
+        document.querySelectorAll('.app-nav button[data-route]').forEach(function (btn) {
           btn.classList.toggle('btn-active', btn.dataset.route === tag);
         });
       }
 
-      document.querySelectorAll('.app-nav button').forEach(function (btn) {
+      function applyTheme(theme) {
+        document.documentElement.dataset.theme = theme;
+        var toggle = document.getElementById('theme-toggle');
+        if (toggle) {
+          toggle.textContent = theme === 'dark' ? '\u2600' : '\u263E';
+        }
+      }
+
+      function initTheme() {
+        var stored = localStorage.getItem('theme');
+        var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        applyTheme(theme);
+        document.getElementById('theme-toggle').addEventListener('click', function () {
+          var next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+          applyTheme(next);
+          localStorage.setItem('theme', next);
+        });
+      }
+
+      document.querySelectorAll('.app-nav button[data-route]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           navigate(btn.dataset.route);
         });
       });
 
+      initTheme();
       navigate((window.location.hash || '#dashboard').replace('#', ''));
     </script>
   </body>

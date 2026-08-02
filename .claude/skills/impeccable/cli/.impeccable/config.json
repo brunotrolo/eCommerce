@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-color",
+        "value": "rgb(0, 0, 0)",
+        "files": [
+          "ui/shell/Shell.html"
+        ],
+        "createdAt": "2026-08-02T04:07:25.413Z",
+        "reason": "Falso positivo: var(--color-text) nao resolvido no scan estatico cross-file; in browser = ink #0a0a0a do DESIGN.md"
+      }
+    ]
+  }
+}
