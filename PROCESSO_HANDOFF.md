@@ -1,5 +1,9 @@
 # Processo de Handoff: Spec → Prompt → OpenCode
 
+Documento de Spec-Driven Development (SDD) para coordenação entre **Claude Code** (guia)
+e **OpenCode** (executor). Este processo é agnóstico de ferramenta e vale para qualquer
+agente/executor que implemente as specs deste projeto.
+
 ## Pipeline de Desenvolvimento
 
 ```
@@ -115,21 +119,95 @@ git pull origin main
 
 ✅ **Certo:**
 ```
-Implemente conforme specs/pricing.md (Approved).
-Métodos a criar: calculateSuggestedPrice, compareMarketplaces.
-Aceite: 5 cenários em specs/pricing.md seção "Critérios de Aceite".
+SPEC: specs/nfe-entrada-produtos.md (commit d90503e, Status: Approved)
+
+CRIAR/ATUALIZAR:
+- src/03_services/nfeEntradaProdutos/NFeEntradaProdutosService.js (novo)
+- src/03_services/nfeEntradaProdutos/NFeEntradaProdutosRepository.js (novo)
+
+ACEITE: Todos os 5 critérios em specs/nfe-entrada-produtos.md
+
+DETALHES IMPORTANTES:
+- Relacionamento: NUMERO_NF + CODIGO_PRODUTO
+  (ver specs/nfe-entrada-produtos.md seção "Regras de Negócio")
 ```
 
 ❌ **Errado:**
 ```
-Implemente conforme specs/pricing.md (Approved).
-Métodos a criar: calculateSuggestedPrice, compareMarketplaces.
-calculateSuggestedPrice recebe unitCost (number), extraCosts (number, default 0),
-targetMarginPct (number), marginBasis (string: 'price' ou 'cost', default 'price'),
-marketplace (string: 'shopee' ou 'mercado_livre'), marketAveragePrice (number, optional).
-Retorna { suggestedPrice, marketplaceFee, grossRevenue, netProfit, netMarginPct, belowMarketAverage }.
+SPEC: specs/nfe-entrada-produtos.md (commit d90503e, Status: Approved)
+
+CRIAR/ATUALIZAR:
+- src/03_services/nfeEntradaProdutos/NFeEntradaProdutosService.js (novo)
+
+Métodos:
+  - processarNf({numeroNf, chaveNf}): lê NFe de NFE_ENTRADA, 
+    desagrega PRODUTOS_JSON, insere em NFE_ENTRADA_PRODUTOS
+  - processarTodasNfs(): processa todas NFes não-processadas
+  - getEstoque({codigoProduto}): retorna quantidade agregada
+
+Retornos:
+  processarNf: {success, processedAt, productCount, totalQuantity, totalValue, errors}
+  getEstoque: {codigoProduto, descricao, quantidadeTotal, ultimaEntrada}
 ...
 ```
+
+---
+
+## Tipos de Specs: Standalone vs Complementar
+
+### Spec Standalone
+Implementa uma funcionalidade completa e independente. Exemplo: `specs/pricing.md`
+- Define um serviço novo (PricingService)
+- Cria UI própria (PricingView.html)
+- Não depende de outras specs além das dependências base (ConfigService, etc)
+
+### Spec Complementar (Desdobramento)
+Expande ou desagrega dados de uma spec/aba existente. Exemplo: `specs/nfe-entrada-produtos.md`
+- **Aba principal:** `NFE_ENTRADA` (já existe) - armazena dados agregados + PRODUTOS_JSON
+- **Aba complementar:** `NFE_ENTRADA_PRODUTOS` (criada por esta spec) - desagrega produtos com referência à NF
+- Nunca modifica a aba principal, apenas lê dela
+- Mantém relacionamento bidirecional: produto em NFE_ENTRADA_PRODUTOS → pode rastrear NF em NFE_ENTRADA
+
+**Como identificar na spec que é complementar:**
+```markdown
+## Objetivo
+**Aba complementar a NFE_ENTRADA.** Enquanto NFE_ENTRADA armazena [...],
+a aba NFE_ENTRADA_PRODUTOS **desagrega** cada [...], incluindo:
+- Dados da aba principal (para relacionamento)
+- Dados expandidos do elemento desagregado
+```
+
+**Handoff prompt diferencia as abas:**
+```
+ESTRUTURA DE ABAS (relacionamento):
+─────────────────────────────────────
+NFE_ENTRADA (já existe - NUNCA modificar)
+  └─ PRODUTOS_JSON = array de produtos como string
+
+NFE_ENTRADA_PRODUTOS (criar agora - lê de NFE_ENTRADA)
+  ├─ Dados da NF copiados (para relacionamento)
+  └─ Uma linha por produto (desagregado)
+```
+
+---
+
+## Naming Conventions para Specs
+
+### Nome do Arquivo
+Use o nome da **aba principal** ou **conceito** da spec, em kebab-case:
+- `specs/nfe-entrada.md` - sincronização de NFe do Drive
+- `specs/nfe-entrada-produtos.md` - desagregação de produtos de NFe (complementar a nfe-entrada.md)
+- `specs/pricing.md` - calculadora de precificação
+- `specs/logging.md` - sistema centralizado de logs
+
+**Regra:** Se for complementar, o nome deve deixar claro a relação:
+- ❌ `specs/produtos.md` (muito genérico)
+- ✅ `specs/nfe-entrada-produtos.md` (deixa claro: produtos de entrada de NFe)
+
+### Estrutura Interna
+Arquivo único `specs/xxx.md` contém:
+- Se é spec **standalone**: apenas ela mesma é necessária
+- Se é spec **complementar**: seção "Objetivo" deixa explícito a relação com outra aba/spec
 
 ---
 
@@ -140,6 +218,38 @@ Retorna { suggestedPrice, marketplaceFee, grossRevenue, netProfit, netMarginPct,
 
 **Prompts únicos, específicos de uma feature → passado direto ao usuário**
 (não são salvos, usados uma vez e pronto)
+
+---
+
+## Padrões Obrigatórios em Toda Spec
+
+### 1. Logging (Auditoria)
+Toda ação em qualquer serviço DEVE chamar `LoggingService.log()`:
+```javascript
+LoggingService.log({
+  service: 'nfeEntradaProdutos',
+  action: 'processarNf',
+  status: 'OK',  // ou 'ERROR'
+  caller: 'webapp',
+  summary: 'Processou NFe 731, inseriu 3 produtos',
+  durationMs: 245,
+  context: {numeroNf: '731', productCount: 3}
+});
+```
+Referência: `specs/logging.md` (Status: Approved)
+
+### 2. Rastreabilidade (LOG_ID)
+Toda linha inserida em qualquer aba DEVE incluir campo `LOG_ID` com formato:
+```
+LOG_ID = YYYYMMDDHHMMSS-<8-char random hex nonce>
+```
+Permite rastrear quando e por qual script a linha foi inserida.
+
+### 3. Relacionamento entre Abas
+Se uma spec criar uma aba complementar (desagregação, detalhamento):
+- **Incluir campos de referência** da aba principal (NUMERO_NF, CHAVE_NF, etc)
+- **Documentar a relação** na seção "Objetivo" (usar palavra-chave: "complementar", "desagrega", "desdobra")
+- **Nunca modificar** a aba principal, apenas ler dela
 
 ---
 
