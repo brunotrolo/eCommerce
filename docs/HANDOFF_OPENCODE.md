@@ -339,6 +339,72 @@ consistente; botões desabilitam enquanto processam; nenhuma closure desnecessá
 
 ---
 
+## Design Refactoring Avançado — Visual Hierarchy & Modern Layout
+
+```
+CONTEXTO
+Os widgets usam os tokens corretamente (sem hard-coded colors), MAS o design é
+muito minimalista e falta visual hierarchy. Dashboard é só tabelas. Pricing é
+só inputs. Listings é só tabela. Parece "amador" — sem stats cards, sem cards
+agrupados, sem breathing room, sem visual emphasis. Essa tarefa refatora o
+LAYOUT visual (não tokens) para parecer profissional: hierarquia clara,
+destaques, cards, spacing, visual balance.
+
+SKILL
+Ative /gas-app-designer (para design de layout) + /design-tokens-guard
+(para validar tokens). Esta tarefa é 70% design visual, 30% tokens.
+
+TAREFA — Por widget:
+
+**PricingView:**
+1. Agrupe inputs em cards separados:
+   - Card 1: "Custos" (unitCost, extraCosts)
+   - Card 2: "Margem" (targetMarginPct, marginBasis, marketAveragePrice)
+2. Resultado em cards destacados (um card por marketplace):
+   - Preço sugerido em GRANDE (font-size-lg ou xl, font-weight-bold)
+   - Taxa do canal em subtítulo (font-size-sm, color-text-secondary)
+   - Lucro líquido destaque (cor success, grande)
+3. Use gap: var(--space-lg) entre cards
+
+**DashboardView:**
+1. Substitua tabelas simples por "stat cards" (3 cols):
+   - Card 1: "Pedidos hoje" (número grande, ícone ou badge shopee/ML)
+   - Card 2: "Receita Shopee" (número em BRL grande)
+   - Card 3: "Estoque baixo" (alerta count, cor warning)
+2. Depois as tabelas "Pedidos recentes" e "Estoque baixo" em cards separados
+3. Use grid: 3 cols para stats, depois 1 col para tabelas
+
+**OrdersView + ListingsView:**
+1. Antes da tabela, um "filter bar" card:
+   - Select marketplace, limit/pagination
+   - Aplicado com var(--space-md) padding
+2. Tabelas em card.table-container com overflow-x: auto se necessário
+3. Hover effects nas linhas (background: var(--color-surface-hover))
+
+**InventoryPricingView:**
+1. Form em card.form-container com campos agrupados em sub-sections
+2. Resultado final em grande highlighted card (border-left: 4px success ou error)
+
+RESTRIÇÕES
+- Não adicione HTML elements desnecessários (use CSS Grid/Flex, não tabelas para layout)
+- Todos os espaçamentos DEVEM usar var(--space-*) tokens
+- Cores seguem tokens (success/warning/error semantic)
+- Nenhuma font-size hard-coded, use var(--font-size-*)
+- Shadow e radius também via tokens (var(--shadow-md), var(--radius-lg))
+
+ACEITE
+✓ Dashboard tem stat cards destacados (3 cols, números grandes)
+✓ Pricing tem resultado em cards grandes/destacados por marketplace
+✓ Todas as seções têm breathing room (gap var(--space-lg) ou mais)
+✓ Visual hierarchy clara: títulos grandes, subtítulos menores, dados destacados
+✓ Nenhum elemento solto sem card container
+✓ Hover effects funcionam (tabelas ficam com bg lighter ao passar mouse)
+✓ /design-tokens-guard passa 100% (zero valores hard-coded)
+✓ Ao abrir no navegador, parece "profissional" e "polido", não "amador"
+```
+
+---
+
 ## Refactoring pré-Fase 0 — Modernização do Sistema de Design
 
 ```
