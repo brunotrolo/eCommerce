@@ -7,8 +7,11 @@
 
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu('NFe Entrada')
-    .addItem('Configurar Sheet ID', 'showNfeConfigDialog_')
+    .createMenu('eCommerce')
+    .addSubMenu(
+      SpreadsheetApp.getUi().createMenu('NFe Entrada')
+        .addItem('Configurar Sheet ID', 'showNfeConfigDialog_')
+    )
     .addToUi();
 }
 
