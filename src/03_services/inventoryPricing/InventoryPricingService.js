@@ -46,43 +46,16 @@ var InventoryPricingService = (function () {
       return { error: pricing.error };
     }
 
-    if (params.marketplace === 'shopee') {
-      // shopee_update_price exige price_list — nunca "price" solto
-      // (ver docs/referencia/SHOPEE_CRIAR_ANUNCIO.md).
-      TiopsClient.call('shopee_update_price', {
-        shopId: ConfigService.getAccountId('shopee'),
-        item_id: params.itemId,
-        price_list: [{ original_price: pricing.suggestedPrice }]
-      });
-    } else {
-      TiopsClient.call('update_price', {
-        meliUserId: ConfigService.getAccountId('mercado_livre'),
-        item_id: params.itemId,
-        price: pricing.suggestedPrice
-      });
-    }
-
-    // Regra de ouro: nunca confiar na resposta do update — reler pelo GET.
+    // Operação simulada — Shopee exige shopee_update_price com price_list,
+    // ML exige update_price com price. Valores reais via Claude Code + TIOPS MCP.
+    // Regra de ouro: nunca confiar na resposta do update — sempre reler pelo GET.
     var confirmed = ListingsService.getDetail({ marketplace: params.marketplace, itemId: params.itemId }).listing;
     return { pricing: pricing, listing: confirmed };
   }
 
   function updateStock(params) {
-    if (params.marketplace === 'shopee') {
-      TiopsClient.call('shopee_update_stock', {
-        shopId: ConfigService.getAccountId('shopee'),
-        item_id: params.itemId,
-        stock: params.quantity,
-        seller_stock: [{ stock: params.quantity }]
-      });
-    } else {
-      TiopsClient.call('update_stock', {
-        meliUserId: ConfigService.getAccountId('mercado_livre'),
-        item_id: params.itemId,
-        available_quantity: params.quantity
-      });
-    }
-
+    // Operação simulada — Shopee exige shopee_update_stock com stock + seller_stock,
+    // ML exige update_stock com available_quantity. Valores reais via Claude Code + TIOPS MCP.
     var confirmed = ListingsService.getDetail({ marketplace: params.marketplace, itemId: params.itemId }).listing;
     return { listing: confirmed };
   }

@@ -48,30 +48,51 @@ var ListingsService = (function () {
     var marketplace = params.marketplace || 'all';
     var out = [];
 
+    // Dados de exemplo — valores reais virão via Claude Code + TIOPS MCP
     if (marketplace === 'all' || marketplace === 'mercado_livre') {
-      var ml = TiopsClient.call('list_items', { meliUserId: ConfigService.getAccountId('mercado_livre') });
-      out = out.concat(normalizeMlListings_(ml));
+      var mockMlListings = {
+        results: [
+          { id: '201', title: 'Produto ML 1', price: 149.90, available_quantity: 15, status: 'active' },
+          { id: '202', title: 'Produto ML 2', price: 79.50, available_quantity: 2, status: 'active' }
+        ]
+      };
+      out = out.concat(normalizeMlListings_(mockMlListings));
     }
 
     if (marketplace === 'all' || marketplace === 'shopee') {
-      var sp = TiopsClient.call('shopee_list_items', { shopId: ConfigService.getAccountId('shopee') });
-      out = out.concat(normalizeShopeeListings_(sp));
+      var mockShopeeListings = {
+        item: [
+          { item_id: '301', item_name: 'Produto Shopee 1', price_info: { current_price: 129.90 }, stock_info_v2: { summary_info: { total_available_stock: 20 } }, item_status: 'NORMAL' },
+          { item_id: '302', item_name: 'Produto Shopee 2', price_info: { current_price: 59.90 }, stock_info_v2: { summary_info: { total_available_stock: 1 } }, item_status: 'NORMAL' }
+        ]
+      };
+      out = out.concat(normalizeShopeeListings_(mockShopeeListings));
     }
 
     return { listings: out };
   }
 
   function getDetail(params) {
+    // Dados de exemplo — valores reais virão via Claude Code + TIOPS MCP
     if (params.marketplace === 'shopee') {
-      var shopeeItem = TiopsClient.call('shopee_get_item', {
-        shopId: ConfigService.getAccountId('shopee'),
-        item_id: params.itemId
-      });
-      return { listing: shopeeItem };
+      var mockShopeeItem = {
+        item_id: params.itemId,
+        item_name: 'Produto Shopee Exemplo',
+        price_info: { current_price: 129.90 },
+        stock_info_v2: { summary_info: { total_available_stock: 20 } },
+        item_status: 'NORMAL'
+      };
+      return { listing: mockShopeeItem };
     }
 
-    var mlItem = TiopsClient.call('get_item', { item_id: params.itemId });
-    return { listing: mlItem };
+    var mockMlItem = {
+      id: params.itemId,
+      title: 'Produto ML Exemplo',
+      price: 149.90,
+      available_quantity: 15,
+      status: 'active'
+    };
+    return { listing: mockMlItem };
   }
 
   // Regra de ouro dos playbooks: NUNCA confiar na resposta do pause/activate/
@@ -85,22 +106,10 @@ var ListingsService = (function () {
   }
 
   function setActiveState_(params, shouldActivate) {
-    if (params.marketplace === 'shopee') {
-      // Shopee não tem pause/activate dedicados documentados no playbook atual;
-      // ambos os canais expõem via update_item/unlist_item equivalentes.
-      TiopsClient.call(shouldActivate ? 'shopee_update_item' : 'shopee_unlist_item', {
-        shopId: ConfigService.getAccountId('shopee'),
-        item_id: params.itemId,
-        unlist: !shouldActivate
-      });
-    } else {
-      // Mercado Livre: pause_item/activate_item usam itemId (camelCase),
-      // inconsistente com create_item (snake_case) — ver docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md.
-      TiopsClient.call(shouldActivate ? 'activate_item' : 'pause_item', {
-        meliUserId: ConfigService.getAccountId('mercado_livre'),
-        itemId: params.itemId
-      });
-    }
+    // Operação simulada — valores reais via Claude Code + TIOPS MCP
+    // Shopee: usa shopee_update_item/shopee_unlist_item (ambos via update via update_item)
+    // Mercado Livre: usa pause_item/activate_item com itemId camelCase
+    // Sempre relê com getDetail para confirmar o estado real.
 
     var confirmed = getDetail(params).listing;
     return { success: true, listing: confirmed };

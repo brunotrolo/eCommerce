@@ -32,38 +32,57 @@ var OrdersService = (function () {
     var limit = params.limit || 20;
     var out = [];
 
+    // Dados de exemplo — valores reais virão via Claude Code + TIOPS MCP
     if (marketplace === 'all' || marketplace === 'mercado_livre') {
-      var ml = TiopsClient.call('list_orders', {
-        meliUserId: ConfigService.getAccountId('mercado_livre'),
-        limit: limit
-      });
-      out = out.concat(normalizeMlOrders_(ml));
+      var mockMlOrders = {
+        results: [
+          { id: '1001', status: 'pago', total_amount: 150.00, buyer: { nickname: 'comprador_ml_1' }, date_created: '2025-08-01T10:30:00Z' },
+          { id: '1002', status: 'pago', total_amount: 89.90, buyer: { nickname: 'comprador_ml_2' }, date_created: '2025-08-01T09:15:00Z' }
+        ]
+      };
+      out = out.concat(normalizeMlOrders_(mockMlOrders));
     }
 
     if (marketplace === 'all' || marketplace === 'shopee') {
-      var sp = TiopsClient.call('shopee_list_orders', {
-        shopId: ConfigService.getAccountId('shopee')
-      });
-      out = out.concat(normalizeShopeeOrders_(sp));
+      var mockShopeeOrders = {
+        order_list: [
+          { order_sn: 'SP001', order_status: 'COMPLETED', total_amount: 120.00, buyer_username: 'comprador_shopee_1', create_time: 1722518400 },
+          { order_sn: 'SP002', order_status: 'COMPLETED', total_amount: 75.50, buyer_username: 'comprador_shopee_2', create_time: 1722515000 }
+        ]
+      };
+      out = out.concat(normalizeShopeeOrders_(mockShopeeOrders));
     }
 
     return { orders: out };
   }
 
   function getDetail(params) {
+    // Dados de exemplo — valores reais virão via Claude Code + TIOPS MCP
     if (params.marketplace === 'shopee') {
-      var shopeeOrder = TiopsClient.call('shopee_get_order', {
-        shopId: ConfigService.getAccountId('shopee'),
-        order_sn: params.orderId
-      });
-      return { order: shopeeOrder };
+      var mockShopeeOrder = {
+        order_sn: params.orderId,
+        order_status: 'COMPLETED',
+        total_amount: 120.00,
+        buyer_username: 'comprador_shopee',
+        create_time: 1722518400,
+        items: [
+          { item_id: '12345', item_name: 'Produto Teste', quantity: 1, price: 120.00 }
+        ]
+      };
+      return { order: mockShopeeOrder };
     }
 
-    var mlOrder = TiopsClient.call('get_order', {
-      meliUserId: ConfigService.getAccountId('mercado_livre'),
-      order_id: params.orderId
-    });
-    return { order: mlOrder };
+    var mockMlOrder = {
+      id: params.orderId,
+      status: 'pago',
+      total_amount: 150.00,
+      buyer: { nickname: 'comprador_ml' },
+      date_created: '2025-08-01T10:30:00Z',
+      order_items: [
+        { id: '67890', item: { id: 'SKU001', title: 'Produto Teste' }, quantity: 1, unit_price: 150.00 }
+      ]
+    };
+    return { order: mockMlOrder };
   }
 
   function normalizeMlOrders_(raw) {

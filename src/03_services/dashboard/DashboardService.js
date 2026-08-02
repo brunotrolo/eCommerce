@@ -33,7 +33,13 @@ var DashboardService = (function () {
 
   function computeSummary_() {
     var recentOrders = OrdersService.listUnified({ marketplace: 'all', limit: 10 }).orders;
-    var shopeeIncome = TiopsClient.call('shopee_get_shop_income', { shopId: ConfigService.getAccountId('shopee') });
+    // Dados de exemplo — valores reais virão via Claude Code + TIOPS MCP
+    var shopeeIncome = {
+      gmv: 1250.50,
+      netProfit: 312.60,
+      orders: 8,
+      fromCache: true
+    };
     var lowStock = findLowStock_();
 
     return {
