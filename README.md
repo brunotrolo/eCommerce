@@ -47,15 +47,13 @@ aceite — escrita **antes** do código, seguindo `specs/_TEMPLATE.md`. Nenhuma
 mudança em `src/03_services/**` ou `ui/**` deve acontecer sem uma spec
 aprovada correspondente (ver `AGENTS.md`).
 
-## Setup (passos manuais, uma única vez)
+## Setup (passo manual, uma única vez)
 
-1. **API key da Tiops**: no editor do Apps Script, Project Settings > Script
-   Properties, adicionar `TIOPS_API_KEY` = `mc_live_XXXX`. Nunca commitar a chave.
-2. **Credenciais do clasp para o deploy automático**: rodar `npx clasp login`
-   localmente, copiar o conteúdo de `~/.clasprc.json` gerado e salvar como
-   secret `CLASP_CREDENTIALS` no GitHub (Settings > Secrets and variables >
-   Actions). Esse passo exige login interativo do Google e só pode ser feito
-   por uma pessoa, nunca por um agente.
+**Credenciais do clasp para o deploy automático**: rodar `npx clasp login`
+localmente, copiar o conteúdo de `~/.clasprc.json` gerado e salvar como
+secret `CLASP_CREDENTIALS` no GitHub (Settings > Secrets and variables >
+Actions). Esse passo exige login interativo do Google e só pode ser feito
+por uma pessoa, nunca por um agente.
 
 ## Deploy
 

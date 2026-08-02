@@ -19,7 +19,7 @@ conta conectada: toda ação precisa receber explicitamente `meliUserId` ou
 `ConfigService.getAccountId()` já devolve exatamente esses dois IDs, e os
 serviços já passam o nome de param correto por canal — verificado em
 `OrdersService`, `ListingsService`, `InventoryPricingService` e
-`DashboardService`.
+`DashboardService`. Dados lidos direto da Google Sheets, sem dependência externa.
 
 ## Observações do catálogo — confirmado em 2026-08-02
 
