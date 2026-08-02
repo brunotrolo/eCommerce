@@ -63,8 +63,10 @@ Resolve o problema: ter dados agregados na NFe (NFE_ENTRADA) mas precisar de gra
 
 Colunas (ordem fixa) — mantém referência completa aos dados da NFe para auditoria cruzada:
 ```
-NUMERO_NF | CHAVE_NF | DATA_EMISSAO | EMITENTE_CNPJ | EMITENTE_NOME | CODIGO_PRODUTO | DESCRICAO_PRODUTO | NCM | CFOP | QUANTIDADE | VALOR_UNITARIO | VALOR_TOTAL | ALIQUOTA_ICMS | VALOR_ICMS_ITEM | STATUS | DATA_ENTRADA | TIPO_MOVIMENTACAO | LOG_ID
+NUMERO_NF | CHAVE_NF | DATA_EMISSAO | EMITENTE_CNPJ | EMITENTE_NOME | CODIGO_PRODUTO | DESCRICAO_PRODUTO | NCM | CFOP | QUANTIDADE | VALOR_UNITARIO | VALOR_TOTAL | ALIQUOTA_ICMS | VALOR_ICMS_ITEM | STATUS | DATA_ENTRADA | TIPO_MOVIMENTACAO | LOG_ID | VALOR_DESCONTO_ITEM | TIPO_DESCONTO | VALOR_OUTROS_ITEM | TIPO_OUTROS | VALOR_LIQUIDO_ITEM | VALOR_UNITARIO_LIQUIDO
 ```
+As 6 últimas colunas são um **amendment definido em `specs/discount-rateio.md`**
+(algoritmo completo de rateio, casos de borda e critérios de aceite lá). Resumo:
 
 | Campo | Formato | Descrição |
 |-------|---------|-----------|
@@ -86,6 +88,12 @@ NUMERO_NF | CHAVE_NF | DATA_EMISSAO | EMITENTE_CNPJ | EMITENTE_NOME | CODIGO_PRO
 | DATA_ENTRADA | ISO 8601 | Timestamp quando entrou no estoque |
 | TIPO_MOVIMENTACAO | string | "Entrada por NF" (sempre) |
 | LOG_ID | string | Timestamp + nonce para rastreabilidade |
+| VALOR_DESCONTO_ITEM | number | Desconto atribuído ao item (direto do XML ou rateado) — ver discount-rateio.md |
+| TIPO_DESCONTO | string | "ITEM" \| "RATEADO" \| "NENHUM" |
+| VALOR_OUTROS_ITEM | number | Despesas acessórias atribuídas ao item (direto ou rateado) |
+| TIPO_OUTROS | string | "ITEM" \| "RATEADO" \| "NENHUM" |
+| VALOR_LIQUIDO_ITEM | number | Custo real: VALOR_TOTAL - VALOR_DESCONTO_ITEM + VALOR_OUTROS_ITEM |
+| VALOR_UNITARIO_LIQUIDO | number | VALOR_LIQUIDO_ITEM / QUANTIDADE — custo unitário real (insumo p/ Pricing futuro) |
 
 ## Regras de Negócio
 
@@ -113,6 +121,12 @@ NUMERO_NF | CHAVE_NF | DATA_EMISSAO | EMITENTE_CNPJ | EMITENTE_NOME | CODIGO_PRO
 6. **DATA_EMISSAO sempre preenchida:** Vem da aba NFE_ENTRADA.
 
 7. **Rastreabilidade:** LOG_ID para rastrear quando foi processado.
+
+8. **Rateio de desconto e despesas acessórias (amendment):** Ao desagregar
+   cada produto, calcular também VALOR_DESCONTO_ITEM, TIPO_DESCONTO,
+   VALOR_OUTROS_ITEM, TIPO_OUTROS, VALOR_LIQUIDO_ITEM e VALOR_UNITARIO_LIQUIDO.
+   Algoritmo completo (decisão ITEM vs. RATEADO, ajuste de arredondamento,
+   validação de reconciliação) em `specs/discount-rateio.md`.
 
 ## Casos de Borda
 

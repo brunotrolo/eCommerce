@@ -65,14 +65,18 @@ garantindo integridade e deduplicação automática.
     destinatarioIe: string,        // IE destinatário
     destinatarioEndereco: string,  // idem emitente
     valorTotal: number,            // vNF (2 casas)
-    valorDesconto: number,         // vDesc
+    valorDesconto: number,         // vDesc (total da nota, ICMSTot)
     valorFrete: number,            // vFrete
+    valorProdutos: number,         // vProd (soma bruta dos itens, ICMSTot) — ver specs/discount-rateio.md
+    valorOutros: number,           // vOutro (total da nota, ICMSTot) — ver specs/discount-rateio.md
     valorIcms: number,             // vICMS
     valorPis: number,              // vPIS
     valorCofins: number,           // vCOFINS
     valorIbs: number,              // vIBS (IBS/CBS Estadual)
     valorCbs: number,              // vCBS (Contribuição Social)
-    produtosJson: string,          // JSON array [{cProd, xProd, NCM, CFOP, qCom, vUnCom, vProd, aliquotaIcms}...]
+    produtosJson: string,          // JSON array [{cProd, xProd, NCM, CFOP, qCom, vUnCom, vProd, vDesc?, vOutro?, aliquotaIcms}...]
+                                    // vDesc/vOutro por item são OPCIONAIS (omitidos se o item não os tiver no XML,
+                                    // nunca gravar 0 artificialmente) — ver specs/discount-rateio.md para o porquê
     statusNfe: string,             // "Autorizado" (cStat=100) ou "Rejeitado"
     numeroProtocolo: string,       // nProt (SEFAZ)
     tipoArquivo: string,           // "xml"
@@ -266,3 +270,9 @@ function showConfigDialog() {
 
 6. **UI Loading State:** Durante sync, desabilitar botão e mostrar spinner.
    Após conclusão, exibir card com resultado {inserted, duplicated, errors}.
+
+7. **Colunas VALOR_PRODUTOS e VALOR_OUTROS (amendment):** A aba NFE_ENTRADA
+   ganha 2 colunas novas, adicionadas ao FINAL do cabeçalho existente (nunca
+   no meio, para não quebrar posição das NFes já sincronizadas). Detalhes
+   completos do porquê e do algoritmo que consome esses valores em
+   `specs/discount-rateio.md`.
