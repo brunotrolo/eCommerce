@@ -1,7 +1,7 @@
 # Spec: Anúncios / Listings
 
 ## Status
-Implemented
+Approved
 
 ## Objetivo
 Listar, detalhar, pausar e ativar anúncios das duas lojas, aplicando as

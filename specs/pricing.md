@@ -1,7 +1,7 @@
 # Spec: Calculadora de Precificação
 
 ## Status
-Implemented
+Approved
 
 ## Objetivo
 Generalizar a planilha manual existente (Custo Unitário, Preço Médio de

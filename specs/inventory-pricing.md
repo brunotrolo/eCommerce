@@ -1,7 +1,7 @@
 # Spec: Preço e Estoque (sincronização)
 
 ## Status
-Implemented
+Approved
 
 ## Objetivo
 Ligar a Calculadora de Precificação a um anúncio real: calcular o preço

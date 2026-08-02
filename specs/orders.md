@@ -1,7 +1,7 @@
 # Spec: Pedidos
 
 ## Status
-Implemented
+Approved
 
 ## Objetivo
 Listar e detalhar pedidos de Shopee e Mercado Livre num formato normalizado

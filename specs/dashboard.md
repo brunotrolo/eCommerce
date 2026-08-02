@@ -1,7 +1,7 @@
 # Spec: Dashboard Unificado
 
 ## Status
-Implemented
+Approved
 
 ## Objetivo
 Visão consolidada, na tela inicial, de pedidos recentes das duas lojas,
