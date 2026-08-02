@@ -22,16 +22,32 @@ jobs:
           printf '%s' "${{ secrets.CLASP_CREDENTIALS }}" > "$HOME/.clasprc.json"
           chmod 600 "$HOME/.clasprc.json"
 
+      - name: Debug clasp credentials (show first 100 bytes)
+        run: |
+          echo "File size:"
+          ls -lh "$HOME/.clasprc.json"
+          echo ""
+          echo "First 100 characters (hex dump):"
+          xxd -l 100 "$HOME/.clasprc.json" || true
+          echo ""
+          echo "Raw content (first 100 chars):"
+          head -c 100 "$HOME/.clasprc.json" || true
+          echo ""
+
       - name: Validate clasp credentials JSON
         run: |
           python3 - <<'PY'
 import json, sys, os
 p = os.path.expanduser('~/.clasprc.json')
+with open(p, 'r') as f:
+  content = f.read()
+  print(f'File size: {len(content)} bytes')
+  print(f'First 50 chars: {repr(content[:50])}')
 try:
-  json.load(open(p))
+  json.loads(content)
   print('✓ ~/.clasprc.json is valid JSON')
 except Exception as e:
-  print('✗ Invalid ~/.clasprc.json:', e)
+  print(f'✗ Invalid ~/.clasprc.json: {e}')
   sys.exit(1)
 PY
 
