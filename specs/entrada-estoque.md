@@ -1,19 +1,20 @@
-# Spec: Desagregação de Produtos em Estoque (Entrada por NFe)
+# Spec: Desagregação de Produtos em Entrada de NFe (NFE_ENTRADA_PRODUTOS)
 
 ## Status
 Approved
 
 ## Objetivo
 Ao sincronizar uma NFe (aba NFE_ENTRADA), extrair cada produto dela e registrar
-em uma aba `ENTRADA_ESTOQUE` com máximo detalhe (código, descrição, NCM, CFOP,
-quantidade, valores, impostos). Resolve o problema: ter dados agregados na NFe
+em uma aba `NFE_ENTRADA_PRODUTOS` com máximo detalhe (código, descrição, NCM, CFOP,
+quantidade, valores, impostos, dados da NF para referência). Resolve o problema: ter dados agregados na NFe
 mas precisar de granularidade por produto para gestão de estoque e auditoria
-de custos.
+de custos. A aba NFE_ENTRADA_PRODUTOS é um desdobramento direto de NFE_ENTRADA,
+mantendo referência aos dados da nota para auditoria cruzada entre abas.
 
 ## Contrato da API Interna
 
-### `entradaEstoque.processarNf`
-- **Descrição:** Lê uma NFe da aba NFE_ENTRADA, desagrega produtos, insere em ENTRADA_ESTOQUE.
+### `nfeEntradaProdutos.processarNf`
+- **Descrição:** Lê uma NFe da aba NFE_ENTRADA, desagrega produtos com referência aos dados da NF, insere em NFE_ENTRADA_PRODUTOS.
 - **Params:**
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
@@ -33,9 +34,9 @@ de custos.
 - **Erros esperados:**
   - `NFe not found in NFE_ENTRADA` — numeroNf não existe
   - `Invalid PRODUTOS_JSON` — JSON malformado
-  - `Duplicate products in ENTRADA_ESTOQUE` — produto já existe
+  - `Duplicate products in NFE_ENTRADA_PRODUTOS` — produto já existe
 
-### `entradaEstoque.processarTodasNfs`
+### `nfeEntradaProdutos.processarTodasNfs`
 - **Descrição:** Processa TODAS as NFes não-processadas da aba NFE_ENTRADA.
 - **Params:** Nenhum
 - **Retorno:**
@@ -48,17 +49,17 @@ de custos.
   }
   ```
 
-### `entradaEstoque.getEstoque`
-- **Descrição:** Retorna estoque atual (soma de quantidades por produto).
+### `nfeEntradaProdutos.getEstoque`
+- **Descrição:** Retorna estoque atual (soma de quantidades por produto) com referência às NFes de origem.
 - **Params:**
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
   | codigoProduto | string | não | — | Filtrar por código (se omitir, retorna tudo) |
-- **Retorno:** Array de {codigoProduto, descricao, quantidadeTotal, ultimaEntrada}
+- **Retorno:** Array de {codigoProduto, descricao, quantidadeTotal, ultimaEntrada, ultimaNfOrigemNumero}
 
-## Formato da Aba ENTRADA_ESTOQUE
+## Formato da Aba NFE_ENTRADA_PRODUTOS
 
-Colunas (ordem fixa):
+Colunas (ordem fixa) — mantém referência completa aos dados da NFe para auditoria cruzada:
 ```
 NUMERO_NF | CHAVE_NF | DATA_EMISSAO | EMITENTE_CNPJ | EMITENTE_NOME | CODIGO_PRODUTO | DESCRICAO_PRODUTO | NCM | CFOP | QUANTIDADE | VALOR_UNITARIO | VALOR_TOTAL | ALIQUOTA_ICMS | VALOR_ICMS_ITEM | STATUS | DATA_ENTRADA | TIPO_MOVIMENTACAO | LOG_ID
 ```
@@ -87,10 +88,12 @@ NUMERO_NF | CHAVE_NF | DATA_EMISSAO | EMITENTE_CNPJ | EMITENTE_NOME | CODIGO_PRO
 ## Regras de Negócio
 
 1. **Trigger de processamento:** Ao sincronizar NFe (NFeEntradaService.syncAndUpdateSheets),
-   chamar automaticamente `entradaEstoque.processarNf()` para cada NFe inserida.
+   chamar automaticamente `nfeEntradaProdutos.processarNf()` para cada NFe inserida.
 
 2. **Desagregação:** Parsear PRODUTOS_JSON (string) como array JSON. Para cada
-   produto, criar UMA LINHA na aba ENTRADA_ESTOQUE.
+   produto, criar UMA LINHA na aba NFE_ENTRADA_PRODUTOS. Cada linha inclui referência
+   completa aos dados da NFe (NUMERO_NF, CHAVE_NF, DATA_EMISSAO, EMITENTE_CNPJ, EMITENTE_NOME)
+   para permitir auditoria cruzada entre abas NFE_ENTRADA e NFE_ENTRADA_PRODUTOS.
 
 3. **Cálculo de VALOR_ICMS_ITEM:** 
    ```
@@ -116,16 +119,18 @@ NUMERO_NF | CHAVE_NF | DATA_EMISSAO | EMITENTE_CNPJ | EMITENTE_NOME | CODIGO_PRO
 - **Produto com quantidade 0:** Inserir normalmente (pode ser devolução)
 - **ALIQUOTA_ICMS = "0" (isenção):** VALOR_ICMS_ITEM = 0, inserir normalmente
 - **NCM ou CFOP vazio:** Inserir mesmo assim (validação é responsabilidade da origem)
+- **Dados da NF incompletos:** Inserir mesmo assim com dados preenchidos de NFE_ENTRADA; se NUMERO_NF ou CHAVE_NF faltarem, log error e skip (chave obrigatória)
 
 ## Critérios de Aceite (Given/When/Then)
 
 ### Scenario 1: Processar uma NFe com 3 produtos
 ```
 Given: NFe 731 em NFE_ENTRADA com 3 produtos (Maison Delilah, Ameerat, Seduction VIP)
-When: entradaEstoque.processarNf({numeroNf: "731", chaveNf: "35260739..."})
+When: nfeEntradaProdutos.processarNf({numeroNf: "731", chaveNf: "35260739..."})
 Then:
   - Retorna {success: true, productCount: 3, totalQuantity: 5}
-  - Aba ENTRADA_ESTOQUE contém 3 linhas novas
+  - Aba NFE_ENTRADA_PRODUTOS contém 3 linhas novas
+  - Cada linha inclui: NUMERO_NF="731", CHAVE_NF="35260739...", DATA_EMISSAO, EMITENTE_CNPJ, EMITENTE_NOME
   - Produto 1: CODIGO_PRODUTO="0000000006231", DESCRICAO_PRODUTO="Maison Delilah",
     QUANTIDADE=2, VALOR_TOTAL=360, VALOR_ICMS_ITEM=64.8 (360 * 0.18)
   - Produto 2: QUANTIDADE=2, VALOR_TOTAL=260, VALOR_ICMS_ITEM=46.8
@@ -136,10 +141,11 @@ Then:
 ### Scenario 2: Processar NFe com 44 produtos (grande volume)
 ```
 Given: NFe 805696 em NFE_ENTRADA com 44 produtos (kit massinha, mop, potes, etc)
-When: entradaEstoque.processarNf({numeroNf: "805696", chaveNf: "35260600..."})
+When: nfeEntradaProdutos.processarNf({numeroNf: "805696", chaveNf: "35260600..."})
 Then:
   - Retorna {success: true, productCount: 44, totalQuantity: 164}
-  - Aba ENTRADA_ESTOQUE contém 44 linhas novas
+  - Aba NFE_ENTRADA_PRODUTOS contém 44 linhas novas
+  - Cada linha inclui dados da NF (NUMERO_NF="805696", CHAVE_NF, emitente, data)
   - Cada linha com código, descrição, NCM, CFOP, quantidade, valores e ICMS corretos
   - Soma verificável: totalValue = sum(vProd) ≈ 1432.16 (valor da NF)
 ```
@@ -147,31 +153,33 @@ Then:
 ### Scenario 3: Processar todas as NFes não-processadas
 ```
 Given: 3 NFes em NFE_ENTRADA não-processadas (731, 688, 647)
-When: entradaEstoque.processarTodasNfs()
+When: nfeEntradaProdutos.processarTodasNfs()
 Then:
   - Retorna {success: true, totalNfProcessed: 3, totalProductsInserted: 3+9+6=18}
-  - Aba ENTRADA_ESTOQUE contém 18 linhas novas
+  - Aba NFE_ENTRADA_PRODUTOS contém 18 linhas novas
+  - Cada linha rastreável até sua NF de origem via NUMERO_NF+CHAVE_NF
   - Flag em NFE_ENTRADA marca essas 3 como "processadas"
 ```
 
-### Scenario 4: Consultar estoque de um produto
+### Scenario 4: Consultar estoque de um produto com referência às NFs
 ```
-Given: Múltiplos produtos "Maison Delilah" (cód 0000000006231) em ENTRADA_ESTOQUE
-When: entradaEstoque.getEstoque({codigoProduto: "0000000006231"})
+Given: Múltiplos produtos "Maison Delilah" (cód 0000000006231) em NFE_ENTRADA_PRODUTOS (NFe 731, 688, X)
+When: nfeEntradaProdutos.getEstoque({codigoProduto: "0000000006231"})
 Then:
   - Retorna {codigoProduto: "0000000006231", descricao: "Maison Delilah",
     quantidadeTotal: 5 (2 de NFe 731 + 2 de NFe 688 + 1 de NFe X),
-    ultimaEntrada: ISO timestamp da entrada mais recente}
+    ultimaEntrada: ISO timestamp da entrada mais recente,
+    ultimaNfOrigemNumero: "X" (número da NF da última entrada)}
 ```
 
 ### Scenario 5: Produto duplicado na mesma NF (edge case)
 ```
 Given: NFe com mesmo produto 2x (erro na origem)
-When: entradaEstoque.processarNf({numeroNf: "999"})
+When: nfeEntradaProdutos.processarNf({numeroNf: "999"})
 Then:
   - Insere ambas as linhas (são OCOs diferentes, mesma NF)
-  - Ou: configuração define se soma ou cria 2 linhas
-  - Log warning: "Duplicate product in same NFe: codigo_XXX, qty1=2, qty2=1"
+  - Ambas as linhas rastreáveis via NUMERO_NF + CHAVE_NF + CODIGO_PRODUTO
+  - Log warning: "Duplicate product in same NFe: numero_nf=999, codigo_XXX, qty1=2, qty2=1"
 ```
 
 ## Fora de Escopo
@@ -190,7 +198,7 @@ Then:
 
 ### Repositories
 - `NFeEntradaRepository` — ler aba NFE_ENTRADA
-- `EntradaEstoqueRepository` (novo) — escrever aba ENTRADA_ESTOQUE
+- `NFeEntradaProdutosRepository` (novo) — escrever aba NFE_ENTRADA_PRODUTOS
 
 ### Google Apps Script
 - `SpreadsheetApp` — acesso às abas
@@ -199,16 +207,16 @@ Then:
 
 ### Integração com NFeEntradaService
 Após `NFeEntradaService.syncAndUpdateSheets()` inserir linhas em NFE_ENTRADA,
-chamar automaticamente:
+chamar automaticamente NFeEntradaProdutosService para desagregar produtos:
 ```javascript
 function syncAndUpdateSheets(params) {
   var syncResult = NFeEntradaService.syncFromDrive({driveFolder: params.driveFolder});
   
   // ... escreve em NFE_ENTRADA ...
   
-  // Novo: processar cada NFe inserida
+  // Novo: processar cada NFe inserida, desagregando produtos com referência completa
   syncResult.insertedNfs.forEach(function(nf) {
-    EntradaEstoqueService.processarNf({
+    NFeEntradaProdutosService.processarNf({
       numeroNf: nf.numeroNf,
       chaveNf: nf.chaveNf
     });
@@ -236,6 +244,14 @@ function calcularValorIcmsItem(valorTotal, aliquotaIcms) {
   return Math.round(icms * 100) / 100; // 2 casas decimais
 }
 ```
+
+### Referência de Dados da NF
+Cada linha em NFE_ENTRADA_PRODUTOS inclui os 5 primeiros campos copiados de NFE_ENTRADA:
+- NUMERO_NF, CHAVE_NF, DATA_EMISSAO, EMITENTE_CNPJ, EMITENTE_NOME
+Estes campos permitem auditoria cruzada: dado um produto em NFE_ENTRADA_PRODUTOS,
+é possível rastrear sua NFe de origem e verificar dados gerais da nota (emitente,
+data, totais) sem perder o contexto. Nunca deixar estes campos vazios; se faltarem
+na origem (NFE_ENTRADA), log error e skip o processamento dessa NFe.
 
 ### Flag "processada" em NFE_ENTRADA (opcional)
 Adicionar coluna PROCESSADA_EM (timestamp) para rastrear quando cada NF foi
