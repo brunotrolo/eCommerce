@@ -238,6 +238,7 @@
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     line-height: var(--line-height-normal);
+    max-width: 72ch;
   }
 
   .card > .btn {
@@ -466,6 +467,7 @@
     padding: var(--space-md) var(--space-lg);
     border-bottom: 1px solid var(--color-border-light);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   .table tbody tr {
@@ -631,6 +633,11 @@
     margin-bottom: var(--space-section);
   }
 
+  .stat-grid > .stat-card {
+    max-width: 360px;
+    justify-self: center;
+  }
+
   .stat-grid:last-child {
     margin-bottom: 0;
   }
@@ -777,10 +784,15 @@
 
   .card-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--space-card);
     align-items: stretch;
     margin-bottom: var(--space-element);
+  }
+
+  .card-row > .panel {
+    max-width: 640px;
+    justify-self: center;
   }
 
   .card-row:last-child {
@@ -856,9 +868,8 @@
 
   #app-view {
     flex: 1;
-    padding: var(--space-xl);
-    max-width: 1200px;
-    margin: 0 auto;
+    padding: var(--space-section) var(--space-xl);
+    max-width: none;
     width: 100%;
   }
 
