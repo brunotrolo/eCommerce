@@ -190,3 +190,42 @@ function clearOldLogs_() {
   var result = LoggingService.clearOldLogs();
   Logger.log('Limpeza de logs: ' + result.deleted + ' registros removidos.');
 }
+
+function debugNfeSync_() {
+  Logger.log('=== DEBUG NFE SYNC ===');
+
+  var folderId = '1tGl8zs9GOUA1L_i2FJNoimTl00_55qKu';
+  Logger.log('1. Lendo pasta Drive: ' + folderId);
+  var files = DriveAdapter.readDriveFolder(folderId);
+  Logger.log('   Arquivos encontrados: ' + files.length);
+  for (var i = 0; i < files.length; i++) {
+    Logger.log('   - ' + files[i].name + ' (' + files[i].mimeType + ')' + (files[i].error ? ' ERRO: ' + files[i].error : ' OK (' + (files[i].content ? files[i].content.length : 0) + ' bytes)'));
+  }
+
+  Logger.log('2. Sheet ID NFe Entrada: ' + ConfigService.getNfeEntradaSheetId());
+  Logger.log('3. Sheet ID principal: ' + ConfigService.getSheetId());
+
+  var sheetId = ConfigService.getNfeEntradaSheetId();
+  if (sheetId && !sheetId.error) {
+    var existing = NFeEntradaRepository.getExistingNumeroNf(sheetId);
+    Logger.log('4. Registros existentes na aba NFE_ENTRADA: ' + existing.length);
+    Logger.log('   numeros_nf: ' + JSON.stringify(existing));
+
+    var sheet = NFeEntradaRepository.getOrCreateSheet(sheetId);
+    Logger.log('5. Aba encontrada: ' + sheet.getName() + ', linhas: ' + sheet.getLastRow());
+  }
+
+  Logger.log('6. Testando parseXml...');
+  var xmlTest = files.filter(function(f) { return f.name && f.name.indexOf('.xml') !== -1; })[0];
+  if (xmlTest) {
+    var parsed = NFeEntradaService.parseXml({ xmlContent: xmlTest.content });
+    Logger.log('   numeroNf: ' + parsed.numeroNf);
+    Logger.log('   emitenteNome: ' + parsed.emitenteNome);
+    Logger.log('   valorTotal: ' + parsed.valorTotal);
+    Logger.log('   statusNfe: ' + parsed.statusNfe);
+  } else {
+    Logger.log('   Nenhum XML encontrado na pasta');
+  }
+
+  Logger.log('=== FIM DEBUG ===');
+}

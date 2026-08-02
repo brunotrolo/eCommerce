@@ -3,6 +3,7 @@
  * Google Drive para a aba NFE_ENTRADA do Google Sheets, com deduplicação
  * por numero_nf (XML tem prioridade sobre PDF).
  *
+ * Todas as ações são logadas detalhadamente na aba LOGS (service='nfeEntrada.trace').
  * Regras completas em specs/nfe-entrada.md.
  */
 var NFeEntradaService = (function () {
@@ -52,46 +53,121 @@ var NFeEntradaService = (function () {
     };
   }
 
+  // ─── trace helper ───────────────────────────────────────────────────
+  function trace_(action, summary, context) {
+    LoggingService.log({
+      service: 'nfeEntrada.trace',
+      action: action,
+      status: 'OK',
+      caller: 'webapp',
+      summary: summary,
+      context: context || {}
+    });
+  }
+
+  function traceError_(action, summary, context) {
+    LoggingService.log({
+      service: 'nfeEntrada.trace',
+      action: action,
+      status: 'ERROR',
+      caller: 'webapp',
+      summary: summary,
+      context: context || {}
+    });
+  }
+
   // ─── syncAndUpdateSheets ────────────────────────────────────────────
   function syncAndUpdateSheets(params) {
+    var startTime = Date.now();
+    trace_('sync:start', 'Início syncAndUpdateSheets', { driveFolder: params.driveFolder });
+
     var result = syncFromDrive(params);
-    if (result.error) return result;
-    if (result.inserted === 0) return result;
+    if (result.error) {
+      traceError_('sync:fail', 'syncFromDrive retornou erro', { error: result.error });
+      return result;
+    }
+    if (result.inserted === 0) {
+      trace_('sync:noop', 'Nenhuma entrada nova para inserir', { total: result.total, duplicated: result.duplicated, errors: (result.errors || []).length });
+      return result;
+    }
 
     var sheetId = ConfigService.getNfeEntradaSheetId();
     if (!sheetId || sheetId.error) {
-      return { error: (sheetId && sheetId.error) || 'Sheet ID not configured' };
+      var errMsg = (sheetId && sheetId.error) || 'Sheet ID not configured';
+      traceError_('sync:no-sheet', errMsg, { sheetId: sheetId });
+      return { error: errMsg };
     }
+    trace_('sync:sheet-ok', 'Sheet ID obtido', { sheetId: sheetId });
 
     var existing = NFeEntradaRepository.getExistingNumeroNf(sheetId);
+    trace_('sync:existing', 'Registros existentes na aba', { count: existing.length, numeros: existing });
+
     var toInsert = [];
+    var skippedDuplicate = [];
     for (var i = 0; i < result._parsedEntries.length; i++) {
       var entry = result._parsedEntries[i];
       if (existing.indexOf(String(entry.numeroNf)) === -1) {
         toInsert.push(entry);
         existing.push(String(entry.numeroNf));
+      } else {
+        skippedDuplicate.push(entry.numeroNf);
       }
     }
 
+    trace_('sync:filtered', 'Filtragem contra aba existente', {
+      toInsert: toInsert.length,
+      skippedDuplicate: skippedDuplicate,
+      skippedNumeros: skippedDuplicate
+    });
+
+    var insertResult = { inserted: 0, errors: [] };
     if (toInsert.length > 0) {
-      NFeEntradaRepository.insertNfes(toInsert, sheetId);
+      insertResult = NFeEntradaRepository.insertNfes(toInsert, sheetId);
+      trace_('sync:inserted', 'Inserção concluída', {
+        inserted: insertResult.inserted,
+        insertErrors: insertResult.errors,
+        numeros: toInsert.map(function (e) { return e.numeroNf; })
+      });
+    }
+
+    if (insertResult.errors && insertResult.errors.length > 0) {
+      traceError_('sync:insert-errors', 'Erros na inserção', { errors: insertResult.errors });
     }
 
     delete result._parsedEntries;
-    result.inserted = toInsert.length;
-    result.duplicated = result.total - toInsert.length - (result.errors ? result.errors.length : 0);
+    result.inserted = insertResult.inserted;
+    result.duplicated = result.total - insertResult.inserted - (result.errors ? result.errors.length : 0);
     result.timestamp = new Date().toISOString();
     result.success = true;
+
+    var durationMs = Date.now() - startTime;
+    trace_('sync:done', 'Sync concluída em ' + durationMs + 'ms', {
+      total: result.total,
+      inserted: result.inserted,
+      duplicated: result.duplicated,
+      errors: (result.errors || []).length,
+      durationMs: durationMs
+    });
+
     return result;
   }
 
   // ─── syncFromDrive ──────────────────────────────────────────────────
   function syncFromDrive(params) {
+    trace_('drive:read', 'Lendo pasta Drive', { folderId: params.driveFolder });
     var files = DriveAdapter.readDriveFolder(params.driveFolder);
 
     if (files.length === 1 && files[0].error) {
+      traceError_('drive:error', 'Erro ao ler pasta', { error: files[0].error, folderId: params.driveFolder });
       return { error: files[0].error };
     }
+
+    trace_('drive:files', 'Arquivos encontrados na pasta', {
+      count: files.length,
+      files: files.map(function (f) {
+        return { name: f.name, mime: f.mimeType, size: f.content ? f.content.length : 0, error: f.error || null };
+      })
+    });
 
     var xmlEntries = [];
     var pdfEntries = [];
@@ -100,6 +176,7 @@ var NFeEntradaService = (function () {
     for (var i = 0; i < files.length; i++) {
       var file = files[i];
       if (file.error) {
+        traceError_('drive:file-error', 'Arquivo com erro: ' + (file.name || 'unknown'), { file: file.name, error: file.error });
         errors.push({ file: file.name || 'unknown', reason: file.error });
         continue;
       }
@@ -108,38 +185,79 @@ var NFeEntradaService = (function () {
       var isPdf = file.name && file.name.toLowerCase().endsWith('.pdf');
 
       if (isXml) {
+        trace_('parse:xml-start', 'Parseando XML: ' + file.name, { fileName: file.name, contentLength: file.content.length });
         var parsed = parseXml({ xmlContent: file.content });
         if (parsed.error) {
+          traceError_('parse:xml-error', 'Erro ao parsear XML: ' + file.name, { fileName: file.name, error: parsed.error });
           errors.push({ file: file.name, reason: parsed.error });
         } else {
           parsed.nomeArquivoOrigem = file.name;
           parsed.tipoArquivo = 'xml';
           xmlEntries.push(parsed);
+          trace_('parse:xml-ok', 'XML parseado: ' + file.name, {
+            fileName: file.name,
+            numeroNf: parsed.numeroNf,
+            chaveNf: parsed.chaveNf,
+            emitenteNome: parsed.emitenteNome,
+            valorTotal: parsed.valorTotal,
+            statusNfe: parsed.statusNfe,
+            produtosCount: JSON.parse(parsed.produtosJson || '[]').length
+          });
         }
       } else if (isPdf) {
+        trace_('parse:pdf-start', 'Parseando PDF: ' + file.name, { fileName: file.name, contentLength: file.content.length });
         var parsedPdf = parsePdf({ pdfContent: file.content });
         if (parsedPdf.error) {
+          traceError_('parse:pdf-error', 'Erro ao parsear PDF: ' + file.name, { fileName: file.name, error: parsedPdf.error });
           errors.push({ file: file.name, reason: parsedPdf.error });
         } else {
           parsedPdf.nomeArquivoOrigem = file.name;
           parsedPdf.tipoArquivo = 'pdf';
           pdfEntries.push(parsedPdf);
+          trace_('parse:pdf-ok', 'PDF parseado: ' + file.name, {
+            fileName: file.name,
+            numeroNf: parsedPdf.numeroNf,
+            emitenteNome: parsedPdf.emitenteNome,
+            valorTotal: parsedPdf.valorTotal
+          });
         }
+      } else {
+        trace_('drive:skip', 'Arquivo ignorado (não é XML nem PDF): ' + file.name, { fileName: file.name, mime: file.mimeType });
       }
     }
+
+    trace_('drive:parsed', 'Parsing concluído', {
+      xmlCount: xmlEntries.length,
+      pdfCount: pdfEntries.length,
+      errorCount: errors.length,
+      xmlNumeros: xmlEntries.map(function (e) { return e.numeroNf; }),
+      pdfNumeros: pdfEntries.map(function (e) { return e.numeroNf; })
+    });
 
     var allEntries = xmlEntries.concat(pdfEntries);
     var deduped = deduplicateEntries({ entries: allEntries });
 
     var insertedCount = 0;
     var duplicatedCount = 0;
+    var keptEntries = [];
+    var dupEntries = [];
     for (var j = 0; j < deduped.length; j++) {
       if (deduped[j]._duplicate) {
         duplicatedCount++;
+        dupEntries.push(deduped[j].numeroNf);
       } else {
         insertedCount++;
+        keptEntries.push(deduped[j].numeroNf);
       }
     }
+
+    trace_('drive:deduped', 'Deduplicação concluída', {
+      beforeDedup: allEntries.length,
+      afterDedup: insertedCount,
+      duplicated: duplicatedCount,
+      keptNumeros: keptEntries,
+      dupNumeros: dupEntries
+    });
 
     return {
       total: files.length,
@@ -407,6 +525,17 @@ var NFeEntradaService = (function () {
     return result;
   }
 
+  // ─── getRecent ──────────────────────────────────────────────────────
+  function getRecent(params) {
+    var sheetId = ConfigService.getNfeEntradaSheetId();
+    if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
+      return { data: [] };
+    }
+    var limit = params.limit || 20;
+    var rows = NFeEntradaRepository.getRecentNfes(sheetId, limit);
+    return { data: rows };
+  }
+
   // ─── Helpers (privados) ─────────────────────────────────────────────
   function findChild_(element, name) {
     if (!element) return null;
@@ -491,17 +620,6 @@ var NFeEntradaService = (function () {
       if (match && match[1]) return match[1].trim();
     }
     return null;
-  }
-
-  // ─── getRecent ──────────────────────────────────────────────────────
-  function getRecent(params) {
-    var sheetId = ConfigService.getNfeEntradaSheetId();
-    if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
-      return { data: [] };
-    }
-    var limit = params.limit || 20;
-    var rows = NFeEntradaRepository.getRecentNfes(sheetId, limit);
-    return { data: rows };
   }
 
   return {

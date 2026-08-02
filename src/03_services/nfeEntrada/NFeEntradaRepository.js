@@ -83,6 +83,15 @@ var NFeEntradaRepository = (function () {
   function insertNfes(entries, sheetId) {
     var sheet = getOrCreateSheet(sheetId);
     var inserted = 0;
+    var errors = [];
+
+    LoggingService.log({
+      service: 'nfeEntrada.trace',
+      action: 'repo:insert-start',
+      status: 'OK',
+      summary: 'Iniciando inserção de ' + entries.length + ' entrada(s) na aba ' + SHEET_NAME,
+      context: { sheetId: sheetId, sheetName: SHEET_NAME, entriesCount: entries.length, lastRow: sheet.getLastRow() }
+    });
 
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i];
@@ -112,11 +121,37 @@ var NFeEntradaRepository = (function () {
         e.dataSync || new Date().toISOString(),
         e.tipoArquivo || 'xml'
       ];
-      sheet.appendRow(row);
-      inserted++;
+      try {
+        sheet.appendRow(row);
+        inserted++;
+        LoggingService.log({
+          service: 'nfeEntrada.trace',
+          action: 'repo:row-inserted',
+          status: 'OK',
+          summary: 'Linha inserida: nf=' + e.numeroNf + ' emitente=' + e.emitenteNome + ' valor=' + e.valorTotal,
+          context: { numeroNf: e.numeroNf, emitenteNome: e.emitenteNome, valorTotal: e.valorTotal, statusNfe: e.statusNfe, tipoArquivo: e.tipoArquivo, rowNumber: sheet.getLastRow() }
+        });
+      } catch (err) {
+        errors.push({ numeroNf: e.numeroNf, error: err.message });
+        LoggingService.log({
+          service: 'nfeEntrada.trace',
+          action: 'repo:row-error',
+          status: 'ERROR',
+          summary: 'Erro ao inserir linha: nf=' + e.numeroNf + ' erro=' + err.message,
+          context: { numeroNf: e.numeroNf, error: err.message }
+        });
+      }
     }
 
-    return { inserted: inserted };
+    LoggingService.log({
+      service: 'nfeEntrada.trace',
+      action: 'repo:insert-done',
+      status: errors.length > 0 ? 'ERROR' : 'OK',
+      summary: 'Inserção concluída: ' + inserted + ' inserida(s), ' + errors.length + ' erro(s)',
+      context: { inserted: inserted, errors: errors, totalRows: sheet.getLastRow() }
+    });
+
+    return { inserted: inserted, errors: errors };
   }
 
   return {
