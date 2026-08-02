@@ -55,11 +55,17 @@ secret `CLASP_CREDENTIALS` no GitHub (Settings > Secrets and variables >
 Actions). Esse passo exige login interativo do Google e só pode ser feito
 por uma pessoa, nunca por um agente.
 
-## Deploy
+## Pipeline e Versionamento
 
-Todo push na branch `main` dispara `.github/workflows/deploy.yml`, que roda
-`clasp push` + `clasp deploy` automaticamente — sem passo manual depois do
-setup inicial.
+**Desenvolvimento:** Todo push na `main` dispara `.github/workflows/deploy.yml`, que roda
+`clasp push --force` para sincronizar o código com o Apps Script no ambiente
+`/dev`. Nenhuma versão é criada automaticamente.
+
+**Produção:** Quando uma fase está pronta, você roda manualmente:
+```bash
+clasp deploy --description "vX — <fase>"
+```
+Isso cria uma versão publicada e marca um milestone no projeto.
 
 ## Links
 

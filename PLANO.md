@@ -79,14 +79,15 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > repositório, mas **nada foi executado no Apps Script ainda** — falta
 > rodar o primeiro deploy. A Fase 0 é, portanto, o próximo passo real.
 
-### Fase 0 — Fundação + pipeline de deploy
+### Fase 0 — Fundação + pipeline de sincronização (/dev)
 
 Entregue no código: `.clasp.json`, `appsscript.json`, `ConfigService`,
 repositórios, `ServiceRegistry`, `Router`, Shell + design tokens, `AGENTS.md`,
-workflow do GitHub Actions.
+workflow do GitHub Actions (apenas push automático, deploy manual).
 
 **Critério de aceite:**
 - [ ] Push na `main` dispara o workflow e ele termina verde.
+- [ ] Você roda `clasp deploy --description "v0 — fundacao"` manualmente.
 - [ ] A URL do Web App abre e o Shell renderiza com os tokens aplicados.
 - [ ] `curl "<url>?action=ping"` devolve `{"pong":true,...}`.
 - [ ] `apiDispatch('ping', {})` funciona pelo console do navegador.

@@ -51,7 +51,7 @@ preencher a lacuna adivinhando — que é exatamente o que queremos evitar.
 
 ## 3. Prompts por fase
 
-### Fase 0 — Validar fundação e pipeline
+### Fase 0 — Validar fundação e pipeline (/dev)
 
 ```
 CONTEXTO
@@ -59,26 +59,29 @@ Projeto GAS de controle de loja Shopee + Mercado Livre. Todo o código das
 fases 0-5 já existe no repositório mas nunca foi executado no Apps Script.
 Esta tarefa é a primeira validação real da fundação.
 
+O pipeline agora funciona assim:
+- GitHub Actions: `git push main` → `clasp push --force` (sincroniza /dev)
+- Manual: você roda `clasp deploy` quando quer criar uma versão produção
+
 SKILL
 Ative /gas-ops antes de qualquer comando clasp.
 
 TAREFA
 1. Confira que .claspignore libera apenas appsscript.json, src/**/*.js e
    ui/**/*.html, e que nenhum segredo aparece em src/ ou ui/.
-2. Rode `clasp push --force` e reporte qualquer arquivo rejeitado.
-3. Rode `clasp deploy --description "v0 — fundacao"` e me devolva a URL do
-   Web App.
-4. Abra a URL e confirme que o Shell renderiza (navbar + área de conteúdo)
+2. Faça um push na main e aguarde o workflow terminar (deve mostrar verde).
+3. Verifique na URL do Web App que o Shell renderiza (navbar + área de conteúdo)
    com os tokens de cor aplicados, não com a aparência crua do navegador.
-5. Rode `curl "<url do web app>?action=ping"` e cole a resposta.
+4. Rode `curl "<url do web app>?action=ping"` e cole a resposta.
 
 RESTRIÇÕES
 - Não altere appsscript.json nem .clasp.json.
 - Não escreva a API key em lugar nenhum do código.
 - Se o push falhar, reporte o erro exato antes de tentar corrigir.
+- O workflow via GitHub Actions só faz push; não gera versão publicada.
 
 ACEITE
-Workflow verde, Shell renderizando com estilo, e ?action=ping devolvendo
+Workflow verde, Shell renderizando com estilo no /dev, e ?action=ping devolvendo
 {"pong":true,...}.
 ```
 
