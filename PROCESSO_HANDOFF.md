@@ -59,6 +59,9 @@
 ## Formato do Handoff Prompt (Resumido)
 
 ```
+PRÉ-REQUISITO OBRIGATÓRIO (FAZER PRIMEIRO):
+git pull origin main  # Sincronizar specs novas/atualizadas do GitHub
+
 SPEC: specs/xxx.md (commit XXXXX, Status: Approved)
 
 CRIAR/ATUALIZAR:
@@ -67,8 +70,8 @@ CRIAR/ATUALIZAR:
 - ui/xyz/XyzView.html (novo)
 - src/04_gateway/Router.js (registrar)
 
-PRÉ-REQUISITOS:
-- (listar qualquer configuração/dependência)
+PRÉ-REQUISITOS (além do git pull):
+- (listar qualquer configuração/dependência operacional)
 
 ACEITE:
 Todos os 12 critérios de aceite em specs/xxx.md
@@ -77,6 +80,32 @@ DETALHES IMPORTANTES:
 - (se houver decision point, link de volta pra spec)
 - (ex: "Chave de deduplicação: numeroNf, ver Regras de Negócio em specs/xxx.md linha 45")
 ```
+
+---
+
+## Pré-Requisito CRÍTICO: Git Pull Obrigatório
+
+**ANTES de o OpenCode começar a trabalhar, SEMPRE fazer:**
+```bash
+git pull origin main
+```
+
+**Por quê:**
+- Claude Code acabou de criar/atualizar specs no GitHub
+- Sem pull, OpenCode não vê as specs novas
+- Result: OpenCode trabalha "no escuro" sem a spec de referência
+- Quebra o pipeline SDD
+
+**Responsabilidade:**
+- Claude Code: adiciona `git pull origin main` como PRIMEIRA linha do prompt
+- Usuário: confirma que viu o comando (passar pro OpenCode)
+- OpenCode: executa o pull ANTES de qualquer coisa
+
+**Checklist do usuário antes de colar prompt no OpenCode:**
+- [ ] Abrir terminal na pasta do projeto
+- [ ] Rodar: `git pull origin main`
+- [ ] Confirmar que specs novas aparecem em `ls specs/`
+- [ ] DEPOIS colar o prompt no OpenCode
 
 ---
 
