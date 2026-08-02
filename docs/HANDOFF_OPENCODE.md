@@ -339,6 +339,69 @@ consistente; botões desabilitam enquanto processam; nenhuma closure desnecessá
 
 ---
 
+## Refactoring pré-Fase 0 — Modernização do Sistema de Design
+
+```
+CONTEXTO
+O Design System do projeto foi completamente modernizado em docs/DESIGN_SYSTEM.md
+e ui/shared/Styles.html. Agora existem 90+ tokens de design (cores, tipografia,
+espaçamento, sombras, etc.) que cobrem todo o visual system de forma
+profissional. Os cinco widgets da UI (PricingView, DashboardView, OrdersView,
+ListingsView, InventoryPricingView) ainda têm "cara de vibe coding": cores
+hard-coded, espaçamento inlineado, duplicação de lógica de erro/sucesso,
+falta de loading states. Esta tarefa refatora cada widget para usar o novo
+design system.
+
+SKILL
+Ative /design-tokens-guard antes de começar. Ela vai revisar cada mudança em
+ui/**/*.html e sinalizar qualquer cor/espaçamento que não venha de um token.
+Use também /gas-app-designer se precisar validar que a interface renderiza
+corretamente no navegador após as mudanças.
+
+TAREFA
+Para cada widget em ui/**View.html (PricingView, DashboardView, OrdersView,
+ListingsView, InventoryPricingView):
+
+1. Remova todo inline style (style="...") — migre para classes ou tokens
+2. Remova cores hard-coded (ex: color: "#0d6efd") — use var(--color-primary)
+3. Remova espaçamento hard-coded (ex: margin: 10px) — use var(--space-xs) etc
+4. Aplique classes de componente do novo design:
+   - Botões: sempre .btn, .btn-primary (default), .btn-secondary (alternativo)
+   - Cards de seção: .card com padding: var(--space-lg) via classe, não inline
+   - Campos de entrada: .form-field com label acima, input/select com borders de token
+   - Tabelas (se houver): .table com thead bg, .table td com tabular-nums
+   - Status badges: .badge.badge-success / .badge-warning / .badge-error (etc)
+   - Mensagens: erros em .alert.alert-error, sucessos em .badge.badge-success
+5. Adicione loading state: durante fetch, desabilite botão com .loading class
+   - Mude o texto do botão para "Processando..."
+   - Cursor vira wait
+   - Cliques são ignorados (pointer-events: none é automaticamente aplicado)
+6. Extraia lógica duplicada de error/success em um função auxiliar
+   (ex: `withLoading(fn)` que envolve a função de submit com try/catch)
+7. Rode `clasp push` e confira que não há erros de sintaxe no editor do Apps Script
+
+RESTRIÇÕES
+- Não altere a estrutura HTML ou nomes de elementos (ex: não mude class="submit-btn"
+  para class="btn" se isso quebrar o JS que referencia o elemento)
+- Não mude specs ou contratos das actions nos ServiceRegistry
+- Não adicione dependências externas (sem jQuery, sem frameworks CSS)
+- Todos os tokens já existem em ui/shared/Styles.html; se um token não existir,
+  vire para o Claude Code antes de inventar um novo
+
+ACEITE
+✓ Todos os 5 widgets abrem sem erro na URL do Web App
+✓ Nenhuma cor hard-coded visível no código HTML (git grep color: ou background:
+  retorna zero matches exceto em comentários)
+✓ Nenhum espaçamento inline (git grep 'style="' retorna zero matches ou apenas
+  atributos que não sejam margin/padding)
+✓ Todos os botões têm .loading state durante processamento
+✓ Erros e sucessos renderizam com as classes .alert/.badge apropriadas, não
+  com inline styles de cor
+✓ /design-tokens-guard passa em todos os widgets (zero avisos sobre tokens)
+```
+
+---
+
 ## 6. Quando o OpenCode não conseguir confirmar um contrato da Tiops
 
 A sessão do Claude Code tem o MCP da Tiops conectado e consegue rodar
