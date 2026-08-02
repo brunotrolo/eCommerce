@@ -12,8 +12,8 @@ garantindo integridade e deduplicação automática.
 
 ## Contrato da API Interna
 
-### `nfeEntrada.syncFromDrive`
-- **Descrição:** Lê pasta do Drive, parseia XMLs/PDFs, deduplica, escreve no Sheets.
+### `nfeEntrada.syncAndUpdateSheets`
+- **Descrição:** Lê pasta do Drive, parseia XMLs/PDFs, deduplica, escreve na aba NFE_ENTRADA do Google Sheets.
 - **Params:**
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
@@ -21,6 +21,7 @@ garantindo integridade e deduplicação automática.
 - **Retorno:**
   ```javascript
   {
+    success: boolean,        // true se operação completou
     total: number,           // total de arquivos lidos
     inserted: number,        // quantidade inserida no Sheets
     duplicated: number,      // quantidade detectada como duplicada
@@ -29,9 +30,19 @@ garantindo integridade e deduplicação automática.
   }
   ```
 - **Erros esperados:**
+  - `Sheet ID not configured` — ScriptProperties.SHEETS_ID_NFEENTRADA não setada
   - `DriveFolder not found` — ID inválido
   - `No XML/PDF files found` — pasta vazia
-  - `Sheets write permission denied` — ScriptProperties sem acesso
+  - `Sheets write permission denied` — sem acesso ao Sheets
+
+### `nfeEntrada.syncFromDrive` (interno)
+- **Descrição:** (Função interna) Lê pasta do Drive, parseia XMLs/PDFs, deduplica.
+- **Params:**
+  | Nome | Tipo | Obr. | Default | Descrição |
+  |------|------|------|---------|-----------|
+  | driveFolder | string | sim | — | ID da pasta no Drive |
+- **Retorno:** `{total, inserted, duplicated, errors, timestamp}` (sem escrever no Sheets)
+- **Notas:** Usada por `syncAndUpdateSheets` e potencialmente por outras funcionalidades.
 
 ### `nfeEntrada.parseXml`
 - **Descrição:** Parseia XML de NF-e e extrai todos os campos.
@@ -212,6 +223,25 @@ Then:
 
 ## Notas de Implementação
 
+### Configuração do Sheet ID (pré-requisito)
+Antes de usar a funcionalidade, o usuário deve settar o ID do Sheets em Script Properties
+via um menu customizado no editor do Apps Script:
+
+```javascript
+// Main.js
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('NFe Entrada')
+    .addItem('Configurar Sheet ID', 'showConfigDialog')
+    .addToUi();
+}
+
+function showConfigDialog() {
+  // Dialog box para o usuário colar o Sheet ID
+  // Salva em PropertiesService.getScriptProperties().setProperty('SHEETS_ID_NFEENTRADA', id)
+}
+```
+
+### XML Parsing
 1. **XML Parsing:** Usar `XmlService.parse()` do Apps Script para XML v4.00
    (namespace `http://www.portalfiscal.inf.br/nfe`). Namespaces devem ser
    resolvidos para acessar elementos corretamente.
