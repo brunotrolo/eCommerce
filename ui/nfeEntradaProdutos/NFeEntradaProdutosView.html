@@ -1,0 +1,245 @@
+<template id="nfe-entrada-produtos-template">
+  <style>
+    .nfe-prod-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-card);
+    }
+    .nfe-prod-actions .btn { white-space: nowrap; }
+    .nfe-search {
+      display: flex;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-card);
+    }
+    .nfe-search input {
+      flex: 1;
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+    .nfe-summary {
+      display: flex;
+      gap: var(--space-lg);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-card);
+    }
+    .nfe-summary .stat { text-align: center; }
+    .nfe-summary .stat-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+    .nfe-summary .stat-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-micro);
+    }
+    .nfe-prod-table { margin-top: var(--space-md); }
+    .nfe-prod-table .table { width: 100%; }
+    .nfe-empty {
+      text-align: center;
+      padding: var(--space-section) var(--space-lg);
+      color: var(--color-text-secondary);
+    }
+  </style>
+
+  <div class="widget-grid">
+    <div class="card">
+      <h1>Entrada de Produtos</h1>
+      <p class="page-subtitle">Desagregação de NFes importadas — uma linha por produto.</p>
+
+      <div class="nfe-prod-actions">
+        <button class="btn btn-primary" id="btn-processar">Processar NFes não processadas</button>
+        <span id="process-status" style="color: var(--color-text-secondary); font-size: var(--font-size-sm);"></span>
+      </div>
+
+      <div id="error-box" class="alert alert-error" hidden></div>
+      <div id="result-box" hidden></div>
+
+      <div class="nfe-search">
+        <input type="text" id="search-input" placeholder="Buscar por código do produto..." />
+        <button class="btn" id="btn-buscar">Buscar</button>
+      </div>
+
+      <div class="nfe-summary" id="summary"></div>
+
+      <div class="card" id="estoque-card" hidden>
+        <h2>Estoque</h2>
+        <div class="nfe-prod-table" id="estoque-table"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  (function () {
+    var template = document.getElementById('nfe-entrada-produtos-template');
+
+    customElements.define(
+      'nfe-entrada-produtos-widget',
+      class extends HTMLElement {
+        constructor() {
+          super();
+          this.attachShadow({ mode: 'open' });
+          this.shadowRoot.appendChild(template.content.cloneNode(true));
+          if (window.__DESIGN_SHEET__) {
+            this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+          }
+        }
+
+        connectedCallback() {
+          var self = this;
+          var btnProcessar = this.shadowRoot.getElementById('btn-processar');
+          var status = this.shadowRoot.getElementById('process-status');
+          var btnBuscar = this.shadowRoot.getElementById('btn-buscar');
+          var searchInput = this.shadowRoot.getElementById('search-input');
+
+          btnProcessar.addEventListener('click', function () {
+            btnProcessar.disabled = true;
+            btnProcessar.textContent = 'Processando...';
+            status.textContent = 'Lendo NFes e desagregando produtos...';
+            self._hideError();
+            self._hideResult();
+
+            google.script.run
+              .withSuccessHandler(function (result) {
+                btnProcessar.disabled = false;
+                btnProcessar.textContent = 'Processar NFes não processadas';
+                status.textContent = '';
+
+                if (result.error) {
+                  self._showError(result.error);
+                  return;
+                }
+
+                var html = '<div class="alert alert-success">' +
+                  '<strong>' + (result.totalNfProcessed || 0) + '</strong> NF(s) processada(s), ' +
+                  '<strong>' + (result.totalProductsInserted || 0) + '</strong> produto(s) inserido(s).</div>';
+
+                if (result.errors && result.errors.length > 0) {
+                  html += '<div class="alert alert-warning" style="margin-top: var(--space-md)">';
+                  for (var i = 0; i < result.errors.length; i++) {
+                    html += '<div>NF ' + (result.errors[i].numeroNf || '') + ': ' + (result.errors[i].reason || '') + '</div>';
+                  }
+                  html += '</div>';
+                }
+
+                self._showResult(html);
+                self._loadEstoque();
+              })
+              .withFailureHandler(function (err) {
+                btnProcessar.disabled = false;
+                btnProcessar.textContent = 'Processar NFes não processadas';
+                status.textContent = '';
+                self._showError(err.message || String(err));
+              })
+              .apiDispatch('nfeEntradaProdutos.processarTodasNfs', {});
+          });
+
+          btnBuscar.addEventListener('click', function () {
+            var codigo = searchInput.value.trim();
+            self._loadEstoque(codigo);
+          });
+
+          searchInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+              var codigo = searchInput.value.trim();
+              self._loadEstoque(codigo);
+            }
+          });
+
+          this._loadEstoque();
+        }
+
+        _hideError() {
+          this.shadowRoot.getElementById('error-box').hidden = true;
+        }
+
+        _showError(msg) {
+          var box = this.shadowRoot.getElementById('error-box');
+          box.textContent = msg;
+          box.hidden = false;
+        }
+
+        _hideResult() {
+          this.shadowRoot.getElementById('result-box').hidden = true;
+        }
+
+        _showResult(html) {
+          var box = this.shadowRoot.getElementById('result-box');
+          box.innerHTML = html;
+          box.hidden = false;
+        }
+
+        _loadEstoque(codigoProduto) {
+          var self = this;
+          var params = codigoProduto ? { codigoProduto: codigoProduto } : {};
+
+          google.script.run
+            .withSuccessHandler(function (result) {
+              var summary = self.shadowRoot.getElementById('summary');
+              var card = self.shadowRoot.getElementById('estoque-card');
+              var table = self.shadowRoot.getElementById('estoque-table');
+
+              if (result.error) {
+                summary.innerHTML = '';
+                card.hidden = false;
+                table.innerHTML = '<div class="nfe-empty">' + result.error + '</div>';
+                return;
+              }
+
+              var items = (result && result.data) || [];
+              if (items.length === 0) {
+                summary.innerHTML = '';
+                card.hidden = false;
+                table.innerHTML = '<div class="nfe-empty">Nenhum produto encontrado.</div>';
+                return;
+              }
+
+              var totalQty = 0;
+              var totalValue = 0;
+              for (var i = 0; i < items.length; i++) {
+                totalQty += items[i].quantidadeTotal || 0;
+              }
+
+              summary.innerHTML =
+                '<div class="stat"><div class="stat-value">' + items.length + '</div><div class="stat-label">Produtos</div></div>' +
+                '<div class="stat"><div class="stat-value">' + totalQty.toFixed(2) + '</div><div class="stat-label">Quantidade Total</div></div>';
+
+              var html = '<div class="table-container"><table class="table">' +
+                '<thead><tr>' +
+                '<th>Código</th><th>Descrição</th><th>Qtd Total</th><th>Última Entrada</th><th>NF Origem</th>' +
+                '</tr></thead><tbody>';
+
+              for (var j = 0; j < items.length; j++) {
+                var item = items[j];
+                html += '<tr>' +
+                  '<td>' + (item.codigoProduto || '') + '</td>' +
+                  '<td>' + (item.descricao || '') + '</td>' +
+                  '<td>' + (item.quantidadeTotal != null ? item.quantidadeTotal.toFixed(2) : '0') + '</td>' +
+                  '<td>' + (item.ultimaEntrada || '') + '</td>' +
+                  '<td>' + (item.ultimaNfOrigemNumero || '') + '</td>' +
+                  '</tr>';
+              }
+
+              html += '</tbody></table></div>';
+              card.hidden = false;
+              table.innerHTML = html;
+            })
+            .withFailureHandler(function (err) {
+              var table = self.shadowRoot.getElementById('estoque-table');
+              var card = self.shadowRoot.getElementById('estoque-card');
+              card.hidden = false;
+              table.innerHTML = '<div class="nfe-empty">Erro ao carregar estoque: ' + (err.message || String(err)) + '</div>';
+            })
+            .apiDispatch('nfeEntradaProdutos.getEstoque', params);
+        }
+      }
+    );
+  })();
+</script>

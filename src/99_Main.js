@@ -193,6 +193,36 @@ function runNfeSmokeTests_() {
   Logger.log('OK — todos os smoke tests de NFe Entrada passaram.');
 }
 
+function runNfeProdutosSmokeTests_() {
+  var failures = [];
+
+  if (!NFeEntradaProdutosService || typeof NFeEntradaProdutosService.describe !== 'function') {
+    failures.push('NFeEntradaProdutosService não registrado ou sem describe()');
+  }
+
+  var desc = NFeEntradaProdutosService.describe();
+  if (desc.name !== 'nfeEntradaProdutos') failures.push('describe.name: esperado nfeEntradaProdutos, obtido ' + desc.name);
+  if (!desc.actions.processarNf) failures.push('ação processarNf não encontrada');
+  if (!desc.actions.processarTodasNfs) failures.push('ação processarTodasNfs não encontrada');
+  if (!desc.actions.getEstoque) failures.push('ação getEstoque não encontrada');
+
+  var r1 = NFeEntradaProdutosService.processarNf({});
+  if (!r1.error) failures.push('processarNf sem numeroNf deveria retornar erro');
+
+  var r2 = NFeEntradaProdutosService.processarNf({ numeroNf: '999' });
+  if (!r2.error) failures.push('processarNf sem chaveNf deveria retornar erro');
+
+  var r3 = NFeEntradaProdutosService.processarTodasNfs();
+  if (!r3.error && !r3.totalNfProcessed) failures.push('processarTodasNfs sem sheetId deveria retornar erro ou 0');
+
+  if (failures.length) {
+    Logger.log('FALHOU NFE PRODUTOS:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' NFe Produtos smoke test(s) falharam.');
+  }
+
+  Logger.log('OK — todos os smoke tests de NFe Entrada Produtos passaram.');
+}
+
 function initLogging_() {
   var result = LoggingService.init();
   if (result.error) {

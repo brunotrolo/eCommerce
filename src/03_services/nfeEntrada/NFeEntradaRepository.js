@@ -10,7 +10,7 @@ var NFeEntradaRepository = (function () {
     'DESTINATARIO_IE', 'DESTINATARIO_ENDERECO', 'VALOR_TOTAL', 'VALOR_DESCONTO',
     'VALOR_FRETE', 'VALOR_ICMS', 'VALOR_PIS', 'VALOR_COFINS', 'VALOR_IBS',
     'VALOR_CBS', 'PRODUTOS_JSON', 'STATUS_NFE', 'NUMERO_PROTOCOLO', 'DATA_SYNC',
-    'TIPO_ARQUIVO'
+    'TIPO_ARQUIVO', 'PROCESSADA_EM'
   ];
 
   function getOrCreateSheet(sheetId) {
@@ -44,6 +44,13 @@ var NFeEntradaRepository = (function () {
         sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
       }
       sheet.setFrozenRows(1);
+    }
+
+    var lastHeaderCol = sheet.getLastColumn();
+    var missingIndex = HEADERS.indexOf('PROCESSADA_EM');
+    if (lastHeaderCol < HEADERS.length && missingIndex !== -1) {
+      var extraRange = sheet.getRange(1, lastHeaderCol + 1, 1, HEADERS.length - lastHeaderCol);
+      extraRange.setValues([HEADERS.slice(lastHeaderCol)]);
     }
     return sheet;
   }
@@ -143,7 +150,8 @@ var obj = {};
         e.statusNfe || '',
         e.numeroProtocolo || '',
         e.dataSync || new Date().toISOString(),
-        e.tipoArquivo || 'xml'
+        e.tipoArquivo || 'xml',
+        ''
       ];
       try {
         sheet.appendRow(row);
@@ -178,12 +186,42 @@ var obj = {};
     return { inserted: inserted, errors: errors };
   }
 
+  /**
+   * Marca uma NF como processada, gravando o timestamp em PROCESSADA_EM.
+   * @param {string} sheetId
+   * @param {string} numeroNf
+   * @param {string} processadaEm — ISO string
+   */
+  function marcarNfProcessada(sheetId, numeroNf, processadaEm) {
+    var sheet = getOrCreateSheet(sheetId);
+    var numeroNfIndex = HEADERS.indexOf('NUMERO_NF');
+    var processadaIndex = HEADERS.indexOf('PROCESSADA_EM');
+    var colNumeroNf = numeroNfIndex + 1;
+    var colProcessada = processadaIndex + 1;
+    var values = sheet.getDataRange().getValues();
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][numeroNfIndex]).trim() === String(numeroNf).trim()) {
+        sheet.getRange(i + 1, colProcessada).setValue(processadaEm);
+      }
+    }
+  }
+
+  /** Retorna as NFs ainda não processadas (sem PROCESSADA_EM). */
+  function getNfesNaoProcessadas(sheetId) {
+    var rows = getNfes(sheetId);
+    return rows.filter(function (r) {
+      return !r.PROCESSADA_EM;
+    });
+  }
+
   return {
     HEADERS: HEADERS,
     getOrCreateSheet: getOrCreateSheet,
     getExistingNumeroNf: getExistingNumeroNf,
     getNfes: getNfes,
     getRecentNfes: getRecentNfes,
-    insertNfes: insertNfes
+    insertNfes: insertNfes,
+    marcarNfProcessada: marcarNfProcessada,
+    getNfesNaoProcessadas: getNfesNaoProcessadas
   };
 })();

@@ -11,6 +11,7 @@ var ServiceRegistry = (function () {
     inventoryPricing: InventoryPricingService,
     dashboard: DashboardService,
     nfeEntrada: NFeEntradaService,
+    nfeEntradaProdutos: NFeEntradaProdutosService,
     logging: LoggingService
   };
 

@@ -140,6 +140,44 @@ var NFeEntradaService = (function () {
     result.timestamp = new Date().toISOString();
     result.success = true;
 
+    var insertedEntries = [];
+    var insertErrorNums = (insertResult.errors || []).map(function (e) { return String(e.numeroNf); });
+    for (var k = 0; k < toInsert.length; k++) {
+      if (insertErrorNums.indexOf(String(toInsert[k].numeroNf)) === -1) {
+        insertedEntries.push(toInsert[k]);
+      }
+    }
+
+    if (insertedEntries.length > 0) {
+      var produtosResult = { totalProcessed: 0, totalProductsInserted: 0, errors: [] };
+      for (var p = 0; p < insertedEntries.length; p++) {
+        var nfe = insertedEntries[p];
+        try {
+          var pResult = NFeEntradaProdutosService.processarNf({
+            numeroNf: String(nfe.numeroNf).trim(),
+            chaveNf: String(nfe.chaveNf).trim()
+          });
+          if (pResult.error) {
+            produtosResult.errors.push({ numeroNf: nfe.numeroNf, reason: pResult.error });
+          } else {
+            produtosResult.totalProcessed++;
+            produtosResult.totalProductsInserted += pResult.productCount || 0;
+          }
+        } catch (e) {
+          traceError_('sync:trigger-error', 'Erro ao processar produtos da NF ' + nfe.numeroNf, {
+            numeroNf: nfe.numeroNf, error: e.message || String(e)
+          });
+          produtosResult.errors.push({ numeroNf: nfe.numeroNf, reason: e.message || String(e) });
+        }
+      }
+      result.produtosResult = produtosResult;
+      trace_('sync:trigger', 'Trigger de desagregação concluído', {
+        nfProcessed: produtosResult.totalProcessed,
+        productsInserted: produtosResult.totalProductsInserted,
+        errors: produtosResult.errors.length
+      });
+    }
+
     var durationMs = Date.now() - startTime;
     trace_('sync:done', 'Sync concluída em ' + durationMs + 'ms', {
       total: result.total,
