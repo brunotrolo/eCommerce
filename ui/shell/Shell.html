@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <?!= include('ui/shared/Styles'); ?>
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav class="app-nav">
+        <button class="btn btn-secondary" data-route="dashboard">Dashboard</button>
+        <button class="btn btn-secondary" data-route="pricing">Calculadora</button>
+        <button class="btn btn-secondary" data-route="orders">Pedidos</button>
+        <button class="btn btn-secondary" data-route="listings">Anúncios</button>
+        <button class="btn btn-secondary" data-route="inventoryPricing">Preço e Estoque</button>
+      </nav>
+      <main id="app-view"></main>
+    </div>
+
+    <?!= include('ui/shared/DesignSystemLoader'); ?>
+    <?!= include('ui/dashboard/DashboardView'); ?>
+    <?!= include('ui/pricing/PricingView'); ?>
+    <?!= include('ui/orders/OrdersView'); ?>
+    <?!= include('ui/listings/ListingsView'); ?>
+    <?!= include('ui/inventoryPricing/InventoryPricingView'); ?>
+
+    <script>
+      // Cada rota é um micro-frontend independente: um Web Component com
+      // Shadow DOM próprio (ver *View.html). O Shell só monta/desmonta a tag.
+      var ROUTES = {
+        dashboard: 'dashboard-widget',
+        pricing: 'pricing-calculator-widget',
+        orders: 'orders-widget',
+        listings: 'listings-widget',
+        inventoryPricing: 'inventory-pricing-widget'
+      };
+
+      function navigate(route) {
+        var view = document.getElementById('app-view');
+        view.innerHTML = '';
+        var tag = ROUTES[route] ? route : 'dashboard';
+        view.appendChild(document.createElement(ROUTES[tag]));
+        window.location.hash = tag;
+        document.querySelectorAll('.app-nav button').forEach(function (btn) {
+          btn.classList.toggle('btn-active', btn.dataset.route === tag);
+        });
+      }
+
+      document.querySelectorAll('.app-nav button').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          navigate(btn.dataset.route);
+        });
+      });
+
+      navigate((window.location.hash || '#dashboard').replace('#', ''));
+    </script>
+  </body>
+</html>

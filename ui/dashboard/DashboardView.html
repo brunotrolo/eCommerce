@@ -1,0 +1,76 @@
+<template id="dashboard-template">
+  <div class="card">
+    <h2>Dashboard</h2>
+    <p class="alert alert-danger" id="error-box" hidden></p>
+    <div id="content">Carregando…</div>
+  </div>
+</template>
+<script>
+  (function () {
+    if (customElements.get('dashboard-widget')) return;
+
+    class DashboardWidget extends HTMLElement {
+      connectedCallback() {
+        var template = document.getElementById('dashboard-template');
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        shadow.appendChild(template.content.cloneNode(true));
+        this._load(shadow);
+      }
+
+      _load(shadow) {
+        var errorBox = shadow.getElementById('error-box');
+        google.script.run
+          .withSuccessHandler(function (response) {
+            if (response.error) {
+              errorBox.textContent = response.error;
+              errorBox.hidden = false;
+              return;
+            }
+            render(shadow, response.data);
+          })
+          .withFailureHandler(function (err) {
+            errorBox.textContent = err.message || String(err);
+            errorBox.hidden = false;
+          })
+          .apiDispatch('dashboard.getSummary', {});
+      }
+    }
+
+    function render(shadow, data) {
+      var content = shadow.getElementById('content');
+      var lowStockRows = (data.lowStock || [])
+        .map(function (item) {
+          return (
+            '<tr><td>' + item.title + '</td><td><span class="badge badge-' +
+            (item.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' +
+            item.marketplace + '</span></td><td>' + item.stock + '</td></tr>'
+          );
+        })
+        .join('');
+
+      var orderRows = (data.orders || [])
+        .slice(0, 10)
+        .map(function (order) {
+          return (
+            '<tr><td>' + order.id + '</td><td><span class="badge badge-' +
+            (order.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' +
+            order.marketplace + '</span></td><td>' + order.status + '</td><td>' +
+            (order.total != null ? Number(order.total).toFixed(2) : '-') + '</td></tr>'
+          );
+        })
+        .join('');
+
+      content.innerHTML =
+        '<p>' + (data.fromCache ? 'Dados em cache (até 5 min).' : 'Dados atualizados agora.') + '</p>' +
+        '<h3>Pedidos recentes</h3>' +
+        '<table class="table"><thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Total</th></tr></thead>' +
+        '<tbody>' + (orderRows || '<tr><td colspan="4">Sem pedidos recentes.</td></tr>') + '</tbody></table>' +
+        '<h3>Estoque baixo (≤ 3 un.)</h3>' +
+        '<table class="table"><thead><tr><th>Produto</th><th>Canal</th><th>Estoque</th></tr></thead>' +
+        '<tbody>' + (lowStockRows || '<tr><td colspan="3">Nenhum alerta.</td></tr>') + '</tbody></table>';
+    }
+
+    customElements.define('dashboard-widget', DashboardWidget);
+  })();
+</script>

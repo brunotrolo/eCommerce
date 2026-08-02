@@ -1,0 +1,109 @@
+<template id="listings-template">
+  <div class="card">
+    <h2>Anúncios</h2>
+    <div class="form-field">
+      <label for="marketplace-filter">Canal</label>
+      <select id="marketplace-filter">
+        <option value="all">Todos</option>
+        <option value="shopee">Shopee</option>
+        <option value="mercado_livre">Mercado Livre</option>
+      </select>
+    </div>
+    <button class="btn" id="btn-refresh">Atualizar</button>
+    <p class="alert alert-danger" id="error-box" hidden></p>
+    <table class="table" id="listings-table">
+      <thead><tr><th>Título</th><th>Canal</th><th>Preço</th><th>Estoque</th><th>Status</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</template>
+<script>
+  (function () {
+    if (customElements.get('listings-widget')) return;
+
+    class ListingsWidget extends HTMLElement {
+      connectedCallback() {
+        var template = document.getElementById('listings-template');
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        shadow.appendChild(template.content.cloneNode(true));
+        var self = this;
+        shadow.getElementById('btn-refresh').addEventListener('click', function () {
+          self._load(shadow);
+        });
+        this._load(shadow);
+      }
+
+      _load(shadow) {
+        var errorBox = shadow.getElementById('error-box');
+        var marketplace = shadow.getElementById('marketplace-filter').value;
+        errorBox.hidden = true;
+
+        var self = this;
+        google.script.run
+          .withSuccessHandler(function (response) {
+            if (response.error) {
+              errorBox.textContent = response.error;
+              errorBox.hidden = false;
+              return;
+            }
+            self._renderRows(shadow, response.data.listings || []);
+          })
+          .withFailureHandler(function (err) {
+            errorBox.textContent = err.message || String(err);
+            errorBox.hidden = false;
+          })
+          .apiDispatch('listings.listUnified', { marketplace: marketplace });
+      }
+
+      _renderRows(shadow, listings) {
+        var self = this;
+        var tbody = shadow.querySelector('#listings-table tbody');
+        tbody.innerHTML = '';
+        listings.forEach(function (item) {
+          var tr = document.createElement('tr');
+          var isActive = /active|ativo/i.test(item.status || '');
+          tr.innerHTML =
+            '<td>' + item.title + '</td>' +
+            '<td><span class="badge badge-' + (item.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' +
+            item.marketplace + '</span></td>' +
+            '<td>' + (item.price != null ? Number(item.price).toFixed(2) : '-') + '</td>' +
+            '<td>' + (item.stock != null ? item.stock : '-') + '</td>' +
+            '<td><span class="badge badge-' + (isActive ? 'success' : 'warning') + '">' + item.status + '</span></td>' +
+            '<td><button class="btn btn-secondary btn-toggle">' + (isActive ? 'Pausar' : 'Ativar') + '</button></td>';
+          tr.querySelector('.btn-toggle').addEventListener('click', function () {
+            self._toggle(shadow, item, !isActive);
+          });
+          tbody.appendChild(tr);
+        });
+        if (!listings.length) {
+          tbody.innerHTML = '<tr><td colspan="6">Nenhum anúncio encontrado.</td></tr>';
+        }
+      }
+
+      _toggle(shadow, item, shouldActivate) {
+        var errorBox = shadow.getElementById('error-box');
+        var self = this;
+        google.script.run
+          .withSuccessHandler(function (response) {
+            if (response.error) {
+              errorBox.textContent = response.error;
+              errorBox.hidden = false;
+              return;
+            }
+            self._load(shadow);
+          })
+          .withFailureHandler(function (err) {
+            errorBox.textContent = err.message || String(err);
+            errorBox.hidden = false;
+          })
+          .apiDispatch(shouldActivate ? 'listings.activate' : 'listings.pause', {
+            marketplace: item.marketplace,
+            itemId: item.id
+          });
+      }
+    }
+
+    customElements.define('listings-widget', ListingsWidget);
+  })();
+</script>

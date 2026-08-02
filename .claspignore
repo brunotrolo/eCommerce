@@ -1,0 +1,6 @@
+# clasp só deve enviar ao Apps Script o que o runtime entende
+# (server JS, HTML e o manifesto). Tudo o resto fica de fora do push.
+**/**
+!appsscript.json
+!src/**/*.js
+!ui/**/*.html

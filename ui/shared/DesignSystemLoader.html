@@ -1,0 +1,12 @@
+<script>
+  // Constrói um único CSSStyleSheet a partir de Styles.html e o disponibiliza
+  // globalmente para que cada widget (Shadow DOM) o adote via
+  // `shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__]` — sem duplicar
+  // CSS no DOM e sem precisar de build step.
+  (function () {
+    var source = document.getElementById('design-tokens-source');
+    var sheet = new CSSStyleSheet();
+    sheet.replaceSync(source ? source.textContent : '');
+    window.__DESIGN_SHEET__ = sheet;
+  })();
+</script>

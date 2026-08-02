@@ -1,0 +1,166 @@
+<style id="design-tokens-source">
+  /* ============================================================
+     Design tokens — fonte única do system design deste app.
+     Nenhum widget deve usar cor/espaçamento/sombra "solto"; sempre
+     referenciar uma destas custom properties (ver skill design-tokens-guard).
+     ============================================================ */
+  :root {
+    /* Paleta neutra */
+    --color-bg: #f7f8fa;
+    --color-surface: #ffffff;
+    --color-border: #e2e5ea;
+    --color-text: #1c1f26;
+    --color-text-muted: #6b7280;
+
+    /* Marca */
+    --color-primary: #2563eb;
+    --color-primary-hover: #1d4ed8;
+    --color-danger: #dc2626;
+    --color-success: #16a34a;
+    --color-warning: #d97706;
+
+    /* Cores de marketplace, para badges/indicadores por canal */
+    --color-shopee: #ee4d2d;
+    --color-shopee-bg: #fdece7;
+    --color-mercado-livre: #fee600;
+    --color-mercado-livre-bg: #fffbcc;
+    --color-mercado-livre-text: #3d3d00;
+
+    /* Espaçamento (escala 4px) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+
+    /* Tipografia */
+    --font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-size-sm: 13px;
+    --font-size-base: 14px;
+    --font-size-lg: 18px;
+    --font-size-xl: 24px;
+    --font-weight-medium: 600;
+
+    /* Forma */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
+    --shadow-md: 0 4px 12px rgba(16, 24, 40, 0.10);
+
+    --z-shell: 1;
+    --z-overlay: 10;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #14161a;
+      --color-surface: #1c1f26;
+      --color-border: #2c303a;
+      --color-text: #f2f3f5;
+      --color-text-muted: #9aa1ac;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+  }
+
+  /* ============================================================
+     Classes base de componente — compartilhadas por todos os widgets
+     via CSSStyleSheet único (ver DesignSystemLoader.html).
+     ============================================================ */
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    color: var(--color-text);
+    background: var(--color-bg);
+  }
+
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-4);
+  }
+
+  .card h2 {
+    margin: 0 0 var(--space-3) 0;
+    font-size: var(--font-size-lg);
+  }
+
+  .btn {
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    cursor: pointer;
+    background: var(--color-primary);
+    color: #fff;
+  }
+  .btn:hover { background: var(--color-primary-hover); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.btn-secondary {
+    background: transparent;
+    border-color: var(--color-border);
+    color: var(--color-text);
+  }
+
+  .form-field { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-3); }
+  .form-field label { font-size: var(--font-size-sm); color: var(--color-text-muted); }
+  .form-field input,
+  .form-field select {
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  .table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
+  .table th, .table td {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .table th { color: var(--color-text-muted); font-weight: var(--font-weight-medium); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+  }
+  .badge.badge-shopee { background: var(--color-shopee-bg); color: var(--color-shopee); }
+  .badge.badge-mercado-livre { background: var(--color-mercado-livre-bg); color: var(--color-mercado-livre-text); }
+  .badge.badge-success { background: rgba(22, 163, 74, 0.12); color: var(--color-success); }
+  .badge.badge-warning { background: rgba(217, 119, 6, 0.12); color: var(--color-warning); }
+  .badge.badge-danger { background: rgba(220, 38, 38, 0.12); color: var(--color-danger); }
+
+  .alert { padding: var(--space-3); border-radius: var(--radius-md); font-size: var(--font-size-sm); }
+  .alert.alert-danger { background: rgba(220, 38, 38, 0.08); color: var(--color-danger); }
+  .alert.alert-warning { background: rgba(217, 119, 6, 0.08); color: var(--color-warning); }
+
+  /* Shell (fora do Shadow DOM — o próprio documento-luz) */
+  .app-shell { display: flex; flex-direction: column; min-height: 100vh; }
+  .app-nav {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: var(--z-shell);
+  }
+  .app-nav button.btn-active { background: var(--color-primary-hover); }
+  #app-view { padding: var(--space-5); max-width: 960px; margin: 0 auto; width: 100%; }
+</style>

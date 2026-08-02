@@ -1,0 +1,115 @@
+<template id="inventory-pricing-template">
+  <div class="card">
+    <h2>Preço e Estoque</h2>
+    <div class="form-field">
+      <label for="marketplace">Canal</label>
+      <select id="marketplace">
+        <option value="shopee">Shopee</option>
+        <option value="mercado_livre">Mercado Livre</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label for="itemId">ID do anúncio</label>
+      <input type="text" id="itemId" placeholder="ex.: 58264007947 ou MLB1234567890" />
+    </div>
+    <div class="form-field">
+      <label for="unitCost">Custo unitário (R$)</label>
+      <input type="number" id="unitCost" step="0.01" min="0" />
+    </div>
+    <div class="form-field">
+      <label for="targetMarginPct">Margem alvo (%)</label>
+      <input type="number" id="targetMarginPct" step="1" min="0" max="99" value="25" />
+    </div>
+    <button class="btn" id="btn-apply-price">Calcular e aplicar preço</button>
+
+    <div class="form-field" style="margin-top: var(--space-4)">
+      <label for="quantity">Novo estoque</label>
+      <input type="number" id="quantity" step="1" min="0" />
+    </div>
+    <button class="btn btn-secondary" id="btn-apply-stock">Atualizar estoque</button>
+
+    <p class="alert alert-danger" id="error-box" hidden></p>
+    <div id="result-box"></div>
+  </div>
+</template>
+<script>
+  (function () {
+    if (customElements.get('inventory-pricing-widget')) return;
+
+    class InventoryPricingWidget extends HTMLElement {
+      connectedCallback() {
+        var template = document.getElementById('inventory-pricing-template');
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        shadow.appendChild(template.content.cloneNode(true));
+
+        var self = this;
+        shadow.getElementById('btn-apply-price').addEventListener('click', function () {
+          self._applyPrice(shadow);
+        });
+        shadow.getElementById('btn-apply-stock').addEventListener('click', function () {
+          self._applyStock(shadow);
+        });
+      }
+
+      _applyPrice(shadow) {
+        var errorBox = shadow.getElementById('error-box');
+        var resultBox = shadow.getElementById('result-box');
+        errorBox.hidden = true;
+
+        var params = {
+          marketplace: shadow.getElementById('marketplace').value,
+          itemId: shadow.getElementById('itemId').value,
+          unitCost: parseFloat(shadow.getElementById('unitCost').value),
+          targetMarginPct: parseFloat(shadow.getElementById('targetMarginPct').value) / 100
+        };
+
+        google.script.run
+          .withSuccessHandler(function (response) {
+            if (response.error) {
+              errorBox.textContent = response.error;
+              errorBox.hidden = false;
+              return;
+            }
+            resultBox.innerHTML =
+              '<p class="badge badge-success">Preço aplicado: R$ ' +
+              Number(response.data.pricing.suggestedPrice).toFixed(2) + '</p>';
+          })
+          .withFailureHandler(function (err) {
+            errorBox.textContent = err.message || String(err);
+            errorBox.hidden = false;
+          })
+          .apiDispatch('inventoryPricing.applySuggestedPrice', params);
+      }
+
+      _applyStock(shadow) {
+        var errorBox = shadow.getElementById('error-box');
+        var resultBox = shadow.getElementById('result-box');
+        errorBox.hidden = true;
+
+        var params = {
+          marketplace: shadow.getElementById('marketplace').value,
+          itemId: shadow.getElementById('itemId').value,
+          quantity: parseInt(shadow.getElementById('quantity').value, 10)
+        };
+
+        google.script.run
+          .withSuccessHandler(function (response) {
+            if (response.error) {
+              errorBox.textContent = response.error;
+              errorBox.hidden = false;
+              return;
+            }
+            resultBox.innerHTML = '<p class="badge badge-success">Estoque atualizado.</p>';
+          })
+          .withFailureHandler(function (err) {
+            errorBox.textContent = err.message || String(err);
+            errorBox.hidden = false;
+          })
+          .apiDispatch('inventoryPricing.updateStock', params);
+      }
+    }
+
+    customElements.define('inventory-pricing-widget', InventoryPricingWidget);
+  })();
+</script>
