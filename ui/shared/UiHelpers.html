@@ -28,7 +28,18 @@
     function showError(message) {
       setLoading(false);
       if (errorBox) {
-        errorBox.textContent = message;
+        errorBox.innerHTML = '';
+        var text = document.createElement('span');
+        text.textContent = message;
+        var dismiss = document.createElement('button');
+        dismiss.className = 'alert-dismiss';
+        dismiss.setAttribute('aria-label', 'Fechar');
+        dismiss.textContent = '\u00D7';
+        dismiss.addEventListener('click', function () {
+          errorBox.hidden = true;
+        });
+        errorBox.appendChild(text);
+        errorBox.appendChild(dismiss);
         errorBox.hidden = false;
       }
     }

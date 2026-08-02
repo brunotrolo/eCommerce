@@ -1,9 +1,10 @@
 <template id="dashboard-template">
   <div class="widget-grid">
     <div class="card">
-      <h2>Dashboard</h2>
+      <h1>Dashboard</h1>
+      <p class="page-subtitle">Visão unificada de vendas, pedidos e estoque das duas lojas.</p>
       <button class="btn" id="btn-refresh">Atualizar</button>
-      <p class="alert alert-danger" id="error-box" hidden></p>
+      <div class="alert alert-error" id="error-box" hidden></div>
       <div id="result-box" hidden></div>
     </div>
     <div class="stat-grid" id="stat-grid"></div>
@@ -71,7 +72,7 @@
       var income = data.shopeeIncome || {};
       var lowStock = data.lowStock || [];
       shadow.getElementById('stat-grid').innerHTML =
-        '<div class="stat-card">' +
+        '<div class="stat-card stat-card--featured">' +
         '<span class="stat-label">Pedidos recentes</span>' +
         '<span class="stat-value">' + (data.orders || []).length + '</span>' +
         '<span class="stat-meta">' + marketplaceBadge('shopee') + marketplaceBadge('mercado_livre') +
@@ -82,7 +83,7 @@
         '<span class="stat-value stat-value--primary">' + formatBRL(income.gmv) + '</span>' +
         '<span class="stat-meta">' + (income.orders || 0) + ' pedidos</span>' +
         '</div>' +
-        '<div class="stat-card">' +
+        '<div class="stat-card stat-card--warning">' +
         '<span class="stat-label">Alertas estoque</span>' +
         '<span class="stat-value stat-value--warning">' + lowStock.length + '</span>' +
         '<span class="stat-meta">itens com ≤ 3 un.</span>' +
