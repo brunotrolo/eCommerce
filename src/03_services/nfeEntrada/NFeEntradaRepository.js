@@ -5,12 +5,12 @@
 var NFeEntradaRepository = (function () {
   var SHEET_NAME = 'NFE_ENTRADA';
   var HEADERS = [
-    'numero_nf', 'chave_nf', 'data_emissao', 'emitente_cnpj', 'emitente_nome',
-    'emitente_ie', 'emitente_endereco', 'destinatario_cnpj', 'destinatario_nome',
-    'destinatario_ie', 'destinatario_endereco', 'valor_total', 'valor_desconto',
-    'valor_frete', 'valor_icms', 'valor_pis', 'valor_cofins', 'valor_ibs',
-    'valor_cbs', 'produtos_json', 'status_nfe', 'numero_protocolo', 'data_sync',
-    'tipo_arquivo'
+    'NUMERO_NF', 'CHAVE_NF', 'DATA_EMISSAO', 'EMITENTE_CNPJ', 'EMITENTE_NOME',
+    'EMITENTE_IE', 'EMITENTE_ENDERECO', 'DESTINATARIO_CNPJ', 'DESTINATARIO_NOME',
+    'DESTINATARIO_IE', 'DESTINATARIO_ENDERECO', 'VALOR_TOTAL', 'VALOR_DESCONTO',
+    'VALOR_FRETE', 'VALOR_ICMS', 'VALOR_PIS', 'VALOR_COFINS', 'VALOR_IBS',
+    'VALOR_CBS', 'PRODUTOS_JSON', 'STATUS_NFE', 'NUMERO_PROTOCOLO', 'DATA_SYNC',
+    'TIPO_ARQUIVO'
   ];
 
   function getOrCreateSheet(sheetId) {
@@ -19,6 +19,30 @@ var NFeEntradaRepository = (function () {
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME);
       sheet.appendRow(HEADERS);
+      sheet.setFrozenRows(1);
+      return sheet;
+    }
+    var firstRow = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+    var headersMatch = true;
+    var hasAnyHeader = false;
+    for (var i = 0; i < HEADERS.length; i++) {
+      var cellVal = String(firstRow[i]).trim();
+      if (cellVal === HEADERS[i]) {
+        hasAnyHeader = true;
+      } else if (cellVal.length > 0) {
+        hasAnyHeader = true;
+      }
+      if (cellVal !== HEADERS[i]) {
+        headersMatch = false;
+      }
+    }
+    if (!headersMatch) {
+      if (hasAnyHeader) {
+        sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+      } else {
+        sheet.insertRowBefore(1);
+        sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+      }
       sheet.setFrozenRows(1);
     }
     return sheet;
@@ -33,7 +57,7 @@ var NFeEntradaRepository = (function () {
     var sheet = getOrCreateSheet(sheetId);
     var values = sheet.getDataRange().getValues();
     if (values.length < 2) return [];
-    var numeroNfIndex = HEADERS.indexOf('numero_nf');
+    var numeroNfIndex = HEADERS.indexOf('NUMERO_NF');
     var existing = [];
     for (var i = 1; i < values.length; i++) {
       var val = String(values[i][numeroNfIndex]).trim();
@@ -53,7 +77,7 @@ var NFeEntradaRepository = (function () {
     if (values.length < 2) return [];
     var rows = [];
     for (var i = 1; i < values.length; i++) {
-      var obj = {};
+var obj = {};
       for (var j = 0; j < HEADERS.length; j++) {
         obj[HEADERS[j]] = values[i][j];
       }

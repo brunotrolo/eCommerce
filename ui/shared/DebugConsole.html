@@ -1,0 +1,344 @@
+<template id="debug-console-template">
+  <style>
+    .dbg-fab[hidden], .dbg-overlay[hidden], .dbg-drawer[hidden] {
+      display: none !important;
+    }
+    .dbg-fab {
+      position: fixed;
+      right: var(--space-lg);
+      bottom: var(--space-lg);
+      z-index: 10000;
+      border-radius: 999px;
+      min-width: 0;
+      --animation: none;
+    }
+    .dbg-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9990;
+      background: rgba(0, 0, 0, 0.45);
+    }
+    .dbg-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(560px, 92vw);
+      z-index: 9995;
+      background: var(--color-surface);
+      border-left: 1px solid var(--color-border);
+      color: var(--color-text);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.25);
+    }
+    .dbg-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-sm) var(--space-md);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .dbg-head h3 { margin: 0; font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); }
+    .dbg-tabs { display: flex; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--color-border); }
+    .dbg-tab {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      background: var(--color-surface-alt);
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-xs);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .dbg-tab[data-active='true'] {
+      background: var(--color-primary);
+      color: var(--color-bg);
+      border-color: var(--color-primary);
+    }
+    .dbg-body { flex: 1; overflow: auto; padding: var(--space-sm); display: flex; flex-direction: column; gap: var(--space-xs); }
+    .dbg-empty { color: var(--color-text-tertiary); font-size: var(--font-size-sm); text-align: center; padding: var(--space-lg); }
+    .dbg-row {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: var(--space-xs) var(--space-sm);
+      font-size: var(--font-size-xs);
+      background: var(--color-surface-alt);
+    }
+    .dbg-row--error { border-color: var(--color-warning); }
+    .dbg-row--error .dbg-to { color: var(--color-warning-text); }
+    .dbg-meta { display: flex; gap: var(--space-sm); flex-wrap: wrap; color: var(--color-text-secondary); margin-bottom: var(--space-xs); }
+    .dbg-action { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+    .dbg-status--OK { color: var(--color-success-text); font-weight: var(--font-weight-semibold); }
+    .dbg-status--ERROR { color: var(--color-warning-text); font-weight: var(--font-weight-semibold); }
+    .dbg-sum { color: var(--color-text); word-break: break-word; }
+    .dbg-error { color: var(--color-warning-text); word-break: break-word; margin-top: var(--space-xs); }
+    .dbg-detail {
+      margin-top: var(--space-xs);
+      border-top: 1px dashed var(--color-border-light);
+      padding-top: var(--space-xs);
+      color: var(--color-text-secondary);
+      word-break: break-all;
+      white-space: pre-wrap;
+      font-family: var(--font-family-mono);
+      font-size: var(--font-size-2xs);
+    }
+    .dbg-foot { display: flex; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-top: 1px solid var(--color-border); flex-wrap: wrap; }
+    .dbg-foot .btn { flex: 1 1 auto; white-space: nowrap; }
+  </style>
+
+  <button class="btn dbg-fab" id="dbg-fab" title="Abrir Debug Console (Ctrl+E)">Debug</button>
+  <div class="dbg-overlay" id="dbg-overlay" hidden></div>
+  <section class="dbg-drawer" id="dbg-drawer" hidden aria-label="Console de depuração">
+    <div class="dbg-head">
+      <h3>Debug Console</h3>
+      <button class="btn" id="dbg-close" aria-label="Fechar">×</button>
+    </div>
+    <div class="dbg-tabs">
+      <button class="dbg-tab" data-tab="backend" data-active="true">Logs (backend)</button>
+      <button class="dbg-tab" data-tab="front" data-active="false">Erros (browser)</button>
+    </div>
+    <div class="dbg-body" id="dbg-body"></div>
+    <div class="dbg-foot">
+      <button class="btn" id="dbg-reload">Atualizar</button>
+      <button class="btn" id="dbg-clear">Limpar</button>
+      <button class="btn" id="dbg-copy">Copiar JSON</button>
+    </div>
+  </section>
+</template>
+
+<script>
+  customElements.define(
+    'debug-console-widget',
+    class extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.shadowRoot.appendChild(document.getElementById('debug-console-template').content.cloneNode(true));
+        if (window.__DESIGN_SHEET__) {
+          this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        }
+        this.backendLogs = [];
+        this.frontErrors = [];
+        this.activeTab = 'backend';
+        this.hookGlobalCapture_();
+      }
+
+      connectedCallback() {
+        this.shadowRoot.getElementById('dbg-fab').addEventListener('click', () => this.open());
+        this.shadowRoot.getElementById('dbg-overlay').addEventListener('click', () => this.close());
+        this.shadowRoot.getElementById('dbg-close').addEventListener('click', () => this.close());
+        this.shadowRoot.getElementById('dbg-reload').addEventListener('click', () => this.loadBackendLogs());
+        this.shadowRoot.getElementById('dbg-clear').addEventListener('click', () => this.clear());
+        this.shadowRoot.getElementById('dbg-copy').addEventListener('click', () => this.copy());
+        this.shadowRoot.querySelectorAll('.dbg-tab').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            this.activeTab = btn.dataset.tab;
+            this.shadowRoot.querySelectorAll('.dbg-tab').forEach((b) => {
+              b.dataset.active = String(b === btn);
+            });
+            this.render();
+          });
+        });
+        window.addEventListener('keydown', (e) => {
+          if (e.ctrlKey && e.key.toLowerCase() === 'e') {
+            e.preventDefault();
+            if (this.shadowRoot.getElementById('dbg-drawer').hidden) this.open();
+            else this.close();
+          }
+        });
+      }
+
+      // Captura global de erros do browser. Não toca no google.script.run.
+      hookGlobalCapture_() {
+        const push = (entry) => {
+          this.frontErrors.unshift(entry);
+          if (this.frontErrors.length > 100) this.frontErrors.pop();
+          if (!this.shadowRoot.getElementById('dbg-drawer').hidden) this.render();
+        };
+        window.addEventListener('error', (e) => {
+          push({
+            kind: 'window.onerror',
+            message: e.message || 'Erro de script',
+            file: e.filename || '',
+            line: e.lineno || '',
+            col: e.colno || '',
+            stack: e.error && e.error.stack ? e.error.stack.split('\n').slice(0, 8).join('\n') : ''
+          });
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+          const reason = e.reason || {};
+          push({
+            kind: 'unhandledrejection',
+            message: (reason && (reason.message || reason.error)) || String(reason),
+            stack: reason && reason.stack ? reason.stack.split('\n').slice(0, 8).join('\n') : ''
+          });
+        });
+      }
+
+      open() {
+        this.shadowRoot.getElementById('dbg-drawer').hidden = false;
+        this.shadowRoot.getElementById('dbg-overlay').hidden = false;
+        this.shadowRoot.getElementById('dbg-fab').hidden = true;
+        this.activeTab = 'backend';
+        this.shadowRoot.querySelectorAll('.dbg-tab').forEach((b) => {
+          b.dataset.active = String(b.dataset.tab === 'backend');
+        });
+        this.loadBackendLogs();
+      }
+
+      close() {
+        this.shadowRoot.getElementById('dbg-drawer').hidden = true;
+        this.shadowRoot.getElementById('dbg-overlay').hidden = true;
+        this.shadowRoot.getElementById('dbg-fab').hidden = false;
+      }
+
+      clear() {
+        this.backendLogs = [];
+        this.frontErrors = [];
+        this.render();
+      }
+
+      loadBackendLogs() {
+        google.script.run
+          .withSuccessHandler((res) => {
+            const logs = (res && res.logs) || [];
+            // falling back to lowercase keys defensive, keeping UPPER preferred
+            this.backendLogs = logs.map((log) => this._shapeLog(log));
+            this.render();
+          })
+          .withFailureHandler((err) => {
+            this.backendLogs = [{ ACTION: 'logging.getLogs', STATUS: 'ERROR', SUMMARY: err.message || String(err) }];
+            this.render();
+          })
+          .apiDispatch('logging.getLogs', { limit: 50 });
+      }
+
+      _shapeLog(raw) {
+        const pick = (upper, lower) => raw[upper] !== undefined ? raw[upper] : raw[lower];
+        return {
+          UPDATED_AT: pick('UPDATED_AT', 'updatedAt'),
+          SERVICE: pick('SERVICE', 'service'),
+          ACTION: pick('ACTION', 'action'),
+          STATUS: pick('STATUS', 'status'),
+          SUMMARY: pick('SUMMARY', 'summary'),
+          DURATION_MS: pick('DURATION_MS', 'durationMs'),
+          ERROR_MESSAGE: pick('ERROR_MESSAGE', 'errorMessage'),
+          CONTEXT: pick('CONTEXT', 'context'),
+          ENVIRONMENT: pick('ENVIRONMENT', 'environment')
+        };
+      }
+
+      render() {
+        const body = this.shadowRoot.getElementById('dbg-body');
+        body.innerHTML = '';
+        const items = this.activeTab === 'backend' ? this.backendLogs : this.frontErrors;
+        if (!items.length) {
+          const empty = document.createElement('div');
+          empty.className = 'dbg-empty';
+          empty.textContent = this.activeTab === 'backend' ? 'Sem logs no servidor.' : 'Nenhum erro no browser capturado.';
+          body.appendChild(empty);
+          return;
+        }
+        items.slice(0, 50).forEach((item) => {
+          body.appendChild(this._renderRow(item));
+        });
+      }
+
+      _renderRow(item) {
+        const row = document.createElement('div');
+        const isError = String(item.STATUS || item.kind || '').toUpperCase() === 'ERROR' ||
+          String(item.kind || '').indexOf('onerror') !== -1 ||
+          String(item.kind || '').indexOf('rejection') !== -1;
+        row.className = 'dbg-row' + (isError ? ' dbg-row--error' : ' dbg-row--ok');
+
+        const meta = document.createElement('div');
+        meta.className = 'dbg-meta';
+        const action = document.createElement('span');
+        action.className = 'dbg-action';
+        action.textContent = item.ACTION || (item.kind + '') || '—';
+        const status = document.createElement('span');
+        status.className = item.STATUS === 'ERROR' ? 'dbg-status--ERROR' : 'dbg-status--OK';
+        status.textContent = item.STATUS || '';
+        const source = document.createElement('span');
+        source.className = 'dbg-source';
+        source.textContent = (item.SERVICE || '') + ' · ' + (item.ENVIRONMENT || '') + ' · ' + (item.UPDATED_AT || '');
+        meta.appendChild(action);
+        meta.appendChild(status);
+        meta.appendChild(source);
+        row.appendChild(meta);
+
+        const sum = document.createElement('div');
+        sum.className = 'dbg-sum';
+        sum.textContent = item.SUMMARY || item.message || '—';
+        row.appendChild(sum);
+
+        if (item.ERROR_MESSAGE || item.stack) {
+          const err = document.createElement('div');
+          err.className = 'dbg-error';
+          err.textContent = (item.ERROR_MESSAGE || '') + (item.stack ? '\n' + item.stack : '');
+          row.appendChild(err);
+        }
+
+        const ctx = item.CONTEXT;
+        const detail = document.createElement('div');
+        detail.className = 'dbg-detail';
+        if (ctx) {
+          detail.textContent = typeof ctx === 'string' ? ctx : JSON.stringify(ctx);
+        } else {
+          const line = item.line ? ('linha ' + item.line + ' ' + item.file) : '';
+          detail.textContent = line || '';
+          if (!line) detail.textContent = '';
+        }
+        if (detail.textContent) row.appendChild(detail);
+        return row;
+      }
+
+      copy() {
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          url: window.location.href,
+          backend: this.backendLogs.slice(0, 50),
+          front: this.frontErrors
+        };
+        const text = JSON.stringify(redact_(payload), null, 2);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(() => {
+            this._flash('Copiado');
+          });
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          this._flash('Copiado');
+        }
+      }
+
+      _flash(msg) {
+        const btn = this.shadowRoot.getElementById('dbg-copy');
+        const original = btn.textContent;
+        btn.textContent = msg;
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      }
+    }
+  );
+
+  // redact_ — remove segredos antes de qualquer exportação de JSON.
+  function redact_(value, depth) {
+    depth = depth || 0;
+    if (depth > 6) return '[depth]';
+    if (value === null || value === undefined) return value;
+    if (typeof value !== 'object') return value;
+    if (value instanceof Date) return value.toISOString();
+    if (Array.isArray(value)) return value.map((v) => redact_(v, depth + 1));
+    const out = {};
+    const SENSITIVE = /(api[_-]?key|secret|password|passwd|access[_-]?token|client[_-]?secret|authorization|token|key)/i;
+    Object.keys(value).forEach((k) => {
+      if (SENSITIVE.test(k)) { out[k] = '[REDACTED]'; return; }
+      out[k] = redact_(value[k], depth + 1);
+    });
+    return out;
+  }
+</script>

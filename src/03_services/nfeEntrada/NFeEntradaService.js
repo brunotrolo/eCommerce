@@ -198,6 +198,7 @@ var NFeEntradaService = (function () {
             fileName: file.name,
             numeroNf: parsed.numeroNf,
             chaveNf: parsed.chaveNf,
+            dataEmissao: parsed.dataEmissao,
             emitenteNome: parsed.emitenteNome,
             valorTotal: parsed.valorTotal,
             statusNfe: parsed.statusNfe,
@@ -308,9 +309,10 @@ var NFeEntradaService = (function () {
 
     var dataEmissao = '';
     if (ide) {
-      var dhRecbto = elemText_(ide, 'dhRecbto');
-      if (!dhRecbto) dhRecbto = elemText_(ide, 'dEmi');
-      if (dhRecbto) dataEmissao = formatDateBR_(dhRecbto);
+      var dhEmi = elemText_(ide, 'dhEmi');
+      if (!dhEmi) dhEmi = elemText_(ide, 'dEmi');
+      if (!dhEmi) dhEmi = elemText_(ide, 'dhRecbto');
+      if (dhEmi) dataEmissao = formatDateBR_(dhEmi);
     }
 
     var emitenteNome = emit ? elemText_(emit, 'xNome') : '';
@@ -529,11 +531,25 @@ var NFeEntradaService = (function () {
   function getRecent(params) {
     var sheetId = ConfigService.getNfeEntradaSheetId();
     if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
-      return { data: [] };
+      return { data: [], sheetIdConfigured: false };
     }
     var limit = params.limit || 20;
-    var rows = NFeEntradaRepository.getRecentNfes(sheetId, limit);
-    return { data: rows };
+
+    try {
+      var rows = NFeEntradaRepository.getRecentNfes(sheetId, limit);
+      trace_('getRecent:ok', 'getRecent retornou ' + rows.length + ' linha(s)', {
+        sheetId: String(sheetId),
+        limit: limit,
+        rows: rows.length
+      });
+      return { data: rows, sheetIdConfigured: true };
+    } catch (e) {
+      traceError_('getRecent:error', 'Falha ao ler NFE_ENTRADA', {
+        sheetId: String(sheetId),
+        error: e.message || String(e)
+      });
+      return { error: 'Falha ao ler a aba NFE_ENTRADA: ' + (e.message || String(e)), data: [] };
+    }
   }
 
   // ─── Helpers (privados) ─────────────────────────────────────────────

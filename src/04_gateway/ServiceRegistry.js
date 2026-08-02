@@ -50,7 +50,7 @@ var ServiceRegistry = (function () {
       }
 
       if (data && data.error) return { error: data.error };
-      return { status: 200, data: data };
+      return { status: 200, data: sanitizeForClient_(data) };
     } catch (err) {
       var durationMs = Date.now() - startTime;
 
@@ -103,10 +103,37 @@ var ServiceRegistry = (function () {
     return null;
   }
 
+  /**
+   * Sanitiza objeto para transporte via google.script.run / JSON. O cliente
+   * do Apps Script NÃO serializa Date → devolve null. Converte Date para
+   * string ISO e undefined para '' antes de sair do dispatcher.
+   */
+  function sanitizeForClient_(value) {
+    if (value === null || value === undefined) return '';
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) return 0;
+    if (Array.isArray(value)) {
+      return value.map(sanitizeForClient_);
+    }
+    if (typeof value === 'object') {
+      var out = {};
+      var keys = Object.keys(value);
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var v = value[k];
+        if (typeof v === 'function' || typeof v === 'undefined') continue;
+        out[k] = sanitizeForClient_(v);
+      }
+      return out;
+    }
+    return value;
+  }
+
   return {
     services: services,
     listActions: listActions,
     describeAction: describeAction,
-    dispatch: dispatch
+    dispatch: dispatch,
+    sanitizeForClient: sanitizeForClient_
   };
 })();

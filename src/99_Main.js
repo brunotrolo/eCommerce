@@ -13,6 +13,8 @@ function onOpen() {
       .addSubMenu(
         SpreadsheetApp.getUi().createMenu('NFe Entrada')
           .addItem('Configurar Sheet ID', 'showNfeConfigDialog_')
+          .addItem('Sincronizar com Drive', 'syncNfeFromMenu_')
+          .addItem('Diagnóstico da Pasta', 'debugNfeSync_')
       )
       .addToUi();
   } catch (e) {
@@ -55,6 +57,26 @@ function showNfeConfigDialog_() {
 
 function ConfigService_setNfeEntradaSheetId(id) {
   return ConfigService.setNfeEntradaSheetId(id);
+}
+
+function syncNfeFromMenu_() {
+  try {
+    var folderId = '1tGl8zs9GOUA1L_i2FJNoimTl00_55qKu';
+    var result = apiDispatch('nfeEntrada.syncAndUpdateSheets', { driveFolder: folderId });
+    if (result.error) {
+      SpreadsheetApp.getUi().alert('Erro: ' + result.error);
+    } else {
+      SpreadsheetApp.getUi().alert(
+        'Sync concluída!\n\n' +
+        'Total: ' + result.data.total + '\n' +
+        'Inseridas: ' + result.data.inserted + '\n' +
+        'Duplicadas: ' + result.data.duplicated + '\n' +
+        'Erros: ' + (result.data.errors ? result.data.errors.length : 0)
+      );
+    }
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Erro: ' + e.message);
+  }
 }
 
 function setup_() {
@@ -151,6 +173,18 @@ function runNfeSmokeTests_() {
   if (deduped[0]._duplicate !== false) failures.push('XML deveria ser mantido');
   if (deduped[1]._duplicate !== true) failures.push('PDF duplicado deveria ser marcado');
 
+  // sanitizeForClient_: Date deve virar ISO string para google.script.run
+  var sanitized = ServiceRegistry.sanitizeForClient({
+    data_emissao: new Date('2026-05-05T12:00:00-03:00'),
+    valor_total: 123.45,
+    extra: undefined
+  });
+  if (sanitized.data_emissao !== '2026-05-05T15:00:00.000Z') failures.push('sanitizeForClient: Date deveria virar ISO string, obtido ' + sanitized.data_emissao);
+  if (!('extra' in sanitized)) failures.push('sanitizeForClient: undefined perdeu o campo?');
+  if (sanitized.extra !== '') failures.push('sanitizeForClient: undefined deveria virar string vazia');
+  if (sanitized.valor_total !== 123.45) failures.push('sanitizeForClient: número deveria passar intacto');
+  if (!Array.isArray(ServiceRegistry.sanitizeForClient([1, new Date(0)]))) failures.push('sanitizeForClient: array deveria virar array');
+
   if (failures.length) {
     Logger.log('FALHOU NFE:\n' + failures.join('\n'));
     throw new Error(failures.length + ' NFe smoke test(s) falharam.');
@@ -192,40 +226,40 @@ function clearOldLogs_() {
 }
 
 function debugNfeSync_() {
-  Logger.log('=== DEBUG NFE SYNC ===');
+  var L = function (action, status, summary, ctx) {
+    LoggingService.log({ service: 'nfeEntrada.debug', action: action, status: status || 'OK', summary: summary, context: ctx || {} });
+  };
+
+  L('debug:start', 'OK', 'Início diagnóstico da pasta Drive');
 
   var folderId = '1tGl8zs9GOUA1L_i2FJNoimTl00_55qKu';
-  Logger.log('1. Lendo pasta Drive: ' + folderId);
-  var files = DriveAdapter.readDriveFolder(folderId);
-  Logger.log('   Arquivos encontrados: ' + files.length);
-  for (var i = 0; i < files.length; i++) {
-    Logger.log('   - ' + files[i].name + ' (' + files[i].mimeType + ')' + (files[i].error ? ' ERRO: ' + files[i].error : ' OK (' + (files[i].content ? files[i].content.length : 0) + ' bytes)'));
+  var folder = DriveApp.getFolderById(folderId);
+  L('debug:folder', 'OK', 'Pasta: ' + folder.getName(), { folderId: folderId });
+
+  var allFiles = folder.getFiles();
+  var files = [];
+  while (allFiles.hasNext()) {
+    var f = allFiles.next();
+    files.push({ name: f.getName(), mime: f.getMimeType(), size: f.getSize() });
   }
+  L('debug:files', 'OK', files.length + ' arquivo(s) encontrado(s)', { files: files });
 
-  Logger.log('2. Sheet ID NFe Entrada: ' + ConfigService.getNfeEntradaSheetId());
-  Logger.log('3. Sheet ID principal: ' + ConfigService.getSheetId());
+  var xmlApp = folder.getFilesByType('application/xml');
+  var xmlAppCount = 0;
+  while (xmlApp.hasNext()) { xmlAppCount++; xmlApp.next(); }
 
-  var sheetId = ConfigService.getNfeEntradaSheetId();
-  if (sheetId && !sheetId.error) {
-    var existing = NFeEntradaRepository.getExistingNumeroNf(sheetId);
-    Logger.log('4. Registros existentes na aba NFE_ENTRADA: ' + existing.length);
-    Logger.log('   numeros_nf: ' + JSON.stringify(existing));
+  var xmlText = folder.getFilesByType('text/xml');
+  var xmlTextCount = 0;
+  while (xmlText.hasNext()) { xmlTextCount++; xmlText.next(); }
 
-    var sheet = NFeEntradaRepository.getOrCreateSheet(sheetId);
-    Logger.log('5. Aba encontrada: ' + sheet.getName() + ', linhas: ' + sheet.getLastRow());
-  }
+  var pdfFiles = folder.getFilesByType('application/pdf');
+  var pdfCount = 0;
+  while (pdfFiles.hasNext()) { pdfCount++; pdfFiles.next(); }
 
-  Logger.log('6. Testando parseXml...');
-  var xmlTest = files.filter(function(f) { return f.name && f.name.indexOf('.xml') !== -1; })[0];
-  if (xmlTest) {
-    var parsed = NFeEntradaService.parseXml({ xmlContent: xmlTest.content });
-    Logger.log('   numeroNf: ' + parsed.numeroNf);
-    Logger.log('   emitenteNome: ' + parsed.emitenteNome);
-    Logger.log('   valorTotal: ' + parsed.valorTotal);
-    Logger.log('   statusNfe: ' + parsed.statusNfe);
-  } else {
-    Logger.log('   Nenhum XML encontrado na pasta');
-  }
+  L('debug: mime counts', 'OK', 'application/xml=' + xmlAppCount + ' text/xml=' + xmlTextCount + ' application/pdf=' + pdfCount,
+    { applicationXml: xmlAppCount, textXml: xmlTextCount, applicationPdf: pdfCount });
 
-  Logger.log('=== FIM DEBUG ===');
+  L('debug:sheetId', 'OK', 'Sheet ID NFe: ' + ConfigService.getNfeEntradaSheetId());
+
+  L('debug:done', 'OK', 'Diagnóstico concluído — veja os logs acima');
 }

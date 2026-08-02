@@ -50,6 +50,7 @@
     <div class="card" id="recent-card" hidden>
       <h2>Últimas NFes Importadas</h2>
       <div class="nfe-table" id="nfe-table-container"></div>
+      <div id="recent-hint" class="nfe-empty" hidden></div>
     </div>
   </div>
 </template>
@@ -75,6 +76,8 @@
           var btn = this.shadowRoot.getElementById('btn-sync');
           var status = this.shadowRoot.getElementById('sync-status');
 
+          this._hideResults();
+
           btn.addEventListener('click', function () {
             btn.disabled = true;
             btn.textContent = 'Sincronizando…';
@@ -89,8 +92,8 @@
                 btn.textContent = 'Sincronizar com Drive';
                 status.textContent = '';
 
-                if (result.error) {
-                  self._showError(result.error);
+                if (!result || result.error) {
+                  self._showError((result && result.error) || 'Resposta vazia do servidor');
                   return;
                 }
                 self._showResult(result);
@@ -121,9 +124,14 @@
 
         _showResult(result) {
           var box = this.shadowRoot.getElementById('result-box');
-          var inserted = result.inserted || 0;
-          var duplicated = result.duplicated || 0;
-          var errCount = (result.errors || []).length;
+          if (!result) {
+            box.hidden = true;
+            return;
+          }
+          var data = result.data || {};
+          var inserted = data.inserted || 0;
+          var duplicated = data.duplicated || 0;
+          var errCount = (data.errors || []).length;
 
           var html = '<div class="alert alert-success">Sync concluída: ' +
             '<strong>' + inserted + '</strong> importada(s), ' +
@@ -132,8 +140,8 @@
 
           if (errCount > 0) {
             html += '<div class="alert alert-warning" style="margin-top: var(--space-md)">';
-            for (var i = 0; i < result.errors.length; i++) {
-              html += '<div>' + result.errors[i].file + ': ' + result.errors[i].reason + '</div>';
+            for (var i = 0; i < data.errors.length; i++) {
+              html += '<div>' + (data.errors[i].file || '') + ': ' + (data.errors[i].reason || '') + '</div>';
             }
             html += '</div>';
           }
@@ -146,15 +154,44 @@
           var self = this;
           google.script.run
             .withSuccessHandler(function (result) {
-              if (result.error || !result.data || result.data.length === 0) {
-                self.shadowRoot.getElementById('recent-card').hidden = true;
+              var recentCard = self.shadowRoot.getElementById('recent-card');
+              var hint = self.shadowRoot.getElementById('recent-hint');
+              hint.hidden = true;
+
+              if (!result || result.error) {
+                recentCard.hidden = false;
+                hint.textContent = (result && result.error) || 'getRecent retornou resposta vazia.';
+                hint.hidden = false;
+                console.error('[NFeEntrada] getRecent erro:', result);
                 return;
               }
-              self.shadowRoot.getElementById('recent-card').hidden = false;
-              self._renderTable(result.data);
+
+              var data = result.data || {};
+              if (data.sheetIdConfigured === false) {
+                recentCard.hidden = false;
+                hint.textContent = 'Sheet ID da NFe Entrada não configurado. Use o menu "NFe Entrada → Configurar Sheet ID" no editor do Apps Script e recarregue.';
+                hint.hidden = false;
+                return;
+              }
+
+              var rows = data.data || [];
+              if (rows.length === 0) {
+                recentCard.hidden = false;
+                hint.textContent = 'Nenhuma NF-e importada ainda. Clique em "Sincronizar com Drive".';
+                hint.hidden = false;
+                return;
+              }
+
+              recentCard.hidden = false;
+              self._renderTable(rows);
             })
-            .withFailureHandler(function () {
-              self.shadowRoot.getElementById('recent-card').hidden = true;
+            .withFailureHandler(function (err) {
+              console.error('[NFeEntrada] getRecent failure:', err);
+              var recentCard = self.shadowRoot.getElementById('recent-card');
+              var hint = self.shadowRoot.getElementById('recent-hint');
+              recentCard.hidden = false;
+              hint.textContent = 'Falha ao ler as últimas NFes: ' + ((err && err.message) || String(err));
+              hint.hidden = false;
             })
             .apiDispatch('nfeEntrada.getRecent', { limit: 20 });
         }
@@ -168,13 +205,13 @@
 
           for (var i = 0; i < rows.length; i++) {
             var r = rows[i];
-            var statusClass = r.status_nfe === 'Autorizado' ? 'badge-success' : 'badge-warning';
+            var statusClass = r.STATUS_NFE === 'Autorizado' ? 'badge-success' : 'badge-warning';
             html += '<tr>' +
-              '<td>' + (r.numero_nf || '') + '</td>' +
-              '<td>' + (r.emitente_nome || '') + '</td>' +
-              '<td>' + (r.data_emissao || '') + '</td>' +
-              '<td>R$ ' + formatNumber_(r.valor_total) + '</td>' +
-              '<td><span class="badge ' + statusClass + '">' + (r.status_nfe || '-') + '</span></td>' +
+              '<td>' + (r.NUMERO_NF || '') + '</td>' +
+              '<td>' + (r.EMITENTE_NOME || '') + '</td>' +
+              '<td>' + (r.DATA_EMISSAO || '') + '</td>' +
+              '<td>R$ ' + formatNumber_(r.VALOR_TOTAL) + '</td>' +
+              '<td><span class="badge ' + statusClass + '">' + (r.STATUS_NFE || '-') + '</span></td>' +
               '</tr>';
           }
 
@@ -185,7 +222,7 @@
     );
 
     function formatNumber_(val) {
-      var num = parseFloat(val);
+      var num = typeof val === 'number' ? val : parseFloat(String(val || '').replace(',', '.'));
       if (isNaN(num)) return '0,00';
       return num.toFixed(2).replace('.', ',');
     }

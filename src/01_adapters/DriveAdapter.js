@@ -4,7 +4,7 @@
  * para processamento. Nenhum outro arquivo deve chamar DriveApp diretamente.
  */
 var DriveAdapter = (function () {
-  var XML_MIME = 'application/xml';
+  var XML_MIMES = ['application/xml', 'text/xml'];
   var PDF_MIME = 'application/pdf';
 
   /**
@@ -35,18 +35,19 @@ var DriveAdapter = (function () {
     }
 
     var files = [];
-    var xmlFiles = folder.getFilesByType(XML_MIME);
+    for (var m = 0; m < XML_MIMES.length; m++) {
+      var xmlFiles = folder.getFilesByType(XML_MIMES[m]);
+      while (xmlFiles.hasNext()) files.push({ file: xmlFiles.next(), type: 'xml' });
+    }
     var pdfFiles = folder.getFilesByType(PDF_MIME);
-
-    while (xmlFiles.hasNext()) files.push(xmlFiles.next());
-    while (pdfFiles.hasNext()) files.push(pdfFiles.next());
+    while (pdfFiles.hasNext()) files.push({ file: pdfFiles.next(), type: 'pdf' });
 
     if (files.length === 0) {
       return [{ name: '', mimeType: '', content: '', id: '', error: 'No XML/PDF files found in folder: ' + folder.getName() }];
     }
 
     for (var i = 0; i < files.length; i++) {
-      var file = files[i];
+      var file = files[i].file;
       var name = file.getName();
       var mime = file.getMimeType();
       var id = file.getId();
