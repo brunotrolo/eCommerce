@@ -37,11 +37,27 @@ var ServiceRegistry = (function () {
     var validationError = validateParams_(parsed.spec.params, params || {});
     if (validationError) return { error: validationError };
 
+    var startTime = Date.now();
+    var serviceName = actionFullName.split('.')[0];
+    var methodName = actionFullName.split('.')[1];
+
     try {
       var data = parsed.service[parsed.methodName](params || {});
+      var durationMs = Date.now() - startTime;
+
+      if (serviceName !== 'logging') {
+        LoggingService.logAction(serviceName, methodName, params, data, startTime);
+      }
+
       if (data && data.error) return { error: data.error };
       return { status: 200, data: data };
     } catch (err) {
+      var durationMs = Date.now() - startTime;
+
+      if (serviceName !== 'logging') {
+        LoggingService.logAction(serviceName, methodName, params, { error: err.message }, startTime);
+      }
+
       return { error: err.message };
     }
   }
