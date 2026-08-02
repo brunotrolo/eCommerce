@@ -73,13 +73,12 @@ GAS/V8 não tem ES modules — todo arquivo cai no mesmo escopo global. Regras:
   nomes de arquivo, por isso os prefixos numéricos `00_`, `01_`, etc. nas
   pastas).
 
-## Segredos
+## Dados sensíveis
 
-A API key da Tiops **nunca** é commitada. Vive só em
-`PropertiesService.getScriptProperties()` — configurada manualmente uma vez
-no editor do Apps Script (Project Settings > Script Properties, chave
-`TIOPS_API_KEY`). `src/99_Main.js` tem um `setup_()` que só documenta o passo
-manual, nunca grava a chave por código.
+Toda credencial (clasp, OAuth, etc.) vive no cofre de secrets do GitHub ou
+em estruturas seguras do Google (PropertiesService). Nunca comitadas no código
+e nunca expostas em logs ou chats. Ver skill `gas-ops` para validação antes
+de push.
 
 ## Fórmulas de taxa por canal (fato do projeto, não redescobrir)
 

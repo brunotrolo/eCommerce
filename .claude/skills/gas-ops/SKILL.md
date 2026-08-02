@@ -18,11 +18,10 @@ Wrapper de convenções para operar este projeto via `clasp`
 
 ## Antes de qualquer push/deploy, confirme
 
-1. **Nenhum segredo no diff.** Rode
-   `grep -rIn "mc_live_\|TIOPS_API_KEY\s*=" src/ ui/` (ou equivalente) e
-   confirme que nenhuma chave real aparece — a API key só existe em Script
-   Properties (`ConfigService.getApiKey()` via `PropertiesRepository`),
-   nunca em código.
+1. **Nenhum segredo no diff.** Rode `git diff --staged | grep -i secret` e
+   confirme que não há credenciais, chaves ou tokens hardcoded. Credenciais só
+   existem em GitHub secrets ou em estruturas seguras do Google
+   (PropertiesService), nunca em código.
 2. **`.claspignore` só libera o necessário.** Deve conter, no mínimo, um
    whitelist de `appsscript.json`, `src/**/*.js` e `ui/**/*.html` — markdown,
    specs, workflows do GitHub e `node_modules` nunca devem ser enviados

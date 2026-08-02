@@ -53,10 +53,6 @@ preencher a lacuna adivinhando — que é exatamente o que queremos evitar.
 
 ### Fase 0 — Validar fundação e pipeline
 
-> **Pré-requisito manual seu, antes de rodar este prompt:** `TIOPS_API_KEY`
-> nas Script Properties e o secret `CLASP_CREDENTIALS` no GitHub
-> (ver `PLANO.md`, seção Fase 0).
-
 ```
 CONTEXTO
 Projeto GAS de controle de loja Shopee + Mercado Livre. Todo o código das

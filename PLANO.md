@@ -77,22 +77,13 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 
 > **Estado real de hoje:** todo o código das fases 0–5 está escrito e no
 > repositório, mas **nada foi executado no Apps Script ainda** — falta
-> configurar `TIOPS_API_KEY`, o secret `CLASP_CREDENTIALS` e rodar o primeiro
-> deploy. A Fase 0 é, portanto, o próximo passo real.
+> rodar o primeiro deploy. A Fase 0 é, portanto, o próximo passo real.
 
 ### Fase 0 — Fundação + pipeline de deploy
 
 Entregue no código: `.clasp.json`, `appsscript.json`, `ConfigService`,
-`TiopsClient`, repositórios, `ServiceRegistry`, `Router`, Shell + design
-tokens, `AGENTS.md`, workflow do GitHub Actions.
-
-**Pré-requisitos manuais (só você consegue fazer — exigem login Google):**
-
-1. No editor do Apps Script → Configurações do Projeto → Propriedades do
-   Script → adicionar `TIOPS_API_KEY` = `mc_live_XXXX`.
-2. Localmente: `npx clasp login`, copiar o conteúdo de `~/.clasprc.json` e
-   salvar como secret `CLASP_CREDENTIALS` no GitHub (Settings → Secrets and
-   variables → Actions).
+repositórios, `ServiceRegistry`, `Router`, Shell + design tokens, `AGENTS.md`,
+workflow do GitHub Actions.
 
 **Critério de aceite:**
 - [ ] Push na `main` dispara o workflow e ele termina verde.
