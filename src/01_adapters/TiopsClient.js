@@ -3,7 +3,7 @@
  * (https://mcp.tiops.com.br). Nenhum outro arquivo deve chamar UrlFetchApp
  * diretamente para o Tiops; todos os *Service.js passam por aqui.
  *
- * Contrato do endpoint (ver MCP_TIOPS_QUICK_START.md):
+ * Contrato do endpoint (ver docs/referencia/MCP_TIOPS_QUICK_START.md):
  *   POST https://mcp.tiops.com.br  { action, params }
  *   sucesso -> { status: 200, data }     erro -> { error: "mensagem" }
  */

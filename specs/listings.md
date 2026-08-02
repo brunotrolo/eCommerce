@@ -5,8 +5,8 @@ Implemented
 
 ## Objetivo
 Listar, detalhar, pausar e ativar anúncios das duas lojas, aplicando as
-regras já validadas nos playbooks (`SHOPEE_CRIAR_ANUNCIO.md`,
-`MERCADO_LIVRE_CRIAR_ANUNCIO.md`) para não redescobrir as mesmas pegadinhas.
+regras já validadas nos playbooks (`docs/referencia/SHOPEE_CRIAR_ANUNCIO.md`,
+`docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md`) para não redescobrir as mesmas pegadinhas.
 
 ## Contrato da API Interna
 

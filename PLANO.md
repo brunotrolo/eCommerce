@@ -1,0 +1,183 @@
+# PLANO.md — plano vivo do projeto
+
+> Documento **vivo**: é a única fonte de verdade sobre escopo, fases e status.
+> Substitui o roadmap antigo (arquivado em `docs/historico/`).
+> Regras de código e convenções ficam em [AGENTS.md](./AGENTS.md).
+> Prompts prontos para executar cada fase ficam em
+> [docs/HANDOFF_OPENCODE.md](./docs/HANDOFF_OPENCODE.md).
+
+---
+
+## 1. Objetivo do produto
+
+Um Web App em Google Apps Script, de uso pessoal, que centraliza a operação da
+loja na **Shopee** e no **Mercado Livre** — substituindo a rotina hoje feita
+manualmente nos apps oficiais + planilha. Toda integração com marketplace
+passa pela API Tiops (`POST https://mcp.tiops.com.br`).
+
+**Não-objetivos (v1):** multiusuário, multi-loja, Amazon/Shein/Bling,
+automação por trigger sem supervisão, app mobile nativo.
+
+---
+
+## 2. Modelo de trabalho: dois agentes, papéis distintos
+
+| | Claude Code (aqui) | OpenCode |
+|---|---|---|
+| Papel | **Guia / arquiteto** | **Executor** |
+| Faz | revisa plano e specs, decide arquitetura, escreve os prompts de execução, revisa o diff pronto | cria e edita arquivos em `src/`, `ui/`, roda `clasp`, commita |
+| Não faz | escrever código de implementação em massa | decidir arquitetura ou mudar spec por conta própria |
+
+O motivo é econômico: o raciocínio de arquitetura é caro em tokens e acontece
+uma vez; a digitação de código é barata e repetitiva. Claude Code produz o
+**pacote de execução** (prompt + skill + critério de aceite), OpenCode executa.
+
+Ciclo padrão de uma fase:
+
+```
+1. Claude Code  → confere/ajusta specs/<dominio>.md   (Status: Approved)
+2. Claude Code  → gera o prompt da fase                (skill handoff-prompt)
+3. Você         → cola o prompt no OpenCode
+4. OpenCode     → implementa, roda skills, commita
+5. Você         → valida pelos critérios de aceite da fase (seção 4)
+6. Claude Code  → revisa o diff, marca a fase como Validada aqui
+```
+
+---
+
+## 3. Escopo funcional v1 — 5 domínios
+
+| # | Domínio | Spec | O que entrega |
+|---|---|---|---|
+| 1 | **Precificação** | `specs/pricing.md` | Preço sugerido por canal a partir de custo + margem, descontando taxa. Comparativo Shopee × ML lado a lado. |
+| 2 | **Dashboard** | `specs/dashboard.md` | Visão única: pedidos recentes, receita, estoque baixo. Cache de 5 min. |
+| 3 | **Pedidos** | `specs/orders.md` | Lista unificada dos dois canais em shape normalizado + detalhe do pedido. |
+| 4 | **Anúncios** | `specs/listings.md` | Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação. |
+| 5 | **Preço & Estoque** | `specs/inventory-pricing.md` | Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo. |
+
+---
+
+## 4. Fases e status
+
+Duas colunas de status, porque **código escrito ≠ funcionando**:
+
+- **Código** — os arquivos existem no repositório e passam na revisão.
+- **Validado** — rodou no Apps Script real, com dado real, e bateu com o
+  critério de aceite abaixo.
+
+| Fase | Escopo | Código | Validado |
+|---|---|:---:|:---:|
+| 0 | Fundação + pipeline de deploy | ✅ | ⬜ |
+| 1 | Precificação | ✅ | ⬜ |
+| 2 | Dashboard | ✅ | ⬜ |
+| 3 | Pedidos | ✅ | ⬜ |
+| 4 | Anúncios | ✅ | ⬜ |
+| 5 | Preço & Estoque | ✅ | ⬜ |
+| 6 | Endurecimento | ⬜ | ⬜ |
+
+> **Estado real de hoje:** todo o código das fases 0–5 está escrito e no
+> repositório, mas **nada foi executado no Apps Script ainda** — falta
+> configurar `TIOPS_API_KEY`, o secret `CLASP_CREDENTIALS` e rodar o primeiro
+> deploy. A Fase 0 é, portanto, o próximo passo real.
+
+### Fase 0 — Fundação + pipeline de deploy
+
+Entregue no código: `.clasp.json`, `appsscript.json`, `ConfigService`,
+`TiopsClient`, repositórios, `ServiceRegistry`, `Router`, Shell + design
+tokens, `AGENTS.md`, workflow do GitHub Actions.
+
+**Pré-requisitos manuais (só você consegue fazer — exigem login Google):**
+
+1. No editor do Apps Script → Configurações do Projeto → Propriedades do
+   Script → adicionar `TIOPS_API_KEY` = `mc_live_XXXX`.
+2. Localmente: `npx clasp login`, copiar o conteúdo de `~/.clasprc.json` e
+   salvar como secret `CLASP_CREDENTIALS` no GitHub (Settings → Secrets and
+   variables → Actions).
+
+**Critério de aceite:**
+- [ ] Push na `main` dispara o workflow e ele termina verde.
+- [ ] A URL do Web App abre e o Shell renderiza com os tokens aplicados.
+- [ ] `curl "<url>?action=ping"` devolve `{"pong":true,...}`.
+- [ ] `apiDispatch('ping', {})` funciona pelo console do navegador.
+
+### Fase 1 — Precificação
+
+**Critério de aceite:**
+- [ ] `runSmokeTests_()` roda no editor sem lançar erro.
+- [ ] Shopee, custo 50, margem 25% → R$ 90,91.
+- [ ] Mercado Livre, custo 50, margem 25% → R$ 91,80.
+- [ ] Margem de 85% na Shopee devolve erro de negócio, não preço absurdo.
+- [ ] Os mesmos números batem com a sua planilha manual original.
+
+### Fase 2 — Dashboard
+
+**Critério de aceite:**
+- [ ] Os números conferem com os apps oficiais no mesmo dia.
+- [ ] Segunda carga em menos de 5 min vem do cache (confirmar por log/tempo).
+- [ ] Falha da Tiops mostra mensagem de erro na tela, não tela em branco.
+
+### Fase 3 — Pedidos
+
+**Critério de aceite:**
+- [ ] Um pedido real de cada canal confere com o app oficial (ID, data, valor, status).
+- [ ] O Dashboard continua correto depois de passar a consumir `OrdersService`.
+- [ ] Canal sem pedido no período devolve lista vazia, não erro.
+
+### Fase 4 — Anúncios
+
+**Critério de aceite:**
+- [ ] Pausar e reativar um anúncio de teste real funciona nos dois canais.
+- [ ] O estado é confirmado por releitura (`get_item` / `shopee_get_item`),
+      nunca só pela resposta do update.
+- [ ] Anúncio inexistente devolve erro tratado na UI.
+
+### Fase 5 — Preço & Estoque
+
+**Critério de aceite:**
+- [ ] Fluxo completo calcular → aplicar → reler → confirmar, num item de teste.
+- [ ] O preço novo aparece no app oficial do canal.
+- [ ] Caminho de erro (item inexistente, preço inválido) tratado na UI.
+
+### Fase 6 — Endurecimento (a fazer)
+
+Só entra depois que 0–5 estiverem **validadas**. Escopo:
+
+- Log de operações de escrita em `SheetsRepository` (o que mudou, quando, resultado).
+- Padronização do tratamento de erro em todos os widgets (hoje cada view trata do seu jeito).
+- Teste de contrato contra a Tiops: para cada ação usada, confirmar via
+  `list_actions`/`describe_action` que nome e params ainda batem.
+- Estado de carregamento e vazio em todas as telas.
+
+Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.md`).
+
+---
+
+## 5. Recursos já existentes (reaproveitar, nunca recriar)
+
+| Recurso | ID |
+|---|---|
+| Projeto Apps Script | `1zU9zBb8QeqWr-m2YORwyKx-6ypK4JrQhqZ29M3FJs8BmWhkO1VErKy3w` |
+| Google Sheet "eCommerce" | `1OtJRwUV6A4YiCQ866CkwlDZp7zXOsMcIcp1jUI-jz50` |
+| Endpoint Tiops | `POST https://mcp.tiops.com.br` |
+| Conta Mercado Livre | `3520412809` (param `meliUserId`) |
+| Conta Shopee | `1880105398` (param `shopId`) |
+
+Contratos da Tiops já verificados contra a API real ficam em
+[`docs/referencia/CONTRATOS_CONFIRMADOS.md`](./docs/referencia/CONTRATOS_CONFIRMADOS.md)
+— consulte antes de gastar uma chamada de catálogo.
+
+> ⚠️ O token da conta do **Mercado Livre** na Tiops expira em **02/08/2026**.
+> Se as chamadas de ML falharem com erro de autenticação, reconecte a conta em
+> <https://marketplaces.tiops.com.br> antes de investigar o código.
+
+---
+
+## 6. Riscos conhecidos
+
+| Risco | Mitigação |
+|---|---|
+| Agente inventar nome/params de ação da Tiops | skill `tiops-contract` — confirmar em `list_actions`/`describe_action` antes de codar |
+| Dois agentes divergirem de convenção | `AGENTS.md` é fonte única; `CLAUDE.md` só aponta para ele |
+| Update de marketplace "dar OK" sem ter aplicado | releitura obrigatória — regra em `AGENTS.md` e nas specs 4 e 5 |
+| Colisão de nome no escopo global do GAS | um `var Namespace` por arquivo, pastas numeradas |
+| API key vazar em commit | só em Script Properties; skill `gas-ops` checa antes do push |

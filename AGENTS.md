@@ -13,6 +13,29 @@ integração com os marketplaces passa pela API Tiops
 (`POST https://mcp.tiops.com.br`, `{action, params}`) — nunca chamar API de
 marketplace diretamente.
 
+## Mapa de documentos (saiba onde procurar antes de perguntar)
+
+| Arquivo | Papel |
+|---|---|
+| `AGENTS.md` (este) | **Como** construir: convenções, arquitetura, regras invioláveis |
+| `PLANO.md` | **O quê** e **quando**: escopo, fases, status, critérios de aceite |
+| `docs/HANDOFF_OPENCODE.md` | Prompts prontos de execução, por fase |
+| `specs/<dominio>.md` | Contrato de cada domínio — fonte de verdade da implementação |
+| `docs/referencia/` | Playbooks de payload validados e análise da API Tiops |
+| `docs/historico/` | Planejamento superado; valor histórico apenas, **não seguir** |
+
+## Divisão de papéis entre os dois agentes
+
+- **Claude Code = guia.** Revisa e aprova specs, decide arquitetura, gera os
+  prompts de execução (skill `handoff-prompt`), revisa o diff pronto.
+- **OpenCode = executor.** Cria e edita arquivos em `src/` e `ui/`, roda
+  `clasp`, commita — seguindo o prompt recebido e as regras deste arquivo.
+
+Nenhum dos dois altera arquitetura, taxas de marketplace, `appsscript.json`,
+`.clasp.json`, `.claspignore` ou o workflow de deploy sem decisão explícita do
+usuário. Aprovar spec (`Draft` → `Approved`) é decisão do usuário, nunca do
+agente. Detalhes em `PLANO.md`, seção 2.
+
 ## Regra nº 1: Spec-Driven Development
 
 **Nenhum arquivo de serviço (`src/03_services/**`) ou de UI (`ui/**`) é
@@ -80,8 +103,8 @@ nem usar cor/espaçamento/sombra fora dos tokens de `Styles.html`.
 ## Regras conhecidas dos marketplaces (não redescobrir na marra)
 
 Ver `specs/listings.md` e `specs/inventory-pricing.md` para a lista completa
-extraída de `SHOPEE_CRIAR_ANUNCIO.md`/`MERCADO_LIVRE_CRIAR_ANUNCIO.md`.
-Resumo crítico:
+extraída de `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
+`docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md`. Resumo crítico:
 - **Nunca confiar na resposta de um update/pause/activate para confirmar
   estado** — sempre reler com `get_item`/`shopee_get_item` depois.
 - Shopee: `shopee_update_price` usa `price_list`, nunca `price` solto.
@@ -99,8 +122,37 @@ Resumo crítico:
   GitHub Actions. `clasp login` é interativo (OAuth) e só pode ser feito uma
   vez, manualmente, pelo usuário — nunca por um agente.
 
+## Chamadas à Tiops
+
+Antes de escrever ou alterar qualquer `TiopsClient.call(action, params)`,
+confirme nome da ação e schema dos params contra o catálogo real
+(`list_actions` / `describe_action`) — não assuma de memória nem por analogia
+com o outro canal. Toda ação usada deve constar na seção *Dependências* da
+spec do domínio. Regra completa na skill `tiops-contract`.
+
 ## Skills do projeto
 
-Ver seção de skills recomendadas no histórico do plano de arquitetura — em
-especial `spec-first` (gate de SDD), `gas-ops` (wrapper de clasp) e
-`design-tokens-guard` (garante que a UI só usa tokens de `Styles.html`).
+Fonte única de cada regra: `.claude/skills/<nome>/SKILL.md`. No OpenCode, os
+mesmos arquivos são acionados pelos comandos `/nome` definidos em
+`.opencode/command/` — ponteiros finos, sem conteúdo duplicado.
+
+| Skill | Quando ativar |
+|---|---|
+| `spec-first` | antes de criar/alterar `src/03_services/**` ou `ui/**` |
+| `tiops-contract` | antes de qualquer chamada nova à Tiops |
+| `design-tokens-guard` | ao escrever ou revisar CSS/HTML em `ui/**` |
+| `gas-ops` | antes de `clasp push` / `clasp deploy` |
+| `gas-app-designer` | ao construir uma tela nova |
+| `handoff-prompt` | só no Claude Code: gerar prompt de execução p/ o OpenCode |
+
+## Definition of Done (vale para qualquer tarefa)
+
+1. Existe spec correspondente com `Status: Approved` ou `Implemented`.
+2. O código respeita as camadas: nada de `UrlFetchApp`/`PropertiesService`/
+   `CacheService`/`SpreadsheetApp` fora de `01_adapters` e `02_repositories`.
+3. Nenhuma cor, espaçamento, raio ou sombra hard-coded fora de `Styles.html`.
+4. Toda escrita em marketplace é confirmada por releitura.
+5. Lógica pura nova tem caso correspondente em `runSmokeTests_()`.
+6. Nenhum segredo no diff.
+7. O critério de aceite da fase em `PLANO.md` foi verificado de fato — não
+   presumido. Marque `Validado` só depois de rodar.
