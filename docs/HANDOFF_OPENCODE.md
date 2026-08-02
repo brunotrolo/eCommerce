@@ -297,6 +297,43 @@ ACEITE
 Bug não reproduz mais, spec e código coerentes, smoke test cobrindo o caso.
 ```
 
+### Refactoring pré-Fase 0 — Qualidade visual e padrões UI
+
+```
+CONTEXTO
+Antes de validar a fundação (Fase 0), a UI precisa de refactoring para
+parecer profissional. Hoje os widgets têm anti-padrões: nenhum loading state,
+duplicação de lógica de erro/sucesso, captura de `self` em closures,
+hard-coded styles.
+
+SKILL
+Ative /simplify e /design-tokens-guard antes de começar.
+
+TAREFA
+1. Para cada widget em ui/*View.html:
+   - Adicione loading state: desabilite o botão e mostre "Processando..." enquanto aguarda resposta
+   - Standardize erro: sempre em #error-box com class .alert.alert-danger
+   - Standardize sucesso: sempre em #result-box com .badge.badge-success
+   - Elimine `self =` — use arrow functions no listener ou `.bind()`
+
+2. Extraia a lógica comum (loading + error handling + sucesso) em função
+   auxiliar `withLoading(fn)` que todos os widgets reaproveitem.
+
+3. Verifique que nenhum CSS está hard-coded — tudo vem de Styles.html via
+   classes (.btn, .card, .badge, .alert, --color-*, --space-*).
+
+4. Rode `clasp push --force` e confirme que não há erros de sintaxe.
+
+RESTRIÇÕES
+- Não mude a estrutura de pastas ou nomes de widgets.
+- Não altere specs ou assinaturas de métodos no ServiceRegistry.
+- Todos os tokens de design já existem em ui/shared/Styles.html.
+
+ACEITE
+Todos os 5 widgets carregam sem erro; sucesso/erro renderizam de forma
+consistente; botões desabilitam enquanto processam; nenhuma closure desnecessária; zero CSS fora de Styles.html.
+```
+
 ---
 
 ## 6. Quando o OpenCode não conseguir confirmar um contrato da Tiops
