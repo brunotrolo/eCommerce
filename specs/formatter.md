@@ -119,6 +119,47 @@ de separador decimal. Datas podem estar `MM/DD/YYYY` em um lugar e `DD/MM/YYYY` 
   | phone | string | sim | — | Telefone sem formatação (ex: "11987654321" ou "1133334444") |
 - **Retorno:** `string` (ex: "(11) 98765-4321" ou "(11) 3333-4444")
 
+#### `formatter.formatCEP(cep)`
+- **Descrição:** Formata string de CEP brasileiro.
+- **Params:**
+  | Nome | Tipo | Obr. | Default | Descrição |
+  |------|------|------|---------|-----------|
+  | cep | string | sim | — | CEP sem formatação (ex: "01310100") |
+- **Retorno:** `string` (ex: "01310-100")
+- **Exemplos:**
+  ```javascript
+  formatter.formatCEP("01310100") → "01310-100"
+  formatter.formatCEP("01310") → "01310" (incompleto, retorna como-é)
+  ```
+
+#### `formatter.formatTime(date, [format])`
+- **Descrição:** Formata Date object ou string como hora/minuto/segundo brasileiro.
+- **Params:**
+  | Nome | Tipo | Obr. | Default | Descrição |
+  |------|------|------|---------|-----------|
+  | date | Date\|number\|string | sim | — | Date JS, timestamp (ms), ou ISO string |
+  | format | string | não | 'HH:MM:SS' | Formato desejado ('HH:MM:SS', 'HH:MM', etc) |
+- **Retorno:** `string` (ex: "14:30:45")
+- **Exemplos:**
+  ```javascript
+  formatter.formatTime(new Date('2026-12-30T14:30:45Z')) → "14:30:45"
+  formatter.formatTime(new Date(), 'HH:MM') → "14:30"
+  ```
+
+#### `formatter.formatDateTime(date, [format])`
+- **Descrição:** Formata Date object como data+hora brasileira.
+- **Params:**
+  | Nome | Tipo | Obr. | Default | Descrição |
+  |------|------|------|---------|-----------|
+  | date | Date\|number\|string | sim | — | Date JS, timestamp (ms), ou ISO string |
+  | format | string | não | 'DD/MM/YYYY HH:MM:SS' | Formato desejado |
+- **Retorno:** `string` (ex: "30/12/2026 14:30:45")
+- **Exemplos:**
+  ```javascript
+  formatter.formatDateTime(new Date('2026-12-30T14:30:45Z')) → "30/12/2026 14:30:45"
+  formatter.formatDateTime(new Date(), 'DD/MM/YYYY HH:MM') → "30/12/2026 14:30"
+  ```
+
 ### Métodos de Parsing (String Formatada → Dados Brutos)
 
 #### `formatter.parseCurrency(value)`
@@ -201,6 +242,42 @@ de separador decimal. Datas podem estar `MM/DD/YYYY` em um lugar e `DD/MM/YYYY` 
   |------|------|------|---------|-----------|
   | phone | string | sim | — | Telefone formatado ou não |
 - **Retorno:** `string` (ex: "11987654321")
+
+#### `formatter.parseCEP(cep)`
+- **Descrição:** Remove formatação de CEP.
+- **Params:**
+  | Nome | Tipo | Obr. | Default | Descrição |
+  |------|------|------|---------|-----------|
+  | cep | string | sim | — | CEP formatado ou não |
+- **Retorno:** `string` (ex: "01310100")
+
+#### `formatter.parseTime(value, [format])`
+- **Descrição:** Parse de string de hora → objeto de tempo ou timestamp.
+- **Params:**
+  | Nome | Tipo | Obr. | Default | Descrição |
+  |------|------|------|---------|-----------|
+  | value | string | sim | — | String formatada (ex: "14:30:45") |
+  | format | string | não | 'HH:MM:SS' | Formato da string de entrada |
+- **Retorno:** `object` com {hours, minutes, seconds} ou `null` se inválido
+- **Exemplos:**
+  ```javascript
+  formatter.parseTime("14:30:45") → {hours: 14, minutes: 30, seconds: 45}
+  formatter.parseTime("14:30", "HH:MM") → {hours: 14, minutes: 30, seconds: 0}
+  ```
+
+#### `formatter.parseDateTime(value, [format])`
+- **Descrição:** Parse de string data+hora → Date object.
+- **Params:**
+  | Nome | Tipo | Obr. | Default | Descrição |
+  |------|------|------|---------|-----------|
+  | value | string | sim | — | String formatada (ex: "30/12/2026 14:30:45") |
+  | format | string | não | 'DD/MM/YYYY HH:MM:SS' | Formato da string de entrada |
+- **Retorno:** `Date` object ou `null` se inválido
+- **Exemplos:**
+  ```javascript
+  formatter.parseDateTime("30/12/2026 14:30:45") → Date(2026-12-30T14:30:45Z)
+  formatter.parseDateTime("30/12/2026 14:30", "DD/MM/YYYY HH:MM") → Date(2026-12-30T14:30:00Z)
+  ```
 
 ## Configuração de Locale (pt-BR)
 
@@ -370,20 +447,26 @@ var FormatterService = (function () {
   // Métodos públicos de formatação
   function formatCurrency(value, options) { ... }
   function formatDate(date, format) { ... }
+  function formatTime(date, format) { ... }
+  function formatDateTime(date, format) { ... }
   function formatPercent(value, decimals) { ... }
   function formatNumber(value, decimals) { ... }
   function formatCNPJ(cnpj) { ... }
   function formatCPF(cpf) { ... }
   function formatPhone(phone) { ... }
+  function formatCEP(cep) { ... }
   
   // Métodos públicos de parsing
   function parseCurrency(value) { ... }
   function parseDate(value, format) { ... }
+  function parseTime(value, format) { ... }
+  function parseDateTime(value, format) { ... }
   function parsePercent(value) { ... }
   function parseNumber(value) { ... }
   function parseCNPJ(cnpj) { ... }
   function parseCPF(cpf) { ... }
   function parsePhone(phone) { ... }
+  function parseCEP(cep) { ... }
   
   // Funções auxiliares privadas
   function padZero(val, length) { ... }
@@ -392,12 +475,28 @@ var FormatterService = (function () {
   
   return {
     init: init,
+    // Format methods
     formatCurrency: formatCurrency,
     formatDate: formatDate,
-    // ... todos os públicos
+    formatTime: formatTime,
+    formatDateTime: formatDateTime,
+    formatPercent: formatPercent,
+    formatNumber: formatNumber,
+    formatCNPJ: formatCNPJ,
+    formatCPF: formatCPF,
+    formatPhone: formatPhone,
+    formatCEP: formatCEP,
+    // Parse methods
     parseCurrency: parseCurrency,
     parseDate: parseDate,
-    // ... todos os públicos
+    parseTime: parseTime,
+    parseDateTime: parseDateTime,
+    parsePercent: parsePercent,
+    parseNumber: parseNumber,
+    parseCNPJ: parseCNPJ,
+    parseCPF: parseCPF,
+    parsePhone: parsePhone,
+    parseCEP: parseCEP
   };
 })();
 ```
