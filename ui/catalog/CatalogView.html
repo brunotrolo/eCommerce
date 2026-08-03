@@ -327,8 +327,8 @@
       return 'bad';
     }
 
-    var FEE_SHOPEE = { pct: 0.20, fixed: 0 };
-    var FEE_ML = { pct: 0.14, fixed: 6 };
+    var DEFAULT_FEE_SHOPEE = { pct: 0.20, fixed: 0 };
+    var DEFAULT_FEE_ML = { pct: 0.14, fixed: 6 };
 
     function calcPrice(cost, margin, fee) {
       var denom = 1 - fee.pct - margin;
@@ -354,6 +354,8 @@
         this._products = [];
         this._filteredProducts = [];
         this._margin = 0.25;
+        this._feeShopee = DEFAULT_FEE_SHOPEE;
+        this._feeML = DEFAULT_FEE_ML;
 
         shadow.getElementById('btn-sort-order').addEventListener('click', function () {
           this._sortOrder = this._sortOrder === 'asc' ? 'desc' : 'asc';
@@ -393,7 +395,29 @@
           }
         }.bind(this));
 
-        this._loadProducts(shadow);
+        this._loadConfig(shadow);
+      }
+
+      _loadConfig(shadow) {
+        var self = this;
+        google.script.run
+          .withSuccessHandler(function (response) {
+            var outer = response.data || response;
+            var data = outer.data || outer;
+            if (data && data.fees) {
+              self._feeShopee = data.fees.shopee || DEFAULT_FEE_SHOPEE;
+              self._feeML = data.fees.mercado_livre || DEFAULT_FEE_ML;
+            }
+            if (data && typeof data.defaultMargin === 'number') {
+              self._margin = data.defaultMargin;
+              shadow.getElementById('marginInput').value = Math.round(data.defaultMargin * 100);
+            }
+            self._loadProducts(shadow);
+          })
+          .withFailureHandler(function () {
+            self._loadProducts(shadow);
+          })
+          .apiDispatch('config.getConfig', {});
       }
 
       _loadProducts(shadow) {
@@ -421,14 +445,16 @@
 
       _recalcAndRender(shadow) {
         var margin = this._margin;
+        var feeShopee = this._feeShopee;
+        var feeML = this._feeML;
         var products = this._products;
         for (var i = 0; i < products.length; i++) {
           var p = products[i];
           var cost = p.valorUnitarioLiquido;
-          p.precoShopee = calcPrice(cost, margin, FEE_SHOPEE);
-          p.precoMercadoLivre = calcPrice(cost, margin, FEE_ML);
-          p.margemCalculadaShopee = calcMargin(p.precoShopee, cost, FEE_SHOPEE);
-          p.margemCalculadaMercadoLivre = calcMargin(p.precoMercadoLivre, cost, FEE_ML);
+          p.precoShopee = calcPrice(cost, margin, feeShopee);
+          p.precoMercadoLivre = calcPrice(cost, margin, feeML);
+          p.margemCalculadaShopee = calcMargin(p.precoShopee, cost, feeShopee);
+          p.margemCalculadaMercadoLivre = calcMargin(p.precoMercadoLivre, cost, feeML);
         }
         this._applyFilterAndRender(shadow);
       }

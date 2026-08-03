@@ -8,6 +8,7 @@
     "src/02_repositories/PropertiesRepository.js",
     "src/02_repositories/CacheRepository.js",
     "src/02_repositories/SheetsRepository.js",
+    "src/02_repositories/ConfigRepository.js",
     "src/03_services/logging/LoggingRepository.js",
     "src/03_services/logging/LoggingService.js",
     "src/03_services/nfeEntrada/NFeEntradaRepository.js",
