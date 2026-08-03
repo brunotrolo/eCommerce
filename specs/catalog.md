@@ -1,7 +1,7 @@
 # Spec: Catálogo de Produtos
 
 ## Status
-Draft
+Approved
 
 ## Objetivo
 Exibir um catálogo unificado de produtos recebidos (vindos de NFE_ENTRADA_PRODUTOS),
@@ -68,6 +68,49 @@ fonte consultável para gestão de precificação antes de criar/atualizar anún
   valorLiquidoItem: number,
   valorUnitarioLiquido: number,
   status: string
+}
+```
+
+### `catalog.getCalculationMemory` (para sidebar)
+- Descrição: retorna a memória de cálculo detalhada (passo a passo) de como o preço sugerido foi derivado do VALOR_UNITARIO_LIQUIDO.
+- Params:
+
+| nome | tipo | obrigatório | default | descrição |
+|---|---|---|---|---|
+| codigoProduto | string | sim | — | código do produto |
+| marketplace | string (`shopee`\|`mercado_livre`) | sim | — | qual marketplace |
+| targetMargin | number | não | 0.25 | margem alvo utilizada no cálculo |
+
+- Retorno: `{ success: true, data: {...}, error: null }` ou `{ error: string }`
+
+- Estrutura de `data`:
+```javascript
+{
+  codigoProduto: string,
+  descricao: string,
+  marketplace: string,
+  passos: [
+    {
+      ordem: number,                        // 1, 2, 3, ...
+      descricao: string,                    // ex. "1. Custo Unitário Líquido"
+      valor: number,                        // valor nesta etapa (R$)
+      detalhes: string,                     // ex. "VALOR_UNITARIO_LIQUIDO = R$ 50,00"
+      formula: string                       // ex. "R$ 50,00"
+    },
+    // ... mais passos até o preço final
+  ],
+  resumo: {
+    valorUnitarioLiquido: number,           // valor inicial
+    margemAlvo: number,                     // % da margem (ex. 0.25)
+    taxaMarketplace: {
+      percentual: number,                   // ex. 0.20
+      fixo: number,                         // ex. 0
+      descricao: string                     // ex. "Shopee: 20% flat"
+    },
+    precoSugerido: number,                  // resultado final
+    margemLiquida: number,                  // % líquida após todas deduções
+    lucroLiquidoPorUnidade: number          // R$ de lucro por unidade
+  }
 }
 ```
 
@@ -185,3 +228,15 @@ Dado um código de produto que aparece em múltiplas NFes:
    - Badge de "Mais recente" em data
    - Cores de margem (verde se > 20%, amarelo se 15-20%, vermelho se < 15%)
    - Botão "Ver histórico" que abre drawer com `getProductByCode()` resultado
+   - **Clique no preço sugerido** (Shopee ou Mercado Livre) abre sidebar à direita com memória de cálculo passo-a-passo
+     - Sidebar mostra: VALOR_UNITARIO_LIQUIDO → aplicar taxas → subtrair comissões → chegar ao preço sugerido
+     - Cada passo é uma linha: descrição, valor, fórmula
+     - Resumo final com margem líquida e lucro por unidade
+     - Exemplo de fluxo para Shopee:
+       ```
+       1. Custo Unitário Líquido          R$ 50,00
+       2. Aplicar margem alvo (25%)       → precisa estar em (price * m)
+       3. Taxa Shopee (20% flat)          → (50 + fixed) / (1 - 0.20 - 0.25)
+       4. Preço Sugerido Final            R$ 90,91
+       5. Verificação: Lucro Líquido      R$ 18,18 (20% da venda)
+       ```
