@@ -93,12 +93,11 @@
             var cpuMs = t1 - _pageLoadTime;
             _logStatusView('fetch success', {
               respType: typeof resp,
-              respKeys: resp ? Object.keys(resp) : null,
-              respData: resp && resp.data ? (typeof resp.data === 'object' ? Object.keys(resp.data) : resp.data) : null,
+              respStr: JSON.stringify(resp).substring(0, 300),
               gasMs: gasMs,
               cpuMs: cpuMs
             });
-            var data = (resp && resp.data) ? resp.data.data : resp.data;
+            var data = resp && resp.data ? resp.data : resp;
             _logStatusView('data extraido', {
               dataKeys: data ? Object.keys(data) : null,
               isOnline: data && data.isOnline,
