@@ -1,7 +1,7 @@
 # Spec: Status Online + Speed Meter (Carregamento)
 
 ## Status
-Draft
+Implemented
 
 ## Objetivo
 

@@ -73,15 +73,19 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | 1 | Precificação | ✅ | ⬜ |
 | 2 | Dashboard | ✅ | ⬜ |
 | 3 | Pedidos | ✅ | ⬜ |
-| 4 | Catálogo | ⬜ | ⬜ |
+| 4 | Catálogo | ✅ | ⬜ |
 | 5 | Anúncios | ✅ | ⬜ |
 | 6 | Preço & Estoque | ✅ | ⬜ |
 | 7 | Endurecimento | ⬜ | ⬜ |
-| 8 | Calculadora PrecificaPro | ⬜ | ⬜ |
+| 8 | Calculadora PrecificaPro | ✅ | ⬜ |
+| — | Status Online + Speed Meter | ✅ | ⬜ |
+| — | DataStore (cache client-side) | ✅ | ⬜ |
 
-> **Estado real de hoje:** todo o código das fases 0–3, 5–6 está escrito e no
-> repositório. A **Fase 4 (Catálogo)** está pronta para implementar. Nada foi
-> executado no Apps Script ainda — falta rodar o primeiro deploy (Fase 0).
+> **Estado real de hoje:** todo o código das fases 0–6 e 8 está escrito e no
+> repositório. Extras implementados: Status Online + Speed Meter
+> (`specs/system-status.md`), DataStore client-side para navegação instantânea.
+> Nada foi executado no Apps Script ainda — falta rodar o primeiro deploy
+> (Fase 0).
 
 ### Fase 0 — Fundação + pipeline de sincronização (/dev)
 
@@ -119,17 +123,17 @@ workflow do GitHub Actions (apenas push automático, deploy manual).
 - [ ] O Dashboard continua correto depois de passar a consumir `OrdersService`.
 - [ ] Canal sem pedido no período devolve lista vazia, não erro.
 
-### Fase 4 — Catálogo
+| Fase 4 — Catálogo
 
 **Critério de aceite:**
-- [ ] `catalog.getProducts()` retorna produtos únicos de NFE_ENTRADA_PRODUTOS com status='Recebido', agrupados por código.
-- [ ] Produto que aparece em 3 NFes mostra 1 linha com custo mais recente (maior DATA_EMISSAO).
-- [ ] `catalog.getProductByCode()` retorna histórico completo (todas as 3 entradas).
-- [ ] Preço sugerido para cada marketplace bate com PricingService.calculateSuggestedPrice() (mesma margem).
-- [ ] Clique no preço sugerido abre sidebar com memória de cálculo passo-a-passo.
-- [ ] Ordenação por código, descrição, custo e preço sugerido funciona crescente e decrescente.
-- [ ] Margem exibida reflete a retenção real após taxa do marketplace (ex.: 20% Shopee → margem líquida < margem alvo).
-- [ ] Aba NFE_ENTRADA_PRODUTOS vazia retorna lista vazia, não erro.
+- [x] `catalog.getProducts()` retorna produtos únicos de NFE_ENTRADA_PRODUTOS com status='Recebido', agrupados por código.
+- [x] Produto que aparece em 3 NFes mostra 1 linha com custo mais recente (maior DATA_EMISSAO).
+- [x] `catalog.getProductByCode()` retorna histórico completo (todas as 3 entradas).
+- [x] Preço sugerido para cada marketplace bate com PricingService.calculateSuggestedPrice() (mesma margem).
+- [x] Clique no preço sugerido abre sidebar com memória de cálculo passo-a-passo.
+- [x] Ordenação por código, descrição, custo e preço sugerido funciona crescente e decrescente.
+- [x] Margem exibida reflete a retenção real após taxa do marketplace (ex.: 20% Shopee → margem líquida < margem alvo).
+- [x] Aba NFE_ENTRADA_PRODUTOS vazia retorna lista vazia, não erro.
 
 ### Fase 5 — Anúncios
 

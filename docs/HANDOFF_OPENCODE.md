@@ -242,6 +242,84 @@ releitura e no app oficial.
 
 ---
 
+### Status Online + Speed Meter
+
+```
+CONTEXTO
+Indicador visual global que mostra status online e timing de carregamento.
+StatusService (src/03_services/system/StatusService.js) retorna
+{isOnline, timestamp, lastUpdate}. StatusView (ui/shell/StatusView.html)
+é um Web Component sticky no nav bar. A medição de timing é 100% client-side:
+GAS time = round-trip da chamada google.script.run, CPU time = desde
+performance.timing.navigationStart até a resposta.
+
+SKILL
+Ative /design-tokens-guard para CSS e /gas-ops para deploy.
+
+TAREFA
+1. Verifique que StatusService está registrado em ServiceRegistry.js com
+   padrão defensivo typeof/safeRef_().
+2. Verifique que StatusView.html está incluído em Shell.html e renderiza
+   no nav bar, à esquerda do botão Calculadora.
+3. Confirme que o indicador mostra 🟢 (verde) quando online e 🔴
+   (vermelho) quando offline.
+4. Confirme que o timing mostra "X.XXs (GAS: X.XXs | CPU: X.XXs)".
+5. Abra o Debug Console (Ctrl+E), aba "Erros (browser)", e confirme que
+   os logs do StatusView aparecem (constructor, connectedCallback, fetch).
+
+RESTRIÇÕES
+- Timing é 100% client-side, sem chamadas server extras.
+- StatusService.js é simples: só retorna {isOnline, timestamp, lastUpdate}.
+- Design tokens: usar --color-success e --color-error de Styles.html.
+
+ACEITE
+Status 🟢 aparece, timing funciona, debug logs visíveis no Debug Console.
+```
+
+---
+
+### DataStore — Cache Client-side para Navegação Instantânea
+
+```
+CONTEXTO
+DataStore (ui/shared/DataStore.html) é um cache client-side que pré-busca
+dados pesados ao carregar o app, permitindo navegação instantânea entre
+páginas sem novas chamadas ao servidor. Exposto em window.__DataStore com
+get/set/has/invalidate/getOrFetch/preFetch.
+
+Pré-fetch no Shell.html dispara: dashboard.getSummary, nfeEntrada.getRecent,
+nfeEntradaProdutos.getProdutos, config.getConfig, catalog.getProducts.
+
+Views modificadas: Dashboard, NFeEntrada, NFeEntradaProdutos, Catalog —
+todas checam cache primeiro no connectedCallback.
+
+SKILL
+Ative /gas-ops para deploy.
+
+TAREFA
+1. Verifique que DataStore.html está incluído em Shell.html (antes dos
+   includes de views).
+2. Confirme que o pré-fetch dispara 5 chamadas ao carregar o app.
+3. Navegue entre Dashboard, NFe Entrada, Entrada Produtos e Catálogo —
+   confirme que a segunda visita é instantânea (sem loading).
+4. Clique "Atualizar" em Dashboard e confirme que os dados são buscados
+   novamente (invalidate + fetch).
+5. Abra Debug Console e verifique que as chamadas de pré-fetch aparecem
+   na aba "Chamadas".
+
+RESTRIÇÕES
+- DataStore é só cache client-side, não armazena nada no servidor.
+- Views devem funcionar normalmente mesmo sem cache (fallback para fetch).
+- Não usar DataStore para dados parametrizados (Orders, Listings) — estes
+  continuam buscando no servidor a cada troca de filtro.
+
+ACEITE
+Navegação entre páginas é instantânea na segunda visita; prefetch funciona;
+Debug Console mostra as chamadas; fallback sem cache funciona.
+```
+
+---
+
 ## 4. Prompt genérico — domínio novo do zero
 
 Use quando o escopo crescer além dos 5 domínios da v1 (ex.: Fase 6).

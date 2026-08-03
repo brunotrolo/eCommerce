@@ -147,6 +147,32 @@ constrói um único `CSSStyleSheet` a partir dele, exposto em
 `shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__]` — nunca duplicar CSS
 nem usar cor/espaçamento/sombra fora dos tokens de `Styles.html`.
 
+## DataStore — cache client-side para navegação instantânea
+
+`ui/shared/DataStore.html` expõe `window.__DataStore` com:
+- `get(key)` / `has(key)` / `set(key, data)` / `invalidate(key)`
+- `getOrFetch(key, action, params)` — retorna cache se existe, senão busca
+- `preFetch([{key, action, params}])` — busca múltiplos em paralelo no startup
+
+**Padrão para views:** no `connectedCallback`, checar cache primeiro (render
+imediato), depois buscar fresh em background. Botões "Atualizar" devem chamar
+`invalidate()` antes de fetch.
+
+**Pre-fetch no Shell.html:** dispara `dashboard.getSummary`,
+`nfeEntrada.getRecent`, `nfeEntradaProdutos.getProdutos`, `config.getConfig` e
+`catalog.getProducts` ao carregar o app.
+
+## StatusView — indicador de status online
+
+`ui/shell/StatusView.html` é um Web Component sticky no nav bar que mostra:
+- Bolinha verde (online) / vermelha (offline)
+- Timestamp da última atualização
+- Timing: total (GAS round-trip + CPU desde page load)
+
+Medição é 100% client-side. O StatusService (`src/03_services/system/`) só
+retorna `{isOnline, timestamp, lastUpdate}` — os timers são calculados no
+browser.
+
 ## Segurança de Arquitetura: Prevenção de Regressões
 
 ### Arquivos compartilhados (NÃO alterar sem aprovação explícita)
@@ -161,6 +187,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 | `ui/shared/UiHelpers.html` | Funções `withLoading()` — usada por todos os widgets |
 | `ui/shared/Formatter.html` | Formatação de valores — usada por todos os widgets |
 | `ui/shared/DebugConsole.html` | Console de debug — afeta todas as chamadas |
+| `ui/shared/DataStore.html` | Cache client-side de dados — usado por todas as views para navegação instantânea |
 | `src/00_config/FormatterService.js` | Formatter server-side |
 | `src/03_services/logging/LoggingService.js` | Log de ações — afeta todos os serviços |
 | `src/04_gateway/ServiceRegistry.js` | Dispatcher central — afeta todas as chamadas API |

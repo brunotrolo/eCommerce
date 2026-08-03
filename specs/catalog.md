@@ -1,7 +1,7 @@
 # Spec: Catálogo de Produtos
 
 ## Status
-Approved
+Implemented
 
 ## Objetivo
 Exibir um catálogo unificado de produtos recebidos (vindos de NFE_ENTRADA_PRODUTOS),
