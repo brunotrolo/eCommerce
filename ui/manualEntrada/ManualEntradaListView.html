@@ -1,0 +1,296 @@
+<template id="manual-entrada-list-template">
+  <style>
+    :host { display: block; }
+
+    .container { padding: var(--space-xl); }
+
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: var(--space-xl);
+    }
+    .header h1 {
+      margin: 0; font-size: var(--font-size-xl); font-weight: var(--font-weight-bold);
+      color: var(--color-text);
+    }
+
+    .btn {
+      padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+      cursor: pointer; border: 1px solid var(--color-border);
+      background: var(--color-surface); color: var(--color-text);
+    }
+    .btn:hover { background: var(--color-surface-hover); }
+    .btn-primary {
+      background: var(--color-primary); color: var(--color-on-primary);
+      border-color: var(--color-primary);
+    }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+
+    .search-bar {
+      margin-bottom: var(--space-lg);
+    }
+    .search-bar input {
+      width: 100%; max-width: 400px;
+      padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      font-size: var(--font-size-base); font-family: var(--font-family-base);
+      background: var(--color-surface); color: var(--color-text);
+      box-sizing: border-box;
+    }
+    .search-bar input:focus {
+      outline: none; border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px var(--color-primary-light);
+    }
+
+    .table-wrapper {
+      overflow-x: auto; border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+    }
+
+    table {
+      width: 100%; border-collapse: collapse;
+      font-size: var(--font-size-sm); color: var(--color-text);
+    }
+
+    th {
+      text-align: left; padding: var(--space-sm) var(--space-md);
+      background: var(--color-surface-alt); font-weight: var(--font-weight-semibold);
+      border-bottom: 1px solid var(--color-border);
+      white-space: nowrap; cursor: pointer; user-select: none;
+    }
+    th:hover { background: var(--color-surface-hover); }
+    th .sort-icon { margin-left: var(--space-xs); color: var(--color-text-tertiary); }
+
+    td {
+      padding: var(--space-sm) var(--space-md);
+      border-bottom: 1px solid var(--color-border-light);
+      white-space: nowrap;
+    }
+
+    tr:hover td { background: var(--color-surface-hover); }
+
+    .empty-state {
+      text-align: center; padding: var(--space-3xl);
+      color: var(--color-text-secondary);
+    }
+    .empty-state p { margin: 0; font-size: var(--font-size-md); }
+
+    .stats {
+      display: flex; gap: var(--space-xl); margin-bottom: var(--space-lg);
+      font-size: var(--font-size-sm); color: var(--color-text-secondary);
+    }
+    .stats-value { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+
+    .loading {
+      text-align: center; padding: var(--space-3xl);
+      color: var(--color-text-tertiary);
+    }
+
+    .badge {
+      display: inline-block; padding: 2px var(--space-sm);
+      border-radius: var(--radius-xs); font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+    }
+    .badge-success {
+      background: var(--color-success-light); color: var(--color-success-text);
+    }
+  </style>
+
+  <div class="container">
+    <div class="header">
+      <h1>Entrada Manual de Produtos</h1>
+      <button class="btn btn-primary" id="btn-add">+ Inserir Novo Item</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="search-bar">
+      <input type="text" id="search" placeholder="Buscar por código, descrição ou fornecedor..." />
+    </div>
+
+    <div id="content">
+      <div class="loading">Carregando...</div>
+    </div>
+  </div>
+
+  <manual-entrada-widget id="modal-widget"></manual-entrada-widget>
+</template>
+
+<script>
+(function () {
+  if (document.getElementById('manual-entrada-list-widget')) return;
+
+  var template = document.getElementById('manual-entrada-list-template');
+  if (!template) return;
+
+  var TAG = 'manual-entrada-list-widget';
+
+  customElements.define(TAG, class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.shadowRoot.appendChild(template.content.cloneNode(true));
+      if (window.__DESIGN_SHEET__) {
+        this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+      }
+      this._entries = [];
+      this._filtered = [];
+      this._sortField = 'dataCompra';
+      this._sortOrder = 'desc';
+    }
+
+    connectedCallback() {
+      this._loadData();
+      this._bindEvents();
+    }
+
+    _bindEvents() {
+      var self = this;
+
+      this.shadowRoot.getElementById('btn-add').addEventListener('click', function () {
+        var modal = self.shadowRoot.getElementById('modal-widget');
+        if (modal) {
+          modal.setOnSaveCallback(function () {
+            self._loadData();
+          });
+          modal.open();
+        }
+      });
+
+      this.shadowRoot.getElementById('search').addEventListener('input', function (e) {
+        self._filter(e.target.value);
+      });
+    }
+
+    _loadData() {
+      var self = this;
+      self.shadowRoot.getElementById('content').innerHTML = '<div class="loading">Carregando...</div>';
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (result && result.data) {
+            self._entries = result.data.entries || [];
+            self._filtered = self._entries.slice();
+            self._render();
+          } else {
+            self._entries = [];
+            self._filtered = [];
+            self._render();
+          }
+        })
+        .withFailureHandler(function (e) {
+          self.shadowRoot.getElementById('content').innerHTML =
+            '<div class="empty-state"><p>Erro ao carregar: ' + e.message + '</p></div>';
+        })
+        .apiDispatch('manualEntrada.listEntries', { limit: 500 });
+    }
+
+    _filter(query) {
+      if (!query || query.trim() === '') {
+        this._filtered = this._entries.slice();
+      } else {
+        var q = query.toLowerCase();
+        this._filtered = this._entries.filter(function (e) {
+          return (e.codigoProduto || '').toLowerCase().indexOf(q) !== -1 ||
+                 (e.descricaoProduto || '').toLowerCase().indexOf(q) !== -1 ||
+                 (e.emitenteNome || '').toLowerCase().indexOf(q) !== -1;
+        });
+      }
+      this._render();
+    }
+
+    _render() {
+      var self = this;
+      var content = this.shadowRoot.getElementById('content');
+      var stats = this.shadowRoot.getElementById('stats');
+
+      var totalEntries = this._entries.length;
+      var totalQty = 0;
+      var totalValue = 0;
+      for (var i = 0; i < this._entries.length; i++) {
+        totalQty += this._entries[i].quantidade || 0;
+        totalValue += this._entries[i].valorLiquidoItem || 0;
+      }
+
+      stats.innerHTML =
+        '<span>Total: <span class="stats-value">' + totalEntries + ' registros</span></span>' +
+        '<span>Quantidade: <span class="stats-value">' + totalQty + '</span></span>' +
+        '<span>Valor Total: <span class="stats-value">R$ ' + totalValue.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '</span></span>';
+
+      if (this._filtered.length === 0) {
+        content.innerHTML = '<div class="empty-state"><p>Nenhuma entrada manual registrada.</p></div>';
+        return;
+      }
+
+      var fmt = function (v) {
+        if (typeof v !== 'number' || isNaN(v)) return 'R$ 0,00';
+        return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      };
+
+      var sorted = this._filtered.slice().sort(function (a, b) {
+        var field = self._sortField;
+        var valA = a[field] || '';
+        var valB = b[field] || '';
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return self._sortOrder === 'asc' ? valA - valB : valB - valA;
+        }
+        valA = String(valA).toLowerCase();
+        valB = String(valB).toLowerCase();
+        if (valA < valB) return self._sortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return self._sortOrder === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      var sortIcon = function (field) {
+        if (self._sortField !== field) return '';
+        return '<span class="sort-icon">' + (self._sortOrder === 'asc' ? '▲' : '▼') + '</span>';
+      };
+
+      var html = '<div class="table-wrapper"><table>' +
+        '<thead><tr>' +
+        '<th data-sort="descricaoProduto">Descrição ' + sortIcon('descricaoProduto') + '</th>' +
+        '<th data-sort="codigoProduto">Código ' + sortIcon('codigoProduto') + '</th>' +
+        '<th data-sort="emitenteNome">Fornecedor ' + sortIcon('emitenteNome') + '</th>' +
+        '<th data-sort="quantidade">Qtd ' + sortIcon('quantidade') + '</th>' +
+        '<th data-sort="valorUnitario">Vlr Unitário ' + sortIcon('valorUnitario') + '</th>' +
+        '<th data-sort="valorLiquidoItem">Vlr Líquido ' + sortIcon('valorLiquidoItem') + '</th>' +
+        '<th data-sort="valorUnitarioLiquido">Unit Líquido ' + sortIcon('valorUnitarioLiquido') + '</th>' +
+        '<th data-sort="dataCompra">Data Compra ' + sortIcon('dataCompra') + '</th>' +
+        '<th data-sort="status">Status ' + sortIcon('status') + '</th>' +
+        '</tr></thead><tbody>';
+
+      for (var j = 0; j < sorted.length; j++) {
+        var e = sorted[j];
+        html += '<tr>' +
+          '<td>' + (e.descricaoProduto || '') + '</td>' +
+          '<td>' + (e.codigoProduto || '') + '</td>' +
+          '<td>' + (e.emitenteNome || '') + '</td>' +
+          '<td>' + (e.quantidade || 0) + '</td>' +
+          '<td>' + fmt(e.valorUnitario) + '</td>' +
+          '<td>' + fmt(e.valorLiquidoItem) + '</td>' +
+          '<td>' + fmt(e.valorUnitarioLiquido) + '</td>' +
+          '<td>' + (e.dataCompra || '') + '</td>' +
+          '<td><span class="badge badge-success">' + (e.status || 'Recebido') + '</span></td>' +
+          '</tr>';
+      }
+
+      html += '</tbody></table></div>';
+      content.innerHTML = html;
+
+      var ths = content.querySelectorAll('th[data-sort]');
+      for (var k = 0; k < ths.length; k++) {
+        ths[k].addEventListener('click', function () {
+          var field = this.getAttribute('data-sort');
+          if (self._sortField === field) {
+            self._sortOrder = self._sortOrder === 'asc' ? 'desc' : 'asc';
+          } else {
+            self._sortField = field;
+            self._sortOrder = 'asc';
+          }
+          self._render();
+        });
+      }
+    }
+  });
+})();
+</script>

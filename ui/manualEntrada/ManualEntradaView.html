@@ -256,11 +256,17 @@
 
     open() {
       this.shadowRoot.getElementById('modal-overlay').classList.add('open');
+      this._loadProducts();
+      this._loadSuppliers();
     }
 
     close() {
       this.shadowRoot.getElementById('modal-overlay').classList.remove('open');
       this._resetForm();
+    }
+
+    setOnSaveCallback(fn) {
+      this._onSaveCallback = fn;
     }
 
     _loadProducts() {
@@ -472,6 +478,9 @@
             }
             self._showToast(msg, 'success');
             self.close();
+            if (typeof self._onSaveCallback === 'function') {
+              self._onSaveCallback();
+            }
           }
         })
         .withFailureHandler(function (e) {
