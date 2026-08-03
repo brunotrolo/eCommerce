@@ -261,6 +261,9 @@
       <p class="page-subtitle">Produtos recebidos com preços sugeridos para Shopee e Mercado Livre.</p>
 
       <div class="catalog-toolbar">
+        <input type="text" id="filterInput" placeholder="Filtrar por código ou descrição..." style="flex:1; min-width:200px; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: var(--font-size-sm);" />
+        <label for="marginInput" style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">Margem %:</label>
+        <input type="number" id="marginInput" value="25" min="0" max="99" step="1" style="width:60px; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: var(--font-size-sm);" />
         <label for="sortBy" style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">Ordenar por:</label>
         <select id="sortBy">
           <option value="code">Código</option>
@@ -324,6 +327,21 @@
       return 'bad';
     }
 
+    var FEE_SHOPEE = { pct: 0.20, fixed: 0 };
+    var FEE_ML = { pct: 0.14, fixed: 6 };
+
+    function calcPrice(cost, margin, fee) {
+      var denom = 1 - fee.pct - margin;
+      if (denom <= 0) return 0;
+      return Math.round(((cost + fee.fixed) / denom) * 100) / 100;
+    }
+
+    function calcMargin(price, cost, fee) {
+      var marketplaceFee = Math.round((price * fee.pct + fee.fixed) * 100) / 100;
+      var netProfit = Math.round((price - marketplaceFee - cost) * 100) / 100;
+      return price > 0 ? Math.round((netProfit / price) * 10000) / 10000 : 0;
+    }
+
     class CatalogWidget extends HTMLElement {
       connectedCallback() {
         var template = document.getElementById('catalog-widget-template');
@@ -334,15 +352,27 @@
         this._shadow = shadow;
         this._sortOrder = 'asc';
         this._products = [];
+        this._filteredProducts = [];
+        this._margin = 0.25;
 
         shadow.getElementById('btn-sort-order').addEventListener('click', function () {
           this._sortOrder = this._sortOrder === 'asc' ? 'desc' : 'asc';
           shadow.getElementById('btn-sort-order').textContent = this._sortOrder === 'asc' ? '▲ ASC' : '▼ DESC';
-          this._loadProducts(shadow);
+          this._renderProducts(shadow);
         }.bind(this));
 
         shadow.getElementById('sortBy').addEventListener('change', function () {
-          this._loadProducts(shadow);
+          this._renderProducts(shadow);
+        }.bind(this));
+
+        shadow.getElementById('filterInput').addEventListener('input', function () {
+          this._applyFilterAndRender(shadow);
+        }.bind(this));
+
+        shadow.getElementById('marginInput').addEventListener('input', function () {
+          var val = parseFloat(shadow.getElementById('marginInput').value);
+          this._margin = isNaN(val) ? 0 : val / 100;
+          this._recalcAndRender(shadow);
         }.bind(this));
 
         shadow.getElementById('calc-close').addEventListener('click', function () {
@@ -383,11 +413,42 @@
           },
           function (data) {
             this._products = data.data || [];
-            this._renderSummary(shadow, data.totalCount || 0);
-            this._renderProducts(shadow);
+            this._recalcAndRender(shadow);
           }.bind(this),
           null
         );
+      }
+
+      _recalcAndRender(shadow) {
+        var margin = this._margin;
+        var products = this._products;
+        for (var i = 0; i < products.length; i++) {
+          var p = products[i];
+          var cost = p.valorUnitarioLiquido;
+          p.precoShopee = calcPrice(cost, margin, FEE_SHOPEE);
+          p.precoMercadoLivre = calcPrice(cost, margin, FEE_ML);
+          p.margemCalculadaShopee = calcMargin(p.precoShopee, cost, FEE_SHOPEE);
+          p.margemCalculadaMercadoLivre = calcMargin(p.precoMercadoLivre, cost, FEE_ML);
+        }
+        this._applyFilterAndRender(shadow);
+      }
+
+      _applyFilterAndRender(shadow) {
+        var filter = (shadow.getElementById('filterInput').value || '').toLowerCase().trim();
+        var products = this._products;
+
+        if (!filter) {
+          this._filteredProducts = products;
+        } else {
+          this._filteredProducts = products.filter(function (p) {
+            var cod = (p.codigoProduto || '').toLowerCase();
+            var desc = (p.descricaoProduto || '').toLowerCase();
+            return cod.indexOf(filter) !== -1 || desc.indexOf(filter) !== -1;
+          });
+        }
+
+        this._renderSummary(shadow, this._filteredProducts.length);
+        this._renderProducts(shadow);
       }
 
       _renderSummary(shadow, total) {
@@ -398,12 +459,25 @@
 
       _renderProducts(shadow) {
         var container = shadow.getElementById('catalog-content');
-        var products = this._products;
+        var products = this._filteredProducts;
+        var sortBy = shadow.getElementById('sortBy').value;
+        var sortOrder = this._sortOrder;
 
         if (!products || products.length === 0) {
-          container.innerHTML = '<div class="catalog-empty">Nenhum produto encontrado com status "Recebido".</div>';
+          container.innerHTML = '<div class="catalog-empty">Nenhum produto encontrado.</div>';
           return;
         }
+
+        var sorted = products.slice();
+        var sortField = { code: 'codigoProduto', description: 'descricaoProduto', unitCost: 'valorUnitarioLiquido', suggestedShopee: 'precoShopee' }[sortBy] || 'codigoProduto';
+        sorted.sort(function (a, b) {
+          var valA = a[sortField];
+          var valB = b[sortField];
+          if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = (valB || '').toLowerCase(); }
+          if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+          if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+          return 0;
+        });
 
         var html = '<table class="catalog-table"><thead><tr>';
         html += '<th>Código</th>';
@@ -415,8 +489,8 @@
         html += '<th></th>';
         html += '</tr></thead><tbody>';
 
-        for (var i = 0; i < products.length; i++) {
-          var p = products[i];
+        for (var i = 0; i < sorted.length; i++) {
+          var p = sorted[i];
           var marginShopee = marginClass(p.margemCalculadaShopee);
 
           html += '<tr>';
