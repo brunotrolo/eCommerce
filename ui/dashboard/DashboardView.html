@@ -34,11 +34,25 @@
         var shadow = this.attachShadow({ mode: 'open' });
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
-        shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow));
-        this._load(shadow);
+        shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow, true));
+
+        var cached = window.__DataStore && window.__DataStore.get('dashboard.summary');
+        if (cached) {
+          render(shadow, cached);
+        }
+        this._load(shadow, false);
       }
 
-      _load(shadow) {
+      _load(shadow, force) {
+        var self = this;
+        if (force && window.__DataStore) window.__DataStore.invalidate('dashboard.summary');
+        var ds = window.__DataStore;
+        if (ds && !force) {
+          ds.getOrFetch('dashboard.summary', 'dashboard.getSummary', {}).then(function (data) {
+            if (data) render(shadow, data);
+          }).catch(function () {});
+          return;
+        }
         withLoading(
           shadow.getElementById('btn-refresh'),
           (success, failure) =>
@@ -46,7 +60,10 @@
               .withSuccessHandler(success)
               .withFailureHandler(failure)
               .apiDispatch('dashboard.getSummary', {}),
-          (data) => render(shadow, data),
+          (data) => {
+            if (ds) ds.set('dashboard.summary', data);
+            render(shadow, data);
+          },
           (data) => (data.fromCache ? 'Dados em cache (até 5 min).' : 'Dados atualizados agora.')
         );
       }

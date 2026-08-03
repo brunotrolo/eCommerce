@@ -31,6 +31,7 @@
     <?!= include('ui/shared/UiHelpers'); ?>
     <?!= include('ui/shared/Formatter'); ?>
     <?!= include('ui/shared/DebugConsole'); ?>
+    <?!= include('ui/shared/DataStore'); ?>
     <?!= include('ui/shell/StatusView'); ?>
     <?!= include('ui/dashboard/DashboardView'); ?>
     <?!= include('ui/pricing/PricingView'); ?>
@@ -96,6 +97,16 @@
 
       initTheme();
       navigate((window.location.hash || '#dashboard').replace('#', ''));
+
+      if (window.__DataStore) {
+        window.__DataStore.preFetch([
+          { key: 'dashboard.summary', action: 'dashboard.getSummary', params: {} },
+          { key: 'nfeEntrada.recent', action: 'nfeEntrada.getRecent', params: { limit: 20 } },
+          { key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: {} },
+          { key: 'config.config', action: 'config.getConfig', params: {} },
+          { key: 'catalog.products.codigoProduto.asc', action: 'catalog.getProducts', params: { sortBy: 'codigoProduto', sortOrder: 'asc' } }
+        ]);
+      }
 
       document.getElementById('calc-nav-btn').addEventListener('click', function () {
         var calcWidget = document.querySelector('calculator-widget');

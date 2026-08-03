@@ -1,0 +1,76 @@
+<script>
+  (function () {
+    if (window.__DataStore) return;
+
+    var _cache = {};
+    var _fetching = {};
+
+    function _unwrap(resp) {
+      if (!resp) return null;
+      if (resp.data && resp.data.data !== undefined) return resp.data.data;
+      if (resp.data !== undefined) return resp.data;
+      return resp;
+    }
+
+    function get(key) {
+      return _cache[key] || null;
+    }
+
+    function has(key) {
+      return _cache[key] !== undefined;
+    }
+
+    function set(key, data) {
+      _cache[key] = data;
+    }
+
+    function invalidate(key) {
+      delete _cache[key];
+    }
+
+    function getOrFetch(key, action, params) {
+      if (has(key)) {
+        return Promise.resolve(get(key));
+      }
+      if (_fetching[key]) {
+        return _fetching[key];
+      }
+      var p = new Promise(function (resolve, reject) {
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            var data = _unwrap(resp);
+            set(key, data);
+            delete _fetching[key];
+            resolve(data);
+          })
+          .withFailureHandler(function (err) {
+            delete _fetching[key];
+            reject(err);
+          })
+          .apiDispatch(action, params || {});
+      });
+      _fetching[key] = p;
+      return p;
+    }
+
+    function preFetch(entries) {
+      var promises = [];
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (!has(e.key)) {
+          promises.push(getOrFetch(e.key, e.action, e.params));
+        }
+      }
+      return Promise.allSettled(promises);
+    }
+
+    window.__DataStore = {
+      get: get,
+      has: has,
+      set: set,
+      invalidate: invalidate,
+      getOrFetch: getOrFetch,
+      preFetch: preFetch
+    };
+  })();
+</script>

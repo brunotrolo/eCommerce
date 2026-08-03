@@ -351,6 +351,15 @@
           overlay.addEventListener('click', function () { self._closeSidebar(); });
           closeBtn.addEventListener('click', function () { self._closeSidebar(); });
 
+          var cached = window.__DataStore && window.__DataStore.get('nfeEntradaProdutos.produtos');
+          if (cached) {
+            var items = (cached && cached.data) || cached || [];
+            if (Array.isArray(items) && items.length > 0) {
+              self._allItems = items;
+              self._applyFilter();
+              self.shadowRoot.getElementById('estoque-card').hidden = false;
+            }
+          }
           this._loadProdutos();
         }
 
@@ -483,6 +492,18 @@
 
         _loadProdutos() {
           var self = this;
+          var ds = window.__DataStore;
+
+          if (ds && ds.has('nfeEntradaProdutos.produtos')) {
+            var cached = ds.get('nfeEntradaProdutos.produtos');
+            var items = (cached && cached.data) || cached || [];
+            if (Array.isArray(items) && items.length > 0) {
+              self._allItems = items;
+              self._applyFilter();
+              self.shadowRoot.getElementById('estoque-card').hidden = false;
+            }
+            return;
+          }
 
           google.script.run
             .withSuccessHandler(function (result) {
@@ -498,6 +519,7 @@
               var data = result.data || {};
               var items = (data && data.data) || [];
               self._allItems = items;
+              if (ds) ds.set('nfeEntradaProdutos.produtos', items);
 
               if (items.length === 0) {
                 card.hidden = false;

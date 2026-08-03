@@ -216,6 +216,15 @@
 
           this._hideResults();
 
+          var cached = window.__DataStore && window.__DataStore.get('nfeEntrada.recent');
+          if (cached) {
+            var rows = cached.data || cached;
+            if (Array.isArray(rows) && rows.length > 0) {
+              this.shadowRoot.getElementById('recent-card').hidden = false;
+              this._renderTable(rows);
+            }
+          }
+
           btn.addEventListener('click', function () {
             btn.disabled = true;
             btn.textContent = 'Sincronizando…';
@@ -293,6 +302,16 @@
 
         _loadRecent() {
           var self = this;
+          var ds = window.__DataStore;
+          if (ds && ds.has('nfeEntrada.recent')) {
+            var cached = ds.get('nfeEntrada.recent');
+            var rows = cached.data || cached;
+            if (Array.isArray(rows) && rows.length > 0) {
+              self.shadowRoot.getElementById('recent-card').hidden = false;
+              self._renderTable(rows);
+            }
+            return;
+          }
           google.script.run
             .withSuccessHandler(function (result) {
               var recentCard = self.shadowRoot.getElementById('recent-card');
@@ -316,6 +335,7 @@
               }
 
               var rows = data.data || [];
+              if (ds) ds.set('nfeEntrada.recent', data);
               if (rows.length === 0) {
                 recentCard.hidden = false;
                 hint.textContent = 'Nenhuma NF-e importada ainda. Clique em "Sincronizar com Drive".';
