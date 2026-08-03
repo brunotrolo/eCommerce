@@ -15,7 +15,6 @@ var ManualEntradaService = (function () {
             descricaoProduto: { type: 'string', required: true },
             quantidade: { type: 'number', required: true },
             valorUnitario: { type: 'number', required: true },
-            aliquotaIcms: { type: 'number', required: false },
             emitenteNome: { type: 'string', required: true },
             dataCompra: { type: 'string', required: false },
             valorOutrosItem: { type: 'number', required: false },
@@ -40,7 +39,6 @@ var ManualEntradaService = (function () {
             descricaoProduto: { type: 'string', required: true },
             quantidade: { type: 'number', required: true },
             valorUnitario: { type: 'number', required: true },
-            aliquotaIcms: { type: 'number', required: false },
             emitenteNome: { type: 'string', required: true },
             dataCompra: { type: 'string', required: false },
             valorOutrosItem: { type: 'number', required: false },
@@ -72,11 +70,9 @@ var ManualEntradaService = (function () {
 
     var quantidade = parseFloat(params.quantidade) || 0;
     var valorUnitario = parseFloat(params.valorUnitario) || 0;
-    var aliquotaIcms = typeof params.aliquotaIcms === 'number' ? params.aliquotaIcms : 0.18;
     var valorOutrosItem = parseFloat(params.valorOutrosItem) || 0;
 
     var valorTotal = Math.round(quantidade * valorUnitario * 100) / 100;
-    var valorIcmsItem = Math.round(valorTotal * aliquotaIcms * 100) / 100;
     var valorLiquidoItem = Math.round((valorTotal + valorOutrosItem) * 100) / 100;
     var valorUnitarioLiquido = quantidade > 0 ? Math.round((valorLiquidoItem / quantidade) * 100) / 100 : 0;
 
@@ -95,8 +91,8 @@ var ManualEntradaService = (function () {
       quantidade: quantidade,
       valorUnitario: valorUnitario,
       valorTotal: valorTotal,
-      aliquotaIcms: aliquotaIcms,
-      valorIcmsItem: valorIcmsItem,
+      aliquotaIcms: 0,
+      valorIcmsItem: 0,
       status: 'Recebido',
       dataEntrada: now.toISOString(),
       tipoMovimentacao: 'Entrada Manual',
@@ -197,12 +193,6 @@ var ManualEntradaService = (function () {
     var valorUnitario = parseFloat(params.valorUnitario);
     if (isNaN(valorUnitario) || valorUnitario < 0) {
       errors.push('valorUnitario must be >= 0');
-    }
-
-    if (typeof params.aliquotaIcms === 'number') {
-      if (params.aliquotaIcms < 0 || params.aliquotaIcms > 1) {
-        errors.push('Alíquota deve estar entre 0% e 100%');
-      }
     }
 
     return { valid: errors.length === 0, warnings: warnings, errors: errors };
