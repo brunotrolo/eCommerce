@@ -39,7 +39,8 @@
 
 <script>
   (function () {
-    var _pageLoadTime = Date.now();
+    var _pageLoadTime = performance.timing ? performance.timing.navigationStart : Date.now();
+    var _firstFetchDone = false;
 
     class StatusView extends HTMLElement {
       constructor() {
@@ -64,46 +65,45 @@
 
       _fetch() {
         var self = this;
+        var t0 = Date.now();
         google.script.run
           .withSuccessHandler(function (resp) {
+            var t1 = Date.now();
+            var gasMs = t1 - t0;
+            var cpuMs = t1 - _pageLoadTime;
             var data = (resp && resp.data) ? resp.data.data : resp.data;
-            self._render(data);
+            self._render(data, gasMs, cpuMs);
           })
           .withFailureHandler(function () {
-            self._render(null);
+            self._render(null, 0, 0);
           })
           .apiDispatch('system.getStatus', {});
       }
 
-      _render(data) {
+      _render(data, gasMs, cpuMs) {
         var dot = this.shadowRoot.getElementById('dot');
         var label = this.shadowRoot.getElementById('label');
         var timing = this.shadowRoot.getElementById('timing');
 
         if (!data || data.isOnline === false) {
           dot.className = 'dot dot--offline';
-          label.textContent = 'Offline';
+          label.textContent = '\u{1F534} Offline';
           timing.textContent = '';
           return;
         }
 
-        var online = data.isOnline;
-        dot.className = 'dot dot--' + (online ? 'online' : 'offline');
-        label.textContent = (online ? '\u{1F7E2} Online' : '\u{1F534} Offline');
+        dot.className = 'dot dot--online';
+        label.textContent = '\u{1F7E2} Online';
 
         if (data.lastUpdate) {
           label.textContent += ' | ' + data.lastUpdate;
         }
 
-        if (data.timing) {
-          var gasMs = data.timing.gasTimeMs || 0;
-          var cpuMs = Date.now() - _pageLoadTime;
-          var totalMs = gasMs + cpuMs;
-          var total = (totalMs / 1000).toFixed(2);
-          var gas = (gasMs / 1000).toFixed(2);
-          var cpu = (cpuMs / 1000).toFixed(2);
-          timing.textContent = total + 's (GAS: ' + gas + 's | CPU: ' + cpu + 's)';
-        }
+        var totalMs = gasMs + cpuMs;
+        var total = (totalMs / 1000).toFixed(2);
+        var gas = (gasMs / 1000).toFixed(2);
+        var cpu = (cpuMs / 1000).toFixed(2);
+        timing.textContent = total + 's (GAS: ' + gas + 's | CPU: ' + cpu + 's)';
       }
     }
 

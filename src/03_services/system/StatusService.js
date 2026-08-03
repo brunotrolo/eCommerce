@@ -1,26 +1,8 @@
 var StatusService = (function () {
-  var gasStartTime = Date.now();
-  var gasEndTime = null;
-
-  function startGasTimer() {
-    gasStartTime = Date.now();
-  }
-
-  function endGasTimer() {
-    gasEndTime = Date.now();
-  }
-
   function getStatus() {
-    var gasTimeMs = (gasEndTime - gasStartTime) || 0;
-
     return {
-      isOnline: gasEndTime !== null,
+      isOnline: true,
       timestamp: new Date().toISOString(),
-      timing: {
-        gasTimeMs: gasTimeMs,
-        cpuTimeMs: 0,
-        totalTimeMs: gasTimeMs
-      },
       lastUpdate: formatarDataHora(new Date())
     };
   }
@@ -41,7 +23,7 @@ var StatusService = (function () {
       actions: {
         getStatus: {
           params: {},
-          returns: { isOnline: 'boolean', timing: { gasTimeMs: 'number', cpuTimeMs: 'number' }, lastUpdate: 'string' }
+          returns: { isOnline: 'boolean', lastUpdate: 'string' }
         }
       }
     };
@@ -49,8 +31,6 @@ var StatusService = (function () {
 
   return {
     describe: describe,
-    getStatus: getStatus,
-    startGasTimer: startGasTimer,
-    endGasTimer: endGasTimer
+    getStatus: getStatus
   };
 })();
