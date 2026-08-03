@@ -8,11 +8,11 @@
 var ManualEntradaProdutosRepository = (function () {
   var SHEET_NAME = 'MANUAL_ENTRADA_PRODUTOS';
   var HEADERS = [
-    'CODIGO_PRODUTO', 'DESCRICAO_PRODUTO', 'NCM', 'CFOP', 'QUANTIDADE',
-    'VALOR_UNITARIO', 'VALOR_TOTAL', 'ALIQUOTA_ICMS', 'VALOR_ICMS_ITEM',
-    'STATUS', 'DATA_ENTRADA', 'TIPO_MOVIMENTACAO', 'LOG_ID',
-    'VALOR_DESCONTO_ITEM', 'TIPO_DESCONTO', 'VALOR_OUTROS_ITEM', 'TIPO_OUTROS',
-    'VALOR_LIQUIDO_ITEM', 'VALOR_UNITARIO_LIQUIDO', 'EMITENTE_NOME', 'DATA_COMPRA', 'OBSERVACOES'
+    'CODIGO_PRODUTO', 'DESCRICAO_PRODUTO', 'NCM', 'QUANTIDADE',
+    'VALOR_UNITARIO', 'VALOR_TOTAL', 'STATUS', 'DATA_ENTRADA',
+    'TIPO_MOVIMENTACAO', 'LOG_ID', 'VALOR_OUTROS_ITEM', 'TIPO_OUTROS',
+    'VALOR_LIQUIDO_ITEM', 'VALOR_UNITARIO_LIQUIDO', 'EMITENTE_NOME',
+    'DATA_COMPRA', 'OBSERVACOES'
   ];
   var STATUS_PADRAO = 'Recebido';
   var TIPO_MOVIMENTACAO = 'Entrada Manual';
@@ -112,18 +112,13 @@ var ManualEntradaProdutosRepository = (function () {
       codigoProduto: 'CODIGO_PRODUTO',
       descricaoProduto: 'DESCRICAO_PRODUTO',
       ncm: 'NCM',
-      cfop: 'CFOP',
       quantidade: 'QUANTIDADE',
       valorUnitario: 'VALOR_UNITARIO',
       valorTotal: 'VALOR_TOTAL',
-      aliquotaIcms: 'ALIQUOTA_ICMS',
-      valorIcmsItem: 'VALOR_ICMS_ITEM',
       status: 'STATUS',
       dataEntrada: 'DATA_ENTRADA',
       tipoMovimentacao: 'TIPO_MOVIMENTACAO',
       logId: 'LOG_ID',
-      valorDescontoItem: 'VALOR_DESCONTO_ITEM',
-      tipoDesconto: 'TIPO_DESCONTO',
       valorOutrosItem: 'VALOR_OUTROS_ITEM',
       tipoOutros: 'TIPO_OUTROS',
       valorLiquidoItem: 'VALOR_LIQUIDO_ITEM',
@@ -145,8 +140,7 @@ var ManualEntradaProdutosRepository = (function () {
         value = (value || '').toUpperCase();
       } else if (value === undefined || value === null) {
         if (field === 'quantidade' || field === 'valorUnitario' || field === 'valorTotal' ||
-            field === 'aliquotaIcms' || field === 'valorIcmsItem' ||
-            field === 'valorDescontoItem' || field === 'valorOutrosItem' ||
+            field === 'valorOutrosItem' ||
             field === 'valorLiquidoItem' || field === 'valorUnitarioLiquido') {
           value = 0;
         } else {
