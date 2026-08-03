@@ -276,32 +276,37 @@
       google.script.run
         .withSuccessHandler(function (result) {
           select.innerHTML = '<option value="">Selecione um produto...</option>';
-          var items = [];
-          if (result && result.data && result.data.length > 0) {
-            items = result.data;
-          } else if (result && result.error) {
+
+          if (!result) {
+            select.innerHTML = '<option value="">Erro: resposta vazia do servidor</option>';
+            return;
+          }
+          if (result.error) {
             select.innerHTML = '<option value="">Erro: ' + result.error + '</option>';
             return;
           }
-          if (items.length === 0) {
-            select.innerHTML = '<option value="">Nenhum produto encontrado</option>';
+          if (!result.data || result.data.length === 0) {
+            select.innerHTML = '<option value="">Nenhum produto na planilha</option>';
             return;
           }
+
+          var allRows = result.data;
           var grouped = {};
-          for (var i = 0; i < items.length; i++) {
-            var row = items[i];
-            var status = String(row.STATUS || '').trim().toLowerCase();
-            if (status !== 'recebido') continue;
+          for (var i = 0; i < allRows.length; i++) {
+            var row = allRows[i];
             var cod = String(row.CODIGO_PRODUTO || '').trim();
-            if (!cod || grouped[cod]) continue;
+            if (!cod) continue;
+            if (grouped[cod]) continue;
             var vLiq = parseFloat(row.VALOR_UNITARIO_LIQUIDO);
             if (isNaN(vLiq)) vLiq = parseFloat(row.VALOR_UNITARIO) || 0;
             grouped[cod] = {
               codigoProduto: cod,
               descricaoProduto: row.DESCRICAO_PRODUTO || '',
-              valorUnitarioLiquido: vLiq
+              valorUnitarioLiquido: vLiq,
+              status: String(row.STATUS || '').trim()
             };
           }
+
           var products = [];
           var codes = Object.keys(grouped);
           for (var k = 0; k < codes.length; k++) {
@@ -310,6 +315,12 @@
           products.sort(function (a, b) {
             return (a.codigoProduto || '').localeCompare(b.codigoProduto || '');
           });
+
+          if (products.length === 0) {
+            select.innerHTML = '<option value="">Nenhum produto com código válido</option>';
+            return;
+          }
+
           self._products = products;
           products.forEach(function (p) {
             var option = document.createElement('option');
@@ -320,7 +331,7 @@
           });
         })
         .withFailureHandler(function (e) {
-          select.innerHTML = '<option value="">Erro ao carregar: ' + (e.message || e) + '</option>';
+          select.innerHTML = '<option value="">Erro: ' + (e.message || e) + '</option>';
         })
         .apiDispatch('nfeEntradaProdutos.getProdutos', {});
     }
