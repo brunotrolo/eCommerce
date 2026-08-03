@@ -182,7 +182,7 @@ var NFeEntradaRepository = (function () {
     };
 
     var defaults = {
-      'DATA_SYNC': function () { return new Date().toISOString(); },
+      'DATA_SYNC': function () { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'); },
       'TIPO_ARQUIVO': 'xml',
       'PROCESSADA_EM': '',
       'VALOR_PRODUTOS': 0,

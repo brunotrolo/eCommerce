@@ -177,7 +177,7 @@ var NFeEntradaProdutosRepository = (function () {
           } else if (field === 'status' && (!value || value === '')) {
             value = STATUS_PADRAO;
           } else if (field === 'dataEntrada' && (!value || value === '')) {
-            value = new Date().toISOString();
+            value = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
           } else if (field === 'tipoMovimentacao' && (!value || value === '')) {
             value = TIPO_MOVIMENTACAO;
           } else if (value === undefined || value === null) {
