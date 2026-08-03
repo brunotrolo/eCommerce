@@ -67,10 +67,10 @@ var EstoqueService = (function () {
     return sheetId;
   }
 
-  function gerarEstoqueId_(sheetId) {
+  function gerarEstoqueId_(sheetId, overrideSeq) {
     var now = new Date();
     var date = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyyMMdd');
-    var seq = EstoqueRepository.getProximoSequencial(sheetId, date);
+    var seq = overrideSeq != null ? overrideSeq : EstoqueRepository.getProximoSequencial(sheetId, date);
     return 'EST-' + date + '-' + String(seq).padStart(3, '0');
   }
 
@@ -115,6 +115,7 @@ var EstoqueService = (function () {
     var estoqueIds = [];
     var errors = [];
     var rowsToInsert = [];
+    var seqCounter = EstoqueRepository.getProximoSequencial(sheetId, Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd'));
 
     for (var i = 0; i < nfRows.length; i++) {
       var r = nfRows[i];
@@ -125,7 +126,7 @@ var EstoqueService = (function () {
       var custo = parseFloat(r.VALOR_UNITARIO_LIQUIDO) || parseFloat(r.VALOR_UNITARIO) || 0;
 
       for (var u = 0; u < qty; u++) {
-        var estoqueId = gerarEstoqueId_(sheetId);
+        var estoqueId = gerarEstoqueId_(sheetId, seqCounter++);
         rowsToInsert.push({
           estoqueId: estoqueId,
           codigoProduto: r.CODIGO_PRODUTO || '',
@@ -176,6 +177,7 @@ var EstoqueService = (function () {
     var estoqueIds = [];
     var errors = [];
     var rowsToInsert = [];
+    var seqCounter = EstoqueRepository.getProximoSequencial(sheetId, Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd'));
 
     var allRows = ManualEntradaProdutosRepository.getRows(sheetId);
 
@@ -188,7 +190,7 @@ var EstoqueService = (function () {
       var custo = parseFloat(r.VALOR_UNITARIO_LIQUIDO) || parseFloat(r.VALOR_UNITARIO) || 0;
 
       for (var u = 0; u < qty; u++) {
-        var estoqueId = gerarEstoqueId_(sheetId);
+        var estoqueId = gerarEstoqueId_(sheetId, seqCounter++);
         rowsToInsert.push({
           estoqueId: estoqueId,
           codigoProduto: r.CODIGO_PRODUTO || '',
@@ -374,9 +376,10 @@ var EstoqueService = (function () {
       var custo = parseFloat(rm.VALOR_UNITARIO_LIQUIDO) || parseFloat(rm.VALOR_UNITARIO) || 0;
       var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
       var rowsToInsert = [];
+      var seqCounter = EstoqueRepository.getProximoSequencial(sheetId, Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd'));
       for (var u = 0; u < qty; u++) {
         rowsToInsert.push({
-          estoqueId: gerarEstoqueId_(sheetId),
+          estoqueId: gerarEstoqueId_(sheetId, seqCounter++),
           codigoProduto: rm.CODIGO_PRODUTO || '',
           descricaoProduto: rm.DESCRICAO_PRODUTO || '',
           dataEntrada: rm.DATA_ENTRADA || now,
