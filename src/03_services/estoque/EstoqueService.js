@@ -5,6 +5,29 @@
  * Regras completas em specs/estoque.md.
  */
 var EstoqueService = (function () {
+
+  function trace_(action, summary, context) {
+    LoggingService.log({
+      service: 'estoque.trace',
+      action: action,
+      status: 'OK',
+      caller: 'webapp',
+      summary: summary,
+      context: context || {}
+    });
+  }
+
+  function traceError_(action, summary, context) {
+    LoggingService.log({
+      service: 'estoque.trace',
+      action: action,
+      status: 'ERROR',
+      caller: 'webapp',
+      summary: summary,
+      context: context || {}
+    });
+  }
+
   function describe() {
     return {
       name: 'estoque',
@@ -115,8 +138,12 @@ var EstoqueService = (function () {
   }
 
   function importarDeNfe(params) {
+    var startTime = Date.now();
     var sheetId = getSheetId_();
-    if (!sheetId) return { error: 'Sheet ID não configurado.' };
+    if (!sheetId) {
+      traceError_('importarDeNfe', 'Sheet ID nao configurado', { params: params });
+      return { error: 'Sheet ID não configurado.' };
+    }
 
     var numeroNf = String(params.numeroNf || '').trim();
     var chaveNf = String(params.chaveNf || '').trim();
@@ -125,6 +152,7 @@ var EstoqueService = (function () {
 
     var nfRows = NFeEntradaProdutosRepository.getProdutosByNf(sheetId, numeroNf);
     if (!nfRows || nfRows.length === 0) {
+      traceError_('importarDeNfe', 'Nenhum produto encontrado para NF ' + numeroNf, { numeroNf: numeroNf });
       return { error: 'Nenhum produto encontrado para NF ' + numeroNf };
     }
 
@@ -177,6 +205,15 @@ var EstoqueService = (function () {
       }
     }
 
+    var duration = Date.now() - startTime;
+    trace_('importarDeNfe', 'NF#' + numeroNf + ': ' + rowsToInsert.length + ' unidade(s) importada(s)', {
+      numeroNf: numeroNf,
+      itemsImported: rowsToInsert.length,
+      produtos: Object.keys(produtos),
+      estoqueIds: estoqueIds.slice(0, 10),
+      durationMs: duration
+    });
+
     return {
       success: true,
       itemsImported: rowsToInsert.length,
@@ -186,8 +223,12 @@ var EstoqueService = (function () {
   }
 
   function importarDeManualEntrada(params) {
+    var startTime = Date.now();
     var sheetId = getSheetId_();
-    if (!sheetId) return { error: 'Sheet ID não configurado.' };
+    if (!sheetId) {
+      traceError_('importarDeManualEntrada', 'Sheet ID nao configurado', { params: params });
+      return { error: 'Sheet ID não configurado.' };
+    }
 
     params = params || {};
     var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
@@ -241,6 +282,13 @@ var EstoqueService = (function () {
       }
     }
 
+    var duration = Date.now() - startTime;
+    trace_('importarDeManualEntrada', rowsToInsert.length + ' unidade(s) importada(s) de entradas manuais', {
+      itemsImported: rowsToInsert.length,
+      produtos: Object.keys(produtos),
+      durationMs: duration
+    });
+
     return {
       success: true,
       itemsImported: rowsToInsert.length,
@@ -282,6 +330,13 @@ var EstoqueService = (function () {
       valA = parseFloat(valA) || 0;
       valB = parseFloat(valB) || 0;
       return sortOrder === 'asc' ? valA - valB : valB - valA;
+    });
+
+    trace_('getItems', items.length + ' item(s) encontrado(s)', {
+      filters: filters,
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+      count: items.length
     });
 
     return { items: items };
@@ -341,11 +396,17 @@ var EstoqueService = (function () {
   }
 
   function sincronizar() {
+    var startTime = Date.now();
     var sheetId = getSheetId_();
-    if (!sheetId) return { error: 'Sheet ID não configurado.' };
+    if (!sheetId) {
+      traceError_('sincronizar', 'Sheet ID nao configurado', {});
+      return { error: 'Sheet ID não configurado.' };
+    }
 
     var totalImportados = 0;
     var totalSincronizados = 0;
+    var nfImportadas = [];
+    var manualImportadas = [];
 
     var allNfeRows = NFeEntradaProdutosRepository.getProdutos(sheetId);
     var existingItems = EstoqueRepository.getRows(sheetId);
@@ -366,9 +427,13 @@ var EstoqueService = (function () {
     }
 
     var nfKeys = Object.keys(nfGroups);
+    var nfJaExistente = [];
     for (var k = 0; k < nfKeys.length; k++) {
       var ref = 'NF#' + nfKeys[k];
-      if (existingRefs[ref]) continue;
+      if (existingRefs[ref]) {
+        nfJaExistente.push(nfKeys[k]);
+        continue;
+      }
 
       var result = importarDeNfe({
         numeroNf: nfKeys[k],
@@ -377,17 +442,22 @@ var EstoqueService = (function () {
       if (result.itemsImported) {
         totalImportados += result.itemsImported;
         totalSincronizados += result.itemsImported;
+        nfImportadas.push(nfKeys[k] + '(' + result.itemsImported + ')');
       }
     }
 
     var allManualRows = ManualEntradaProdutosRepository.getRows(sheetId);
+    var manualJaExistente = [];
     for (var m = 0; m < allManualRows.length; m++) {
       var rm = allManualRows[m];
       var statusM = String(rm.STATUS || '').trim().toLowerCase();
       if (statusM !== 'recebido') continue;
       var logId = String(rm.LOG_ID || '').trim();
       var refMan = 'MAN#' + logId;
-      if (existingRefs[refMan]) continue;
+      if (existingRefs[refMan]) {
+        manualJaExistente.push(refMan);
+        continue;
+      }
 
       var qty = parseInt(rm.QUANTIDADE) || 1;
       var custo = parseFloat(rm.VALOR_UNITARIO_LIQUIDO) || parseFloat(rm.VALOR_UNITARIO) || 0;
@@ -417,8 +487,28 @@ var EstoqueService = (function () {
         totalImportados += rowsToInsert.length;
         totalSincronizados += rowsToInsert.length;
         existingRefs[refMan] = true;
+        manualImportadas.push(refMan + '(' + rowsToInsert.length + ')');
       }
     }
+
+    var duration = Date.now() - startTime;
+    var totalNfDisponiveis = nfKeys.length;
+    var totalNfNovas = nfImportadas.length;
+    var totalManualNovas = manualImportadas.length;
+    var totalJaSincronizado = nfJaExistente.length + manualJaExistente.length;
+
+    trace_('sincronizar', 'Sync concluido: ' + totalImportados + ' unidade(s) nova(s) em ' + duration + 'ms', {
+      totalImportados: totalImportados,
+      nfNovas: totalNfNovas,
+      nfImportadas: nfImportadas,
+      nfJaExistente: nfJaExistente,
+      manualNovas: totalManualNovas,
+      manualImportadas: manualImportadas,
+      manualJaExistente: manualJaExistente,
+      totalJaSincronizado: totalJaSincronizado,
+      totalNfDisponiveis: totalNfDisponiveis,
+      durationMs: duration
+    });
 
     return {
       success: true,
@@ -428,8 +518,12 @@ var EstoqueService = (function () {
   }
 
   function updateItem(params) {
+    var startTime = Date.now();
     var sheetId = getSheetId_();
-    if (!sheetId) return { error: 'Sheet ID não configurado.' };
+    if (!sheetId) {
+      traceError_('updateItem', 'Sheet ID nao configurado', { params: params });
+      return { error: 'Sheet ID não configurado.' };
+    }
 
     var estoqueId = String(params.estoqueId || '').trim();
     if (!estoqueId) return { error: 'estoqueId é obrigatório.' };
@@ -442,7 +536,10 @@ var EstoqueService = (function () {
         break;
       }
     }
-    if (!targetItem) return { error: 'Item não encontrado: ' + estoqueId };
+    if (!targetItem) {
+      traceError_('updateItem', 'Item nao encontrado: ' + estoqueId, { estoqueId: estoqueId });
+      return { error: 'Item não encontrado: ' + estoqueId };
+    }
 
     var updates = {};
     var codigoProduto = targetItem.CODIGO_PRODUTO;
@@ -501,6 +598,21 @@ var EstoqueService = (function () {
       atualizarAlertas_(sheetId, codigoProduto);
     }
 
+    var duration = Date.now() - startTime;
+    var changes = [];
+    if (updates.precoVendaShopee !== undefined) changes.push('Shopee=' + updates.precoVendaShopee);
+    if (updates.precoVendaMercadoLivre !== undefined) changes.push('ML=' + updates.precoVendaMercadoLivre);
+    if (updates.status) changes.push('status=' + updates.status);
+
+    trace_('updateItem', estoqueId + ' atualizado [' + changes.join(', ') + '] - ' + totalUpdated + ' item(ns) afetado(s)', {
+      estoqueId: estoqueId,
+      codigoProduto: codigoProduto,
+      changes: changes,
+      totalUpdated: totalUpdated,
+      propagou: totalUpdated > 1,
+      durationMs: duration
+    });
+
     return { success: true, updated: totalUpdated };
   }
 
@@ -513,16 +625,25 @@ var EstoqueService = (function () {
       var products = (result && result.data) ? result.data : [];
       for (var i = 0; i < products.length; i++) {
         if (String(products[i].codigoProduto || '').trim() === codigoProduto) {
+          var precoShopee = products[i].precoShopee || 0;
+          var precoMercadoLivre = products[i].precoMercadoLivre || 0;
+          trace_('getPrecosCatalogo', 'Catalogo: ' + codigoProduto + ' -> Shopee=' + precoShopee + ' ML=' + precoMercadoLivre, {
+            codigoProduto: codigoProduto,
+            precoShopee: precoShopee,
+            precoMercadoLivre: precoMercadoLivre
+          });
           return {
-            precoShopee: products[i].precoShopee || 0,
-            precoMercadoLivre: products[i].precoMercadoLivre || 0
+            precoShopee: precoShopee,
+            precoMercadoLivre: precoMercadoLivre
           };
         }
       }
     } catch (e) {
+      traceError_('getPrecosCatalogo', 'Erro ao buscar catalogo: ' + e.message, { codigoProduto: codigoProduto });
       return { error: 'Erro ao buscar catálogo: ' + e.message };
     }
 
+    trace_('getPrecosCatalogo', 'Produto ' + codigoProduto + ' nao encontrado no catalogo', { codigoProduto: codigoProduto });
     return { precoShopee: 0, precoMercadoLivre: 0 };
   }
 
