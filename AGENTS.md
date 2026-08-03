@@ -68,10 +68,33 @@ GAS/V8 não tem ES modules — todo arquivo cai no mesmo escopo global. Regras:
   arquivos quebra o projeto inteiro (`SyntaxError` global); `var` degrada
   melhor.
 - Nunca chame outro namespace dentro da IIFE de topo — só dentro dos
-  métodos retornados (evita depender de ordem de carregamento entre
-  arquivos; a ordem de carregamento no GAS segue a ordenação alfabética dos
-  nomes de arquivo, por isso os prefixos numéricos `00_`, `01_`, etc. nas
-  pastas).
+  métodos retornados.
+
+### Ordem de Carregamento (CRÍTICO para Microsserviços)
+
+**Problema:** GAS carrega arquivos **alfabeticamente** por padrão. Isso quebra
+dependências entre namespaces: se `CatalogService` tenta chamar
+`NFeEntradaProdutosRepository` mas é carregado antes, dá erro.
+
+**Solução:** `appsscript.json` define `filePushOrder` — lista exata de todos
+os arquivos `.js` em **ordem de dependência topológica** (A depende de B? B
+carrega **antes** de A).
+
+**Ordem esperada:**
+```
+1. ConfigService (sem dependências)
+2. Adapters (DriveAdapter, TiopsClient) — usam Config
+3. Repositories (PropertiesRepository, CacheRepository, SheetsRepository)
+4. Services (LoggingService primeiro, depois negócio) — usam Repositories
+5. Gateway (ServiceRegistry, Router) — usam todos os Serviços
+6. Main (entrypoint) — usa Gateway
+```
+
+**Regra ao adicionar novo serviço:** insira-o em `filePushOrder` após todas as
+suas dependências. Consulte `docs/ARQUITETURA_CARREGAMENTO.md` para detalhes.
+
+**Validação:** Skill `gas-ops` verifica que `filePushOrder` existe e contém
+todos os arquivos `.js` antes de cada `clasp push`.
 
 ## Dados sensíveis
 

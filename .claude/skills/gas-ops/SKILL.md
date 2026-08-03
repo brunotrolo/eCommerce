@@ -22,16 +22,22 @@ Wrapper de convenções para operar este projeto via `clasp`
    confirme que não há credenciais, chaves ou tokens hardcoded. Credenciais só
    existem em GitHub secrets ou em estruturas seguras do Google
    (PropertiesService), nunca em código.
+
 2. **`.claspignore` só libera o necessário.** Deve conter, no mínimo, um
    whitelist de `appsscript.json`, `src/**/*.js` e `ui/**/*.html` — markdown,
    specs, workflows do GitHub e `node_modules` nunca devem ser enviados
    (o Apps Script rejeita tipos de arquivo que não reconhece).
+
 3. **`appsscript.json`** mantém `runtimeVersion: V8` e o bloco `webapp`
    (`executeAs`, `access`) — não remova sem motivo explícito.
-4. **Ordem de arquivos**: novos serviços/repositórios devem seguir a
-   convenção de pastas numeradas (`00_config`, `01_adapters`,
-   `02_repositories`, `03_services`, `04_gateway`) descrita em `AGENTS.md`,
-   já que a ordem de carregamento do GAS é alfabética por nome de arquivo.
+
+4. **`filePushOrder` está atualizado** (CRÍTICO para microsserviços):
+   - Novos serviços/repositórios devem ser adicionados ao `filePushOrder` em `appsscript.json`
+   - Ordem segue dependências topológicas: A depende de B? B carrega **antes** de A.
+   - Consulte `docs/ARQUITETURA_CARREGAMENTO.md` para a ordem esperada.
+   - Falta um arquivo em `filePushOrder`? Seu serviço pode quebrar silenciosamente.
+   - **Exemplo:** Se criar `src/03_services/novo/NovoService.js` que depende de `PricingService`,
+     ele deve vir **após** `src/03_services/pricing/PricingService.js` no `filePushOrder`.
 
 ## CI
 

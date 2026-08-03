@@ -12,5 +12,28 @@
   "webapp": {
     "executeAs": "USER_DEPLOYING",
     "access": "ANYONE_ANONYMOUS"
-  }
+  },
+  "filePushOrder": [
+    "src/00_config/ConfigService.js",
+    "src/01_adapters/DriveAdapter.js",
+    "src/01_adapters/TiopsClient.js",
+    "src/02_repositories/PropertiesRepository.js",
+    "src/02_repositories/CacheRepository.js",
+    "src/02_repositories/SheetsRepository.js",
+    "src/03_services/logging/LoggingRepository.js",
+    "src/03_services/logging/LoggingService.js",
+    "src/03_services/nfeEntrada/NFeEntradaRepository.js",
+    "src/03_services/nfeEntrada/NFeEntradaService.js",
+    "src/03_services/nfeEntradaProdutos/NFeEntradaProdutosRepository.js",
+    "src/03_services/nfeEntradaProdutos/NFeEntradaProdutosService.js",
+    "src/03_services/pricing/PricingService.js",
+    "src/03_services/orders/OrdersService.js",
+    "src/03_services/listings/ListingsService.js",
+    "src/03_services/dashboard/DashboardService.js",
+    "src/03_services/inventoryPricing/InventoryPricingService.js",
+    "src/03_services/catalog/CatalogService.js",
+    "src/04_gateway/ServiceRegistry.js",
+    "src/04_gateway/Router.js",
+    "src/99_Main.js"
+  ]
 }
