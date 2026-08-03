@@ -55,6 +55,7 @@ Ciclo padrão de uma fase:
 | 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. Consultável antes de criar/editar anúncios. |
 | 5 | **Anúncios** | `specs/listings.md` | Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação. |
 | 6 | **Preço & Estoque** | `specs/inventory-pricing.md` | Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo. |
+| 8 | **Calculadora PrecificaPro** | `specs/calculator.md` | Calculadora interativa de precificação Mercado Livre com widget flutuante (modal). Simula custos, taxas, imposto, margem em tempo real. |
 
 ---
 
@@ -76,6 +77,7 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | 5 | Anúncios | ✅ | ⬜ |
 | 6 | Preço & Estoque | ✅ | ⬜ |
 | 7 | Endurecimento | ⬜ | ⬜ |
+| 8 | Calculadora PrecificaPro | ⬜ | ⬜ |
 
 > **Estado real de hoje:** todo o código das fases 0–3, 5–6 está escrito e no
 > repositório. A **Fase 4 (Catálogo)** está pronta para implementar. Nada foi
@@ -155,6 +157,19 @@ Só entra depois que 0–6 estiverem **validadas**. Escopo:
 - Estado de carregamento e vazio em todas as telas.
 
 Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.md`).
+
+### Fase 8 — Calculadora PrecificaPro
+
+**Critério de aceite:**
+- [ ] Floater aparece no canto inferior direito de qualquer página.
+- [ ] Clique abre modal calculadora em tela cheia.
+- [ ] Digitar custo + margem → preço sugerido aparece em <500ms.
+- [ ] Cenário básico (custo R$100, margem 20%, CNPJ, faixa R$100–199): preço confere com cálculo manual.
+- [ ] Vendedor iniciante: sem taxa de ML (0% + R$0).
+- [ ] Todos 6 cenários Given/When/Then (spec linhas 160–212) passam.
+- [ ] Avisos aparecem (low margin <10%, negative profit, high ads).
+- [ ] Responsivo em mobile (95vw) e desktop (~600px).
+- [ ] Descomposição visual de preço (árvore de deduções) clara.
 
 ---
 
