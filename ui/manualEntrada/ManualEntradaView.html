@@ -62,6 +62,11 @@
 
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
 
+    .product-hint {
+      font-size: var(--font-size-xs); color: var(--color-text-tertiary);
+      margin-top: var(--space-xs); font-style: italic;
+    }
+
     .autocomplete-wrapper { position: relative; }
     .autocomplete-list {
       position: absolute; top: 100%; left: 0; right: 0;
@@ -75,22 +80,6 @@
       font-size: var(--font-size-sm); color: var(--color-text);
     }
     .autocomplete-item:hover { background: var(--color-surface-hover); }
-
-    .product-search-wrapper { position: relative; }
-    .product-list {
-      position: absolute; top: 100%; left: 0; right: 0;
-      background: var(--color-surface); border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm); max-height: 200px; overflow-y: auto;
-      z-index: 10; display: none;
-    }
-    .product-list.show { display: block; }
-    .product-item {
-      padding: var(--space-sm) var(--space-md); cursor: pointer;
-      font-size: var(--font-size-sm); color: var(--color-text);
-      border-bottom: 1px solid var(--color-border-light);
-    }
-    .product-item:hover { background: var(--color-surface-hover); }
-    .product-item .product-code { color: var(--color-text-tertiary); font-size: var(--font-size-xs); }
 
     .summary {
       background: var(--color-surface-alt); border-radius: var(--radius-sm);
@@ -139,12 +128,17 @@
       </div>
 
       <div class="form-group">
-        <label for="product-select">Produto</label>
+        <label for="product-select">Produto (selecione da planilha)</label>
         <select id="product-select">
-          <option value="">Selecione um produto...</option>
+          <option value="">Carregando produtos...</option>
         </select>
-        <input type="hidden" id="codigo-produto" />
-        <input type="hidden" id="descricao-produto" />
+      </div>
+
+      <div class="form-group">
+        <label for="descricao-produto">Nome do Produto</label>
+        <input type="text" id="descricao-produto" placeholder="Nome do produto..." />
+        <div class="product-hint">Se selecionou na picklist, preenche automático. Senão, digite aqui.</div>
+        <div class="error-msg">Nome do produto é obrigatório</div>
       </div>
 
       <div class="form-row">
@@ -154,7 +148,7 @@
           <div class="error-msg">Quantidade deve ser > 0</div>
         </div>
         <div class="form-group">
-          <label for="valor-unitario">Valor Unitário (R$)</label>
+          <label for="valor-unitario">Valor Unitario (R$)</label>
           <input type="number" id="valor-unitario" min="0" step="0.01" />
           <div class="error-msg">Valor deve ser >= 0</div>
         </div>
@@ -166,7 +160,7 @@
           <input type="text" id="fornecedor" placeholder="Nome do fornecedor..." autocomplete="off" />
           <div class="autocomplete-list" id="fornecedor-list"></div>
         </div>
-        <div class="error-msg">Fornecedor é obrigatório</div>
+        <div class="error-msg">Fornecedor e obrigatorio</div>
       </div>
 
       <div class="form-row">
@@ -175,14 +169,14 @@
           <input type="text" id="data-compra" placeholder="DD/MM/AAAA" />
         </div>
         <div class="form-group">
-          <label for="aliquota-icms">Alíquota ICMS (%)</label>
+          <label for="aliquota-icms">Aliquota ICMS (%)</label>
           <input type="number" id="aliquota-icms" min="0" max="100" step="0.01" value="18" />
         </div>
       </div>
 
       <div class="form-row">
         <div class="form-group">
-          <label for="valor-outros">Despesas Acessórias (R$)</label>
+          <label for="valor-outros">Despesas Acessorias (R$)</label>
           <input type="number" id="valor-outros" min="0" step="0.01" value="0" />
         </div>
         <div class="form-group">
@@ -192,7 +186,7 @@
       </div>
 
       <div class="form-group">
-        <label for="observacoes">Observações</label>
+        <label for="observacoes">Observacoes</label>
         <textarea id="observacoes" rows="2" placeholder="Notas livres..."></textarea>
       </div>
 
@@ -206,11 +200,11 @@
           <span class="summary-value" id="summary-icms">R$ 0,00</span>
         </div>
         <div class="summary-row">
-          <span>Custo Líquido:</span>
+          <span>Custo Liquido:</span>
           <span class="summary-value" id="summary-liquido">R$ 0,00</span>
         </div>
         <div class="summary-row">
-          <span>Custo Unitário Líquido:</span>
+          <span>Custo Unitario Liquido:</span>
           <span class="summary-value" id="summary-unitario">R$ 0,00</span>
         </div>
       </div>
@@ -255,59 +249,90 @@
 
     open() {
       this.shadowRoot.getElementById('modal-overlay').classList.add('open');
+      this._resetForm();
       this._loadProducts();
       this._loadSuppliers();
     }
 
     close() {
       this.shadowRoot.getElementById('modal-overlay').classList.remove('open');
-      this._resetForm();
     }
 
     setOnSaveCallback(fn) {
       this._onSaveCallback = fn;
     }
 
+    _el(id) {
+      return this.shadowRoot.getElementById(id);
+    }
+
     _loadProducts() {
       var self = this;
-      var select = this.shadowRoot.getElementById('product-select');
+      var select = this._el('product-select');
       select.innerHTML = '<option value="">Carregando produtos...</option>';
 
       google.script.run
         .withSuccessHandler(function (resp) {
-          var envelope = (resp && resp.data) || resp || {};
-          var items = envelope.data || [];
-          self._populateProductSelect(select, items);
+          var rows = [];
+          if (resp && resp.data && resp.data.data) {
+            rows = resp.data.data;
+          } else if (resp && resp.data) {
+            rows = resp.data;
+          } else if (resp) {
+            rows = resp;
+          }
+
+          var grouped = {};
+          for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            var status = String(r.STATUS || '').trim().toLowerCase();
+            if (status !== 'recebido') continue;
+            var code = String(r.CODIGO_PRODUTO || '').trim();
+            if (!code) continue;
+            if (!grouped[code]) {
+              grouped[code] = {
+                codigo: code,
+                descricao: r.DESCRICAO_PRODUTO || '',
+                fornecedor: r.EMITENTE_NOME || ''
+              };
+            }
+          }
+
+          var items = [];
+          var codes = Object.keys(grouped);
+          for (var j = 0; j < codes.length; j++) {
+            items.push(grouped[codes[j]]);
+          }
+          items.sort(function (a, b) {
+            return a.descricao.toLowerCase() < b.descricao.toLowerCase() ? -1 : 1;
+          });
+
+          self._products = items;
+          select.innerHTML = '<option value="">Selecione (ou digite abaixo)...</option>';
+          if (items.length === 0) {
+            select.innerHTML = '<option value="">Nenhum produto na planilha</option>';
+            return;
+          }
+          for (var k = 0; k < items.length; k++) {
+            var opt = document.createElement('option');
+            opt.value = items[k].codigo;
+            opt.textContent = items[k].descricao + ' (' + items[k].codigo + ')';
+            select.appendChild(opt);
+          }
         })
         .withFailureHandler(function (e) {
-          select.innerHTML = '<option value="">Erro: ' + (e.message || e) + '</option>';
+          select.innerHTML = '<option value="">Erro ao carregar: ' + (e.message || 'desconhecido') + '</option>';
         })
-        .apiDispatch('catalog.getProducts', { sortBy: 'codigoProduto', sortOrder: 'asc' });
-    }
-
-    _populateProductSelect(select, items) {
-      select.innerHTML = '<option value="">Selecione um produto...</option>';
-      if (!items || items.length === 0) {
-        select.innerHTML = '<option value="">Nenhum produto encontrado</option>';
-        return;
-      }
-      this._products = items;
-      items.forEach(function (p) {
-        var option = document.createElement('option');
-        option.value = p.codigoProduto;
-        var cost = p.valorUnitarioLiquido || 0;
-        option.textContent = p.descricaoProduto + ' (' + p.codigoProduto + ')' + (cost ? ' — R$ ' + cost.toFixed(2) : '');
-        select.appendChild(option);
-      });
+        .apiDispatch('nfeEntradaProdutos.getProdutos', {});
     }
 
     _loadSuppliers() {
       var self = this;
       google.script.run
-        .withSuccessHandler(function (result) {
-          if (result && result.data) {
-            self._suppliers = result.data.suppliers || [];
-          }
+        .withSuccessHandler(function (resp) {
+          var envelope = (resp && resp.data) || resp || {};
+          var data = envelope.data || envelope;
+          self._suppliers = data.suppliers || [];
         })
         .withFailureHandler(function () {})
         .apiDispatch('manualEntrada.getSupplierHistory', {});
@@ -315,37 +340,36 @@
 
     _bindEvents() {
       var self = this;
-      var overlay = this.shadowRoot.getElementById('modal-overlay');
-      var closeBtn = this.shadowRoot.getElementById('btn-close');
-      var cancelBtn = this.shadowRoot.getElementById('btn-cancel');
-      var confirmBtn = this.shadowRoot.getElementById('btn-confirm');
-      var productSelect = this.shadowRoot.getElementById('product-select');
-      var fornecedor = this.shadowRoot.getElementById('fornecedor');
-      var quantidade = this.shadowRoot.getElementById('quantidade');
-      var valorUnitario = this.shadowRoot.getElementById('valor-unitario');
-      var aliquotaIcms = this.shadowRoot.getElementById('aliquota-icms');
-      var valorOutros = this.shadowRoot.getElementById('valor-outros');
 
-      overlay.addEventListener('click', function (e) {
-        if (e.target === overlay) self.close();
+      this._el('modal-overlay').addEventListener('click', function (e) {
+        if (e.target.id === 'modal-overlay') self.close();
       });
-      closeBtn.addEventListener('click', function () { self.close(); });
-      cancelBtn.addEventListener('click', function () { self.close(); });
+      this._el('btn-close').addEventListener('click', function () { self.close(); });
+      this._el('btn-cancel').addEventListener('click', function () { self.close(); });
+      this._el('btn-confirm').addEventListener('click', function () { self._submit(); });
 
-      productSelect.addEventListener('change', function () {
-        var selectedCode = productSelect.value;
+      this._el('product-select').addEventListener('change', function () {
+        var code = self._el('product-select').value;
         var product = null;
         for (var i = 0; i < self._products.length; i++) {
-          if (self._products[i].codigoProduto === selectedCode) {
+          if (self._products[i].codigo === code) {
             product = self._products[i];
             break;
           }
         }
-        self.shadowRoot.getElementById('codigo-produto').value = selectedCode;
-        self.shadowRoot.getElementById('descricao-produto').value = product ? product.descricaoProduto : '';
+        if (product) {
+          self._el('descricao-produto').value = product.descricao || '';
+        }
+        self._updateSummary();
         self._validate();
       });
 
+      this._el('descricao-produto').addEventListener('input', function () {
+        self._updateSummary();
+        self._validate();
+      });
+
+      var fornecedor = this._el('fornecedor');
       fornecedor.addEventListener('input', function () {
         self._filterSuppliers(fornecedor.value);
         self._validate();
@@ -354,8 +378,8 @@
         self._filterSuppliers(fornecedor.value);
       });
 
-      [quantidade, valorUnitario, aliquotaIcms, valorOutros].forEach(function (el) {
-        el.addEventListener('input', function () {
+      ['quantidade', 'valor-unitario', 'aliquota-icms', 'valor-outros'].forEach(function (id) {
+        self._el(id).addEventListener('input', function () {
           self._updateSummary();
           self._validate();
         });
@@ -363,12 +387,8 @@
 
       document.addEventListener('click', function (e) {
         if (!self.shadowRoot.contains(e.target)) {
-          self.shadowRoot.getElementById('fornecedor-list').classList.remove('show');
+          self._el('fornecedor-list').classList.remove('show');
         }
-      });
-
-      confirmBtn.addEventListener('click', function () {
-        self._submit();
       });
     }
 
@@ -377,11 +397,11 @@
       var dd = String(now.getDate()).padStart(2, '0');
       var mm = String(now.getMonth() + 1).padStart(2, '0');
       var yyyy = now.getFullYear();
-      this.shadowRoot.getElementById('data-compra').value = dd + '/' + mm + '/' + yyyy;
+      this._el('data-compra').value = dd + '/' + mm + '/' + yyyy;
     }
 
     _filterSuppliers(query) {
-      var list = this.shadowRoot.getElementById('fornecedor-list');
+      var list = this._el('fornecedor-list');
       list.innerHTML = '';
       var q = (query || '').toLowerCase();
       var matches = this._suppliers.filter(function (s) {
@@ -399,7 +419,7 @@
         div.className = 'autocomplete-item';
         div.textContent = s;
         div.addEventListener('click', function () {
-          self.shadowRoot.getElementById('fornecedor').value = s;
+          self._el('fornecedor').value = s;
           list.classList.remove('show');
           self._validate();
         });
@@ -409,10 +429,10 @@
     }
 
     _updateSummary() {
-      var qty = parseFloat(this.shadowRoot.getElementById('quantidade').value) || 0;
-      var unit = parseFloat(this.shadowRoot.getElementById('valor-unitario').value) || 0;
-      var icmsPct = parseFloat(this.shadowRoot.getElementById('aliquota-icms').value) || 0;
-      var outros = parseFloat(this.shadowRoot.getElementById('valor-outros').value) || 0;
+      var qty = parseFloat(this._el('quantidade').value) || 0;
+      var unit = parseFloat(this._el('valor-unitario').value) || 0;
+      var icmsPct = parseFloat(this._el('aliquota-icms').value) || 0;
+      var outros = parseFloat(this._el('valor-outros').value) || 0;
 
       var total = Math.round(qty * unit * 100) / 100;
       var icms = Math.round(total * (icmsPct / 100) * 100) / 100;
@@ -421,50 +441,60 @@
 
       var fmt = function (v) { return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
 
-      this.shadowRoot.getElementById('summary-total').textContent = fmt(total);
-      this.shadowRoot.getElementById('summary-icms').textContent = fmt(icms);
-      this.shadowRoot.getElementById('summary-liquido').textContent = fmt(liquido);
-      this.shadowRoot.getElementById('summary-unitario').textContent = fmt(unitLiq);
-      this.shadowRoot.getElementById('summary').style.display = 'block';
+      this._el('summary-total').textContent = fmt(total);
+      this._el('summary-icms').textContent = fmt(icms);
+      this._el('summary-liquido').textContent = fmt(liquido);
+      this._el('summary-unitario').textContent = fmt(unitLiq);
+      this._el('summary').style.display = 'block';
     }
 
     _validate() {
-      var codigo = this.shadowRoot.getElementById('codigo-produto').value;
-      var fornecedor = this.shadowRoot.getElementById('fornecedor').value.trim();
-      var qty = parseFloat(this.shadowRoot.getElementById('quantidade').value);
-      var unit = parseFloat(this.shadowRoot.getElementById('valor-unitario').value);
+      var descricao = this._el('descricao-produto').value.trim();
+      var fornecedor = this._el('fornecedor').value.trim();
+      var qty = parseFloat(this._el('quantidade').value);
+      var unit = parseFloat(this._el('valor-unitario').value);
 
-      var valid = codigo && fornecedor && !isNaN(qty) && qty > 0 && !isNaN(unit) && unit >= 0;
-      this.shadowRoot.getElementById('btn-confirm').disabled = !valid;
+      var valid = descricao && fornecedor && !isNaN(qty) && qty > 0 && !isNaN(unit) && unit >= 0;
+      this._el('btn-confirm').disabled = !valid;
     }
 
     _submit() {
       var self = this;
+      var codigo = this._el('product-select').value;
+      var descricao = this._el('descricao-produto').value.trim();
+
+      if (!descricao) {
+        this._showToast('Informe o nome do produto.', 'error');
+        return;
+      }
+
       var params = {
-        codigoProduto: this.shadowRoot.getElementById('codigo-produto').value,
-        descricaoProduto: this.shadowRoot.getElementById('descricao-produto').value,
-        quantidade: parseFloat(this.shadowRoot.getElementById('quantidade').value) || 0,
-        valorUnitario: parseFloat(this.shadowRoot.getElementById('valor-unitario').value) || 0,
-        aliquotaIcms: parseFloat(this.shadowRoot.getElementById('aliquota-icms').value) / 100 || 0.18,
-        emitenteNome: this.shadowRoot.getElementById('fornecedor').value.trim(),
-        dataCompra: this.shadowRoot.getElementById('data-compra').value,
-        valorOutrosItem: parseFloat(this.shadowRoot.getElementById('valor-outros').value) || 0,
-        observacoes: this.shadowRoot.getElementById('observacoes').value,
-        ncm: this.shadowRoot.getElementById('ncm').value,
+        codigoProduto: codigo || 'MANUAL-' + Date.now(),
+        descricaoProduto: descricao,
+        quantidade: parseFloat(this._el('quantidade').value) || 0,
+        valorUnitario: parseFloat(this._el('valor-unitario').value) || 0,
+        aliquotaIcms: parseFloat(this._el('aliquota-icms').value) / 100 || 0.18,
+        emitenteNome: this._el('fornecedor').value.trim(),
+        dataCompra: this._el('data-compra').value,
+        valorOutrosItem: parseFloat(this._el('valor-outros').value) || 0,
+        observacoes: this._el('observacoes').value,
+        ncm: this._el('ncm').value,
         cfop: ''
       };
 
-      this.shadowRoot.getElementById('btn-confirm').disabled = true;
+      this._el('btn-confirm').disabled = true;
 
       google.script.run
-        .withSuccessHandler(function (result) {
-          if (result && result.error) {
+        .withSuccessHandler(function (resp) {
+          var envelope = (resp && resp.data) || resp || {};
+          var result = envelope.data || envelope;
+          if (result.error) {
             self._showToast(result.error, 'error');
-            self.shadowRoot.getElementById('btn-confirm').disabled = false;
+            self._el('btn-confirm').disabled = false;
           } else {
             var msg = 'Entrada registrada com sucesso!';
-            if (result.data && result.data.warnings && result.data.warnings.length > 0) {
-              msg += ' Aviso: ' + result.data.warnings.join(', ');
+            if (result.warnings && result.warnings.length > 0) {
+              msg += ' Aviso: ' + result.warnings.join(', ');
             }
             self._showToast(msg, 'success');
             self.close();
@@ -475,29 +505,28 @@
         })
         .withFailureHandler(function (e) {
           self._showToast('Erro: ' + e.message, 'error');
-          self.shadowRoot.getElementById('btn-confirm').disabled = false;
+          self._el('btn-confirm').disabled = false;
         })
         .apiDispatch('manualEntrada.addEntry', params);
     }
 
     _resetForm() {
-      this.shadowRoot.getElementById('product-select').value = '';
-      this.shadowRoot.getElementById('codigo-produto').value = '';
-      this.shadowRoot.getElementById('descricao-produto').value = '';
-      this.shadowRoot.getElementById('quantidade').value = '';
-      this.shadowRoot.getElementById('valor-unitario').value = '';
-      this.shadowRoot.getElementById('fornecedor').value = '';
-      this.shadowRoot.getElementById('valor-outros').value = '0';
-      this.shadowRoot.getElementById('aliquota-icms').value = '18';
-      this.shadowRoot.getElementById('observacoes').value = '';
-      this.shadowRoot.getElementById('ncm').value = '';
-      this.shadowRoot.getElementById('summary').style.display = 'none';
-      this.shadowRoot.getElementById('btn-confirm').disabled = true;
+      this._el('product-select').value = '';
+      this._el('descricao-produto').value = '';
+      this._el('quantidade').value = '';
+      this._el('valor-unitario').value = '';
+      this._el('fornecedor').value = '';
+      this._el('valor-outros').value = '0';
+      this._el('aliquota-icms').value = '18';
+      this._el('observacoes').value = '';
+      this._el('ncm').value = '';
+      this._el('summary').style.display = 'none';
+      this._el('btn-confirm').disabled = true;
       this._setDefaultDate();
     }
 
     _showToast(message, type) {
-      var toast = this.shadowRoot.getElementById('toast');
+      var toast = this._el('toast');
       toast.textContent = message;
       toast.className = 'toast ' + type + ' show';
       setTimeout(function () {
