@@ -1,7 +1,7 @@
 # Spec: Controle de Estoque (ESTOQUE)
 
 ## Status
-Draft
+Approved
 
 ## Objetivo
 

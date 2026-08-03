@@ -1,7 +1,7 @@
 # Spec: Atualização de Preço de Venda em Estoque
 
 ## Status
-Draft
+Approved
 
 ## Objetivo
 
