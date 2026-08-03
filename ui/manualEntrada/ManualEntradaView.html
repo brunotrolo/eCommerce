@@ -273,67 +273,41 @@
       var select = this.shadowRoot.getElementById('product-select');
       select.innerHTML = '<option value="">Carregando produtos...</option>';
 
+      var ds = window.__DataStore;
+      var cacheKey = 'catalog.products.codigoProduto.asc';
+
+      if (ds && ds.has(cacheKey)) {
+        var cached = ds.get(cacheKey) || [];
+        self._populateProductSelect(select, cached);
+        return;
+      }
+
       google.script.run
         .withSuccessHandler(function (result) {
-          select.innerHTML = '<option value="">Selecione um produto...</option>';
-
-          if (!result) {
-            select.innerHTML = '<option value="">Erro: resposta vazia do servidor</option>';
-            return;
-          }
-          if (result.error) {
-            select.innerHTML = '<option value="">Erro: ' + result.error + '</option>';
-            return;
-          }
-          if (!result.data || result.data.length === 0) {
-            select.innerHTML = '<option value="">Nenhum produto na planilha</option>';
-            return;
-          }
-
-          var allRows = result.data;
-          var grouped = {};
-          for (var i = 0; i < allRows.length; i++) {
-            var row = allRows[i];
-            var cod = String(row.CODIGO_PRODUTO || '').trim();
-            if (!cod) continue;
-            if (grouped[cod]) continue;
-            var vLiq = parseFloat(row.VALOR_UNITARIO_LIQUIDO);
-            if (isNaN(vLiq)) vLiq = parseFloat(row.VALOR_UNITARIO) || 0;
-            grouped[cod] = {
-              codigoProduto: cod,
-              descricaoProduto: row.DESCRICAO_PRODUTO || '',
-              valorUnitarioLiquido: vLiq,
-              status: String(row.STATUS || '').trim()
-            };
-          }
-
-          var products = [];
-          var codes = Object.keys(grouped);
-          for (var k = 0; k < codes.length; k++) {
-            products.push(grouped[codes[k]]);
-          }
-          products.sort(function (a, b) {
-            return (a.codigoProduto || '').localeCompare(b.codigoProduto || '');
-          });
-
-          if (products.length === 0) {
-            select.innerHTML = '<option value="">Nenhum produto com código válido</option>';
-            return;
-          }
-
-          self._products = products;
-          products.forEach(function (p) {
-            var option = document.createElement('option');
-            option.value = p.codigoProduto;
-            var cost = p.valorUnitarioLiquido || 0;
-            option.textContent = p.descricaoProduto + ' (' + p.codigoProduto + ')' + (cost ? ' — R$ ' + cost.toFixed(2) : '');
-            select.appendChild(option);
-          });
+          var items = (result && result.data) || [];
+          if (ds) ds.set(cacheKey, items);
+          self._populateProductSelect(select, items);
         })
         .withFailureHandler(function (e) {
           select.innerHTML = '<option value="">Erro: ' + (e.message || e) + '</option>';
         })
-        .apiDispatch('nfeEntradaProdutos.getProdutos', {});
+        .apiDispatch('catalog.getProducts', { sortBy: 'codigoProduto', sortOrder: 'asc' });
+    }
+
+    _populateProductSelect(select, items) {
+      select.innerHTML = '<option value="">Selecione um produto...</option>';
+      if (!items || items.length === 0) {
+        select.innerHTML = '<option value="">Nenhum produto encontrado</option>';
+        return;
+      }
+      this._products = items;
+      items.forEach(function (p) {
+        var option = document.createElement('option');
+        option.value = p.codigoProduto;
+        var cost = p.valorUnitarioLiquido || 0;
+        option.textContent = p.descricaoProduto + ' (' + p.codigoProduto + ')' + (cost ? ' — R$ ' + cost.toFixed(2) : '');
+        select.appendChild(option);
+      });
     }
 
     _loadSuppliers() {
@@ -368,9 +342,16 @@
       cancelBtn.addEventListener('click', function () { self.close(); });
 
       productSelect.addEventListener('change', function () {
-        var option = productSelect.options[productSelect.selectedIndex];
-        self.shadowRoot.getElementById('codigo-produto').value = option.value;
-        self.shadowRoot.getElementById('descricao-produto').value = option.textContent;
+        var selectedCode = productSelect.value;
+        var product = null;
+        for (var i = 0; i < self._products.length; i++) {
+          if (self._products[i].codigoProduto === selectedCode) {
+            product = self._products[i];
+            break;
+          }
+        }
+        self.shadowRoot.getElementById('codigo-produto').value = selectedCode;
+        self.shadowRoot.getElementById('descricao-produto').value = product ? product.descricaoProduto : '';
         self._validate();
       });
 
