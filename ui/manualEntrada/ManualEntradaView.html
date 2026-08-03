@@ -277,8 +277,9 @@
       var cacheKey = 'catalog.products.codigoProduto.asc';
 
       if (ds && ds.has(cacheKey)) {
-        var cached = ds.get(cacheKey) || [];
-        self._populateProductSelect(select, cached);
+        var cached = ds.get(cacheKey);
+        var items = Array.isArray(cached) ? cached : (cached && cached.data) || [];
+        self._populateProductSelect(select, items);
         return;
       }
 
