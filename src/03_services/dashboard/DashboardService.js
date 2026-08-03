@@ -1,8 +1,7 @@
 /**
  * DashboardService — visão unificada de vendas/pedidos das duas lojas.
- * Consome OrdersService (normalizado) + chamadas agregadas diretas ao
- * Tiops para métricas de venda, com cache curto (CacheRepository) para não
- * bater rate limit a cada carregamento da tela. Regras em specs/dashboard.md.
+ * Consome OrdersService e ListingsService (ambos lêem do Google Sheets),
+ * com cache curto (CacheRepository) para não sobrecarregar. Regras em specs/dashboard.md.
  */
 var DashboardService = (function () {
   var CACHE_KEY = 'dashboard_summary';
@@ -17,7 +16,7 @@ var DashboardService = (function () {
           params: {},
           returns: {
             orders: 'array',
-            shopeeIncome: 'object',
+            salesByChannel: 'object',
             lowStock: 'array',
             fromCache: 'boolean'
           }
@@ -33,19 +32,31 @@ var DashboardService = (function () {
 
   function computeSummary_() {
     var recentOrders = OrdersService.listUnified({ marketplace: 'all', limit: 10 }).orders;
-    // Dados de exemplo — valores reais virão via Claude Code + TIOPS MCP
-    var shopeeIncome = {
-      gmv: 1250.50,
-      netProfit: 312.60,
-      orders: 8,
-      fromCache: true
-    };
+
+    var salesByChannel = computeSalesByChannel_(recentOrders);
     var lowStock = findLowStock_();
 
     return {
       orders: recentOrders,
-      shopeeIncome: shopeeIncome,
+      salesByChannel: salesByChannel,
       lowStock: lowStock
+    };
+  }
+
+  function computeSalesByChannel_(orders) {
+    var channels = { shopee: { total: 0, count: 0 }, mercado_livre: { total: 0, count: 0 } };
+
+    orders.forEach(function (order) {
+      var ch = channels[order.marketplace];
+      if (ch) {
+        ch.total += order.total;
+        ch.count += 1;
+      }
+    });
+
+    return {
+      shopee: { gmv: channels.shopee.total, orders: channels.shopee.count },
+      mercado_livre: { gmv: channels.mercado_livre.total, orders: channels.mercado_livre.count }
     };
   }
 

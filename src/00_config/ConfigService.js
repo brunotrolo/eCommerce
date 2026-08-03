@@ -68,17 +68,6 @@ var ConfigService = (function () {
     return _configCache;
   }
 
-  function getApiKey() {
-    var key = PropertiesRepository.getScriptProperty('TIOPS_API_KEY');
-    if (!key) {
-      throw new Error(
-        'TIOPS_API_KEY não configurada. Rode setup_() uma vez no editor do ' +
-          'Apps Script (Project Settings > Script Properties) para defini-la.'
-      );
-    }
-    return key;
-  }
-
   function getAccountId(marketplace) {
     var config = _loadConfig();
     if (marketplace === 'shopee') return config.shopee_account_id || FALLBACK_ACCOUNT_IDS.shopee;
@@ -154,7 +143,6 @@ var ConfigService = (function () {
     describe: describe,
     getConfig: getConfig,
     reloadConfig: reloadConfigAction,
-    getApiKey: getApiKey,
     getAccountId: getAccountId,
     getSheetId: getSheetId,
     getMarketplaceFee: getMarketplaceFee,

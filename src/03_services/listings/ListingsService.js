@@ -1,10 +1,11 @@
 /**
- * ListingsService — anúncios (listar/detalhar/pausar/ativar) nos dois
- * canais. Regras completas, incluindo as pegadinhas de payload de cada
- * marketplace, em specs/listings.md (extraídas de docs/referencia/SHOPEE_CRIAR_ANUNCIO.md e
- * docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md).
+ * ListingsService — anúncios lidos da aba ANUNCIOS do Google Sheets.
+ * Regras completas em specs/listings.md.
  */
 var ListingsService = (function () {
+  var SHEET_NAME = 'Anuncios';
+  var HEADERS = ['id', 'marketplace', 'title', 'price', 'stock', 'status'];
+
   function describe() {
     return {
       name: 'listings',
@@ -17,7 +18,7 @@ var ListingsService = (function () {
           returns: { listings: 'array' }
         },
         getDetail: {
-          description: 'Detalhe de um anúncio específico. Sempre relido do canal (nunca cacheado) para refletir o estado real.',
+          description: 'Detalhe de um anúncio específico.',
           params: {
             marketplace: { type: 'string', required: true, enum: ['shopee', 'mercado_livre'] },
             itemId: { type: 'string', required: true }
@@ -25,7 +26,7 @@ var ListingsService = (function () {
           returns: { listing: 'object' }
         },
         pause: {
-          description: 'Pausa um anúncio.',
+          description: 'Pausa um anúncio (atualiza status na planilha).',
           params: {
             marketplace: { type: 'string', required: true, enum: ['shopee', 'mercado_livre'] },
             itemId: { type: 'string', required: true }
@@ -33,7 +34,7 @@ var ListingsService = (function () {
           returns: { success: 'boolean' }
         },
         activate: {
-          description: 'Reativa um anúncio pausado.',
+          description: 'Reativa um anúncio pausado (atualiza status na planilha).',
           params: {
             marketplace: { type: 'string', required: true, enum: ['shopee', 'mercado_livre'] },
             itemId: { type: 'string', required: true }
@@ -46,101 +47,78 @@ var ListingsService = (function () {
 
   function listUnified(params) {
     var marketplace = params.marketplace || 'all';
-    var out = [];
 
-    // Dados de exemplo — valores reais virão via Claude Code + TIOPS MCP
-    if (marketplace === 'all' || marketplace === 'mercado_livre') {
-      var mockMlListings = {
-        results: [
-          { id: '201', title: 'Produto ML 1', price: 149.90, available_quantity: 15, status: 'active' },
-          { id: '202', title: 'Produto ML 2', price: 79.50, available_quantity: 2, status: 'active' }
-        ]
+    var rows = SheetsRepository.getRows(SHEET_NAME);
+    var filtered = rows.filter(function (row) {
+      if (marketplace === 'all') return true;
+      return row.marketplace === marketplace;
+    });
+
+    var listings = filtered.map(function (row) {
+      return {
+        id: String(row.id),
+        marketplace: row.marketplace,
+        title: row.title || '',
+        price: Number(row.price) || 0,
+        stock: Number(row.stock) || 0,
+        status: row.status || 'active'
       };
-      out = out.concat(normalizeMlListings_(mockMlListings));
-    }
+    });
 
-    if (marketplace === 'all' || marketplace === 'shopee') {
-      var mockShopeeListings = {
-        item: [
-          { item_id: '301', item_name: 'Produto Shopee 1', price_info: { current_price: 129.90 }, stock_info_v2: { summary_info: { total_available_stock: 20 } }, item_status: 'NORMAL' },
-          { item_id: '302', item_name: 'Produto Shopee 2', price_info: { current_price: 59.90 }, stock_info_v2: { summary_info: { total_available_stock: 1 } }, item_status: 'NORMAL' }
-        ]
-      };
-      out = out.concat(normalizeShopeeListings_(mockShopeeListings));
-    }
-
-    return { listings: out };
+    return { listings: listings };
   }
 
   function getDetail(params) {
-    // Dados de exemplo — valores reais virão via Claude Code + TIOPS MCP
-    if (params.marketplace === 'shopee') {
-      var mockShopeeItem = {
-        item_id: params.itemId,
-        item_name: 'Produto Shopee Exemplo',
-        price_info: { current_price: 129.90 },
-        stock_info_v2: { summary_info: { total_available_stock: 20 } },
-        item_status: 'NORMAL'
-      };
-      return { listing: mockShopeeItem };
+    var rows = SheetsRepository.getRows(SHEET_NAME);
+    var found = rows.filter(function (row) {
+      return String(row.id) === String(params.itemId) && row.marketplace === params.marketplace;
+    })[0];
+
+    if (!found) {
+      return { error: 'Anúncio não encontrado: ' + params.itemId };
     }
 
-    var mockMlItem = {
-      id: params.itemId,
-      title: 'Produto ML Exemplo',
-      price: 149.90,
-      available_quantity: 15,
-      status: 'active'
+    return {
+      listing: {
+        id: String(found.id),
+        marketplace: found.marketplace,
+        title: found.title || '',
+        price: Number(found.price) || 0,
+        stock: Number(found.stock) || 0,
+        status: found.status || 'active'
+      }
     };
-    return { listing: mockMlItem };
   }
 
-  // Regra de ouro dos playbooks: NUNCA confiar na resposta do pause/activate/
-  // update para confirmar estado — sempre reler com getDetail depois.
   function pause(params) {
-    return setActiveState_(params, false);
+    return updateStatus_(params, 'paused');
   }
 
   function activate(params) {
-    return setActiveState_(params, true);
+    return updateStatus_(params, 'active');
   }
 
-  function setActiveState_(params, shouldActivate) {
-    // Operação simulada — valores reais via Claude Code + TIOPS MCP
-    // Shopee: usa shopee_update_item/shopee_unlist_item (ambos via update via update_item)
-    // Mercado Livre: usa pause_item/activate_item com itemId camelCase
-    // Sempre relê com getDetail para confirmar o estado real.
+  function updateStatus_(params, newStatus) {
+    var ss = SpreadsheetApp.openById(ConfigService.getSheetId());
+    var sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) {
+      return { error: 'Aba "' + SHEET_NAME + '" não encontrada.' };
+    }
 
-    var confirmed = getDetail(params).listing;
-    return { success: true, listing: confirmed };
-  }
+    var values = sheet.getDataRange().getValues();
+    var headers = values[0];
+    var idCol = headers.indexOf('id');
+    var mpCol = headers.indexOf('marketplace');
+    var statusCol = headers.indexOf('status');
 
-  function normalizeMlListings_(raw) {
-    var results = (raw && raw.results) || (Array.isArray(raw) ? raw : []) || [];
-    return results.map(function (item) {
-      return {
-        id: String(item.id),
-        marketplace: 'mercado_livre',
-        title: item.title || item.family_name,
-        price: item.price,
-        stock: item.available_quantity,
-        status: item.status
-      };
-    });
-  }
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][idCol]) === String(params.itemId) && values[i][mpCol] === params.marketplace) {
+        sheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
+        return getDetail(params);
+      }
+    }
 
-  function normalizeShopeeListings_(raw) {
-    var results = (raw && raw.item) || (Array.isArray(raw) ? raw : []) || [];
-    return results.map(function (item) {
-      return {
-        id: String(item.item_id),
-        marketplace: 'shopee',
-        title: item.item_name,
-        price: item.price_info && item.price_info.current_price,
-        stock: item.stock_info_v2 && item.stock_info_v2.summary_info && item.stock_info_v2.summary_info.total_available_stock,
-        status: item.item_status
-      };
-    });
+    return { error: 'Anúncio não encontrado para atualizar: ' + params.itemId };
   }
 
   return {

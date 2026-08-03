@@ -96,11 +96,7 @@ function syncNfeFromMenu_() {
 }
 
 function setup_() {
-  throw new Error(
-    'Não defina a API key por código. No editor do Apps Script, vá em ' +
-      'Configurações do Projeto > Propriedades do Script > Adicionar propriedade ' +
-      'do script, com a chave "TIOPS_API_KEY" e o valor "mc_live_XXXX".'
-  );
+  Logger.log('Setup: Integração Tiops desativada. Dados lidos do Google Sheets.');
 }
 
 function runSmokeTests_() {

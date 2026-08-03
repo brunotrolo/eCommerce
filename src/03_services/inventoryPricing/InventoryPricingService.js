@@ -1,7 +1,7 @@
 /**
  * InventoryPricingService — liga a Calculadora de Precificação (PricingService)
- * aos anúncios reais (ListingsService): aplica o preço sugerido e ajusta
- * estoque no marketplace correto. Regras em specs/inventory-pricing.md.
+ * aos anúncios (aba ANUNCIOS do Google Sheets): calcula preço sugerido e
+ * grava no Sheets. Regras em specs/inventory-pricing.md.
  */
 var InventoryPricingService = (function () {
   function describe() {
@@ -9,7 +9,7 @@ var InventoryPricingService = (function () {
       name: 'inventoryPricing',
       actions: {
         applySuggestedPrice: {
-          description: 'Calcula o preço sugerido e aplica no anúncio real do marketplace, relendo para confirmar.',
+          description: 'Calcula o preço sugerido e grava no anúncio (Sheets), relendo para confirmar.',
           params: {
             marketplace: { type: 'string', required: true, enum: ['shopee', 'mercado_livre'] },
             itemId: { type: 'string', required: true },
@@ -21,7 +21,7 @@ var InventoryPricingService = (function () {
           returns: { pricing: 'object', listing: 'object' }
         },
         updateStock: {
-          description: 'Atualiza o estoque de um item real no marketplace correto.',
+          description: 'Atualiza o estoque de um item na planilha.',
           params: {
             marketplace: { type: 'string', required: true, enum: ['shopee', 'mercado_livre'] },
             itemId: { type: 'string', required: true },
@@ -46,18 +46,46 @@ var InventoryPricingService = (function () {
       return { error: pricing.error };
     }
 
-    // Operação simulada — Shopee exige shopee_update_price com price_list,
-    // ML exige update_price com price. Valores reais via Claude Code + TIOPS MCP.
-    // Regra de ouro: nunca confiar na resposta do update — sempre reler pelo GET.
+    var writeResult = updateListingField_(params.marketplace, params.itemId, 'price', pricing.suggestedPrice);
+    if (writeResult.error) return { error: writeResult.error };
+
     var confirmed = ListingsService.getDetail({ marketplace: params.marketplace, itemId: params.itemId }).listing;
     return { pricing: pricing, listing: confirmed };
   }
 
   function updateStock(params) {
-    // Operação simulada — Shopee exige shopee_update_stock com stock + seller_stock,
-    // ML exige update_stock com available_quantity. Valores reais via Claude Code + TIOPS MCP.
+    var writeResult = updateListingField_(params.marketplace, params.itemId, 'stock', params.quantity);
+    if (writeResult.error) return { error: writeResult.error };
+
     var confirmed = ListingsService.getDetail({ marketplace: params.marketplace, itemId: params.itemId }).listing;
     return { listing: confirmed };
+  }
+
+  function updateListingField_(marketplace, itemId, fieldName, value) {
+    var ss = SpreadsheetApp.openById(ConfigService.getSheetId());
+    var sheet = ss.getSheetByName('Anuncios');
+    if (!sheet) {
+      return { error: 'Aba "Anuncios" não encontrada.' };
+    }
+
+    var values = sheet.getDataRange().getValues();
+    var headers = values[0];
+    var idCol = headers.indexOf('id');
+    var mpCol = headers.indexOf('marketplace');
+    var fieldCol = headers.indexOf(fieldName);
+
+    if (fieldCol === -1) {
+      return { error: 'Coluna "' + fieldName + '" não encontrada na aba Anuncios.' };
+    }
+
+    for (var i = 1; i < values.length; i++) {
+      if (String(values[i][idCol]) === String(itemId) && values[i][mpCol] === marketplace) {
+        sheet.getRange(i + 1, fieldCol + 1).setValue(value);
+        return { success: true };
+      }
+    }
+
+    return { error: 'Anúncio não encontrado: ' + itemId };
   }
 
   return { describe: describe, applySuggestedPrice: applySuggestedPrice, updateStock: updateStock };
