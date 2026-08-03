@@ -456,6 +456,7 @@
       }
 
       _openCalcSidebar(shadow, codigoProduto, marketplace) {
+        var self = this;
         var overlay = shadow.getElementById('calc-overlay');
         var sidebar = shadow.getElementById('calc-sidebar');
         var title = shadow.getElementById('calc-sidebar-title');
@@ -468,7 +469,8 @@
 
         google.script.run
           .withSuccessHandler(function (response) {
-            var data = response.data || response;
+            var outer = response.data || response;
+            var data = outer.data || outer;
             if (data.error) {
               body.innerHTML = '<div class="catalog-empty">' + data.error + '</div>';
               return;
@@ -482,8 +484,6 @@
             codigoProduto: codigoProduto,
             marketplace: marketplace
           });
-
-        var self = this;
       }
 
       _renderCalcMemory(container, data) {
@@ -521,6 +521,7 @@
       }
 
       _openHistoryModal(shadow, codigoProduto) {
+        var self = this;
         var overlay = shadow.getElementById('history-overlay');
         var title = shadow.getElementById('history-title');
         var body = shadow.getElementById('history-body');
@@ -531,7 +532,8 @@
 
         google.script.run
           .withSuccessHandler(function (response) {
-            var data = response.data || response;
+            var outer = response.data || response;
+            var data = outer.data || outer;
             if (data.error) {
               body.innerHTML = '<div class="catalog-empty">' + data.error + '</div>';
               return;
@@ -544,8 +546,6 @@
           .apiDispatch('catalog.getProductByCode', {
             codigoProduto: codigoProduto
           });
-
-        var self = this;
       }
 
       _renderHistory(container, data) {

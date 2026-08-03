@@ -155,8 +155,8 @@ var CatalogService = (function () {
 
         p.precoShopee = shopeeResult.suggestedPrice || 0;
         p.precoMercadoLivre = mlResult.suggestedPrice || 0;
-        p.margemCalculadaShopee = shopeeResult.netMarginPct ? Math.round(shopeeResult.netMarginPct * 10000) / 100 : 0;
-        p.margemCalculadaMercadoLivre = mlResult.netMarginPct ? Math.round(mlResult.netMarginPct * 10000) / 100 : 0;
+        p.margemCalculadaShopee = shopeeResult.netMarginPct || 0;
+        p.margemCalculadaMercadoLivre = mlResult.netMarginPct || 0;
       }
 
       delete p._rows;
