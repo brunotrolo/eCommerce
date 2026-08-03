@@ -45,7 +45,7 @@ Ciclo padrão de uma fase:
 
 ---
 
-## 3. Escopo funcional v1 — 6 domínios
+## 3. Escopo funcional v1 — 8 domínios
 
 | # | Domínio | Spec | O que entrega |
 |---|---|---|---|
@@ -123,7 +123,7 @@ workflow do GitHub Actions (apenas push automático, deploy manual).
 - [ ] O Dashboard continua correto depois de passar a consumir `OrdersService`.
 - [ ] Canal sem pedido no período devolve lista vazia, não erro.
 
-| Fase 4 — Catálogo
+### Fase 4 — Catálogo
 
 **Critério de aceite:**
 - [x] `catalog.getProducts()` retorna produtos únicos de NFE_ENTRADA_PRODUTOS com status='Recebido', agrupados por código.

@@ -188,6 +188,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 | `ui/shared/Formatter.html` | Formatação de valores — usada por todos os widgets |
 | `ui/shared/DebugConsole.html` | Console de debug — afeta todas as chamadas |
 | `ui/shared/DataStore.html` | Cache client-side de dados — usado por todas as views para navegação instantânea |
+| `ui/shell/StatusView.html` | Indicador de status online + speed meter — afeta nav bar |
 | `src/00_config/FormatterService.js` | Formatter server-side |
 | `src/03_services/logging/LoggingService.js` | Log de ações — afeta todos os serviços |
 | `src/04_gateway/ServiceRegistry.js` | Dispatcher central — afeta todas as chamadas API |
@@ -214,7 +215,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 #### Validação pós-criação
 - [ ] Testar nova página: carregamento, chamadas API, navegação
-- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, Anúncios, Preço e Estoque, NFe Entrada, Entrada Produtos
+- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, Anúncios, Preço e Estoque, NFe Entrada, Entrada Produtos, Catálogo
 - [ ] Verificar que `FormatterService` está acessível em todas as páginas
 - [ ] Verificar que `DebugConsole` funciona em todas as páginas
 
