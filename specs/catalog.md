@@ -240,3 +240,55 @@ Dado um código de produto que aparece em múltiplas NFes:
        4. Preço Sugerido Final            R$ 90,91
        5. Verificação: Lucro Líquido      R$ 18,18 (20% da venda)
        ```
+
+## Instruções de Codificação
+
+### Passos Executáveis
+
+1. **CatalogService.js** — criar em `src/03_services/catalog/`
+   - `describe()`: retorna ações (getProducts, getProductByCode, getCalculationMemory) com schema
+   - `getProducts(params)`: NFeEntradaProdutosRepository → agrupa por código, pega mais recente por DATA_EMISSAO, calcula preços via PricingService, ordena por sortBy
+   - `getProductByCode(params)`: retorna array histórico completo, DESC por data
+   - `getCalculationMemory(params)`: monta array de passos (custo → margem → taxa → preço final) + resumo com lucro por unidade
+
+2. **CatalogView.html** — criar em `ui/catalog/`
+   - Web Component com Shadow DOM
+   - Chama `google.script.run.apiDispatch('catalog.getProducts', params)`
+   - Cards com [código | descrição | custo | preço Shopee | preço ML | margem]
+   - Dropdown sortBy (código, descrição, custo, preço Shopee) + toggle asc/desc
+   - Clique em preço → sidebar com getCalculationMemory() passo-a-passo
+   - Botão "Ver histórico" → modal com getProductByCode()
+
+3. **appsscript.json** — adicionar ao `filePushOrder`
+   - Inserir `"src/03_services/catalog/CatalogService.js"` após PricingService, antes de ServiceRegistry
+
+4. **ServiceRegistry.js** — confirmar registro
+   - Entrada `catalog: safeRef_('catalog', function () { return typeof CatalogService !== 'undefined' ? CatalogService : undefined; })` já existe
+
+5. **Testes** — adicionar a `runSmokeTests_()` (6 cenários min)
+   - Cenário 1: 1 produto, preços batem
+   - Cenário 2: deduplicação (3 NFes → 1 linha com mais recente)
+   - Cenário 3: getProductByCode retorna histórico
+   - Cenário 4: filtro status='Recebido'
+   - Cenário 5: ordenação asc/desc
+   - Cenário 6: margem calculada bate com fórmula
+
+### Validações Críticas (Não quebrar)
+
+- ✅ Padrão defensivo em ServiceRegistry obrigatório (typeof X !== 'undefined')
+- ✅ Cores/espaçamento SEMPRE via window.__DESIGN_SHEET__ (Styles.html tokens), nunca hard-coded
+- ✅ Custo sempre de NFeEntradaProdutosRepository.getProducts(), nunca outro lugar
+- ✅ Deduplicação: DATA_EMISSAO mais recente, nunca FIFO/média
+- ✅ Filtro status='Recebido' obrigatório
+- ✅ Sem chamadas diretas à Tiops (CatalogService = estático, só lê Sheets)
+- ✅ Sem chamadas diretas a SpreadsheetApp (usar SheetsRepository)
+
+### Teste de Aceitação Final
+
+Rodar no Apps Script editor:
+- `runSmokeTests_()` passa nos 6 cenários ✅
+- Shell renderiza, doGet() funciona ✅
+- Clique em preço abre sidebar com passo-a-passo ✅
+- Ordenação funciona nos 4 campos ✅
+- Produto em 3 NFes mostra 1 linha (mais recente) ✅
+- Margem ~= (netProfit/price)*100 ✅
