@@ -283,7 +283,8 @@
               grouped[code] = {
                 codigo: code,
                 descricao: r.DESCRICAO_PRODUTO || '',
-                fornecedor: r.EMITENTE_NOME || ''
+                fornecedor: r.EMITENTE_NOME || '',
+                ncm: r.NCM || ''
               };
             }
           }
@@ -349,6 +350,7 @@
         }
         if (product) {
           self._el('descricao-produto').value = product.descricao || '';
+          self._el('ncm').value = product.ncm || '';
         }
         self._updateSummary();
         self._validate();
