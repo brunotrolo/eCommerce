@@ -17,62 +17,13 @@ jobs:
       - name: Install clasp
         run: npm install -g @google/clasp
 
-      - name: DEBUG - Check secret length
-        run: |
-          SECRET_LEN=${#CLASP_CREDENTIALS_B64}
-          echo "Secret length: $SECRET_LEN bytes"
-          if [ $SECRET_LEN -eq 0 ]; then
-            echo "ERROR: Secret is empty!"
-            exit 1
-          fi
-        env:
-          CLASP_CREDENTIALS_B64: ${{ secrets.CLASP_CREDENTIALS_B64 }}
-
-      - name: DEBUG - Decode and show file stats
+      - name: Setup clasp credentials
         run: |
           echo "${{ secrets.CLASP_CREDENTIALS_B64 }}" | base64 --decode > "$HOME/.clasprc.json"
-          echo "File size: $(stat -f%z "$HOME/.clasprc.json" 2>/dev/null || stat -c%s "$HOME/.clasprc.json")"
-          echo "File content (first 200 chars):"
-          head -c 200 "$HOME/.clasprc.json"
-          echo ""
-          echo "File content (last 50 chars):"
-          tail -c 50 "$HOME/.clasprc.json"
           chmod 600 "$HOME/.clasprc.json"
 
-      - name: DEBUG - Full JSON validation with details
-        run: |
-          python3 << 'EOF'
-          import json
-          import sys
-          import os
-
-          filepath = os.path.expanduser('~/.clasprc.json')
-
-          # Read and show raw stats
-          with open(filepath, 'rb') as f:
-            raw = f.read()
-
-          print(f"File size (bytes): {len(raw)}")
-          print(f"First 50 bytes: {raw[:50]}")
-          print(f"Last 50 bytes: {raw[-50:]}")
-
-          # Try to decode as JSON
-          try:
-            with open(filepath, 'r') as f:
-              data = json.load(f)
-            print("OK - Valid JSON structure")
-            print(f"  Keys: {list(data.keys())}")
-            if 'tokens' in data:
-              print(f"  tokens.default keys: {list(data['tokens']['default'].keys())}")
-          except json.JSONDecodeError as e:
-            print(f"FAIL - JSON decode error: {e}")
-            print(f"  at position {e.pos}")
-            print(f"  context: {repr(raw[max(0, e.pos-20):e.pos+20])}")
-            sys.exit(1)
-          except Exception as e:
-            print(f"FAIL - Error: {e}")
-            sys.exit(1)
-          EOF
-
-      - name: Push source to Apps Script (dev)
+      - name: Push source to Apps Script
         run: clasp push --force
+
+      - name: Deploy new version
+        run: clasp deploy --description "Auto-deploy from GitHub Actions — ${{ github.sha }}"
