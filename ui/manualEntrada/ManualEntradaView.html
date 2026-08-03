@@ -276,23 +276,25 @@
       var ds = window.__DataStore;
       var cacheKey = 'catalog.products.codigoProduto.asc';
 
-      if (ds && ds.has(cacheKey)) {
-        var cached = ds.get(cacheKey);
-        var items = Array.isArray(cached) ? cached : (cached && cached.data) || [];
-        self._populateProductSelect(select, items);
-        return;
+      if (ds) {
+        ds.getOrFetch(cacheKey, 'catalog.getProducts', { sortBy: 'codigoProduto', sortOrder: 'asc' })
+          .then(function (items) {
+            self._populateProductSelect(select, items);
+          })
+          .catch(function () {
+            select.innerHTML = '<option value="">Erro ao carregar produtos</option>';
+          });
+      } else {
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            var items = (resp && resp.data && resp.data.data) || (resp && resp.data) || [];
+            self._populateProductSelect(select, items);
+          })
+          .withFailureHandler(function (e) {
+            select.innerHTML = '<option value="">Erro: ' + (e.message || e) + '</option>';
+          })
+          .apiDispatch('catalog.getProducts', { sortBy: 'codigoProduto', sortOrder: 'asc' });
       }
-
-      google.script.run
-        .withSuccessHandler(function (result) {
-          var items = (result && result.data) || [];
-          if (ds) ds.set(cacheKey, items);
-          self._populateProductSelect(select, items);
-        })
-        .withFailureHandler(function (e) {
-          select.innerHTML = '<option value="">Erro: ' + (e.message || e) + '</option>';
-        })
-        .apiDispatch('catalog.getProducts', { sortBy: 'codigoProduto', sortOrder: 'asc' });
     }
 
     _populateProductSelect(select, items) {
