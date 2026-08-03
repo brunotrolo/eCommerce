@@ -40,11 +40,29 @@
 <script>
   (function () {
     var _pageLoadTime = performance.timing ? performance.timing.navigationStart : Date.now();
-    var _firstFetchDone = false;
+    var _dbgSeq = 0;
+
+    function _logStatusView(msg, extra) {
+      var entry = {
+        kind: 'StatusView',
+        message: msg,
+        seq: ++_dbgSeq,
+        ts: new Date().toISOString()
+      };
+      if (extra !== undefined) entry.extra = extra;
+      console.log('[StatusView]', msg, extra !== undefined ? extra : '');
+      if (window.__debugErrors_) {
+        window.__debugErrors_.unshift(entry);
+        if (window.__debugErrors_.length > 100) window.__debugErrors_.pop();
+      }
+    }
+
+    _logStatusView('Script carregado');
 
     class StatusView extends HTMLElement {
       constructor() {
         super();
+        _logStatusView('constructor chamado');
         this.attachShadow({ mode: 'open' });
         var tpl = document.getElementById('status-view-template');
         this.shadowRoot.appendChild(tpl.content.cloneNode(true));
@@ -55,6 +73,7 @@
       }
 
       connectedCallback() {
+        _logStatusView('connectedCallback — iniciando fetch');
         this._fetch();
         this._interval = setInterval(this._fetch.bind(this), 10000);
       }
@@ -66,15 +85,33 @@
       _fetch() {
         var self = this;
         var t0 = Date.now();
+        _logStatusView('fetch iniciado, t0=' + t0);
         google.script.run
           .withSuccessHandler(function (resp) {
             var t1 = Date.now();
             var gasMs = t1 - t0;
             var cpuMs = t1 - _pageLoadTime;
+            _logStatusView('fetch success', {
+              respType: typeof resp,
+              respKeys: resp ? Object.keys(resp) : null,
+              respData: resp && resp.data ? (typeof resp.data === 'object' ? Object.keys(resp.data) : resp.data) : null,
+              gasMs: gasMs,
+              cpuMs: cpuMs
+            });
             var data = (resp && resp.data) ? resp.data.data : resp.data;
+            _logStatusView('data extraido', {
+              dataKeys: data ? Object.keys(data) : null,
+              isOnline: data && data.isOnline,
+              lastUpdate: data && data.lastUpdate
+            });
             self._render(data, gasMs, cpuMs);
           })
-          .withFailureHandler(function () {
+          .withFailureHandler(function (err) {
+            var t1 = Date.now();
+            _logStatusView('fetch FAILURE', {
+              error: err ? (err.message || String(err)) : 'unknown',
+              gasMs: t1 - t0
+            });
             self._render(null, 0, 0);
           })
           .apiDispatch('system.getStatus', {});
@@ -84,6 +121,13 @@
         var dot = this.shadowRoot.getElementById('dot');
         var label = this.shadowRoot.getElementById('label');
         var timing = this.shadowRoot.getElementById('timing');
+
+        _logStatusView('render', {
+          dataIsNull: !data,
+          isOnline: data && data.isOnline,
+          gasMs: gasMs,
+          cpuMs: cpuMs
+        });
 
         if (!data || data.isOnline === false) {
           dot.className = 'dot dot--offline';
@@ -109,6 +153,8 @@
 
     if (!customElements.get('status-view')) {
       customElements.define('status-view', StatusView);
+    } else {
+      _logStatusView('status-view já definido anteriormente');
     }
   })();
 </script>
