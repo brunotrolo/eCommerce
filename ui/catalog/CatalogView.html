@@ -30,49 +30,45 @@
       color: var(--color-text-secondary);
       text-transform: uppercase;
     }
-    .catalog-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: var(--space-md);
+    .catalog-table {
+      width: 100%;
+      border-collapse: collapse;
     }
-    .catalog-card {
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      padding: var(--space-md);
-      transition: box-shadow 0.2s;
-    }
-    .catalog-card:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    }
-    .catalog-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: var(--space-sm);
-    }
-    .catalog-card-code {
-      font-weight: var(--font-weight-semibold);
-      font-size: var(--font-size-md);
-      color: var(--color-text);
-    }
-    .catalog-card-desc {
-      font-size: var(--font-size-sm);
+    .catalog-table th {
+      text-align: left;
+      padding: var(--space-sm) var(--space-md);
+      border-bottom: 2px solid var(--color-border);
+      font-size: var(--font-size-xs);
       color: var(--color-text-secondary);
-      margin-bottom: var(--space-sm);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-micro);
+      white-space: nowrap;
     }
-    .catalog-card-cost {
-      font-size: var(--font-size-lg);
+    .catalog-table td {
+      padding: var(--space-sm) var(--space-md);
+      border-bottom: 1px solid var(--color-border);
+      font-size: var(--font-size-sm);
+      vertical-align: middle;
+    }
+    .catalog-table tbody tr:hover {
+      background: var(--color-surface-hover);
+    }
+    .catalog-table .col-codigo {
       font-weight: var(--font-weight-semibold);
-      margin-bottom: var(--space-sm);
+      white-space: nowrap;
     }
-    .catalog-card-prices {
-      display: flex;
-      gap: var(--space-md);
-      margin-bottom: var(--space-sm);
+    .catalog-table .col-desc {
+      color: var(--color-text-secondary);
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .catalog-table .col-custo {
+      font-weight: var(--font-weight-semibold);
+      white-space: nowrap;
     }
     .catalog-price-btn {
-      flex: 1;
       padding: var(--space-xs) var(--space-sm);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-sm);
@@ -80,6 +76,7 @@
       cursor: pointer;
       text-align: center;
       transition: all 0.2s;
+      display: inline-block;
     }
     .catalog-price-btn:hover {
       background: var(--color-primary);
@@ -94,14 +91,10 @@
     .catalog-price-value {
       font-weight: var(--font-weight-semibold);
     }
-    .catalog-card-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
     .catalog-margin {
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-semibold);
+      white-space: nowrap;
     }
     .catalog-margin.good { color: var(--color-success); }
     .catalog-margin.warn { color: var(--color-warning); }
@@ -114,6 +107,7 @@
       cursor: pointer;
       font-size: var(--font-size-sm);
       color: var(--color-text-secondary);
+      white-space: nowrap;
     }
     .catalog-history-btn:hover {
       background: var(--color-surface-alt);
@@ -411,33 +405,38 @@
           return;
         }
 
-        var html = '<div class="catalog-grid">';
+        var html = '<table class="catalog-table"><thead><tr>';
+        html += '<th>Código</th>';
+        html += '<th>Descrição</th>';
+        html += '<th>Custo Unit.</th>';
+        html += '<th>Preço Shopee</th>';
+        html += '<th>Preço ML</th>';
+        html += '<th>Margem</th>';
+        html += '<th></th>';
+        html += '</tr></thead><tbody>';
+
         for (var i = 0; i < products.length; i++) {
           var p = products[i];
           var marginShopee = marginClass(p.margemCalculadaShopee);
-          var marginML = marginClass(p.margemCalculadaMercadoLivre);
 
-          html += '<div class="catalog-card">';
-          html += '<div class="catalog-card-header"><span class="catalog-card-code">' + (p.codigoProduto || '') + '</span></div>';
-          html += '<div class="catalog-card-desc">' + (p.descricaoProduto || '-') + '</div>';
-          html += '<div class="catalog-card-cost">' + formatBRL(p.valorUnitarioLiquido) + '</div>';
-          html += '<div class="catalog-card-prices">';
-          html += '<button class="catalog-price-btn" data-cod="' + (p.codigoProduto || '') + '" data-mp="shopee">';
+          html += '<tr>';
+          html += '<td class="col-codigo">' + (p.codigoProduto || '') + '</td>';
+          html += '<td class="col-desc" title="' + (p.descricaoProduto || '') + '">' + (p.descricaoProduto || '-') + '</td>';
+          html += '<td class="col-custo">' + formatBRL(p.valorUnitarioLiquido) + '</td>';
+          html += '<td><button class="catalog-price-btn" data-cod="' + (p.codigoProduto || '') + '" data-mp="shopee">';
           html += '<span class="catalog-price-label">Shopee</span>';
           html += '<span class="catalog-price-value">' + formatBRL(p.precoShopee) + '</span>';
-          html += '</button>';
-          html += '<button class="catalog-price-btn" data-cod="' + (p.codigoProduto || '') + '" data-mp="mercado_livre">';
-          html += '<span class="catalog-price-label">Mercado Livre</span>';
+          html += '</button></td>';
+          html += '<td><button class="catalog-price-btn" data-cod="' + (p.codigoProduto || '') + '" data-mp="mercado_livre">';
+          html += '<span class="catalog-price-label">ML</span>';
           html += '<span class="catalog-price-value">' + formatBRL(p.precoMercadoLivre) + '</span>';
-          html += '</button>';
-          html += '</div>';
-          html += '<div class="catalog-card-footer">';
-          html += '<span class="catalog-margin ' + marginShopee + '">Margem Shopee: ' + formatPct(p.margemCalculadaShopee) + '</span>';
-          html += '<button class="catalog-history-btn" data-cod="' + (p.codigoProduto || '') + '">Ver histórico</button>';
-          html += '</div>';
-          html += '</div>';
+          html += '</button></td>';
+          html += '<td><span class="catalog-margin ' + marginShopee + '">' + formatPct(p.margemCalculadaShopee) + '</span></td>';
+          html += '<td><button class="catalog-history-btn" data-cod="' + (p.codigoProduto || '') + '">Histórico</button></td>';
+          html += '</tr>';
         }
-        html += '</div>';
+
+        html += '</tbody></table>';
 
         container.innerHTML = html;
 
