@@ -92,9 +92,34 @@ carrega **antes** de A).
 
 **Regra ao adicionar novo serviço:** insira-o em `filePushOrder` após todas as
 suas dependências. Consulte `docs/ARQUITETURA_CARREGAMENTO.md` para detalhes.
+**Nunca liste em `filePushOrder` um arquivo que ainda não existe** — `clasp
+push` falha se o arquivo referenciado não estiver no disco; adicione a
+entrada só no mesmo commit que cria o arquivo.
 
 **Validação:** Skill `gas-ops` verifica que `filePushOrder` existe e contém
 todos os arquivos `.js` antes de cada `clasp push`.
+
+### Exceção: `ServiceRegistry.js` (agregador central)
+
+`ServiceRegistry.js` é a única exceção legítima à regra "nunca referenciar
+outro namespace fora de um método retornado" — por natureza, um registry
+central de serviços precisa conhecer todos eles. Para não tornar essa
+exceção um ponto único de falha (um serviço com nome errado ou fora de
+ordem derrubaria `doGet()` para **toda** a aplicação, não só a página
+daquele serviço), toda entrada usa o padrão defensivo:
+
+```js
+pricing: safeRef_('pricing', function () {
+  return typeof PricingService !== 'undefined' ? PricingService : undefined;
+})
+```
+
+`typeof X !== 'undefined'` nunca lança `ReferenceError`, mesmo se `X` não
+tiver sido definido ainda. Um serviço ausente vira `null` na tabela (logado
+via `console.warn`) em vez de derrubar o script inteiro — `dispatch()` já
+trata `service === null` como "serviço desconhecido". **Ao registrar um novo
+serviço em `ServiceRegistry.js`, sempre use esse padrão, nunca a referência
+direta.**
 
 ## Dados sensíveis
 

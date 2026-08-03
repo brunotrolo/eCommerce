@@ -4,21 +4,45 @@
  * descreve suas ações e schema, e o dispatch valida params antes de chamar.
  */
 var ServiceRegistry = (function () {
+  // Blindagem contra ordem de carregamento: `typeof X !== 'undefined'` nunca
+  // lança ReferenceError, mesmo se X ainda não tiver sido definido (arquivo
+  // não carregado / fora de ordem / com erro de sintaxe). Referenciar o
+  // namespace diretamente aqui (ex.: `pricing: PricingService`) quebraria a
+  // inicialização do script inteiro — e como GAS roda tudo num único
+  // contexto global, um serviço quebrado derrubaria doGet() para TODAS as
+  // páginas, não só a do serviço com problema. Ao adicionar um novo serviço,
+  // siga este padrão (nunca referencie o namespace direto).
+  function safeRef_(name, ref) {
+    try {
+      if (typeof ref() === 'undefined') {
+        console.warn('[ServiceRegistry] Serviço "' + name + '" não carregado (undefined).');
+        return null;
+      }
+      return ref();
+    } catch (e) {
+      console.warn('[ServiceRegistry] Serviço "' + name + '" falhou ao carregar: ' + e.message);
+      return null;
+    }
+  }
+
   var services = {
-    pricing: PricingService,
-    orders: OrdersService,
-    listings: ListingsService,
-    inventoryPricing: InventoryPricingService,
-    dashboard: DashboardService,
-    nfeEntrada: NFeEntradaService,
-    nfeEntradaProdutos: NFeEntradaProdutosService,
-    logging: LoggingService
+    pricing: safeRef_('pricing', function () { return typeof PricingService !== 'undefined' ? PricingService : undefined; }),
+    orders: safeRef_('orders', function () { return typeof OrdersService !== 'undefined' ? OrdersService : undefined; }),
+    listings: safeRef_('listings', function () { return typeof ListingsService !== 'undefined' ? ListingsService : undefined; }),
+    inventoryPricing: safeRef_('inventoryPricing', function () { return typeof InventoryPricingService !== 'undefined' ? InventoryPricingService : undefined; }),
+    dashboard: safeRef_('dashboard', function () { return typeof DashboardService !== 'undefined' ? DashboardService : undefined; }),
+    nfeEntrada: safeRef_('nfeEntrada', function () { return typeof NFeEntradaService !== 'undefined' ? NFeEntradaService : undefined; }),
+    nfeEntradaProdutos: safeRef_('nfeEntradaProdutos', function () { return typeof NFeEntradaProdutosService !== 'undefined' ? NFeEntradaProdutosService : undefined; }),
+    logging: safeRef_('logging', function () { return typeof LoggingService !== 'undefined' ? LoggingService : undefined; }),
+    catalog: safeRef_('catalog', function () { return typeof CatalogService !== 'undefined' ? CatalogService : undefined; })
   };
 
   function listActions() {
-    return Object.keys(services).map(function (key) {
-      return services[key].describe();
-    });
+    return Object.keys(services)
+      .filter(function (key) { return !!services[key]; })
+      .map(function (key) {
+        return services[key].describe();
+      });
   }
 
   function describeAction(actionFullName) {

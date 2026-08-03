@@ -36,8 +36,17 @@ Wrapper de convenções para operar este projeto via `clasp`
    - Ordem segue dependências topológicas: A depende de B? B carrega **antes** de A.
    - Consulte `docs/ARQUITETURA_CARREGAMENTO.md` para a ordem esperada.
    - Falta um arquivo em `filePushOrder`? Seu serviço pode quebrar silenciosamente.
+   - **Nunca adicione uma entrada para um arquivo que ainda não existe** —
+     `clasp push` falha se `filePushOrder` referencia um caminho inexistente.
+     Adicione a entrada no mesmo commit que cria o arquivo, nunca antes.
    - **Exemplo:** Se criar `src/03_services/novo/NovoService.js` que depende de `PricingService`,
      ele deve vir **após** `src/03_services/pricing/PricingService.js` no `filePushOrder`.
+
+5. **Novo serviço registrado em `ServiceRegistry.js`** usa o padrão defensivo
+   `typeof X !== 'undefined'` (ver `AGENTS.md`, seção "Exceção:
+   ServiceRegistry.js"), nunca a referência direta ao namespace. Um serviço
+   com nome errado ou fora de ordem não pode derrubar `doGet()` para as
+   páginas dos outros serviços.
 
 ## CI
 
