@@ -147,6 +147,71 @@ constrói um único `CSSStyleSheet` a partir dele, exposto em
 `shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__]` — nunca duplicar CSS
 nem usar cor/espaçamento/sombra fora dos tokens de `Styles.html`.
 
+## Segurança de Arquitetura: Prevenção de Regressões
+
+### Arquivos compartilhados (NÃO alterar sem aprovação explícita)
+
+Estes arquivos afetam **TODAS** as páginas. Qualquer mudança aqui pode
+quebrar telas existentes. **Nunca altere sem validação completa:**
+
+| Arquivo | Impacto |
+|---|---|
+| `ui/shared/Styles.html` | Design tokens — afeta visual de todos os widgets |
+| `ui/shared/DesignSystemLoader.html` | Constrói `window.__DESIGN_SHEET__` |
+| `ui/shared/UiHelpers.html` | Funções `withLoading()` — usada por todos os widgets |
+| `ui/shared/Formatter.html` | Formatação de valores — usada por todos os widgets |
+| `ui/shared/DebugConsole.html` | Console de debug — afeta todas as chamadas |
+| `src/00_config/FormatterService.js` | Formatter server-side |
+| `src/03_services/logging/LoggingService.js` | Log de ações — afeta todos os serviços |
+| `src/04_gateway/ServiceRegistry.js` | Dispatcher central — afeta todas as chamadas API |
+| `src/04_gateway/Router.js` | Entrada `doGet`/`doPost` — afeta toda a aplicação |
+| `src/99_Main.js` | Menu e smoke tests |
+
+### Checklist obrigatório para NOVA PÁGINA
+
+**Antes de criar uma nova página, verifique:**
+
+#### Server-side (GAS)
+- [ ] Spec aprovada em `specs/<dominio>.md` com `Status: Approved`
+- [ ] Criar `src/03_services/<dominio>/<Nome>Service.js` com `describe()`
+- [ ] Criar `src/03_services/<dominio>/<Nome>Repository.js` se necessário
+- [ ] Registrar em `ServiceRegistry.js` usando **sempre** `safeRef_()` pattern
+- [ ] Adicionar em `appsscript.json` `filePushOrder` **após** todas as dependências
+- [ ] Nunca listar em `filePushOrder` um arquivo que ainda não existe
+
+#### Client-side (UI)
+- [ ] Criar `ui/<dominio>/<Nome>View.html` como Web Component
+- [ ] Adicionar `<?!= include('ui/<dominio>/<Nome>View'); ?>` em Shell.html **depois** dos includes compartilhados
+- [ ] Adicionar rota no mapa `ROUTES` em Shell.html
+- [ ] Adicionar botão de navegação em Shell.html **antes** do `<theme-toggle>`
+
+#### Validação pós-criação
+- [ ] Testar nova página: carregamento, chamadas API, navegação
+- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, Anúncios, Preço e Estoque, NFe Entrada, Entrada Produtos
+- [ ] Verificar que `FormatterService` está acessível em todas as páginas
+- [ ] Verificar que `DebugConsole` funciona em todas as páginas
+
+### Riscos conhecidos
+
+| Risco | Causa | Impacto | Prevenção |
+|---|---|---|---|
+| `FormatterService is not defined` | Include faltando em Shell.html | Todas as páginas que usam formatação | Sempre incluir Formatter.html em Shell.html |
+| Serviço não registrado | Falta entrada em ServiceRegistry.js | Ações do serviço indisponíveis | Usar `safeRef_()` pattern |
+| Arquivo não encontrado | `filePushOrder` lista arquivo inexistente | `clasp push` falha | Criar arquivo antes ou adicionar no mesmo commit |
+| Conflito de tag Web Component | Duas defs de mesma tag | Segunda definição falha | Usar tags nomeadas (`<domain-widget>`) |
+| CSS quebrado | Mudança em Tokens sem validação | Visual corrompido em múltiplas páginas | Testar todas as páginas após mudança |
+| Namespace duplicado | `const` duplicado em dois arquivos | `SyntaxError` global | Usar `var`, não `const` para namespaces |
+| Ordem de carregamento | Serviço carrega antes de dependência | `ReferenceError` | Seguir `filePushOrder` topológico |
+
+### Padrões defensivos obrigatórios
+
+1. **ServiceRegistry**: sempre `safeRef_()`, nunca referência direta
+2. **Namespaces**: sempre `var`, nunca `const` para IIFE de topo
+3. **Web Components**: sempre Shadow DOM + `adoptedStyleSheets`
+4. **Chamadas API**: sempre via `withLoading()` do UiHelpers
+5. **Formatação**: sempre via `FormatterService` (client ou server)
+6. **CSS**: sempre via tokens de `Styles.html`, nunca hard-coded
+
 ## Regras conhecidas dos marketplaces (não redescobrir na marra)
 
 Ver `specs/listings.md` e `specs/inventory-pricing.md` para a lista completa
