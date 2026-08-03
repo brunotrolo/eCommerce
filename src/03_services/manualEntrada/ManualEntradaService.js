@@ -89,7 +89,7 @@ var ManualEntradaService = (function () {
       valorUnitario: valorUnitario,
       valorTotal: valorTotal,
       status: 'Recebido',
-      dataEntrada: now.toISOString(),
+      dataEntrada: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
       tipoMovimentacao: 'Entrada Manual',
       logId: logId,
       valorOutrosItem: valorOutrosItem,
