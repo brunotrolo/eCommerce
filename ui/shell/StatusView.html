@@ -10,6 +10,14 @@
       font-variant-numeric: tabular-nums;
       padding: 4px 0;
       user-select: none;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      width: auto !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      height: auto !important;
+      min-height: 0 !important;
     }
     .dot {
       width: 8px;
@@ -130,13 +138,13 @@
 
         if (!data || data.isOnline === false) {
           dot.className = 'dot dot--offline';
-          label.textContent = '\u{1F534} Offline';
+          label.textContent = 'Offline';
           timing.textContent = '';
           return;
         }
 
         dot.className = 'dot dot--online';
-        label.textContent = '\u{1F7E2} Online';
+        label.textContent = 'Online';
 
         if (data.lastUpdate) {
           label.textContent += ' | ' + data.lastUpdate;
