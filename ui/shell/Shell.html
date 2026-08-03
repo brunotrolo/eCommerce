@@ -15,6 +15,7 @@
         <button class="btn" data-route="inventoryPricing">Preço e Estoque</button>
         <button class="btn" data-route="nfeEntrada">NFe Entrada</button>
         <button class="btn" data-route="nfeEntradaProdutos">Entrada Produtos</button>
+        <button class="btn" data-route="catalog">Catálogo</button>
         <button class="theme-toggle" id="theme-toggle" aria-label="Alternar tema claro/escuro"></button>
       </nav>
       <main id="app-view"></main>
@@ -33,6 +34,7 @@
     <?!= include('ui/inventoryPricing/InventoryPricingView'); ?>
     <?!= include('ui/nfeEntrada/NFeEntradaView'); ?>
     <?!= include('ui/nfeEntradaProdutos/NFeEntradaProdutosView'); ?>
+    <?!= include('ui/catalog/CatalogView'); ?>
 
     <script>
       // Cada rota é um micro-frontend independente: um Web Component com
@@ -44,7 +46,8 @@
         listings: 'listings-widget',
         inventoryPricing: 'inventory-pricing-widget',
         nfeEntrada: 'nfe-entrada-widget',
-        nfeEntradaProdutos: 'nfe-entrada-produtos-widget'
+        nfeEntradaProdutos: 'nfe-entrada-produtos-widget',
+        catalog: 'catalog-widget'
       };
 
       function navigate(route) {

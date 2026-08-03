@@ -29,6 +29,7 @@ function onOpen() {
           .addItem('NFe Entrada', 'runNfeSmokeTests_')
           .addItem('NFe Produtos', 'runNfeProdutosSmokeTests_')
           .addItem('Formatter', 'runFormatterSmokeTests_')
+          .addItem('Catalog', 'runCatalogSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -391,4 +392,68 @@ function runFormatterSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de Formatter passaram.');
+}
+
+function runCatalogSmokeTests_() {
+  var failures = [];
+
+  function expectClose(label, actual, expected, tolerance) {
+    tolerance = tolerance || 0.5;
+    if (Math.abs(actual - expected) > tolerance) {
+      failures.push(label + ': esperado ~' + expected + ', obtido ' + actual);
+    }
+  }
+
+  function expectTrue(label, condition) {
+    if (!condition) {
+      failures.push(label + ': esperado true, obtido false');
+    }
+  }
+
+  function expectEqual(label, actual, expected) {
+    if (actual !== expected) {
+      failures.push(label + ': esperado "' + expected + '", obtido "' + actual + '"');
+    }
+  }
+
+  // Cenário 1: describe() retorna ações corretas
+  var desc = CatalogService.describe();
+  expectEqual('describe.name', desc.name, 'catalog');
+  expectTrue('getProducts action', !!desc.actions.getProducts);
+  expectTrue('getProductByCode action', !!desc.actions.getProductByCode);
+  expectTrue('getCalculationMemory action', !!desc.actions.getCalculationMemory);
+
+  // Cenário 2: getProducts retorna array (mesmo que vazio)
+  var result = CatalogService.getProducts({ sortBy: 'code', sortOrder: 'asc' });
+  if (result.error && result.error.indexOf('Sheet ID') === -1) {
+    failures.push('getProducts error: ' + result.error);
+  }
+  if (result.success) {
+    expectTrue('getProducts returns array', Array.isArray(result.data));
+    expectTrue('getProducts has totalCount', typeof result.totalCount === 'number');
+    expectTrue('getProducts has lastSync', typeof result.lastSync === 'string');
+  }
+
+  // Cenário 3: getProductByCode sem parâmetro retorna erro
+  var r3 = CatalogService.getProductByCode({});
+  expectTrue('getProductByCode without codigoProduto returns error', !!r3.error);
+
+  // Cenário 4: getCalculationMemory sem parâmetro retorna erro
+  var r4 = CatalogService.getCalculationMemory({});
+  expectTrue('getCalculationMemory without params returns error', !!r4.error);
+
+  // Cenário 5: getCalculationMemory com marketplace inválido
+  var r5 = CatalogService.getCalculationMemory({ codigoProduto: 'TEST', marketplace: 'invalid' });
+  expectTrue('getCalculationMemory invalid marketplace returns error', !!r5.error);
+
+  // Cenário 6: Margem alvo inválida
+  var r6 = CatalogService.getProducts({ targetMarginShopee: 1.5 });
+  expectTrue('getProducts invalid margin returns error', !!r6.error);
+
+  if (failures.length) {
+    Logger.log('FALHOU CATALOG:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Catalog smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Catalog passaram.');
 }

@@ -1,0 +1,584 @@
+<template id="catalog-widget-template">
+  <style>
+    .catalog-toolbar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin-bottom: var(--space-card);
+      flex-wrap: wrap;
+    }
+    .catalog-toolbar select {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-size: var(--font-size-sm);
+    }
+    .catalog-summary {
+      display: flex;
+      gap: var(--space-lg);
+      margin-bottom: var(--space-card);
+    }
+    .catalog-summary .stat { text-align: center; }
+    .catalog-summary .stat-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+    }
+    .catalog-summary .stat-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+    }
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: var(--space-md);
+    }
+    .catalog-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-md);
+      transition: box-shadow 0.2s;
+    }
+    .catalog-card:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .catalog-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--space-sm);
+    }
+    .catalog-card-code {
+      font-weight: var(--font-weight-semibold);
+      font-size: var(--font-size-md);
+      color: var(--color-text);
+    }
+    .catalog-card-desc {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      margin-bottom: var(--space-sm);
+    }
+    .catalog-card-cost {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      margin-bottom: var(--space-sm);
+    }
+    .catalog-card-prices {
+      display: flex;
+      gap: var(--space-md);
+      margin-bottom: var(--space-sm);
+    }
+    .catalog-price-btn {
+      flex: 1;
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface-alt);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .catalog-price-btn:hover {
+      background: var(--color-primary);
+      color: var(--color-surface);
+      border-color: var(--color-primary);
+    }
+    .catalog-price-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      display: block;
+    }
+    .catalog-price-value {
+      font-weight: var(--font-weight-semibold);
+    }
+    .catalog-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .catalog-margin {
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+    }
+    .catalog-margin.good { color: var(--color-success); }
+    .catalog-margin.warn { color: var(--color-warning); }
+    .catalog-margin.bad { color: var(--color-danger); }
+    .catalog-history-btn {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: none;
+      cursor: pointer;
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+    .catalog-history-btn:hover {
+      background: var(--color-surface-alt);
+      color: var(--color-text);
+    }
+    .catalog-empty {
+      text-align: center;
+      padding: var(--space-section);
+      color: var(--color-text-secondary);
+    }
+
+    .catalog-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 9990;
+      display: none;
+    }
+    .catalog-overlay[open] { display: block; }
+
+    .catalog-sidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 35vw;
+      max-width: 500px;
+      min-width: 300px;
+      background: var(--color-surface);
+      border-left: 1px solid var(--color-border);
+      z-index: 9995;
+      display: none;
+      flex-direction: column;
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    }
+    .catalog-sidebar[open] { display: flex; }
+    .catalog-sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-sm) var(--space-md);
+      border-bottom: 1px solid var(--color-border);
+      flex-shrink: 0;
+    }
+    .catalog-sidebar-header h3 {
+      margin: 0;
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-semibold);
+    }
+    .catalog-sidebar-close {
+      background: none;
+      border: none;
+      font-size: var(--font-size-xl);
+      cursor: pointer;
+      color: var(--color-text-secondary);
+      padding: var(--space-xs);
+      line-height: 1;
+    }
+    .catalog-sidebar-close:hover { color: var(--color-text); }
+    .catalog-sidebar-body {
+      flex: 1;
+      overflow: auto;
+      padding: var(--space-md);
+    }
+
+    .calc-step {
+      padding: var(--space-sm) 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+    .calc-step:last-child { border-bottom: none; }
+    .calc-step-desc {
+      font-weight: var(--font-weight-semibold);
+      margin-bottom: var(--space-xs);
+    }
+    .calc-step-detail {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+    .calc-step-formula {
+      font-size: var(--font-size-sm);
+      font-family: monospace;
+      color: var(--color-text-secondary);
+      margin-top: var(--space-xs);
+    }
+    .calc-summary {
+      margin-top: var(--space-md);
+      padding: var(--space-md);
+      background: var(--color-surface-alt);
+      border-radius: var(--radius-sm);
+    }
+    .calc-summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: var(--space-xs) 0;
+      font-size: var(--font-size-sm);
+    }
+    .calc-summary-row.total {
+      font-weight: var(--font-weight-semibold);
+      font-size: var(--font-size-md);
+      border-top: 1px solid var(--color-border);
+      padding-top: var(--space-sm);
+      margin-top: var(--space-sm);
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay[open] { display: flex; }
+    .modal {
+      background: var(--color-surface);
+      border-radius: var(--radius-md);
+      width: 90vw;
+      max-width: 800px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-md);
+      border-bottom: 1px solid var(--color-border);
+    }
+    .modal-header h3 { margin: 0; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: var(--font-size-xl);
+      cursor: pointer;
+      color: var(--color-text-secondary);
+    }
+    .modal-body {
+      flex: 1;
+      overflow: auto;
+      padding: var(--space-md);
+    }
+    .modal .table { width: 100%; }
+  </style>
+
+  <div class="widget-grid">
+    <div class="card">
+      <h1>Catálogo de Produtos</h1>
+      <p class="page-subtitle">Produtos recebidos com preços sugeridos para Shopee e Mercado Livre.</p>
+
+      <div class="catalog-toolbar">
+        <label for="sortBy" style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">Ordenar por:</label>
+        <select id="sortBy">
+          <option value="code">Código</option>
+          <option value="description">Descrição</option>
+          <option value="unitCost">Custo</option>
+          <option value="suggestedShopee">Preço Shopee</option>
+        </select>
+        <button class="btn" id="btn-sort-order" style="padding: var(--space-xs) var(--space-sm);">▲ ASC</button>
+      </div>
+
+      <div class="catalog-summary" id="catalog-summary"></div>
+
+      <div id="error-box" class="alert alert-error" hidden></div>
+      <div id="result-box" hidden></div>
+
+      <div id="catalog-content">
+        <div class="catalog-empty">Carregando catálogo...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="catalog-overlay" id="calc-overlay"></div>
+  <div class="catalog-sidebar" id="calc-sidebar">
+    <div class="catalog-sidebar-header">
+      <h3 id="calc-sidebar-title">Memória de Cálculo</h3>
+      <button class="catalog-sidebar-close" id="calc-close">&times;</button>
+    </div>
+    <div class="catalog-sidebar-body" id="calc-sidebar-body"></div>
+  </div>
+
+  <div class="modal-overlay" id="history-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="history-title">Histórico do Produto</h3>
+        <button class="modal-close" id="history-close">&times;</button>
+      </div>
+      <div class="modal-body" id="history-body"></div>
+    </div>
+  </div>
+</template>
+
+<script>
+  (function () {
+    if (customElements.get('catalog-widget')) return;
+
+    var SORT_LABELS = { code: 'Código', description: 'Descrição', unitCost: 'Custo', suggestedShopee: 'Preço Shopee' };
+
+    function formatBRL(value) {
+      return FormatterService.formatCurrency(value);
+    }
+
+    function formatPct(value) {
+      return FormatterService.formatPercent(value, 1);
+    }
+
+    function marginClass(pct) {
+      if (pct >= 20) return 'good';
+      if (pct >= 15) return 'warn';
+      return 'bad';
+    }
+
+    class CatalogWidget extends HTMLElement {
+      connectedCallback() {
+        var template = document.getElementById('catalog-widget-template');
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        shadow.appendChild(template.content.cloneNode(true));
+
+        this._shadow = shadow;
+        this._sortOrder = 'asc';
+        this._products = [];
+
+        shadow.getElementById('btn-sort-order').addEventListener('click', function () {
+          this._sortOrder = this._sortOrder === 'asc' ? 'desc' : 'asc';
+          shadow.getElementById('btn-sort-order').textContent = this._sortOrder === 'asc' ? '▲ ASC' : '▼ DESC';
+          this._loadProducts(shadow);
+        }.bind(this));
+
+        shadow.getElementById('sortBy').addEventListener('change', function () {
+          this._loadProducts(shadow);
+        }.bind(this));
+
+        shadow.getElementById('calc-close').addEventListener('click', function () {
+          this._closeCalcSidebar(shadow);
+        }.bind(this));
+
+        shadow.getElementById('calc-overlay').addEventListener('click', function () {
+          this._closeCalcSidebar(shadow);
+        }.bind(this));
+
+        shadow.getElementById('history-close').addEventListener('click', function () {
+          this._closeHistoryModal(shadow);
+        }.bind(this));
+
+        shadow.getElementById('history-overlay').addEventListener('click', function (e) {
+          if (e.target === shadow.getElementById('history-overlay')) {
+            this._closeHistoryModal(shadow);
+          }
+        }.bind(this));
+
+        this._loadProducts(shadow);
+      }
+
+      _loadProducts(shadow) {
+        var sortBy = shadow.getElementById('sortBy').value;
+        var sortOrder = this._sortOrder;
+
+        withLoading(
+          { textContent: 'Carregando...', disabled: true, classList: { toggle: function(){} } },
+          function (success, failure) {
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('catalog.getProducts', {
+                sortBy: sortBy,
+                sortOrder: sortOrder
+              });
+          },
+          function (data) {
+            this._products = data.data || [];
+            this._renderSummary(shadow, data.totalCount || 0);
+            this._renderProducts(shadow);
+          }.bind(this),
+          null
+        );
+      }
+
+      _renderSummary(shadow, total) {
+        var summaryEl = shadow.getElementById('catalog-summary');
+        summaryEl.innerHTML =
+          '<div class="stat"><div class="stat-value">' + total + '</div><div class="stat-label">Produtos</div></div>';
+      }
+
+      _renderProducts(shadow) {
+        var container = shadow.getElementById('catalog-content');
+        var products = this._products;
+
+        if (!products || products.length === 0) {
+          container.innerHTML = '<div class="catalog-empty">Nenhum produto encontrado com status "Recebido".</div>';
+          return;
+        }
+
+        var html = '<div class="catalog-grid">';
+        for (var i = 0; i < products.length; i++) {
+          var p = products[i];
+          var marginShopee = marginClass(p.margemCalculadaShopee);
+          var marginML = marginClass(p.margemCalculadaMercadoLivre);
+
+          html += '<div class="catalog-card">';
+          html += '<div class="catalog-card-header"><span class="catalog-card-code">' + (p.codigoProduto || '') + '</span></div>';
+          html += '<div class="catalog-card-desc">' + (p.descricaoProduto || '-') + '</div>';
+          html += '<div class="catalog-card-cost">' + formatBRL(p.valorUnitarioLiquido) + '</div>';
+          html += '<div class="catalog-card-prices">';
+          html += '<button class="catalog-price-btn" data-cod="' + (p.codigoProduto || '') + '" data-mp="shopee">';
+          html += '<span class="catalog-price-label">Shopee</span>';
+          html += '<span class="catalog-price-value">' + formatBRL(p.precoShopee) + '</span>';
+          html += '</button>';
+          html += '<button class="catalog-price-btn" data-cod="' + (p.codigoProduto || '') + '" data-mp="mercado_livre">';
+          html += '<span class="catalog-price-label">Mercado Livre</span>';
+          html += '<span class="catalog-price-value">' + formatBRL(p.precoMercadoLivre) + '</span>';
+          html += '</button>';
+          html += '</div>';
+          html += '<div class="catalog-card-footer">';
+          html += '<span class="catalog-margin ' + marginShopee + '">Margem Shopee: ' + formatPct(p.margemCalculadaShopee) + '</span>';
+          html += '<button class="catalog-history-btn" data-cod="' + (p.codigoProduto || '') + '">Ver histórico</button>';
+          html += '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+
+        container.innerHTML = html;
+
+        var self = this;
+        container.querySelectorAll('.catalog-price-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            self._openCalcSidebar(shadow, btn.dataset.cod, btn.dataset.mp);
+          });
+        });
+
+        container.querySelectorAll('.catalog-history-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            self._openHistoryModal(shadow, btn.dataset.cod);
+          });
+        });
+      }
+
+      _openCalcSidebar(shadow, codigoProduto, marketplace) {
+        var overlay = shadow.getElementById('calc-overlay');
+        var sidebar = shadow.getElementById('calc-sidebar');
+        var title = shadow.getElementById('calc-sidebar-title');
+        var body = shadow.getElementById('calc-sidebar-body');
+
+        title.textContent = 'Memória de Cálculo — ' + (marketplace === 'shopee' ? 'Shopee' : 'Mercado Livre');
+        body.innerHTML = '<div class="catalog-empty">Carregando...</div>';
+        overlay.setAttribute('open', '');
+        sidebar.setAttribute('open', '');
+
+        google.script.run
+          .withSuccessHandler(function (response) {
+            var data = response.data || response;
+            if (data.error) {
+              body.innerHTML = '<div class="catalog-empty">' + data.error + '</div>';
+              return;
+            }
+            self._renderCalcMemory(body, data);
+          })
+          .withFailureHandler(function (err) {
+            body.innerHTML = '<div class="catalog-empty">Erro: ' + err.message + '</div>';
+          })
+          .apiDispatch('catalog.getCalculationMemory', {
+            codigoProduto: codigoProduto,
+            marketplace: marketplace
+          });
+
+        var self = this;
+      }
+
+      _renderCalcMemory(container, data) {
+        var html = '<div style="margin-bottom: var(--space-md);"><strong>' + (data.codigoProduto || '') + '</strong> — ' + (data.descricao || '') + '</div>';
+
+        if (data.passos && data.passos.length) {
+          for (var i = 0; i < data.passos.length; i++) {
+            var step = data.passos[i];
+            html += '<div class="calc-step">';
+            html += '<div class="calc-step-desc">' + step.descricao + '</div>';
+            html += '<div class="calc-step-detail">' + step.detalhes + '</div>';
+            html += '<div class="calc-step-formula">' + step.formula + '</div>';
+            html += '</div>';
+          }
+        }
+
+        if (data.resumo) {
+          var r = data.resumo;
+          html += '<div class="calc-summary">';
+          html += '<div class="calc-summary-row"><span>Custo Unitário</span><span>' + formatBRL(r.valorUnitarioLiquido) + '</span></div>';
+          html += '<div class="calc-summary-row"><span>Margem Alvo</span><span>' + (r.margemAlvo * 100).toFixed(0) + '%</span></div>';
+          html += '<div class="calc-summary-row"><span>Taxa</span><span>' + r.taxaMarketplace.descricao + '</span></div>';
+          html += '<div class="calc-summary-row total"><span>Preço Sugerido</span><span>' + formatBRL(r.precoSugerido) + '</span></div>';
+          html += '<div class="calc-summary-row"><span>Margem Líquida</span><span>' + formatPct(r.margemLiquida) + '</span></div>';
+          html += '<div class="calc-summary-row"><span>Lucro por Unidade</span><span>' + formatBRL(r.lucroLiquidoPorUnidade) + '</span></div>';
+          html += '</div>';
+        }
+
+        container.innerHTML = html;
+      }
+
+      _closeCalcSidebar(shadow) {
+        shadow.getElementById('calc-overlay').removeAttribute('open');
+        shadow.getElementById('calc-sidebar').removeAttribute('open');
+      }
+
+      _openHistoryModal(shadow, codigoProduto) {
+        var overlay = shadow.getElementById('history-overlay');
+        var title = shadow.getElementById('history-title');
+        var body = shadow.getElementById('history-body');
+
+        title.textContent = 'Histórico — ' + codigoProduto;
+        body.innerHTML = '<div class="catalog-empty">Carregando...</div>';
+        overlay.setAttribute('open', '');
+
+        google.script.run
+          .withSuccessHandler(function (response) {
+            var data = response.data || response;
+            if (data.error) {
+              body.innerHTML = '<div class="catalog-empty">' + data.error + '</div>';
+              return;
+            }
+            self._renderHistory(body, data);
+          })
+          .withFailureHandler(function (err) {
+            body.innerHTML = '<div class="catalog-empty">Erro: ' + err.message + '</div>';
+          })
+          .apiDispatch('catalog.getProductByCode', {
+            codigoProduto: codigoProduto
+          });
+
+        var self = this;
+      }
+
+      _renderHistory(container, data) {
+        var entries = data.data || [];
+        if (!entries.length) {
+          container.innerHTML = '<div class="catalog-empty">Nenhuma entrada encontrada.</div>';
+          return;
+        }
+
+        var html = '<table class="table"><thead><tr>';
+        html += '<th>NFe</th><th>Data</th><th>Fornecedor</th><th>Qtd</th><th>V Unit</th><th>V Líquido</th><th>Status</th>';
+        html += '</tr></thead><tbody>';
+
+        for (var i = 0; i < entries.length; i++) {
+          var e = entries[i];
+          html += '<tr>';
+          html += '<td>' + (e.numeroNf || '') + '</td>';
+          html += '<td>' + (e.dataEmissao ? FormatterService.formatDate(new Date(e.dataEmissao)) : '-') + '</td>';
+          html += '<td>' + (e.emitenteNome || '') + '</td>';
+          html += '<td>' + (e.quantidade || 0) + '</td>';
+          html += '<td>' + formatBRL(e.valorUnitario) + '</td>';
+          html += '<td>' + formatBRL(e.valorUnitarioLiquido) + '</td>';
+          html += '<td>' + (e.status || '') + '</td>';
+          html += '</tr>';
+        }
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      }
+
+      _closeHistoryModal(shadow) {
+        shadow.getElementById('history-overlay').removeAttribute('open');
+      }
+    }
+
+    customElements.define('catalog-widget', CatalogWidget);
+  })();
+</script>
