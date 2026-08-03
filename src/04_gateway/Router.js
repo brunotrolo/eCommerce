@@ -4,23 +4,31 @@
  * widgets). Nenhum outro arquivo define doGet/doPost.
  */
 function doGet(e) {
+  StatusService.startGasTimer();
   if (e && e.parameter && e.parameter.action) {
     var params = e.parameter.params ? JSON.parse(e.parameter.params) : {};
-    return ContentService.createTextOutput(JSON.stringify(apiDispatch(e.parameter.action, params))).setMimeType(
+    var result = apiDispatch(e.parameter.action, params);
+    StatusService.endGasTimer();
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(
       ContentService.MimeType.JSON
     );
   }
 
-  return HtmlService.createTemplateFromFile('ui/shell/Shell')
+  var htmlOutput = HtmlService.createTemplateFromFile('ui/shell/Shell')
     .evaluate()
     .setTitle('Painel — Shopee + Mercado Livre')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  StatusService.endGasTimer();
+  return htmlOutput;
 }
 
 function doPost(e) {
+  StatusService.startGasTimer();
   var body = JSON.parse(e.postData.contents);
-  return ContentService.createTextOutput(JSON.stringify(apiDispatch(body.action, body.params))).setMimeType(
+  var result = apiDispatch(body.action, body.params);
+  StatusService.endGasTimer();
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(
     ContentService.MimeType.JSON
   );
 }

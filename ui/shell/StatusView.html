@@ -1,0 +1,114 @@
+<template id="status-view-template">
+  <style>
+    :host {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--color-text-secondary);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      padding: 4px 0;
+      user-select: none;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot--online { background: var(--color-success); }
+    .dot--offline { background: var(--color-error); }
+    .dot--loading { background: var(--color-warning); animation: blink 1s ease-in-out infinite; }
+    @keyframes blink { 50% { opacity: 0.4; } }
+    .label { font-weight: var(--font-weight-medium); }
+    .timing {
+      font-family: var(--font-family-mono);
+      font-size: 11px;
+      color: var(--color-text-tertiary);
+    }
+    @media (max-width: 640px) {
+      :host { font-size: 11px; }
+      .timing { font-size: 10px; }
+    }
+  </style>
+  <span class="dot dot--loading" id="dot"></span>
+  <span class="label" id="label">Carregando...</span>
+  <span class="timing" id="timing"></span>
+</template>
+
+<script>
+  (function () {
+    var _pageLoadTime = Date.now();
+
+    class StatusView extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        var tpl = document.getElementById('status-view-template');
+        this.shadowRoot.appendChild(tpl.content.cloneNode(true));
+        if (window.__DESIGN_SHEET__) {
+          this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        }
+        this._interval = null;
+      }
+
+      connectedCallback() {
+        this._fetch();
+        this._interval = setInterval(this._fetch.bind(this), 10000);
+      }
+
+      disconnectedCallback() {
+        if (this._interval) clearInterval(this._interval);
+      }
+
+      _fetch() {
+        var self = this;
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            var data = (resp && resp.data) ? resp.data.data : resp.data;
+            self._render(data);
+          })
+          .withFailureHandler(function () {
+            self._render(null);
+          })
+          .apiDispatch('system.getStatus', {});
+      }
+
+      _render(data) {
+        var dot = this.shadowRoot.getElementById('dot');
+        var label = this.shadowRoot.getElementById('label');
+        var timing = this.shadowRoot.getElementById('timing');
+
+        if (!data || data.isOnline === false) {
+          dot.className = 'dot dot--offline';
+          label.textContent = 'Offline';
+          timing.textContent = '';
+          return;
+        }
+
+        var online = data.isOnline;
+        dot.className = 'dot dot--' + (online ? 'online' : 'offline');
+        label.textContent = (online ? '\u{1F7E2} Online' : '\u{1F534} Offline');
+
+        if (data.lastUpdate) {
+          label.textContent += ' | ' + data.lastUpdate;
+        }
+
+        if (data.timing) {
+          var gasMs = data.timing.gasTimeMs || 0;
+          var cpuMs = Date.now() - _pageLoadTime;
+          var totalMs = gasMs + cpuMs;
+          var total = (totalMs / 1000).toFixed(2);
+          var gas = (gasMs / 1000).toFixed(2);
+          var cpu = (cpuMs / 1000).toFixed(2);
+          timing.textContent = total + 's (GAS: ' + gas + 's | CPU: ' + cpu + 's)';
+        }
+      }
+    }
+
+    if (!customElements.get('status-view')) {
+      customElements.define('status-view', StatusView);
+    }
+  })();
+</script>
