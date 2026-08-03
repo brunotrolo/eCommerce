@@ -1,7 +1,7 @@
 # Spec: Entrada Manual de Produtos (MANUAL_ENTRADA_PRODUTOS)
 
 ## Status
-Draft
+Approved
 
 ## Objetivo
 
