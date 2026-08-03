@@ -3,6 +3,7 @@
   "rootDir": ".",
   "filePushOrder": [
     "src/00_config/ConfigService.js",
+    "src/00_config/FormatterService.js",
     "src/01_adapters/DriveAdapter.js",
     "src/01_adapters/TiopsClient.js",
     "src/02_repositories/PropertiesRepository.js",
