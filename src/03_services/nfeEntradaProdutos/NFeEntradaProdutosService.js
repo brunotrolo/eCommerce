@@ -22,10 +22,54 @@ var NFeEntradaProdutosService = (function () {
           description: 'Processa todas as NFes não-processadas de NFE_ENTRADA.',
           params: {}
         },
+        getProdutos: {
+          description: 'Retorna todos os produtos (linhas brutas) da aba NFE_ENTRADA_PRODUTOS.',
+          params: {}
+        },
         getEstoque: {
           description: 'Retorna estoque agregado por produto com referência às NFs de origem.',
           params: {
             codigoProduto: { type: 'string', required: false }
+          }
+        },
+        getProdutosByNf: {
+          description: 'Retorna produtos de uma NF específica para exibição na sidebar.',
+          params: {
+            numeroNf: { type: 'string', required: true }
+          }
+        },
+        getEstoqueByNf: {
+          description: 'Retorna estoque agregado por produto de uma NF específica.',
+          params: {
+            numeroNf: { type: 'string', required: true }
+          }
+        },
+        updateStatus: {
+          description: 'Atualiza o status de um produto (Recebido/Desconsiderar).',
+          params: {
+            numeroNf: { type: 'string', required: true },
+            codigoProduto: { type: 'string', required: true },
+            status: { type: 'string', required: true, enum: ['Recebido', 'Desconsiderar'] }
+          }
+        },
+        getProdutosByCodigo: {
+          description: 'Retorna todas as entradas (linhas brutas) para um código de produto específico.',
+          params: {
+            codigoProduto: { type: 'string', required: true }
+          }
+        },
+        calcularRateioItem: {
+          description: 'Calcula desconto e despesas acessórias para um item (função pura).',
+          params: {
+            item: { type: 'object', required: true },
+            vProdTotalNota: { type: 'number', required: true },
+            vDescNota: { type: 'number', required: true },
+            vOutroNota: { type: 'number', required: true },
+            temItemComVDesc: { type: 'boolean', required: true },
+            temItemComVOutro: { type: 'boolean', required: true },
+            isUltimoItem: { type: 'boolean', required: true },
+            somaParcialDesconto: { type: 'number', required: true },
+            somaParcialOutros: { type: 'number', required: true }
           }
         }
       }
@@ -92,6 +136,68 @@ var NFeEntradaProdutosService = (function () {
     return ts + '-' + nonce;
   }
 
+  // ─── calcularRateioItem ──────────────────────────────────────────────
+  function calcularRateioItem(params) {
+    var item = params.item;
+    var vProdTotalNota = params.vProdTotalNota;
+    var vDescNota = params.vDescNota;
+    var vOutroNota = params.vOutroNota;
+    var temItemComVDesc = params.temItemComVDesc;
+    var temItemComVOutro = params.temItemComVOutro;
+    var isUltimoItem = params.isUltimoItem;
+    var somaParcialDesconto = params.somaParcialDesconto;
+    var somaParcialOutros = params.somaParcialOutros;
+
+    var vProdItem = item.vProd || 0;
+    var vDescItemRaw = item.vDesc;
+    var vOutroItemRaw = item.vOutro;
+
+    // Desconto
+    var valorDescontoItem = 0;
+    var tipoDesconto = 'NENHUM';
+    if (temItemComVDesc) {
+      tipoDesconto = 'ITEM';
+      valorDescontoItem = vDescItemRaw != null ? vDescItemRaw : 0;
+    } else if (vDescNota > 0) {
+      tipoDesconto = 'RATEADO';
+      if (isUltimoItem) {
+        valorDescontoItem = round2_(vDescNota - somaParcialDesconto);
+      } else {
+        var proporcao = vProdTotalNota > 0 ? vProdItem / vProdTotalNota : (1 / (params.totalItems || 1));
+        valorDescontoItem = round2_(vDescNota * proporcao);
+      }
+    }
+
+    // Outros (despesas acessórias)
+    var valorOutrosItem = 0;
+    var tipoOutros = 'NENHUM';
+    if (temItemComVOutro) {
+      tipoOutros = 'ITEM';
+      valorOutrosItem = vOutroItemRaw != null ? vOutroItemRaw : 0;
+    } else if (vOutroNota > 0) {
+      tipoOutros = 'RATEADO';
+      if (isUltimoItem) {
+        valorOutrosItem = round2_(vOutroNota - somaParcialOutros);
+      } else {
+        var proporcao = vProdTotalNota > 0 ? vProdItem / vProdTotalNota : (1 / (params.totalItems || 1));
+        valorOutrosItem = round2_(vOutroNota * proporcao);
+      }
+    }
+
+    var valorLiquidoItem = round2_(vProdItem - valorDescontoItem + valorOutrosItem);
+    var quantidade = item.qCom || 1;
+    var valorUnitarioLiquido = round2_(valorLiquidoItem / quantidade);
+
+    return {
+      valorDescontoItem: valorDescontoItem,
+      tipoDesconto: tipoDesconto,
+      valorOutrosItem: valorOutrosItem,
+      tipoOutros: tipoOutros,
+      valorLiquidoItem: valorLiquidoItem,
+      valorUnitarioLiquido: valorUnitarioLiquido
+    };
+  }
+
   // ─── processarNf ────────────────────────────────────────────────────
   function processarNf(params) {
     var numeroNf = String(params.numeroNf || '').trim();
@@ -152,6 +258,25 @@ var NFeEntradaProdutosService = (function () {
     var emitenteCnpj = nfe.EMITENTE_CNPJ || '';
     var emitenteNome = nfe.EMITENTE_NOME || '';
 
+    var vProdTotalNota = 0;
+    for (var k = 0; k < produtos.length; k++) {
+      vProdTotalNota += parseFloat(produtos[k].vProd) || 0;
+    }
+    vProdTotalNota = round2_(vProdTotalNota);
+
+    var vDescNota = parseFloat(nfe.VALOR_DESCONTO) || 0;
+    var vOutroNota = parseFloat(nfe.VALOR_OUTROS) || 0;
+
+    var temItemComVDesc = false;
+    var temItemComVOutro = false;
+    for (var m = 0; m < produtos.length; m++) {
+      if (produtos[m].vDesc != null) temItemComVDesc = true;
+      if (produtos[m].vOutro != null) temItemComVOutro = true;
+    }
+
+    var somaDesconto = 0;
+    var somaOutros = 0;
+
     for (var j = 0; j < produtos.length; j++) {
       var prod = produtos[j];
       var cod = prod.cProd || '';
@@ -167,6 +292,22 @@ var NFeEntradaProdutosService = (function () {
         });
         continue;
       }
+
+      var isUltimo = (j === produtos.length - 1);
+      var rateio = calcularRateioItem({
+        item: prod,
+        vProdTotalNota: vProdTotalNota,
+        vDescNota: vDescNota,
+        vOutroNota: vOutroNota,
+        temItemComVDesc: temItemComVDesc,
+        temItemComVOutro: temItemComVOutro,
+        isUltimoItem: isUltimo,
+        somaParcialDesconto: somaDesconto,
+        somaParcialOutros: somaOutros,
+        totalItems: produtos.length
+      });
+      somaDesconto += rateio.valorDescontoItem;
+      somaOutros += rateio.valorOutrosItem;
 
       insertedRows.push({
         numeroNf: numeroNf,
@@ -186,10 +327,24 @@ var NFeEntradaProdutosService = (function () {
         status: 'Recebido',
         dataEntrada: now,
         tipoMovimentacao: 'Entrada por NF',
-        logId: logId
+        logId: logId,
+        valorDescontoItem: rateio.valorDescontoItem,
+        tipoDesconto: rateio.tipoDesconto,
+        valorOutrosItem: rateio.valorOutrosItem,
+        tipoOutros: rateio.tipoOutros,
+        valorLiquidoItem: rateio.valorLiquidoItem,
+        valorUnitarioLiquido: rateio.valorUnitarioLiquido
       });
       totalQuantity += insertedRows[insertedRows.length - 1].quantidade;
       totalValue += vProd;
+    }
+
+    if (Math.abs(somaDesconto - vDescNota) > 0.01 ||
+        Math.abs(somaOutros - vOutroNota) > 0.01) {
+      traceError_('processarNf:reconcile-error', 'Reconciliação de rateio não fechou para NF ' + numeroNf, {
+        somaDesconto: somaDesconto, valorDescontoNf: vDescNota,
+        somaOutros: somaOutros, valorOutrosNf: vOutroNota
+      });
     }
 
     var insertResult = { inserted: 0, errors: [] };
@@ -272,6 +427,52 @@ var NFeEntradaProdutosService = (function () {
     return done;
   }
 
+  // ─── getProdutosByNf ────────────────────────────────────────────────
+  function getProdutosByNf(params) {
+    var numeroNf = String(params.numeroNf || '').trim();
+    if (!numeroNf) return { error: 'numeroNf é obrigatório.' };
+
+    var sheetId = ConfigService.getNfeEntradaSheetId();
+    if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
+      return { error: (sheetId && sheetId.error) || 'Sheet ID not configured.' };
+    }
+
+    try {
+      var produtos = NFeEntradaProdutosRepository.getProdutosByNf(sheetId, numeroNf);
+      trace_('getProdutosByNf:ok', 'NF ' + numeroNf + ': ' + produtos.length + ' produto(s)', {
+        numeroNf: numeroNf,
+        count: produtos.length
+      });
+      return { data: produtos };
+    } catch (e) {
+      traceError_('getProdutosByNf:error', 'Erro ao consultar produtos da NF ' + numeroNf, { error: e.message });
+      return { error: 'Erro ao consultar produtos: ' + e.message, data: [] };
+    }
+  }
+
+  // ─── getEstoqueByNf ────────────────────────────────────────────────
+  function getEstoqueByNf(params) {
+    var numeroNf = String(params.numeroNf || '').trim();
+    if (!numeroNf) return { error: 'numeroNf é obrigatório.' };
+
+    var sheetId = ConfigService.getNfeEntradaSheetId();
+    if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
+      return { error: (sheetId && sheetId.error) || 'Sheet ID not configured.' };
+    }
+
+    try {
+      var estoque = NFeEntradaProdutosRepository.getEstoqueByNf(sheetId, numeroNf);
+      trace_('getEstoqueByNf:ok', 'NF ' + numeroNf + ': ' + estoque.length + ' produto(s)', {
+        numeroNf: numeroNf,
+        count: estoque.length
+      });
+      return { data: estoque };
+    } catch (e) {
+      traceError_('getEstoqueByNf:error', 'Erro ao consultar estoque da NF ' + numeroNf, { error: e.message });
+      return { error: 'Erro ao consultar estoque: ' + e.message, data: [] };
+    }
+  }
+
   // ─── getEstoque ─────────────────────────────────────────────────────
   function getEstoque(params) {
     var sheetId = ConfigService.getNfeEntradaSheetId();
@@ -292,10 +493,85 @@ var NFeEntradaProdutosService = (function () {
     }
   }
 
+  // ─── updateStatus ─────────────────────────────────────────────────────
+  function updateStatus(params) {
+    var numeroNf = String(params.numeroNf || '').trim();
+    var codigoProduto = String(params.codigoProduto || '').trim();
+    var status = String(params.status || '').trim();
+    if (!numeroNf) return { error: 'numeroNf é obrigatório.' };
+    if (!codigoProduto) return { error: 'codigoProduto é obrigatório.' };
+    if (!status) return { error: 'status é obrigatório.' };
+
+    var sheetId = ConfigService.getNfeEntradaSheetId();
+    if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
+      return { error: (sheetId && sheetId.error) || 'Sheet ID not configured.' };
+    }
+
+    try {
+      var result = NFeEntradaProdutosRepository.updateStatus(sheetId, numeroNf, codigoProduto, status);
+      trace_('updateStatus:ok', 'Produto ' + codigoProduto + ' da NF ' + numeroNf + ' → ' + status, {
+        numeroNf: numeroNf, codigoProduto: codigoProduto, status: status
+      });
+      return { success: true, updated: result.updated };
+    } catch (e) {
+      traceError_('updateStatus:error', 'Erro ao atualizar status', { error: e.message });
+      return { error: 'Erro ao atualizar status: ' + e.message };
+    }
+  }
+
+  /**
+   * Retorna todas as entradas (linhas brutas) para um código de produto específico.
+   */
+  function getProdutosByCodigo(params) {
+    var codigoProduto = params.codigoProduto;
+    if (!codigoProduto) return { error: 'codigoProduto é obrigatório.' };
+
+    var sheetId = ConfigService.getNfeEntradaSheetId();
+    if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
+      return { error: (sheetId && sheetId.error) || 'Sheet ID not configured.' };
+    }
+
+    try {
+      var produtos = NFeEntradaProdutosRepository.getProdutosByCodigo(sheetId, codigoProduto);
+      trace_('getProdutosByCodigo:ok', 'Código ' + codigoProduto + ': ' + produtos.length + ' entrada(s)', {
+        codigoProduto: codigoProduto, count: produtos.length
+      });
+      return { data: produtos };
+    } catch (e) {
+      traceError_('getProdutosByCodigo:error', 'Erro ao consultar entradas do produto ' + codigoProduto, { error: e.message });
+      return { error: 'Erro ao consultar entradas: ' + e.message };
+    }
+  }
+
+  /**
+   * Retorna todos os produtos (linhas brutas) da aba NFE_ENTRADA_PRODUTOS.
+   */
+  function getProdutos(params) {
+    var sheetId = ConfigService.getNfeEntradaSheetId();
+    if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
+      return { error: (sheetId && sheetId.error) || 'Sheet ID not configured.' };
+    }
+
+    try {
+      var produtos = NFeEntradaProdutosRepository.getProdutos(sheetId);
+      trace_('getProdutos:ok', produtos.length + ' produto(s) encontrado(s)', { count: produtos.length });
+      return { data: produtos };
+    } catch (e) {
+      traceError_('getProdutos:error', 'Erro ao consultar produtos', { error: e.message });
+      return { error: 'Erro ao consultar produtos: ' + e.message };
+    }
+  }
+
   return {
     describe: describe,
     processarNf: processarNf,
     processarTodasNfs: processarTodasNfs,
-    getEstoque: getEstoque
+    getProdutos: getProdutos,
+    getEstoque: getEstoque,
+    getProdutosByNf: getProdutosByNf,
+    getEstoqueByNf: getEstoqueByNf,
+    getProdutosByCodigo: getProdutosByCodigo,
+    updateStatus: updateStatus,
+    calcularRateioItem: calcularRateioItem
   };
 })();

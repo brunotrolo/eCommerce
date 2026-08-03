@@ -47,11 +47,11 @@
     var MARKETPLACE_LABELS = { shopee: 'Shopee', mercado_livre: 'Mercado Livre' };
 
     function formatBRL(value) {
-      return 'R$ ' + Number(value).toFixed(2).replace('.', ',');
+      return FormatterService.formatCurrency(value);
     }
 
     function formatPct(value) {
-      return (Number(value) * 100).toFixed(1).replace('.', ',') + '%';
+      return FormatterService.formatPercent(value, 1);
     }
 
     class PricingCalculatorWidget extends HTMLElement {

@@ -385,6 +385,8 @@ var NFeEntradaService = (function () {
     var valorIcms = icmsTot ? parseNum_(elemText_(icmsTot, 'vICMS')) : 0;
     var valorPis = icmsTot ? parseNum_(elemText_(icmsTot, 'vPIS')) : 0;
     var valorCofins = icmsTot ? parseNum_(elemText_(icmsTot, 'vCOFINS')) : 0;
+    var valorProdutos = icmsTot ? parseNum_(elemText_(icmsTot, 'vProd')) : 0;
+    var valorOutros = icmsTot ? parseNum_(elemText_(icmsTot, 'vOutro')) : 0;
 
     var valorIbs = 0;
     var valorCbs = 0;
@@ -413,6 +415,16 @@ var NFeEntradaService = (function () {
         vProd: parseNum_(elemText_(prod, 'vProd')),
         aliquotaIcms: '0'
       };
+
+      var vDescItem = parseNum_(elemText_(prod, 'vDesc'));
+      if (vDescItem > 0) {
+        produto.vDesc = vDescItem;
+      }
+
+      var vOutroItem = parseNum_(elemText_(prod, 'vOutro'));
+      if (vOutroItem > 0) {
+        produto.vOutro = vOutroItem;
+      }
 
       var imposto = findChild_(det, 'imposto');
       if (imposto) {
@@ -460,6 +472,8 @@ var NFeEntradaService = (function () {
       valorCofins: valorCofins,
       valorIbs: valorIbs,
       valorCbs: valorCbs,
+      valorProdutos: valorProdutos,
+      valorOutros: valorOutros,
       produtosJson: JSON.stringify(produtos),
       statusNfe: statusNfe,
       numeroProtocolo: numeroProtocolo,

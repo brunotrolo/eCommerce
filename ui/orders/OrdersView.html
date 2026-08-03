@@ -66,7 +66,7 @@
             '<tr><td>' + o.id + '</td><td><span class="badge badge-' +
             (o.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' + o.marketplace + '</span></td>' +
             '<td>' + o.status + '</td><td>' + (o.buyerName || '-') + '</td>' +
-            '<td>' + (o.total != null ? Number(o.total).toFixed(2) : '-') + '</td>' +
+            '<td>' + (o.total != null ? FormatterService.formatCurrency(o.total) : '-') + '</td>' +
             '<td>' + (o.createdAt || '-') + '</td></tr>'
           );
         })

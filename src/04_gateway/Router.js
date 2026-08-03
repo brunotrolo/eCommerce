@@ -27,7 +27,23 @@ function doPost(e) {
 
 /** Ponto único de dispatch, chamado por doGet/doPost e por google.script.run. */
 function apiDispatch(action, params) {
-  return ServiceRegistry.dispatch(action, params);
+  var startTime = Date.now();
+  var result = ServiceRegistry.dispatch(action, params);
+  var durationMs = Date.now() - startTime;
+
+  if (typeof window !== 'undefined' && window.__debugCapture_) {
+    try {
+      window.__debugCapture_({
+        action: action,
+        params: params || {},
+        result: result,
+        durationMs: durationMs,
+        ts: new Date().toISOString()
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  return result;
 }
 
 /** Usado pelo Shell.html para incluir outros templates HTML (ui/**). */

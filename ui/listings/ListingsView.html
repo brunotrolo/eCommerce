@@ -62,7 +62,7 @@
             '<td>' + item.title + '</td>' +
             '<td><span class="badge badge-' + (item.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' +
             item.marketplace + '</span></td>' +
-            '<td>' + (item.price != null ? Number(item.price).toFixed(2) : '-') + '</td>' +
+            '<td>' + (item.price != null ? FormatterService.formatCurrency(item.price) : '-') + '</td>' +
             '<td>' + (item.stock != null ? item.stock : '-') + '</td>' +
             '<td><span class="badge badge-' + (isActive ? 'success' : 'warning') + '">' + item.status + '</span></td>' +
             '<td><button class="btn btn-secondary btn-toggle">' + (isActive ? 'Pausar' : 'Ativar') + '</button></td>';

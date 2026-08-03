@@ -16,6 +16,20 @@ function onOpen() {
           .addItem('Sincronizar com Drive', 'syncNfeFromMenu_')
           .addItem('Diagnóstico da Pasta', 'debugNfeSync_')
       )
+      .addSeparator()
+      .addSubMenu(
+        SpreadsheetApp.getUi().createMenu('Utilitários')
+          .addItem('Inicializar Logging', 'initLogging_')
+          .addItem('Limpar Logs Antigos', 'clearOldLogs_')
+      )
+      .addSeparator()
+      .addSubMenu(
+        SpreadsheetApp.getUi().createMenu('Testes (Smoke Tests)')
+          .addItem('Pricing', 'runSmokeTests_')
+          .addItem('NFe Entrada', 'runNfeSmokeTests_')
+          .addItem('NFe Produtos', 'runNfeProdutosSmokeTests_')
+          .addItem('Formatter', 'runFormatterSmokeTests_')
+      )
       .addToUi();
   } catch (e) {
     // Silently ignore when run from editor (no UI context)
@@ -292,4 +306,89 @@ function debugNfeSync_() {
   L('debug:sheetId', 'OK', 'Sheet ID NFe: ' + ConfigService.getNfeEntradaSheetId());
 
   L('debug:done', 'OK', 'Diagnóstico concluído — veja os logs acima');
+}
+
+function runFormatterSmokeTests_() {
+  var failures = [];
+
+  function expect(label, actual, expected) {
+    if (actual !== expected) {
+      failures.push(label + ': esperado "' + expected + '", obtido "' + actual + '"');
+    }
+  }
+
+  function expectNull(label, actual) {
+    if (actual !== null) {
+      failures.push(label + ': esperado null, obtido ' + JSON.stringify(actual));
+    }
+  }
+
+  // Scenario 1: formatCurrency
+  expect('formatCurrency(1234.56)', FormatterService.formatCurrency(1234.56), 'R$ 1.234,56');
+
+  // Scenario 2: parseCurrency
+  expect('parseCurrency("R$ 1.234,56")', FormatterService.parseCurrency('R$ 1.234,56'), 1234.56);
+
+  // Scenario 3: Simetria format/parse
+  var roundtrip = FormatterService.parseCurrency(FormatterService.formatCurrency(3456.78));
+  if (Math.abs(roundtrip - 3456.78) > 0.01) failures.push('Simetria format/parse: esperado 3456.78, obtido ' + roundtrip);
+
+  // Scenario 4: formatDate
+  expect('formatDate(2026-12-30)', FormatterService.formatDate(new Date('2026-12-30T00:00:00Z')), '30/12/2026');
+
+  // Scenario 5: parseDate
+  var parsedDate = FormatterService.parseDate('30/12/2026');
+  if (!parsedDate || parsedDate.getUTCFullYear() !== 2026 || parsedDate.getUTCMonth() !== 11 || parsedDate.getUTCDate() !== 30) {
+    failures.push('parseDate("30/12/2026"): não retornou Date válida');
+  }
+
+  // Scenario 6: formatPercent
+  expect('formatPercent(0.18)', FormatterService.formatPercent(0.18), '18,00%');
+
+  // Scenario 7: parsePercent
+  expect('parsePercent("18,00%")', FormatterService.parsePercent('18,00%'), 0.18);
+
+  // Scenario 8: Valores negativos
+  expect('formatCurrency(-123.45)', FormatterService.formatCurrency(-123.45), '-R$ 123,45');
+
+  // Scenario 9: Nulos
+  expect('formatCurrency(null)', FormatterService.formatCurrency(null), '');
+  expect('formatDate(null)', FormatterService.formatDate(null), '');
+  expect('formatPercent(null)', FormatterService.formatPercent(null), '');
+
+  // Scenario 10: CNPJ
+  expect('formatCNPJ', FormatterService.formatCNPJ('12345678000190'), '12.345.678/0001-90');
+  expect('parseCNPJ', FormatterService.parseCNPJ('12.345.678/0001-90'), '12345678000190');
+
+  // CPF
+  expect('formatCPF', FormatterService.formatCPF('12345678901'), '123.456.789-01');
+  expect('parseCPF', FormatterService.parseCPF('123.456.789-01'), '12345678901');
+
+  // Telefone
+  expect('formatPhone(11987654321)', FormatterService.formatPhone('11987654321'), '(11) 98765-4321');
+  expect('formatPhone(1133334444)', FormatterService.formatPhone('1133334444'), '(11) 3333-4444');
+  expect('parsePhone', FormatterService.parsePhone('(11) 98765-4321'), '11987654321');
+
+  // CEP
+  expect('formatCEP', FormatterService.formatCEP('01310100'), '01310-100');
+  expect('parseCEP', FormatterService.parseCEP('01310-100'), '01310100');
+
+  // formatTime
+  expect('formatTime', FormatterService.formatTime(new Date('2026-12-30T14:30:45Z')), '14:30:45');
+
+  // formatNumber
+  expect('formatNumber(1234.567)', FormatterService.formatNumber(1234.567), '1.234,57');
+
+  // parseNumber
+  expect('parseNumber("1.234,56")', FormatterService.parseNumber('1.234,56'), 1234.56);
+
+  // formatCurrency sem símbolo
+  expect('formatCurrency(1234.5, {symbol:false})', FormatterService.formatCurrency(1234.5, { symbol: false }), '1.234,50');
+
+  if (failures.length) {
+    Logger.log('FALHOU FORMATTER:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Formatter smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Formatter passaram.');
 }

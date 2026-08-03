@@ -54,7 +54,7 @@
 
     function formatBRL(value) {
       if (value == null || isNaN(value)) return '-';
-      return 'R$ ' + Number(value).toFixed(2).replace('.', ',');
+      return FormatterService.formatCurrency(value);
     }
 
     function marketplaceBadge(marketplace) {

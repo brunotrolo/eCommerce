@@ -23,7 +23,7 @@
       top: 0;
       right: 0;
       bottom: 0;
-      width: min(560px, 92vw);
+      width: min(640px, 92vw);
       z-index: 9995;
       background: var(--color-surface);
       border-left: 1px solid var(--color-border);
@@ -63,9 +63,10 @@
       padding: var(--space-xs) var(--space-sm);
       font-size: var(--font-size-xs);
       background: var(--color-surface-alt);
+      cursor: pointer;
     }
+    .dbg-row:hover { background: var(--color-surface-hover); }
     .dbg-row--error { border-color: var(--color-warning); }
-    .dbg-row--error .dbg-to { color: var(--color-warning-text); }
     .dbg-meta { display: flex; gap: var(--space-sm); flex-wrap: wrap; color: var(--color-text-secondary); margin-bottom: var(--space-xs); }
     .dbg-action { font-weight: var(--font-weight-semibold); color: var(--color-text); }
     .dbg-status--OK { color: var(--color-success-text); font-weight: var(--font-weight-semibold); }
@@ -81,7 +82,9 @@
       white-space: pre-wrap;
       font-family: var(--font-family-mono);
       font-size: var(--font-size-2xs);
+      display: none;
     }
+    .dbg-row--expanded .dbg-detail { display: block; }
     .dbg-foot { display: flex; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); border-top: 1px solid var(--color-border); flex-wrap: wrap; }
     .dbg-foot .btn { flex: 1 1 auto; white-space: nowrap; }
   </style>
@@ -94,12 +97,13 @@
       <button class="btn" id="dbg-close" aria-label="Fechar">×</button>
     </div>
     <div class="dbg-tabs">
-      <button class="dbg-tab" data-tab="backend" data-active="true">Logs (backend)</button>
+      <button class="dbg-tab" data-tab="calls" data-active="true">Chamadas</button>
+      <button class="dbg-tab" data-tab="backend" data-active="false">Logs (backend)</button>
       <button class="dbg-tab" data-tab="front" data-active="false">Erros (browser)</button>
     </div>
     <div class="dbg-body" id="dbg-body"></div>
     <div class="dbg-foot">
-      <button class="btn" id="dbg-reload">Atualizar</button>
+      <button class="btn" id="dbg-reload">Atualizar logs</button>
       <button class="btn" id="dbg-clear">Limpar</button>
       <button class="btn" id="dbg-copy">Copiar JSON</button>
     </div>
@@ -107,6 +111,41 @@
 </template>
 
 <script>
+  (function () {
+    if (window.__debugConsoleReady_) return;
+    window.__debugConsoleReady_ = true;
+
+    window.__debugEvents_ = window.__debugEvents_ || [];
+    window.__debugErrors_ = window.__debugErrors_ || [];
+
+    window.__debugCapture_ = function (evt) {
+      window.__debugEvents_.unshift(evt);
+      if (window.__debugEvents_.length > 200) window.__debugEvents_.pop();
+    };
+
+    window.addEventListener('error', function (e) {
+      window.__debugErrors_.unshift({
+        kind: 'window.onerror',
+        message: e.message || 'Erro de script',
+        file: e.filename || '',
+        line: e.lineno || '',
+        col: e.colno || '',
+        stack: e.error && e.error.stack ? e.error.stack.split('\n').slice(0, 8).join('\n') : ''
+      });
+      if (window.__debugErrors_.length > 100) window.__debugErrors_.pop();
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      var reason = e.reason || {};
+      window.__debugErrors_.unshift({
+        kind: 'unhandledrejection',
+        message: (reason && (reason.message || reason.error)) || String(reason),
+        stack: reason && reason.stack ? reason.stack.split('\n').slice(0, 8).join('\n') : ''
+      });
+      if (window.__debugErrors_.length > 100) window.__debugErrors_.pop();
+    });
+  })();
+
   customElements.define(
     'debug-console-widget',
     class extends HTMLElement {
@@ -118,9 +157,7 @@
           this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         }
         this.backendLogs = [];
-        this.frontErrors = [];
-        this.activeTab = 'backend';
-        this.hookGlobalCapture_();
+        this.activeTab = 'calls';
       }
 
       connectedCallback() {
@@ -148,42 +185,11 @@
         });
       }
 
-      // Captura global de erros do browser. Não toca no google.script.run.
-      hookGlobalCapture_() {
-        const push = (entry) => {
-          this.frontErrors.unshift(entry);
-          if (this.frontErrors.length > 100) this.frontErrors.pop();
-          if (!this.shadowRoot.getElementById('dbg-drawer').hidden) this.render();
-        };
-        window.addEventListener('error', (e) => {
-          push({
-            kind: 'window.onerror',
-            message: e.message || 'Erro de script',
-            file: e.filename || '',
-            line: e.lineno || '',
-            col: e.colno || '',
-            stack: e.error && e.error.stack ? e.error.stack.split('\n').slice(0, 8).join('\n') : ''
-          });
-        });
-        window.addEventListener('unhandledrejection', (e) => {
-          const reason = e.reason || {};
-          push({
-            kind: 'unhandledrejection',
-            message: (reason && (reason.message || reason.error)) || String(reason),
-            stack: reason && reason.stack ? reason.stack.split('\n').slice(0, 8).join('\n') : ''
-          });
-        });
-      }
-
       open() {
         this.shadowRoot.getElementById('dbg-drawer').hidden = false;
         this.shadowRoot.getElementById('dbg-overlay').hidden = false;
         this.shadowRoot.getElementById('dbg-fab').hidden = true;
-        this.activeTab = 'backend';
-        this.shadowRoot.querySelectorAll('.dbg-tab').forEach((b) => {
-          b.dataset.active = String(b.dataset.tab === 'backend');
-        });
-        this.loadBackendLogs();
+        this.render();
       }
 
       close() {
@@ -193,16 +199,16 @@
       }
 
       clear() {
+        window.__debugEvents_ = [];
+        window.__debugErrors_ = [];
         this.backendLogs = [];
-        this.frontErrors = [];
         this.render();
       }
 
       loadBackendLogs() {
         google.script.run
           .withSuccessHandler((res) => {
-            const logs = (res && res.logs) || [];
-            // falling back to lowercase keys defensive, keeping UPPER preferred
+            var logs = (res && res.logs) || [];
             this.backendLogs = logs.map((log) => this._shapeLog(log));
             this.render();
           })
@@ -214,7 +220,7 @@
       }
 
       _shapeLog(raw) {
-        const pick = (upper, lower) => raw[upper] !== undefined ? raw[upper] : raw[lower];
+        var pick = function (u, l) { return raw[u] !== undefined ? raw[u] : raw[l]; };
         return {
           UPDATED_AT: pick('UPDATED_AT', 'updatedAt'),
           SERVICE: pick('SERVICE', 'service'),
@@ -229,84 +235,129 @@
       }
 
       render() {
-        const body = this.shadowRoot.getElementById('dbg-body');
+        var body = this.shadowRoot.getElementById('dbg-body');
         body.innerHTML = '';
-        const items = this.activeTab === 'backend' ? this.backendLogs : this.frontErrors;
+
+        var items = [];
+        if (this.activeTab === 'calls') {
+          items = window.__debugEvents_ || [];
+        } else if (this.activeTab === 'backend') {
+          items = this.backendLogs;
+        } else {
+          items = window.__debugErrors_ || [];
+        }
+
         if (!items.length) {
-          const empty = document.createElement('div');
+          var empty = document.createElement('div');
           empty.className = 'dbg-empty';
-          empty.textContent = this.activeTab === 'backend' ? 'Sem logs no servidor.' : 'Nenhum erro no browser capturado.';
+          if (this.activeTab === 'calls') {
+            empty.textContent = 'Nenhuma chamada registrada. Faça uma ação no app.';
+          } else if (this.activeTab === 'backend') {
+            empty.textContent = 'Clique "Atualizar logs" para buscar do servidor.';
+          } else {
+            empty.textContent = 'Nenhum erro no browser.';
+          }
           body.appendChild(empty);
           return;
         }
-        items.slice(0, 50).forEach((item) => {
-          body.appendChild(this._renderRow(item));
+
+        var self = this;
+        items.slice(0, 50).forEach(function (item) {
+          body.appendChild(self._renderRow(item));
         });
       }
 
       _renderRow(item) {
-        const row = document.createElement('div');
-        const isError = String(item.STATUS || item.kind || '').toUpperCase() === 'ERROR' ||
-          String(item.kind || '').indexOf('onerror') !== -1 ||
-          String(item.kind || '').indexOf('rejection') !== -1;
-        row.className = 'dbg-row' + (isError ? ' dbg-row--error' : ' dbg-row--ok');
+        var self = this;
+        var isCall = item.action && item.durationMs !== undefined;
+        var isApiError = item.result && item.result.error;
+        var isBrowserError = item.kind && (item.kind.indexOf('onerror') !== -1 || item.kind.indexOf('rejection') !== -1);
+        var isError = isApiError || isBrowserError || String(item.STATUS || '').toUpperCase() === 'ERROR';
 
-        const meta = document.createElement('div');
+        var row = document.createElement('div');
+        row.className = 'dbg-row' + (isError ? ' dbg-row--error' : '');
+
+        var meta = document.createElement('div');
         meta.className = 'dbg-meta';
-        const action = document.createElement('span');
+
+        var action = document.createElement('span');
         action.className = 'dbg-action';
-        action.textContent = item.ACTION || (item.kind + '') || '—';
-        const status = document.createElement('span');
-        status.className = item.STATUS === 'ERROR' ? 'dbg-status--ERROR' : 'dbg-status--OK';
-        status.textContent = item.STATUS || '';
-        const source = document.createElement('span');
-        source.className = 'dbg-source';
-        source.textContent = (item.SERVICE || '') + ' · ' + (item.ENVIRONMENT || '') + ' · ' + (item.UPDATED_AT || '');
+        if (isCall) {
+          action.textContent = item.action;
+        } else if (item.ACTION) {
+          action.textContent = item.ACTION;
+        } else {
+          action.textContent = item.kind || '—';
+        }
+
+        var status = document.createElement('span');
+        if (isCall) {
+          status.className = isApiError ? 'dbg-status--ERROR' : 'dbg-status--OK';
+          status.textContent = isApiError ? 'ERROR' : 'OK';
+        } else {
+          status.className = item.STATUS === 'ERROR' ? 'dbg-status--ERROR' : 'dbg-status--OK';
+          status.textContent = item.STATUS || '';
+        }
+
+        var info = document.createElement('span');
+        info.style.color = 'var(--color-text-tertiary)';
+        info.style.fontSize = 'var(--font-size-2xs)';
+        if (isCall) {
+          info.textContent = item.durationMs + 'ms · ' + (item.ts || '');
+        } else {
+          info.textContent = (item.SERVICE || '') + ' · ' + (item.ENVIRONMENT || '') + ' · ' + (item.UPDATED_AT || '');
+        }
+
         meta.appendChild(action);
         meta.appendChild(status);
-        meta.appendChild(source);
+        meta.appendChild(info);
         row.appendChild(meta);
 
-        const sum = document.createElement('div');
+        var sum = document.createElement('div');
         sum.className = 'dbg-sum';
-        sum.textContent = item.SUMMARY || item.message || '—';
+        if (isCall) {
+          var paramsStr = JSON.stringify(item.params || {});
+          if (paramsStr.length > 120) paramsStr = paramsStr.substring(0, 120) + '...';
+          sum.textContent = '→ ' + paramsStr;
+        } else {
+          sum.textContent = item.SUMMARY || item.message || '—';
+        }
         row.appendChild(sum);
 
-        if (item.ERROR_MESSAGE || item.stack) {
-          const err = document.createElement('div');
-          err.className = 'dbg-error';
-          err.textContent = (item.ERROR_MESSAGE || '') + (item.stack ? '\n' + item.stack : '');
-          row.appendChild(err);
+        var detail = document.createElement('div');
+        detail.className = 'dbg-detail';
+        if (isCall) {
+          var resultStr = JSON.stringify(item.result || {}, null, 2);
+          if (resultStr.length > 2000) resultStr = resultStr.substring(0, 2000) + '\n... (truncado)';
+          detail.textContent = 'PARAMS:\n' + JSON.stringify(item.params || {}, null, 2) + '\n\nRESULT:\n' + resultStr;
+        } else if (item.CONTEXT) {
+          detail.textContent = typeof item.CONTEXT === 'string' ? item.CONTEXT : JSON.stringify(item.CONTEXT, null, 2);
+        } else if (item.stack) {
+          detail.textContent = item.stack;
+        }
+        if (detail.textContent) {
+          row.appendChild(detail);
+          row.addEventListener('click', function () {
+            row.classList.toggle('dbg-row--expanded');
+          });
         }
 
-        const ctx = item.CONTEXT;
-        const detail = document.createElement('div');
-        detail.className = 'dbg-detail';
-        if (ctx) {
-          detail.textContent = typeof ctx === 'string' ? ctx : JSON.stringify(ctx);
-        } else {
-          const line = item.line ? ('linha ' + item.line + ' ' + item.file) : '';
-          detail.textContent = line || '';
-          if (!line) detail.textContent = '';
-        }
-        if (detail.textContent) row.appendChild(detail);
         return row;
       }
 
       copy() {
-        const payload = {
+        var payload = {
           exportedAt: new Date().toISOString(),
           url: window.location.href,
+          calls: (window.__debugEvents_ || []).slice(0, 50),
           backend: this.backendLogs.slice(0, 50),
-          front: this.frontErrors
+          errors: window.__debugErrors_ || []
         };
-        const text = JSON.stringify(redact_(payload), null, 2);
+        var text = JSON.stringify(redact_(payload), null, 2);
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(() => {
-            this._flash('Copiado');
-          });
+          navigator.clipboard.writeText(text).then(() => { this._flash('Copiado'); });
         } else {
-          const ta = document.createElement('textarea');
+          var ta = document.createElement('textarea');
           ta.value = text;
           document.body.appendChild(ta);
           ta.select();
@@ -317,25 +368,24 @@
       }
 
       _flash(msg) {
-        const btn = this.shadowRoot.getElementById('dbg-copy');
-        const original = btn.textContent;
+        var btn = this.shadowRoot.getElementById('dbg-copy');
+        var original = btn.textContent;
         btn.textContent = msg;
-        setTimeout(() => { btn.textContent = original; }, 1500);
+        setTimeout(function () { btn.textContent = original; }, 1500);
       }
     }
   );
 
-  // redact_ — remove segredos antes de qualquer exportação de JSON.
   function redact_(value, depth) {
     depth = depth || 0;
     if (depth > 6) return '[depth]';
     if (value === null || value === undefined) return value;
     if (typeof value !== 'object') return value;
     if (value instanceof Date) return value.toISOString();
-    if (Array.isArray(value)) return value.map((v) => redact_(v, depth + 1));
-    const out = {};
-    const SENSITIVE = /(api[_-]?key|secret|password|passwd|access[_-]?token|client[_-]?secret|authorization|token|key)/i;
-    Object.keys(value).forEach((k) => {
+    if (Array.isArray(value)) return value.map(function (v) { return redact_(v, depth + 1); });
+    var out = {};
+    var SENSITIVE = /(api[_-]?key|secret|password|passwd|access[_-]?token|client[_-]?secret|authorization|token|key)/i;
+    Object.keys(value).forEach(function (k) {
       if (SENSITIVE.test(k)) { out[k] = '[REDACTED]'; return; }
       out[k] = redact_(value[k], depth + 1);
     });

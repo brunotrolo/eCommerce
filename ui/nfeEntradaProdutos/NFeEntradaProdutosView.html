@@ -4,22 +4,66 @@
       display: flex;
       align-items: center;
       gap: var(--space-md);
-      margin-bottom: var(--space-card);
+      margin-bottom: var(--space-lg);
     }
     .nfe-prod-actions .btn { white-space: nowrap; }
+    #result-box {
+      margin-bottom: var(--space-lg);
+    }
+    .nfe-search-wrap {
+      margin-bottom: var(--space-xl);
+    }
     .nfe-search {
       display: flex;
-      gap: var(--space-sm);
-      margin-bottom: var(--space-card);
-    }
-    .nfe-search input {
-      flex: 1;
-      padding: var(--space-xs) var(--space-sm);
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-sm);
-      font-size: var(--font-size-sm);
       background: var(--color-surface);
+      min-height: 38px;
+    }
+    .nfe-search:focus-within {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px var(--color-primary-light);
+    }
+    .search-tag {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px !important;
+      background: var(--color-info-light) !important;
+      color: var(--color-info-text) !important;
+      border: 1px solid var(--color-info) !important;
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-xs);
+      white-space: nowrap;
+      cursor: default;
+    }
+    .search-tag-remove {
+      cursor: pointer;
+      font-weight: bold;
+      opacity: 0.7;
+      line-height: 1;
+      margin-left: 2px;
+    }
+    .search-tag-remove:hover { opacity: 1; }
+    .nfe-search input {
+      flex: 1;
+      min-width: 150px;
+      border: none;
+      outline: none;
+      padding: 4px;
+      font-size: var(--font-size-sm);
+      background: transparent;
       color: var(--color-text);
+    }
+    .nfe-search input::placeholder { color: var(--color-text-secondary); }
+    .nfe-search-hint {
+      margin-top: 4px;
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
     }
     .nfe-summary {
       display: flex;
@@ -46,12 +90,144 @@
       padding: var(--space-section) var(--space-lg);
       color: var(--color-text-secondary);
     }
+    .nfe-prod-table .table tbody tr { cursor: pointer; }
+    .nfe-prod-table .table tbody tr:hover { background: var(--color-surface-hover); }
+    .nfe-sidebar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 9990;
+      display: none;
+    }
+    .nfe-sidebar-overlay[open] { display: block; }
+    .nfe-sidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 25vw;
+      max-width: 25vw;
+      background: var(--color-surface);
+      border-left: 1px solid var(--color-border);
+      z-index: 9995;
+      display: none;
+      flex-direction: column;
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    }
+    .nfe-sidebar[open] { display: flex; }
+    .nfe-sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-sm) var(--space-md);
+      border-bottom: 1px solid var(--color-border);
+      flex-shrink: 0;
+    }
+    .nfe-sidebar-header h3 { margin: 0; font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); }
+    .nfe-sidebar-close {
+      background: none;
+      border: none;
+      font-size: var(--font-size-xl);
+      cursor: pointer;
+      color: var(--color-text-secondary);
+      padding: var(--space-xs);
+      line-height: 1;
+    }
+    .nfe-sidebar-close:hover { color: var(--color-text); }
+    .nfe-sidebar-body {
+      flex: 1;
+      overflow: auto;
+      padding: var(--space-md);
+    }
+    .nfe-sidebar-body .table { width: 100%; }
+    .nfe-sidebar-empty {
+      text-align: center;
+      padding: var(--space-section);
+      color: var(--color-text-secondary);
+    }
+    .calc-section {
+      margin-bottom: var(--space-md);
+      padding: var(--space-md);
+      background: var(--color-surface-alt);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+    }
+    .calc-section h4 {
+      margin: 0 0 var(--space-sm) 0;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-micro);
+    }
+    .calc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--space-xs) 0;
+      font-size: var(--font-size-sm);
+    }
+    .calc-row.total {
+      border-top: 2px solid var(--color-border);
+      margin-top: var(--space-xs);
+      padding-top: var(--space-sm);
+      font-weight: var(--font-weight-semibold);
+      font-size: var(--font-size-md);
+    }
+    .calc-label { color: var(--color-text-secondary); }
+    .calc-value { font-weight: var(--font-weight-medium); }
+    .calc-formula {
+      margin-top: var(--space-sm);
+      padding: var(--space-sm);
+      background: var(--color-surface);
+      border-radius: var(--radius-sm);
+      font-family: monospace;
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      text-align: center;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 22px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: #ccc;
+      border-radius: 22px;
+      transition: 0.3s;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: #22c55e;
+    }
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(18px);
+    }
   </style>
 
   <div class="widget-grid">
     <div class="card">
       <h1>Entrada de Produtos</h1>
-      <p class="page-subtitle">Desagregação de NFes importadas — uma linha por produto.</p>
+      <p class="page-subtitle">Todos os itens das NFes importadas — uma linha por produto por NF.</p>
 
       <div class="nfe-prod-actions">
         <button class="btn btn-primary" id="btn-processar">Processar NFes não processadas</button>
@@ -61,19 +237,33 @@
       <div id="error-box" class="alert alert-error" hidden></div>
       <div id="result-box" hidden></div>
 
-      <div class="nfe-search">
-        <input type="text" id="search-input" placeholder="Buscar por código do produto..." />
-        <button class="btn" id="btn-buscar">Buscar</button>
+      <div class="nfe-search-wrap">
+        <div class="nfe-search" id="search-bar">
+          <input type="text" id="search-input" placeholder="Digite e pressione Enter para filtrar..." />
+        </div>
+        <div class="nfe-search-hint">Pressione <strong>Enter</strong> para adicionar filtro. Clique no <strong>×</strong> para remover.</div>
       </div>
 
       <div class="nfe-summary" id="summary"></div>
 
       <div class="card" id="estoque-card" hidden>
-        <h2>Estoque</h2>
+        <h2>Itens Importados</h2>
+        <p style="color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-bottom: var(--space-sm);">Clique em um item para ver a memória de cálculo.</p>
         <div class="nfe-prod-table" id="estoque-table"></div>
       </div>
     </div>
   </div>
+
+  <div class="nfe-sidebar-overlay" id="sidebar-overlay"></div>
+  <aside class="nfe-sidebar" id="sidebar">
+    <div class="nfe-sidebar-header">
+      <h3 id="sidebar-title">Memória de Cálculo</h3>
+      <button class="nfe-sidebar-close" id="sidebar-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="nfe-sidebar-body" id="sidebar-body">
+      <div class="nfe-sidebar-empty">Carregando...</div>
+    </div>
+  </aside>
 </template>
 
 <script>
@@ -90,14 +280,17 @@
           if (window.__DESIGN_SHEET__) {
             this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
           }
+          this._allItems = [];
+          this._filterTags = [];
         }
 
         connectedCallback() {
           var self = this;
           var btnProcessar = this.shadowRoot.getElementById('btn-processar');
           var status = this.shadowRoot.getElementById('process-status');
-          var btnBuscar = this.shadowRoot.getElementById('btn-buscar');
           var searchInput = this.shadowRoot.getElementById('search-input');
+          var overlay = this.shadowRoot.getElementById('sidebar-overlay');
+          var closeBtn = this.shadowRoot.getElementById('sidebar-close');
 
           btnProcessar.addEventListener('click', function () {
             btnProcessar.disabled = true;
@@ -112,25 +305,26 @@
                 btnProcessar.textContent = 'Processar NFes não processadas';
                 status.textContent = '';
 
-                if (result.error) {
-                  self._showError(result.error);
-                  return;
+              if (result.error) {
+                self._showError(result.error);
+                return;
+              }
+
+              var data = result.data || {};
+              var html = '<div class="alert alert-success">' +
+                '<strong>' + (data.totalNfProcessed || 0) + '</strong> NF(s) processada(s), ' +
+                '<strong>' + (data.totalProductsInserted || 0) + '</strong> produto(s) inserido(s).</div>';
+
+              if (data.errors && data.errors.length > 0) {
+                html += '<div class="alert alert-warning" style="margin-top: var(--space-md)">';
+                for (var i = 0; i < data.errors.length; i++) {
+                  html += '<div>NF ' + (data.errors[i].numeroNf || '') + ': ' + (data.errors[i].reason || '') + '</div>';
                 }
+                html += '</div>';
+              }
 
-                var html = '<div class="alert alert-success">' +
-                  '<strong>' + (result.totalNfProcessed || 0) + '</strong> NF(s) processada(s), ' +
-                  '<strong>' + (result.totalProductsInserted || 0) + '</strong> produto(s) inserido(s).</div>';
-
-                if (result.errors && result.errors.length > 0) {
-                  html += '<div class="alert alert-warning" style="margin-top: var(--space-md)">';
-                  for (var i = 0; i < result.errors.length; i++) {
-                    html += '<div>NF ' + (result.errors[i].numeroNf || '') + ': ' + (result.errors[i].reason || '') + '</div>';
-                  }
-                  html += '</div>';
-                }
-
-                self._showResult(html);
-                self._loadEstoque();
+              self._showResult(html);
+              self._loadProdutos();
               })
               .withFailureHandler(function (err) {
                 btnProcessar.disabled = false;
@@ -141,19 +335,114 @@
               .apiDispatch('nfeEntradaProdutos.processarTodasNfs', {});
           });
 
-          btnBuscar.addEventListener('click', function () {
-            var codigo = searchInput.value.trim();
-            self._loadEstoque(codigo);
-          });
-
           searchInput.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') {
-              var codigo = searchInput.value.trim();
-              self._loadEstoque(codigo);
+              e.preventDefault();
+              var val = searchInput.value.trim();
+              if (val) {
+                self._addTag(val);
+                searchInput.value = '';
+              }
+            } else if (e.key === 'Backspace' && !searchInput.value && self._filterTags.length > 0) {
+              self._removeTag(self._filterTags.length - 1);
             }
           });
 
-          this._loadEstoque();
+          overlay.addEventListener('click', function () { self._closeSidebar(); });
+          closeBtn.addEventListener('click', function () { self._closeSidebar(); });
+
+          this._loadProdutos();
+        }
+
+        _addTag(text) {
+          var v = text.trim();
+          if (!v) return;
+          for (var i = 0; i < this._filterTags.length; i++) {
+            if (this._filterTags[i].toLowerCase() === v.toLowerCase()) return;
+          }
+          this._filterTags.push(v);
+          this._renderTags();
+          this._applyFilter();
+        }
+
+        _removeTag(index) {
+          this._filterTags.splice(index, 1);
+          this._renderTags();
+          this._applyFilter();
+        }
+
+        _renderTags() {
+          var self = this;
+          var bar = this.shadowRoot.getElementById('search-bar');
+          var input = this.shadowRoot.getElementById('search-input');
+
+          var old = bar.querySelectorAll('.search-tag');
+          for (var i = 0; i < old.length; i++) old[i].remove();
+
+          for (var j = 0; j < self._filterTags.length; j++) {
+            (function (idx) {
+              var tag = document.createElement('span');
+              tag.className = 'search-tag';
+              var txt = document.createTextNode(self._filterTags[idx] + ' ');
+              tag.appendChild(txt);
+
+              var x = document.createElement('span');
+              x.className = 'search-tag-remove';
+              x.textContent = '\u00d7';
+              x.addEventListener('click', function () {
+                self._removeTag(idx);
+              });
+              tag.appendChild(x);
+
+              bar.insertBefore(tag, input);
+            })(j);
+          }
+        }
+
+        _applyFilter() {
+          var self = this;
+          var input = this.shadowRoot.getElementById('search-input');
+          var live = input.value.trim().toLowerCase();
+
+          var items = this._allItems;
+
+          if (self._filterTags.length > 0) {
+            items = items.filter(function (item) {
+              for (var i = 0; i < self._filterTags.length; i++) {
+                var t = self._filterTags[i].toLowerCase();
+                var ok = String(item.CODIGO_PRODUTO || '').toLowerCase().indexOf(t) !== -1 ||
+                  String(item.NUMERO_NF || '').toLowerCase().indexOf(t) !== -1 ||
+                  String(item.DESCRICAO_PRODUTO || '').toLowerCase().indexOf(t) !== -1;
+                if (!ok) return false;
+              }
+              return true;
+            });
+          }
+
+          if (live) {
+            items = items.filter(function (item) {
+              return String(item.CODIGO_PRODUTO || '').toLowerCase().indexOf(live) !== -1 ||
+                String(item.NUMERO_NF || '').toLowerCase().indexOf(live) !== -1 ||
+                String(item.DESCRICAO_PRODUTO || '').toLowerCase().indexOf(live) !== -1;
+            });
+          }
+
+          var summary = this.shadowRoot.getElementById('summary');
+          summary.innerHTML =
+            '<div class="stat"><div class="stat-value">' + items.length + '</div><div class="stat-label">Itens</div></div>';
+
+          var table = this.shadowRoot.getElementById('estoque-table');
+          this._renderTable(table, items);
+
+          var toggles = table.querySelectorAll('.toggle-switch input');
+          for (var t = 0; t < toggles.length; t++) {
+            toggles[t].addEventListener('change', function () {
+              var nf = this.getAttribute('data-nf');
+              var cod = this.getAttribute('data-cod');
+              var st = this.checked ? 'Recebido' : 'Desconsiderar';
+              self._updateStatus(nf, cod, st);
+            });
+          }
         }
 
         _hideError() {
@@ -176,68 +465,170 @@
           box.hidden = false;
         }
 
-        _loadEstoque(codigoProduto) {
+        _updateStatus(numeroNf, codigoProduto, status) {
+          google.script.run
+            .withSuccessHandler(function (result) {
+              var data = result.data || result;
+              if (data.error) console.error('[NFeProdutos] updateStatus error:', data.error);
+            })
+            .withFailureHandler(function (err) {
+              console.error('[NFeProdutos] updateStatus failure:', err);
+            })
+            .apiDispatch('nfeEntradaProdutos.updateStatus', {
+              numeroNf: numeroNf,
+              codigoProduto: codigoProduto,
+              status: status
+            });
+        }
+
+        _loadProdutos() {
           var self = this;
-          var params = codigoProduto ? { codigoProduto: codigoProduto } : {};
 
           google.script.run
             .withSuccessHandler(function (result) {
-              var summary = self.shadowRoot.getElementById('summary');
               var card = self.shadowRoot.getElementById('estoque-card');
               var table = self.shadowRoot.getElementById('estoque-table');
 
               if (result.error) {
-                summary.innerHTML = '';
                 card.hidden = false;
                 table.innerHTML = '<div class="nfe-empty">' + result.error + '</div>';
                 return;
               }
 
-              var items = (result && result.data) || [];
+              var data = result.data || {};
+              var items = (data && data.data) || [];
+              self._allItems = items;
+
               if (items.length === 0) {
-                summary.innerHTML = '';
                 card.hidden = false;
                 table.innerHTML = '<div class="nfe-empty">Nenhum produto encontrado.</div>';
                 return;
               }
 
-              var totalQty = 0;
-              var totalValue = 0;
-              for (var i = 0; i < items.length; i++) {
-                totalQty += items[i].quantidadeTotal || 0;
-              }
-
-              summary.innerHTML =
-                '<div class="stat"><div class="stat-value">' + items.length + '</div><div class="stat-label">Produtos</div></div>' +
-                '<div class="stat"><div class="stat-value">' + totalQty.toFixed(2) + '</div><div class="stat-label">Quantidade Total</div></div>';
-
-              var html = '<div class="table-container"><table class="table">' +
-                '<thead><tr>' +
-                '<th>Código</th><th>Descrição</th><th>Qtd Total</th><th>Última Entrada</th><th>NF Origem</th>' +
-                '</tr></thead><tbody>';
-
-              for (var j = 0; j < items.length; j++) {
-                var item = items[j];
-                html += '<tr>' +
-                  '<td>' + (item.codigoProduto || '') + '</td>' +
-                  '<td>' + (item.descricao || '') + '</td>' +
-                  '<td>' + (item.quantidadeTotal != null ? item.quantidadeTotal.toFixed(2) : '0') + '</td>' +
-                  '<td>' + (item.ultimaEntrada || '') + '</td>' +
-                  '<td>' + (item.ultimaNfOrigemNumero || '') + '</td>' +
-                  '</tr>';
-              }
-
-              html += '</tbody></table></div>';
+              self._applyFilter();
               card.hidden = false;
-              table.innerHTML = html;
             })
             .withFailureHandler(function (err) {
               var table = self.shadowRoot.getElementById('estoque-table');
               var card = self.shadowRoot.getElementById('estoque-card');
               card.hidden = false;
-              table.innerHTML = '<div class="nfe-empty">Erro ao carregar estoque: ' + (err.message || String(err)) + '</div>';
+              table.innerHTML = '<div class="nfe-empty">Erro ao carregar produtos: ' + (err.message || String(err)) + '</div>';
             })
-            .apiDispatch('nfeEntradaProdutos.getEstoque', params);
+            .apiDispatch('nfeEntradaProdutos.getProdutos', {});
+        }
+
+        _renderTable(table, items) {
+          var self = this;
+          var html = '<div class="table-container"><table class="table">' +
+            '<thead><tr>' +
+            '<th>NF</th><th>Código</th><th>Descrição</th><th>NCM</th><th>Qtd</th><th>Vl Unit. Líquido</th><th>Vl Líquido Item</th><th>Status</th>' +
+            '</tr></thead><tbody>';
+
+          for (var j = 0; j < items.length; j++) {
+            var item = items[j];
+            var isRecebido = (item.STATUS || 'Recebido') === 'Recebido';
+            var nf = item.NUMERO_NF || '';
+            var codProd = item.CODIGO_PRODUTO || '';
+            var vUnitLiq = parseFloat(item.VALOR_UNITARIO_LIQUIDO);
+            if (isNaN(vUnitLiq)) vUnitLiq = parseFloat(item.VALOR_UNITARIO) || 0;
+            var vLiq = parseFloat(item.VALOR_LIQUIDO_ITEM);
+            if (isNaN(vLiq)) vLiq = parseFloat(item.VALOR_TOTAL) || (vUnitLiq * (parseFloat(item.QUANTIDADE) || 0));
+            html += '<tr data-index="' + j + '" class="prod-row">' +
+              '<td>' + nf + '</td>' +
+              '<td>' + codProd + '</td>' +
+              '<td>' + (item.DESCRICAO_PRODUTO || '').toUpperCase() + '</td>' +
+              '<td>' + (item.NCM || '') + '</td>' +
+              '<td>' + (Math.round(parseFloat(item.QUANTIDADE) || 0)) + '</td>' +
+              '<td>' + FormatterService.formatCurrency(vUnitLiq) + '</td>' +
+              '<td>' + FormatterService.formatCurrency(vLiq) + '</td>' +
+              '<td><label class="toggle-switch"><input type="checkbox" data-nf="' + nf + '" data-cod="' + codProd + '"' + (isRecebido ? ' checked' : '') + ' /><span class="toggle-slider"></span></label></td>' +
+              '</tr>';
+          }
+
+          html += '</tbody></table></div>';
+          table.innerHTML = html;
+
+          var allItems = items;
+          var prodRows = table.querySelectorAll('.prod-row');
+          for (var k = 0; k < prodRows.length; k++) {
+            prodRows[k].addEventListener('click', function (e) {
+              if (e.target.closest('.toggle-switch')) return;
+              var idx = parseInt(this.getAttribute('data-index'), 10);
+              self._openSidebar(allItems[idx]);
+            });
+          }
+        }
+
+        _openSidebar(item) {
+          var self = this;
+          var overlay = this.shadowRoot.getElementById('sidebar-overlay');
+          var sidebar = this.shadowRoot.getElementById('sidebar');
+          var title = this.shadowRoot.getElementById('sidebar-title');
+          var body = this.shadowRoot.getElementById('sidebar-body');
+
+          var nf = item.NUMERO_NF || '';
+          var codProd = item.CODIGO_PRODUTO || '';
+          var desc = (item.DESCRICAO_PRODUTO || '').toUpperCase();
+
+          title.textContent = desc + ' — NF ' + nf;
+          body.innerHTML = '<div class="nfe-sidebar-empty">Carregando...</div>';
+          overlay.setAttribute('open', '');
+          sidebar.setAttribute('open', '');
+
+          var qty = Math.round(parseFloat(item.QUANTIDADE) || 0);
+          var vUnit = parseFloat(item.VALOR_UNITARIO) || 0;
+          var vOutros = parseFloat(item.VALOR_OUTROS_ITEM) || 0;
+          var vDesc = parseFloat(item.VALOR_DESCONTO_ITEM) || 0;
+          var vUnitLiq = parseFloat(item.VALOR_UNITARIO_LIQUIDO);
+          if (isNaN(vUnitLiq)) vUnitLiq = vUnit;
+          var vLiq = parseFloat(item.VALOR_LIQUIDO_ITEM);
+          if (isNaN(vLiq)) vLiq = parseFloat(item.VALOR_TOTAL) || (vUnitLiq * qty);
+          var tipoDesc = item.TIPO_DESCONTO || 'NENHUM';
+          var tipoOutros = item.TIPO_OUTROS || 'NENHUM';
+
+          var calcHtml = '<div class="calc-section">' +
+            '<h4>Dados do Item</h4>' +
+            '<div class="calc-row"><span class="calc-label">NF</span><span class="calc-value">' + nf + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Data Emissão</span><span class="calc-value">' + FormatterService.formatDate(item.DATA_EMISSAO) + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Emitente</span><span class="calc-value">' + (item.EMITENTE_NOME || '-') + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Código</span><span class="calc-value">' + codProd + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Descrição</span><span class="calc-value">' + desc + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">NCM</span><span class="calc-value">' + (item.NCM || '-') + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">CFOP</span><span class="calc-value">' + (item.CFOP || '-') + '</span></div>' +
+            '</div>' +
+
+            '<div class="calc-section">' +
+            '<h4>Memória de Cálculo</h4>' +
+            '<div class="calc-row"><span class="calc-label">Qtd</span><span class="calc-value">' + qty + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Vl Unitário (A)</span><span class="calc-value">' + FormatterService.formatCurrency(vUnit) + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Vl Total (A × Qtd)</span><span class="calc-value">' + FormatterService.formatCurrency(vUnit * qty) + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Vl Outros (B) [' + tipoOutros + ']</span><span class="calc-value">' + FormatterService.formatCurrency(vOutros) + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Vl Desconto (C) [' + tipoDesc + ']</span><span class="calc-value">' + FormatterService.formatCurrency(vDesc) + '</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Vl Unitário Líquido (A+B-C)</span><span class="calc-value">' + FormatterService.formatCurrency(vUnitLiq) + '</span></div>' +
+            '<div class="calc-row total"><span class="calc-label">Vl Líquido Item ((A+B-C) × Qtd)</span><span class="calc-value">' + FormatterService.formatCurrency(vLiq) + '</span></div>' +
+            '<div class="calc-formula">' +
+            FormatterService.formatCurrency(vUnit) + ' + ' +
+            FormatterService.formatCurrency(vOutros) + ' - ' +
+            FormatterService.formatCurrency(vDesc) + ' = ' +
+            FormatterService.formatCurrency(vUnitLiq) + ' × ' +
+            qty + ' = ' +
+            '<strong>' + FormatterService.formatCurrency(vLiq) + '</strong></div>' +
+            '</div>' +
+
+            '<div class="calc-section">' +
+            '<h4>Impostos</h4>' +
+            '<div class="calc-row"><span class="calc-label">Alíquota ICMS</span><span class="calc-value">' + (item.ALIQUOTA_ICMS || '0') + '%</span></div>' +
+            '<div class="calc-row"><span class="calc-label">Vl ICMS Item</span><span class="calc-value">' + FormatterService.formatCurrency(item.VALOR_ICMS_ITEM) + '</span></div>' +
+            '</div>';
+
+          body.innerHTML = calcHtml;
+        }
+
+        _closeSidebar() {
+          var overlay = this.shadowRoot.getElementById('sidebar-overlay');
+          var sidebar = this.shadowRoot.getElementById('sidebar');
+          overlay.removeAttribute('open');
+          sidebar.removeAttribute('open');
         }
       }
     );
