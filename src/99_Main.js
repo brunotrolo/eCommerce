@@ -30,6 +30,7 @@ function onOpen() {
           .addItem('NFe Produtos', 'runNfeProdutosSmokeTests_')
           .addItem('Formatter', 'runFormatterSmokeTests_')
           .addItem('Catalog', 'runCatalogSmokeTests_')
+          .addItem('Calculator', 'runCalculatorSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -456,4 +457,81 @@ function runCatalogSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de Catalog passaram.');
+}
+
+function runCalculatorSmokeTests_() {
+  var failures = [];
+
+  function expectClose(label, actual, expected, tolerance) {
+    tolerance = tolerance || 2;
+    if (Math.abs(actual - expected) > tolerance) {
+      failures.push(label + ': esperado ~' + expected + ', obtido ' + actual);
+    }
+  }
+
+  function expectTrue(label, condition) {
+    if (!condition) {
+      failures.push(label + ': esperado true, obtido false');
+    }
+  }
+
+  // Cenário 1: Básico CNPJ, faixa R$100–199
+  var r1 = CalculatorService.calculateML({ custoProduto: 100, margem: 0.20, regime: 'cnpj' });
+  expectTrue('cenário1 success', !!r1.success);
+  expectTrue('cenário1 data exists', !!r1.data);
+  if (r1.data) {
+    expectTrue('cenário1 faixa R$100–199', r1.data.taxasML.faixa === 'R$100–199');
+    expectTrue('cenário1 taxa 14%', r1.data.taxasML.pct === 0.14);
+    expectTrue('cenário1 fixa R$20', r1.data.taxasML.fixed === 20);
+    expectTrue('cenário1 preco ~168-175', r1.data.precoVenda >= 165 && r1.data.precoVenda <= 180);
+  }
+
+  // Cenário 2: CPF com custo adicional
+  var r2 = CalculatorService.calculateML({ custoProduto: 50, custosAdicionais: 10, margem: 0.25, regime: 'cpf' });
+  expectTrue('cenário2 success', !!r2.success);
+  if (r2.data) {
+    expectTrue('cenário2 custoTotal 60', r2.data.custoTotal === 60);
+    expectTrue('cenário2 lucro > 0', r2.data.descomposicao.lucroLiquido > 0);
+  }
+
+  // Cenário 3: Campanha + ads
+  var r3 = CalculatorService.calculateML({ custoProduto: 100, margem: 0.20, campanhadeDestaque: true, adsPercent: 2 });
+  expectTrue('cenário3 success', !!r3.success);
+  if (r3.data) {
+    expectTrue('cenário3 campanha applies', r3.data.descomposicao.menoCampanha > 0);
+    expectTrue('cenário3 ads applies', r3.data.descomposicao.menosAds > 0);
+  }
+
+  // Cenário 4: Preço manual
+  var r4 = CalculatorService.calculateML({ custoProduto: 50, precoVenda: 150 });
+  expectTrue('cenário4 success', !!r4.success);
+  if (r4.data) {
+    expectTrue('cenário4 precoVenda 150', r4.data.precoVenda === 150);
+    expectTrue('cenário4 precoSugerido null', r4.data.precoSugerido === null);
+  }
+
+  // Cenário 5: Vendedor iniciante
+  var r5 = CalculatorService.calculateML({ custoProduto: 100, regime: 'cnpj', vendedorIniciante: true });
+  expectTrue('cenário5 success', !!r5.success);
+  if (r5.data) {
+    expectTrue('cenário5 isento', r5.data.taxasML.isento === true);
+    expectTrue('cenário5 taxa 0', r5.data.taxasML.pct === 0);
+    expectTrue('cenário5 fixa 0', r5.data.taxasML.fixed === 0);
+  }
+
+  // Cenário 6: Imposto alto → aviso
+  var r6 = CalculatorService.calculateML({ custoProduto: 100, impostoSimples: 0.15 });
+  expectTrue('cenário6 success', !!r6.success);
+  if (r6.data) {
+    expectTrue('cenário6 has avisos', r6.data.avisos && r6.data.avisos.length > 0);
+    var hasLowMargin = r6.data.avisos.some(function (a) { return a.tipo === 'margin_low'; });
+    expectTrue('cenário6 margin_low warning', hasLowMargin);
+  }
+
+  if (failures.length) {
+    Logger.log('FALHOU CALCULATOR:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Calculator smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Calculator passaram.');
 }

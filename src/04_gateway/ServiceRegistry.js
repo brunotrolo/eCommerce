@@ -34,6 +34,7 @@ var ServiceRegistry = (function () {
     dashboard: safeRef_('dashboard', function () { return typeof DashboardService !== 'undefined' ? DashboardService : undefined; }),
     nfeEntrada: safeRef_('nfeEntrada', function () { return typeof NFeEntradaService !== 'undefined' ? NFeEntradaService : undefined; }),
     nfeEntradaProdutos: safeRef_('nfeEntradaProdutos', function () { return typeof NFeEntradaProdutosService !== 'undefined' ? NFeEntradaProdutosService : undefined; }),
+    calculator: safeRef_('calculator', function () { return typeof CalculatorService !== 'undefined' ? CalculatorService : undefined; }),
     logging: safeRef_('logging', function () { return typeof LoggingService !== 'undefined' ? LoggingService : undefined; }),
     catalog: safeRef_('catalog', function () { return typeof CatalogService !== 'undefined' ? CatalogService : undefined; })
   };

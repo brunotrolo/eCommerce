@@ -1,0 +1,483 @@
+<template id="calculator-widget-template">
+  <style>
+    .calc-floater {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9000;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--color-primary, #0a0a0a);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .calc-floater:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    }
+
+    .calc-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 9990;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .calc-overlay[open] { display: flex; }
+
+    .calc-modal {
+      background: var(--color-surface, #fff);
+      border-radius: var(--radius-md, 8px);
+      width: 95vw;
+      max-width: 620px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .calc-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-md, 12px) var(--space-lg, 16px);
+      border-bottom: 1px solid var(--color-border, #e0e0e0);
+      flex-shrink: 0;
+    }
+    .calc-modal-header h2 {
+      margin: 0;
+      font-size: var(--font-size-md, 14px);
+      font-weight: var(--font-weight-semibold, 600);
+    }
+    .calc-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--color-text-secondary, #666);
+      padding: 4px;
+      line-height: 1;
+    }
+    .calc-close:hover { color: var(--color-text, #1a1a1a); }
+
+    .calc-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: var(--space-lg, 16px);
+    }
+
+    .calc-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-md, 12px);
+      margin-bottom: var(--space-md, 12px);
+    }
+    .calc-form-row.full { grid-template-columns: 1fr; }
+    .calc-field label {
+      display: block;
+      font-size: var(--font-size-sm, 12px);
+      color: var(--color-text-secondary, #666);
+      margin-bottom: 4px;
+    }
+    .calc-field input[type="number"],
+    .calc-field input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--color-border, #e0e0e0);
+      border-radius: var(--radius-sm, 4px);
+      font-size: var(--font-size-sm, 12px);
+      background: var(--color-surface, #fff);
+      color: var(--color-text, #1a1a1a);
+      box-sizing: border-box;
+    }
+    .calc-field input:focus {
+      outline: 2px solid var(--color-primary, #0a0a0a);
+      outline-offset: -1px;
+    }
+    .calc-field input.invalid {
+      border-color: var(--color-danger, #d45656);
+    }
+
+    .calc-radio-group {
+      display: flex;
+      gap: var(--space-md, 12px);
+      margin-top: 4px;
+    }
+    .calc-radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: var(--font-size-sm, 12px);
+      color: var(--color-text, #1a1a1a);
+      cursor: pointer;
+    }
+
+    .calc-checkbox-group {
+      display: flex;
+      gap: var(--space-lg, 16px);
+      margin-top: 4px;
+    }
+    .calc-checkbox-group label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: var(--font-size-sm, 12px);
+      color: var(--color-text, #1a1a1a);
+      cursor: pointer;
+    }
+
+    .calc-divider {
+      height: 1px;
+      background: var(--color-border, #e0e0e0);
+      margin: var(--space-lg, 16px) 0;
+    }
+
+    .calc-result {
+      margin-top: var(--space-md, 12px);
+    }
+    .calc-result-header {
+      font-size: var(--font-size-xs, 11px);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary, #666);
+      margin-bottom: var(--space-sm, 8px);
+    }
+    .calc-price-big {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--color-text, #1a1a1a);
+      margin-bottom: var(--space-sm, 8px);
+    }
+
+    .calc-decomp {
+      font-size: var(--font-size-sm, 12px);
+    }
+    .calc-decomp-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--color-border, #e0e0e0);
+    }
+    .calc-decomp-row:last-child { border-bottom: none; }
+    .calc-decomp-row.subtotal {
+      font-weight: 600;
+      border-top: 2px solid var(--color-border, #e0e0e0);
+      padding-top: 8px;
+      margin-top: 4px;
+    }
+    .calc-decomp-row.profit {
+      font-weight: 700;
+      font-size: var(--font-size-md, 14px);
+      border-top: 2px solid var(--color-border, #e0e0e0);
+      padding-top: 8px;
+      margin-top: 4px;
+    }
+    .calc-decomp-row.profit.positive { color: var(--color-success, #00b48a); }
+    .calc-decomp-row.profit.negative { color: var(--color-danger, #d45656); }
+    .calc-decomp-label { color: var(--color-text-secondary, #666); }
+    .calc-decomp-value { font-weight: 500; }
+
+    .calc-warnings {
+      margin-top: var(--space-md, 12px);
+    }
+    .calc-warning {
+      padding: 8px 12px;
+      border-radius: var(--radius-sm, 4px);
+      font-size: var(--font-size-sm, 12px);
+      margin-bottom: 6px;
+    }
+    .calc-warning.warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffc107;
+    }
+    .calc-warning.critical {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .calc-margins {
+      display: flex;
+      gap: var(--space-lg, 16px);
+      margin-top: var(--space-md, 12px);
+      font-size: var(--font-size-sm, 12px);
+    }
+    .calc-margin-item {
+      text-align: center;
+      flex: 1;
+      padding: 8px;
+      background: var(--color-surface-alt, #f5f5f5);
+      border-radius: var(--radius-sm, 4px);
+    }
+    .calc-margin-value {
+      font-size: 18px;
+      font-weight: 700;
+      display: block;
+    }
+    .calc-margin-label {
+      font-size: var(--font-size-xs, 11px);
+      color: var(--color-text-secondary, #666);
+    }
+  </style>
+
+  <button class="calc-floater" id="calc-floater-btn" aria-label="Abrir Calculadora">🧮</button>
+
+  <div class="calc-overlay" id="calc-overlay">
+    <div class="calc-modal">
+      <div class="calc-modal-header">
+        <h2>PrecificaPRO — Mercado Livre</h2>
+        <button class="calc-close" id="calc-close">&times;</button>
+      </div>
+      <div class="calc-modal-body">
+        <div class="calc-form-row">
+          <div class="calc-field">
+            <label for="custoProduto">Custo do Produto (R$)</label>
+            <input type="number" id="custoProduto" step="0.01" min="0" placeholder="0,00" />
+          </div>
+          <div class="calc-field">
+            <label for="custosAdicionais">Custos Adicionais (R$)</label>
+            <input type="number" id="custosAdicionais" step="0.01" min="0" value="0" placeholder="0,00" />
+          </div>
+        </div>
+
+        <div class="calc-form-row">
+          <div class="calc-field">
+            <label for="margemInput">Margem (%)</label>
+            <input type="number" id="margemInput" step="1" min="0" max="99" value="20" />
+          </div>
+          <div class="calc-field">
+            <label for="adsInput">Ads (%)</label>
+            <input type="number" id="adsInput" step="0.5" min="0" max="100" value="0" />
+          </div>
+        </div>
+
+        <div class="calc-form-row">
+          <div class="calc-field">
+            <label for="precoVendaInput">Preço de Venda (R$) — vazio = calcular</label>
+            <input type="number" id="precoVendaInput" step="0.01" min="0" placeholder="Automático" />
+          </div>
+          <div class="calc-field">
+            <label for="impostoInput">Imposto Simples (%)</label>
+            <input type="number" id="impostoInput" step="0.5" min="0" max="100" value="6" />
+          </div>
+        </div>
+
+        <div class="calc-form-row">
+          <div class="calc-field">
+            <label>Regime Tributário</label>
+            <div class="calc-radio-group">
+              <label><input type="radio" name="regime" value="cnpj" checked /> CNPJ</label>
+              <label><input type="radio" name="regime" value="cpf" /> CPF</label>
+            </div>
+          </div>
+          <div class="calc-field">
+            <label>Opções</label>
+            <div class="calc-checkbox-group">
+              <label><input type="checkbox" id="campanhaCheck" /> Destaque (3,5%)</label>
+              <label><input type="checkbox" id="inicianteCheck" /> Iniciante</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="calc-divider"></div>
+
+        <div class="calc-result" id="calc-result">
+          <div class="calc-result-header">Preço de Venda Sugerido</div>
+          <div class="calc-price-big" id="calc-price">R$ 0,00</div>
+
+          <div class="calc-margins" id="calc-margins"></div>
+
+          <div class="calc-decomp" id="calc-decomp"></div>
+
+          <div class="calc-warnings" id="calc-warnings"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  (function () {
+    if (customElements.get('calculator-widget')) return;
+
+    var DEBOUNCE_MS = 300;
+
+    function formatBRL(v) {
+      if (typeof v !== 'number' || isNaN(v)) return 'R$ 0,00';
+      return 'R$ ' + v.toFixed(2).replace('.', ',');
+    }
+
+    function formatPct(v) {
+      if (typeof v !== 'number' || isNaN(v)) return '0,0%';
+      return v.toFixed(1).replace('.', ',') + '%';
+    }
+
+    class CalculatorWidget extends HTMLElement {
+      connectedCallback() {
+        var template = document.getElementById('calculator-widget-template');
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        shadow.appendChild(template.content.cloneNode(true));
+
+        this._shadow = shadow;
+        this._debounceTimer = null;
+
+        shadow.getElementById('calc-floater-btn').addEventListener('click', function () {
+          shadow.getElementById('calc-overlay').setAttribute('open', '');
+        });
+
+        shadow.getElementById('calc-close').addEventListener('click', function () {
+          shadow.getElementById('calc-overlay').removeAttribute('open');
+        });
+
+        shadow.getElementById('calc-overlay').addEventListener('click', function (e) {
+          if (e.target === shadow.getElementById('calc-overlay')) {
+            shadow.getElementById('calc-overlay').removeAttribute('open');
+          }
+        });
+
+        var self = this;
+        var inputs = ['custoProduto', 'custosAdicionais', 'margemInput', 'adsInput', 'precoVendaInput', 'impostoInput'];
+        inputs.forEach(function (id) {
+          shadow.getElementById(id).addEventListener('input', function () {
+            self._debouncedCalc();
+          });
+        });
+
+        shadow.querySelectorAll('input[name="regime"]').forEach(function (radio) {
+          radio.addEventListener('change', function () {
+            self._debouncedCalc();
+          });
+        });
+
+        shadow.getElementById('campanhaCheck').addEventListener('change', function () {
+          self._debouncedCalc();
+        });
+
+        shadow.getElementById('inicianteCheck').addEventListener('change', function () {
+          self._debouncedCalc();
+        });
+
+        this._calculate();
+      }
+
+      _debouncedCalc() {
+        var self = this;
+        if (this._debounceTimer) clearTimeout(this._debounceTimer);
+        this._debounceTimer = setTimeout(function () {
+          self._calculate();
+        }, DEBOUNCE_MS);
+      }
+
+      _calculate() {
+        var shadow = this._shadow;
+        var custoProduto = parseFloat(shadow.getElementById('custoProduto').value) || 0;
+        var custosAdicionais = parseFloat(shadow.getElementById('custosAdicionais').value) || 0;
+        var margem = parseFloat(shadow.getElementById('margemInput').value) || 0;
+        var ads = parseFloat(shadow.getElementById('adsInput').value) || 0;
+        var precoVendaStr = shadow.getElementById('precoVendaInput').value;
+        var precoVenda = precoVendaStr !== '' ? parseFloat(precoVendaStr) : null;
+        var imposto = parseFloat(shadow.getElementById('impostoInput').value) || 0;
+        var regime = shadow.querySelector('input[name="regime"]:checked').value;
+        var campanha = shadow.getElementById('campanhaCheck').checked;
+        var iniciante = shadow.getElementById('inicianteCheck').checked;
+
+        var params = {
+          custoProduto: custoProduto,
+          custosAdicionais: custosAdicionais,
+          margem: margem / 100,
+          adsPercent: ads,
+          precoVenda: precoVenda,
+          regime: regime,
+          impostoSimples: imposto / 100,
+          campanhadeDestaque: campanha,
+          vendedorIniciante: iniciante
+        };
+
+        var self = this;
+        google.script.run
+          .withSuccessHandler(function (response) {
+            var outer = response.data || response;
+            var data = outer.data || outer;
+            self._renderResult(shadow, data);
+          })
+          .withFailureHandler(function () {
+            shadow.getElementById('calc-result').innerHTML = '<div class="calc-warning critical">Erro ao calcular.</div>';
+          })
+          .apiDispatch('calculator.calculateML', params);
+      }
+
+      _renderResult(shadow, data) {
+        if (!data) {
+          shadow.getElementById('calc-price').textContent = 'R$ 0,00';
+          shadow.getElementById('calc-margins').innerHTML = '';
+          shadow.getElementById('calc-decomp').innerHTML = '';
+          shadow.getElementById('calc-warnings').innerHTML = '';
+          return;
+        }
+
+        if (data.avisos && data.avisos.length === 1 && data.avisos[0].tipo === 'margin_unreachable') {
+          shadow.getElementById('calc-price').textContent = '—';
+          shadow.getElementById('calc-margins').innerHTML = '';
+          shadow.getElementById('calc-decomp').innerHTML = '';
+          shadow.getElementById('calc-warnings').innerHTML =
+            '<div class="calc-warning critical">' + data.avisos[0].msg + '</div>';
+          return;
+        }
+
+        var d = data.descomposicao || {};
+        shadow.getElementById('calc-price').textContent = formatBRL(d.precoVenda || 0);
+
+        var marginsHtml = '';
+        marginsHtml += '<div class="calc-margin-item"><span class="calc-margin-value">' + formatPct(data.margemAlcancada) + '</span><span class="calc-margin-label">Margem Alcançada</span></div>';
+        marginsHtml += '<div class="calc-margin-item"><span class="calc-margin-value">' + formatPct(data.margemAcimaDoCusto) + '</span><span class="calc-margin-label">Acima do Custo</span></div>';
+        marginsHtml += '<div class="calc-margin-item"><span class="calc-margin-value">' + formatBRL(d.lucroLiquido) + '</span><span class="calc-margin-label">Lucro Líquido</span></div>';
+        shadow.getElementById('calc-margins').innerHTML = marginsHtml;
+
+        var decompHtml = '';
+        decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">Preço de Venda</span><span class="calc-decomp-value">' + formatBRL(d.precoVenda) + '</span></div>';
+        decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Taxa ML ' + (data.taxasML ? data.taxasML.faixa : '') + ' (' + (data.taxasML ? (data.taxasML.pct * 100).toFixed(0) : '0') + '%)</span><span class="calc-decomp-value">− ' + formatBRL(d.menosML_percent) + '</span></div>';
+        if (d.menosML_fixo > 0) {
+          decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Taxa fixa ML</span><span class="calc-decomp-value">− ' + formatBRL(d.menosML_fixo) + '</span></div>';
+        }
+        if (d.menosAds > 0) {
+          decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Ads (' + ((data.adsPercent || 0) * 100).toFixed(0) + '%)</span><span class="calc-decomp-value">− ' + formatBRL(d.menosAds) + '</span></div>';
+        }
+        if (d.menoCampanha > 0) {
+          decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Destaque (3,5%)</span><span class="calc-decomp-value">− ' + formatBRL(d.menoCampanha) + '</span></div>';
+        }
+        decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Imposto Simples</span><span class="calc-decomp-value">− ' + formatBRL(d.menosImposto) + '</span></div>';
+        decompHtml += '<div class="calc-decomp-row subtotal"><span class="calc-decomp-label">Receita Líquida</span><span class="calc-decomp-value">' + formatBRL(d.subTotal) + '</span></div>';
+        decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Custos (produto + extras)</span><span class="calc-decomp-value">− ' + formatBRL(d.menosCustos) + '</span></div>';
+
+        var profitClass = d.lucroLiquido >= 0 ? 'positive' : 'negative';
+        decompHtml += '<div class="calc-decomp-row profit ' + profitClass + '"><span class="calc-decomp-label">Lucro Líquido</span><span class="calc-decomp-value">' + formatBRL(d.lucroLiquido) + '</span></div>';
+        shadow.getElementById('calc-decomp').innerHTML = decompHtml;
+
+        var warningsHtml = '';
+        if (data.avisos && data.avisos.length) {
+          for (var i = 0; i < data.avisos.length; i++) {
+            var a = data.avisos[i];
+            var cls = (a.tipo === 'negative_profit' || a.tipo === 'margin_unreachable') ? 'critical' : 'warning';
+            warningsHtml += '<div class="calc-warning ' + cls + '">' + a.msg + '</div>';
+          }
+        }
+        shadow.getElementById('calc-warnings').innerHTML = warningsHtml;
+      }
+    }
+
+    customElements.define('calculator-widget', CalculatorWidget);
+  })();
+</script>
