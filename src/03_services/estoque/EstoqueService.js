@@ -48,6 +48,23 @@ var EstoqueService = (function () {
           params: {},
           returns: { success: 'boolean', itemsImportados: 'number', itemsSincronizados: 'number' }
         },
+        updateItem: {
+          description: 'Atualiza precoShopee, precoMercadoLivre e/ou status de um item. Preços propagam para todos DISPONÍVEL do mesmo produto.',
+          params: {
+            estoqueId: { type: 'string', required: true },
+            precoVendaShopee: { type: 'number', required: false },
+            precoVendaMercadoLivre: { type: 'number', required: false },
+            status: { type: 'string', required: false }
+          },
+          returns: { success: 'boolean', updated: 'number' }
+        },
+        getPrecosCatalogo: {
+          description: 'Retorna preços sugeridos do catálogo para um código de produto.',
+          params: {
+            codigoProduto: { type: 'string', required: true }
+          },
+          returns: { precoShopee: 'number', precoMercadoLivre: 'number' }
+        },
         getEstoqueAtualPorProduto: {
           description: 'Resume estoque por código de produto.',
           params: {
@@ -410,6 +427,105 @@ var EstoqueService = (function () {
     };
   }
 
+  function updateItem(params) {
+    var sheetId = getSheetId_();
+    if (!sheetId) return { error: 'Sheet ID não configurado.' };
+
+    var estoqueId = String(params.estoqueId || '').trim();
+    if (!estoqueId) return { error: 'estoqueId é obrigatório.' };
+
+    var allRows = EstoqueRepository.getRows(sheetId);
+    var targetItem = null;
+    for (var i = 0; i < allRows.length; i++) {
+      if (String(allRows[i].ESTOQUE_ID || '').trim() === estoqueId) {
+        targetItem = allRows[i];
+        break;
+      }
+    }
+    if (!targetItem) return { error: 'Item não encontrado: ' + estoqueId };
+
+    var updates = {};
+    var codigoProduto = targetItem.CODIGO_PRODUTO;
+    var precosChanged = false;
+
+    if (params.precoVendaShopee !== undefined && params.precoVendaShopee !== null) {
+      var novoPreco = parseFloat(params.precoVendaShopee) || 0;
+      updates.precoVendaShopee = novoPreco;
+      var custo = parseFloat(targetItem.PRECO_CUSTO_ORIGINAL) || 0;
+      updates.margemShopee = calcularMargem_(novoPreco, custo);
+      precosChanged = true;
+    }
+
+    if (params.precoVendaMercadoLivre !== undefined && params.precoVendaMercadoLivre !== null) {
+      var novoPrecoML = parseFloat(params.precoVendaMercadoLivre) || 0;
+      updates.precoVendaMercadoLivre = novoPrecoML;
+      var custoML = parseFloat(targetItem.PRECO_CUSTO_ORIGINAL) || 0;
+      updates.margemMercadoLivre = calcularMargem_(novoPrecoML, custoML);
+      precosChanged = true;
+    }
+
+    if (params.status) {
+      var validStatuses = ['DISPONÍVEL', 'VENDIDO', 'DEVOLVIDO', 'QUEBRADO', 'COM_DEFEITO'];
+      var novoStatus = String(params.status).trim().toUpperCase();
+      if (validStatuses.indexOf(novoStatus) === -1) {
+        return { error: 'Status inválido: ' + novoStatus };
+      }
+      updates.status = novoStatus;
+    }
+
+    EstoqueRepository.updateRow(sheetId, estoqueId, updates);
+
+    var totalUpdated = 1;
+
+    if (precosChanged && codigoProduto) {
+      var itemsDisponiveis = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto);
+      for (var j = 0; j < itemsDisponiveis.length; j++) {
+        var item = itemsDisponiveis[j];
+        if (String(item.ESTOQUE_ID || '').trim() === estoqueId) continue;
+
+        var bulkUpdates = {};
+        if (updates.precoVendaShopee !== undefined) {
+          bulkUpdates.precoVendaShopee = updates.precoVendaShopee;
+          bulkUpdates.margemShopee = updates.margemShopee;
+        }
+        if (updates.precoVendaMercadoLivre !== undefined) {
+          bulkUpdates.precoVendaMercadoLivre = updates.precoVendaMercadoLivre;
+          bulkUpdates.margemMercadoLivre = updates.margemMercadoLivre;
+        }
+        EstoqueRepository.updateRow(sheetId, item.ESTOQUE_ID, bulkUpdates);
+        totalUpdated++;
+      }
+    }
+
+    if (updates.status && codigoProduto) {
+      atualizarAlertas_(sheetId, codigoProduto);
+    }
+
+    return { success: true, updated: totalUpdated };
+  }
+
+  function getPrecosCatalogo(params) {
+    var codigoProduto = String(params.codigoProduto || '').trim();
+    if (!codigoProduto) return { error: 'codigoProduto é obrigatório.' };
+
+    try {
+      var result = CatalogService.getProducts({ sortBy: 'code', sortOrder: 'asc' });
+      var products = (result && result.data) ? result.data : [];
+      for (var i = 0; i < products.length; i++) {
+        if (String(products[i].codigoProduto || '').trim() === codigoProduto) {
+          return {
+            precoShopee: products[i].precoShopee || 0,
+            precoMercadoLivre: products[i].precoMercadoLivre || 0
+          };
+        }
+      }
+    } catch (e) {
+      return { error: 'Erro ao buscar catálogo: ' + e.message };
+    }
+
+    return { precoShopee: 0, precoMercadoLivre: 0 };
+  }
+
   function getEstoqueAtualPorProduto(params) {
     var sheetId = getSheetId_();
     if (!sheetId) return { error: 'Sheet ID não configurado.' };
@@ -504,6 +620,8 @@ var EstoqueService = (function () {
     importarDeManualEntrada: importarDeManualEntrada,
     getItems: getItems,
     updateStatusBulk: updateStatusBulk,
+    updateItem: updateItem,
+    getPrecosCatalogo: getPrecosCatalogo,
     sincronizar: sincronizar,
     getEstoqueAtualPorProduto: getEstoqueAtualPorProduto
   };

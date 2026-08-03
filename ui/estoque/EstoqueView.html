@@ -9,6 +9,9 @@
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
     .btn-primary:hover { background: var(--color-primary-hover); }
+    .btn-sm { padding: 2px var(--space-xs); font-size: var(--font-size-xs); }
+    .btn-catalog { background: var(--color-info-light); color: var(--color-info-text); border-color: var(--color-info); font-size: var(--font-size-xs); padding: 2px 6px; }
+    .btn-catalog:hover { background: var(--color-info); color: white; }
     .stats { display: flex; gap: var(--space-xl); margin-bottom: var(--space-lg); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
     .stats-value { font-weight: var(--font-weight-semibold); color: var(--color-text); }
     .filter-bar { display: flex; gap: var(--space-md); margin-bottom: var(--space-lg); flex-wrap: wrap; }
@@ -39,6 +42,15 @@
     .toast.success { background: var(--color-success-light); color: var(--color-success-text); border: 1px solid var(--color-success); }
     .toast.error { background: var(--color-error-light); color: var(--color-error-text); border: 1px solid var(--color-error); }
     .toast.info { background: var(--color-info-light); color: var(--color-info-text); border: 1px solid var(--color-info); }
+    .inline-input { width: 90px; padding: 2px 4px; border: 1px solid var(--color-border); border-radius: var(--radius-xs); font-size: var(--font-size-sm); background: var(--color-surface); color: var(--color-text); text-align: right; }
+    .inline-input:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 2px var(--color-primary-light); }
+    .inline-input.saving { border-color: var(--color-warning); background: var(--color-warning-light); }
+    .inline-select { padding: 2px 4px; border: 1px solid var(--color-border); border-radius: var(--radius-xs); font-size: var(--font-size-xs); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+    .inline-select:focus { border-color: var(--color-primary); outline: none; }
+    .price-group { display: flex; align-items: center; gap: 4px; }
+    .catalog-btn { cursor: pointer; border: none; background: none; color: var(--color-info); font-size: 12px; padding: 0; line-height: 1; title: { content: 'Preencher com preço do catálogo'; } }
+    .catalog-btn:hover { color: var(--color-info-hover); }
+    .row-edited td { background: var(--color-info-light) !important; }
   </style>
   <div class="container">
     <div class="header">
@@ -47,19 +59,19 @@
     </div>
     <div class="stats" id="stats-bar">
       <span>Total: <span class="stats-value" id="stat-total">0</span></span>
-      <span>Disponível: <span class="stats-value" id="stat-disponivel">0</span></span>
+      <span>Disponivel: <span class="stats-value" id="stat-disponivel">0</span></span>
       <span>Vendido: <span class="stats-value" id="stat-vendido">0</span></span>
       <span>Alertas: <span class="stats-value" id="stat-alertas">0</span></span>
     </div>
     <div class="filter-bar">
-      <input type="text" id="filter-codigo" placeholder="Filtrar por código..." />
+      <input type="text" id="filter-codigo" placeholder="Filtrar por codigo..." />
       <select id="filter-status">
         <option value="">Todos</option>
-        <option value="DISPONÍVEL" selected>DISPONÍVEL</option>
+        <option value="DISPONIVEL" selected>DISPONIVEL</option>
         <option value="VENDIDO">VENDIDO</option>
         <option value="DEVOLVIDO">DEVOLVIDO</option>
         <option value="QUEBRADO">QUEBRADO</option>
-        <option value="COM_DEFEITO">COM_DEFEITO</option>
+        <option value="COM_DEFEITO">COM DEFEITO</option>
       </select>
     </div>
     <div class="table-wrapper">
@@ -70,8 +82,8 @@
             <th>Produto</th>
             <th data-sort="data_entrada">Data Entrada <span class="sort-arrow"></span></th>
             <th data-sort="preco_custo">Custo <span class="sort-arrow"></span></th>
-            <th>Preço Shopee</th>
-            <th>Preço ML</th>
+            <th>Preco Shopee</th>
+            <th>Preco ML</th>
             <th data-sort="margem">Margem% <span class="sort-arrow"></span></th>
             <th>Status</th>
             <th></th>
@@ -91,8 +103,16 @@
     if (document.getElementById('estoque-widget')) return;
     if (customElements.get('estoque-widget')) return;
 
+    var STATUS_OPTIONS = [
+      { value: 'DISPONIVEL', label: 'DISPONIVEL' },
+      { value: 'VENDIDO', label: 'VENDIDO' },
+      { value: 'DEVOLVIDO', label: 'DEVOLVIDO' },
+      { value: 'QUEBRADO', label: 'QUEBRADO' },
+      { value: 'COM_DEFEITO', label: 'COM DEFEITO' }
+    ];
+
     var STATUS_BADGE = {
-      'DISPONÍVEL': 'badge-success',
+      'DISPONIVEL': 'badge-success',
       'VENDIDO': 'badge-info',
       'DEVOLVIDO': 'badge-warning',
       'QUEBRADO': 'badge-error',
@@ -111,6 +131,7 @@
         this._sortField = 'data_entrada';
         this._sortOrder = 'asc';
         this._openRows = {};
+        this._saving = {};
 
         var self = this;
         shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(); });
@@ -136,7 +157,7 @@
         var loadingEl = this._el('loading-state');
         if (loadingEl) loadingEl.style.display = 'block';
 
-        var statusVal = this._el('filter-status').value || 'DISPONÍVEL';
+        var statusVal = this._el('filter-status').value || 'DISPONIVEL';
         var params = { status: statusVal };
 
         google.script.run
@@ -273,7 +294,9 @@
           var it = items[i];
           var id = it.ESTOQUE_ID || '';
           var isOpen = this._openRows[id];
+          var isSaving = this._saving[id];
           var badgeClass = STATUS_BADGE[it.STATUS] || 'badge-info';
+
           var margem = it.MARGEM_SHOPEE;
           var margemClass = '';
           var margemText = '-';
@@ -284,28 +307,46 @@
             else if (m >= 10) margemClass = 'margem-warning';
             else margemClass = 'margem-negative';
           }
+
           var alertIcon = (it.ALERTA_ESTOQUE_BAIXO === true || it.ALERTA_ESTOQUE_BAIXO === 'true')
             ? '<span class="alert-icon">\u26A0</span>' : '';
           var custo = it.PRECO_CUSTO_ORIGINAL != null ? this._fmtCurrency(it.PRECO_CUSTO_ORIGINAL) : '-';
-          var precoShopee = it.PRECO_VENDA_SHOPEE != null && it.PRECO_VENDA_SHOPEE !== '' ? this._fmtCurrency(it.PRECO_VENDA_SHOPEE) : '-';
-          var precoML = it.PRECO_VENDA_MERCADO_LIVRE != null && it.PRECO_VENDA_MERCADO_LIVRE !== '' ? this._fmtCurrency(it.PRECO_VENDA_MERCADO_LIVRE) : '-';
+          var precoShopeeVal = it.PRECO_VENDA_SHOPEE != null && it.PRECO_VENDA_SHOPEE !== '' ? it.PRECO_VENDA_SHOPEE : '';
+          var precoMLVal = it.PRECO_VENDA_MERCADO_LIVRE != null && it.PRECO_VENDA_MERCADO_LIVRE !== '' ? it.PRECO_VENDA_MERCADO_LIVRE : '';
           var dataEntrada = it.DATA_ENTRADA ? this._fmtDate(it.DATA_ENTRADA) : '-';
           var produto = '<div>' + (it.CODIGO_PRODUTO || '') + '</div><div style="color:var(--color-text-secondary);font-size:var(--font-size-xs)">' + (it.DESCRICAO_PRODUTO || '') + '</div>';
 
-          html += '<tr data-id="' + id + '" class="estoque-row' + (isOpen ? ' row-open' : '') + '">';
+          var statusOptionsHtml = '';
+          for (var s = 0; s < STATUS_OPTIONS.length; s++) {
+            var opt = STATUS_OPTIONS[s];
+            var selected = opt.value === it.STATUS ? ' selected' : '';
+            statusOptionsHtml += '<option value="' + opt.value + '"' + selected + '>' + opt.label + '</option>';
+          }
+
+          html += '<tr data-id="' + id + '" class="estoque-row' + (isOpen ? ' row-open' : '') + (isSaving ? ' row-edited' : '') + '">';
           html += '<td>' + id + '</td>';
           html += '<td>' + produto + '</td>';
           html += '<td>' + dataEntrada + '</td>';
           html += '<td>' + custo + '</td>';
-          html += '<td>' + precoShopee + '</td>';
-          html += '<td>' + precoML + '</td>';
+
+          html += '<td><div class="price-group">';
+          html += '<input type="text" class="inline-input" data-field="precoVendaShopee" data-id="' + id + '" value="' + precoShopeeVal + '" placeholder="-" />';
+          html += '<button class="catalog-btn" data-action="fill-catalog" data-id="' + id + '" data-codigo="' + (it.CODIGO_PRODUTO || '') + '" title="Preencher com preco do catalogo">&#128269;</button>';
+          html += '</div></td>';
+
+          html += '<td><div class="price-group">';
+          html += '<input type="text" class="inline-input" data-field="precoVendaMercadoLivre" data-id="' + id + '" value="' + precoMLVal + '" placeholder="-" />';
+          html += '</div></td>';
+
           html += '<td class="' + margemClass + '">' + margemText + '</td>';
-          html += '<td><span class="badge ' + badgeClass + '">' + (it.STATUS || '') + '</span></td>';
+
+          html += '<td><select class="inline-select" data-field="status" data-id="' + id + '">' + statusOptionsHtml + '</select></td>';
           html += '<td>' + alertIcon + '</td>';
           html += '</tr>';
+
           html += '<tr class="detail-row' + (isOpen ? ' open' : '') + '" data-detail="' + id + '">';
           html += '<td class="detail-cell" colspan="9">';
-          html += '<strong>Refer\u00EAncia origem:</strong> ' + (it.REFERENCIA_ORIGEM || '-') + ' &nbsp;|&nbsp; ';
+          html += '<strong>Referencia origem:</strong> ' + (it.REFERENCIA_ORIGEM || '-') + ' &nbsp;|&nbsp; ';
           html += '<strong>Sincronizado:</strong> ' + (it.DATA_SINCRONIZACAO ? this._fmtDate(it.DATA_SINCRONIZACAO) : '-') + ' &nbsp;|&nbsp; ';
           html += '<strong>Log ID:</strong> ' + (it.LOG_ID || '-');
           html += '</td></tr>';
@@ -313,10 +354,12 @@
         tbody.innerHTML = html;
 
         var self = this;
+
         var rows = tbody.querySelectorAll('.estoque-row');
         for (var r = 0; r < rows.length; r++) {
           (function (row) {
-            row.addEventListener('click', function () {
+            row.addEventListener('click', function (e) {
+              if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
               var itemId = row.getAttribute('data-id');
               self._openRows[itemId] = !self._openRows[itemId];
               var detail = tbody.querySelector('[data-detail="' + itemId + '"]');
@@ -327,6 +370,196 @@
             });
           })(rows[r]);
         }
+
+        var priceInputs = tbody.querySelectorAll('.inline-input[data-field]');
+        for (var p = 0; p < priceInputs.length; p++) {
+          (function (input) {
+            input.addEventListener('focus', function () {
+              input.select();
+            });
+            input.addEventListener('blur', function () {
+              self._onPriceBlur(input);
+            });
+            input.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter') {
+                input.blur();
+              } else if (e.key === 'Escape') {
+                var id = input.getAttribute('data-id');
+                var item = self._findItem(id);
+                if (item) {
+                  var field = input.getAttribute('data-field');
+                  input.value = item[field] || '';
+                }
+                input.blur();
+              }
+            });
+          })(priceInputs[p]);
+        }
+
+        var statusSelects = tbody.querySelectorAll('.inline-select[data-field="status"]');
+        for (var ss = 0; ss < statusSelects.length; ss++) {
+          (function (select) {
+            select.addEventListener('change', function () {
+              self._onStatusChange(select);
+            });
+          })(statusSelects[ss]);
+        }
+
+        var catalogBtns = tbody.querySelectorAll('[data-action="fill-catalog"]');
+        for (var cb = 0; cb < catalogBtns.length; cb++) {
+          (function (btn) {
+            btn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              self._fillFromCatalog(btn.getAttribute('data-id'), btn.getAttribute('data-codigo'));
+            });
+          })(catalogBtns[cb]);
+        }
+      }
+
+      _findItem(estoqueId) {
+        for (var i = 0; i < this._items.length; i++) {
+          if (this._items[i].ESTOQUE_ID === estoqueId) return this._items[i];
+        }
+        return null;
+      }
+
+      _onPriceBlur(input) {
+        var estoqueId = input.getAttribute('data-id');
+        var field = input.getAttribute('data-field');
+        var rawVal = input.value.replace(/[^\d.,-]/g, '').replace(',', '.');
+        var newVal = rawVal !== '' ? parseFloat(rawVal) : null;
+
+        var item = this._findItem(estoqueId);
+        if (!item) return;
+
+        var currentVal = item[field];
+        if (currentVal !== '' && currentVal != null) {
+          currentVal = parseFloat(currentVal) || null;
+        } else {
+          currentVal = null;
+        }
+
+        if (newVal === currentVal) return;
+
+        var self = this;
+        input.classList.add('saving');
+        this._saving[estoqueId] = true;
+
+        var params = { estoqueId: estoqueId };
+        params[field] = newVal;
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            input.classList.remove('saving');
+            delete self._saving[estoqueId];
+            var data = self._unwrap(resp);
+            if (data && data.success) {
+              item[field] = newVal;
+              if (data.updated > 1) {
+                self._showToast('Preco atualizado em ' + data.updated + ' itens do mesmo produto.', 'success');
+              }
+              self._load();
+            } else {
+              self._showToast('Erro: ' + (data ? data.error : 'desconhecido'), 'error');
+              self._load();
+            }
+          })
+          .withFailureHandler(function (err) {
+            input.classList.remove('saving');
+            delete self._saving[estoqueId];
+            self._showToast('Erro ao salvar: ' + (err.message || err), 'error');
+            self._load();
+          })
+          .apiDispatch('estoque.updateItem', params);
+      }
+
+      _onStatusChange(select) {
+        var estoqueId = select.getAttribute('data-id');
+        var novoStatus = select.value;
+        var self = this;
+
+        this._saving[estoqueId] = true;
+        select.disabled = true;
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            select.disabled = false;
+            delete self._saving[estoqueId];
+            var data = self._unwrap(resp);
+            if (data && data.success) {
+              self._showToast('Status alterado para ' + novoStatus + '.', 'success');
+              self._load();
+            } else {
+              self._showToast('Erro: ' + (data ? data.error : 'desconhecido'), 'error');
+              self._load();
+            }
+          })
+          .withFailureHandler(function (err) {
+            select.disabled = false;
+            delete self._saving[estoqueId];
+            self._showToast('Erro ao alterar status: ' + (err.message || err), 'error');
+            self._load();
+          })
+          .apiDispatch('estoque.updateItem', { estoqueId: estoqueId, status: novoStatus });
+      }
+
+      _fillFromCatalog(estoqueId, codigoProduto) {
+        if (!codigoProduto) return;
+        var self = this;
+
+        this._saving[estoqueId] = true;
+        this._showToast('Buscando precos do catalogo...', 'info');
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            var data = self._unwrap(resp);
+            if (!data || data.error) {
+              self._showToast('Erro: ' + (data ? data.error : 'catalogo vazio'), 'error');
+              delete self._saving[estoqueId];
+              return;
+            }
+
+            var params = { estoqueId: estoqueId };
+            var hasUpdate = false;
+            if (data.precoShopee) {
+              params.precoVendaShopee = data.precoShopee;
+              hasUpdate = true;
+            }
+            if (data.precoMercadoLivre) {
+              params.precoVendaMercadoLivre = data.precoMercadoLivre;
+              hasUpdate = true;
+            }
+
+            if (!hasUpdate) {
+              self._showToast('Catalogo sem precos para este produto.', 'info');
+              delete self._saving[estoqueId];
+              return;
+            }
+
+            google.script.run
+              .withSuccessHandler(function (resp2) {
+                delete self._saving[estoqueId];
+                var data2 = self._unwrap(resp2);
+                if (data2 && data2.success) {
+                  self._showToast('Precos preenchidos do catalogo. ' + (data2.updated > 1 ? data2.updated + ' itens atualizados.' : ''), 'success');
+                  self._load();
+                } else {
+                  self._showToast('Erro ao salvar: ' + (data2 ? data2.error : 'desconhecido'), 'error');
+                  self._load();
+                }
+              })
+              .withFailureHandler(function (err) {
+                delete self._saving[estoqueId];
+                self._showToast('Erro ao salvar precos: ' + (err.message || err), 'error');
+                self._load();
+              })
+              .apiDispatch('estoque.updateItem', params);
+          })
+          .withFailureHandler(function (err) {
+            delete self._saving[estoqueId];
+            self._showToast('Erro ao buscar catalogo: ' + (err.message || err), 'error');
+          })
+          .apiDispatch('estoque.getPrecosCatalogo', { codigoProduto: codigoProduto });
       }
 
       _updateStats(items) {
@@ -336,7 +569,7 @@
         var alertas = 0;
         for (var i = 0; i < this._items.length; i++) {
           var st = (this._items[i].STATUS || '').toUpperCase();
-          if (st === 'DISPON\u00CDVEL') disponivel++;
+          if (st === 'DISPONIVEL') disponivel++;
           else if (st === 'VENDIDO') vendido++;
           if (this._items[i].ALERTA_ESTOQUE_BAIXO === true || this._items[i].ALERTA_ESTOQUE_BAIXO === 'true') {
             alertas++;
