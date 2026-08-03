@@ -285,7 +285,9 @@ var CatalogService = (function () {
     var descricao = mostRecent.DESCRICAO_PRODUTO || '';
 
     var fee = ConfigService.getMarketplaceFee(marketplace);
-    var feeDescription = marketplace === 'shopee' ? 'Shopee: 20% flat' : 'Mercado Livre: 14% + R$ 6,00';
+    var feeDescription = marketplace === 'shopee'
+      ? 'Shopee: ' + (fee.pct * 100).toFixed(0) + '% flat'
+      : 'Mercado Livre: ' + (fee.pct * 100).toFixed(0) + '% + R$ ' + fee.fixed.toFixed(2);
 
     var denom = 1 - fee.pct - targetMargin;
     var suggestedPrice = denom > 0 ? (unitCost + fee.fixed) / denom : 0;
