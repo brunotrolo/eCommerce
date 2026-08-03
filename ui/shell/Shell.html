@@ -16,6 +16,7 @@
         <button class="btn" data-route="nfeEntrada">NFe Entrada</button>
         <button class="btn" data-route="nfeEntradaProdutos">Entrada Produtos</button>
         <button class="btn" data-route="catalog">Catálogo</button>
+        <button class="btn" id="calc-nav-btn" aria-label="Abrir Calculadora" style="font-size:18px;">🧮</button>
         <button class="theme-toggle" id="theme-toggle" aria-label="Alternar tema claro/escuro"></button>
       </nav>
       <main id="app-view"></main>
@@ -91,6 +92,13 @@
 
       initTheme();
       navigate((window.location.hash || '#dashboard').replace('#', ''));
+
+      document.getElementById('calc-nav-btn').addEventListener('click', function () {
+        var calcWidget = document.querySelector('calculator-widget');
+        if (calcWidget && calcWidget.shadowRoot) {
+          calcWidget.shadowRoot.getElementById('calc-overlay').setAttribute('open', '');
+        }
+      });
     </script>
   </body>
 </html>

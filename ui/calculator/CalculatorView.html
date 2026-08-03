@@ -1,29 +1,5 @@
 <template id="calculator-widget-template">
   <style>
-    .calc-floater {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 9000;
-      width: 56px;
-      height: 56px;
-      border-radius: 50%;
-      background: var(--color-primary, #0a0a0a);
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .calc-floater:hover {
-      transform: scale(1.1);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
-    }
-
     .calc-overlay {
       position: fixed;
       inset: 0;
@@ -232,12 +208,10 @@
     }
   </style>
 
-  <button class="calc-floater" id="calc-floater-btn" aria-label="Abrir Calculadora">🧮</button>
-
   <div class="calc-overlay" id="calc-overlay">
     <div class="calc-modal">
       <div class="calc-modal-header">
-        <h2>PrecificaPRO — Mercado Livre</h2>
+        <h2>Calculadora de Preços</h2>
         <button class="calc-close" id="calc-close">&times;</button>
       </div>
       <div class="calc-modal-body">
@@ -333,10 +307,6 @@
 
         this._shadow = shadow;
         this._debounceTimer = null;
-
-        shadow.getElementById('calc-floater-btn').addEventListener('click', function () {
-          shadow.getElementById('calc-overlay').setAttribute('open', '');
-        });
 
         shadow.getElementById('calc-close').addEventListener('click', function () {
           shadow.getElementById('calc-overlay').removeAttribute('open');
