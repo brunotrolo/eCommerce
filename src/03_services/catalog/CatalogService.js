@@ -293,7 +293,7 @@ var CatalogService = (function () {
 
     var marketplaceFee = Math.round((suggestedPrice * fee.pct + fee.fixed) * 100) / 100;
     var netProfit = Math.round((suggestedPrice - marketplaceFee - unitCost) * 100) / 100;
-    var netMargin = suggestedPrice > 0 ? Math.round((netProfit / suggestedPrice) * 10000) / 100 : 0;
+    var netMargin = suggestedPrice > 0 ? Math.round((netProfit / suggestedPrice) * 10000) / 10000 : 0;
 
     var passos = [];
     var ordem = 1;
