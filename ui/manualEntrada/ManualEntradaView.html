@@ -139,11 +139,10 @@
       </div>
 
       <div class="form-group">
-        <label for="product-search">Produto</label>
-        <div class="product-search-wrapper">
-          <input type="text" id="product-search" placeholder="Buscar por nome ou código..." autocomplete="off" />
-          <div class="product-list" id="product-list"></div>
-        </div>
+        <label for="product-select">Produto</label>
+        <select id="product-select">
+          <option value="">Selecione um produto...</option>
+        </select>
         <input type="hidden" id="codigo-produto" />
         <input type="hidden" id="descricao-produto" />
       </div>
@@ -271,13 +270,27 @@
 
     _loadProducts() {
       var self = this;
+      var select = this.shadowRoot.getElementById('product-select');
+      select.innerHTML = '<option value="">Carregando produtos...</option>';
+
       google.script.run
         .withSuccessHandler(function (result) {
-          if (result && result.data) {
+          select.innerHTML = '<option value="">Selecione um produto...</option>';
+          if (result && result.data && result.data.length > 0) {
             self._products = result.data;
+            result.data.forEach(function (p) {
+              var option = document.createElement('option');
+              option.value = p.codigoProduto;
+              option.textContent = p.descricaoProduto + ' (' + p.codigoProduto + ')';
+              select.appendChild(option);
+            });
+          } else {
+            select.innerHTML = '<option value="">Nenhum produto encontrado</option>';
           }
         })
-        .withFailureHandler(function () {})
+        .withFailureHandler(function () {
+          select.innerHTML = '<option value="">Erro ao carregar produtos</option>';
+        })
         .apiDispatch('catalog.getProducts', { sortBy: 'code', sortOrder: 'asc' });
     }
 
@@ -299,7 +312,7 @@
       var closeBtn = this.shadowRoot.getElementById('btn-close');
       var cancelBtn = this.shadowRoot.getElementById('btn-cancel');
       var confirmBtn = this.shadowRoot.getElementById('btn-confirm');
-      var productSearch = this.shadowRoot.getElementById('product-search');
+      var productSelect = this.shadowRoot.getElementById('product-select');
       var fornecedor = this.shadowRoot.getElementById('fornecedor');
       var quantidade = this.shadowRoot.getElementById('quantidade');
       var valorUnitario = this.shadowRoot.getElementById('valor-unitario');
@@ -312,11 +325,11 @@
       closeBtn.addEventListener('click', function () { self.close(); });
       cancelBtn.addEventListener('click', function () { self.close(); });
 
-      productSearch.addEventListener('input', function () {
-        self._filterProducts(productSearch.value);
-      });
-      productSearch.addEventListener('focus', function () {
-        self._filterProducts(productSearch.value);
+      productSelect.addEventListener('change', function () {
+        var option = productSelect.options[productSelect.selectedIndex];
+        self.shadowRoot.getElementById('codigo-produto').value = option.value;
+        self.shadowRoot.getElementById('descricao-produto').value = option.textContent;
+        self._validate();
       });
 
       fornecedor.addEventListener('input', function () {
@@ -336,7 +349,6 @@
 
       document.addEventListener('click', function (e) {
         if (!self.shadowRoot.contains(e.target)) {
-          self.shadowRoot.getElementById('product-list').classList.remove('show');
           self.shadowRoot.getElementById('fornecedor-list').classList.remove('show');
         }
       });
@@ -352,44 +364,6 @@
       var mm = String(now.getMonth() + 1).padStart(2, '0');
       var yyyy = now.getFullYear();
       this.shadowRoot.getElementById('data-compra').value = dd + '/' + mm + '/' + yyyy;
-    }
-
-    _filterProducts(query) {
-      var list = this.shadowRoot.getElementById('product-list');
-      list.innerHTML = '';
-
-      var matches;
-      if (!query || query.length < 1) {
-        matches = this._products.slice(0, 20);
-      } else {
-        var q = query.toLowerCase();
-        matches = this._products.filter(function (p) {
-          return (p.codigoProduto || '').toLowerCase().indexOf(q) !== -1 ||
-                 (p.descricaoProduto || '').toLowerCase().indexOf(q) !== -1;
-        }).slice(0, 20);
-      }
-
-      if (matches.length === 0) {
-        list.classList.remove('show');
-        return;
-      }
-
-      var self = this;
-      matches.forEach(function (p) {
-        var div = document.createElement('div');
-        div.className = 'product-item';
-        div.innerHTML = '<div>' + (p.descricaoProduto || '') + '</div>' +
-                        '<div class="product-code">' + (p.codigoProduto || '') + '</div>';
-        div.addEventListener('click', function () {
-          self.shadowRoot.getElementById('product-search').value = p.descricaoProduto;
-          self.shadowRoot.getElementById('codigo-produto').value = p.codigoProduto;
-          self.shadowRoot.getElementById('descricao-produto').value = p.descricaoProduto;
-          list.classList.remove('show');
-          self._validate();
-        });
-        list.appendChild(div);
-      });
-      list.classList.add('show');
     }
 
     _filterSuppliers(query) {
@@ -493,7 +467,7 @@
     }
 
     _resetForm() {
-      this.shadowRoot.getElementById('product-search').value = '';
+      this.shadowRoot.getElementById('product-select').value = '';
       this.shadowRoot.getElementById('codigo-produto').value = '';
       this.shadowRoot.getElementById('descricao-produto').value = '';
       this.shadowRoot.getElementById('quantidade').value = '';
