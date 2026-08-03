@@ -161,6 +161,12 @@ extraída de `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
 
 ## Workflow clasp / CI
 
+- **REGRA OBRIGATÓRIA: SEMPRE commitar no GitHub ANTES de fazer `clasp push`.**
+  O repositório GitHub é a fonte de verdade. Nunca altere o Apps Script
+  diretamente sem que o código esteja versionado. Sequência correta:
+  1. `git add -A && git commit -m "msg"`
+  2. `git push origin main`
+  3. `npx @google/clasp push --force`
 - `clasp push` para enviar o código ao projeto Apps Script
   (`1zU9zBb8QeqWr-m2YORwyKx-6ypK4JrQhqZ29M3FJs8BmWhkO1VErKy3w`).
 - `clasp deploy --description "..."` para criar uma versão de deploy do Web App.
