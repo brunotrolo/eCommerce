@@ -287,20 +287,42 @@
             select.innerHTML = '<option value="">Nenhum produto encontrado</option>';
             return;
           }
-          self._products = items;
-          items.forEach(function (p) {
+          var grouped = {};
+          for (var i = 0; i < items.length; i++) {
+            var row = items[i];
+            var status = String(row.STATUS || '').trim().toLowerCase();
+            if (status !== 'recebido') continue;
+            var cod = String(row.CODIGO_PRODUTO || '').trim();
+            if (!cod || grouped[cod]) continue;
+            var vLiq = parseFloat(row.VALOR_UNITARIO_LIQUIDO);
+            if (isNaN(vLiq)) vLiq = parseFloat(row.VALOR_UNITARIO) || 0;
+            grouped[cod] = {
+              codigoProduto: cod,
+              descricaoProduto: row.DESCRICAO_PRODUTO || '',
+              valorUnitarioLiquido: vLiq
+            };
+          }
+          var products = [];
+          var codes = Object.keys(grouped);
+          for (var k = 0; k < codes.length; k++) {
+            products.push(grouped[codes[k]]);
+          }
+          products.sort(function (a, b) {
+            return (a.codigoProduto || '').localeCompare(b.codigoProduto || '');
+          });
+          self._products = products;
+          products.forEach(function (p) {
             var option = document.createElement('option');
             option.value = p.codigoProduto;
-            var desc = p.descricao || p.descricaoProduto || '';
-            var cost = p.valorUnitarioLiquido || p.valorUnitario || 0;
-            option.textContent = desc + ' (' + p.codigoProduto + ')' + (cost ? ' — R$ ' + cost.toFixed(2) : '');
+            var cost = p.valorUnitarioLiquido || 0;
+            option.textContent = p.descricaoProduto + ' (' + p.codigoProduto + ')' + (cost ? ' — R$ ' + cost.toFixed(2) : '');
             select.appendChild(option);
           });
         })
         .withFailureHandler(function (e) {
           select.innerHTML = '<option value="">Erro ao carregar: ' + (e.message || e) + '</option>';
         })
-        .apiDispatch('catalog.getProducts', { sortBy: 'code', sortOrder: 'asc' });
+        .apiDispatch('nfeEntradaProdutos.getProdutos', {});
     }
 
     _loadSuppliers() {
