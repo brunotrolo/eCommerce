@@ -31,8 +31,8 @@ marketplace diretamente.
 - **OpenCode = executor.** Cria e edita arquivos em `src/` e `ui/`, roda
   `clasp`, commita — seguindo o prompt recebido e as regras deste arquivo.
 
-Nenhum dos dois altera arquitetura, taxas de marketplace, `appsscript.json`,
-`.clasp.json`, `.claspignore` ou o workflow de deploy sem decisão explícita do
+Nenhum dos dois altera arquitetura, taxas de marketplace, `.clasp.json`,
+`.claspignore` ou o workflow de deploy sem decisão explícita do
 usuário. Aprovar spec (`Draft` → `Approved`) é decisão do usuário, nunca do
 agente. Detalhes em `PLANO.md`, seção 2.
 
@@ -76,7 +76,7 @@ GAS/V8 não tem ES modules — todo arquivo cai no mesmo escopo global. Regras:
 dependências entre namespaces: se `CatalogService` tenta chamar
 `NFeEntradaProdutosRepository` mas é carregado antes, dá erro.
 
-**Solução:** `appsscript.json` define `filePushOrder` — lista exata de todos
+**Solução:** `.clasp.json` define `filePushOrder` — lista exata de todos
 os arquivos `.js` em **ordem de dependência topológica** (A depende de B? B
 carrega **antes** de A).
 
@@ -176,7 +176,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 - [ ] Criar `src/03_services/<dominio>/<Nome>Service.js` com `describe()`
 - [ ] Criar `src/03_services/<dominio>/<Nome>Repository.js` se necessário
 - [ ] Registrar em `ServiceRegistry.js` usando **sempre** `safeRef_()` pattern
-- [ ] Adicionar em `appsscript.json` `filePushOrder` **após** todas as dependências
+- [ ] Adicionar em `.clasp.json` `filePushOrder` **após** todas as dependências
 - [ ] Nunca listar em `filePushOrder` um arquivo que ainda não existe
 
 #### Client-side (UI)
