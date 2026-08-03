@@ -37,7 +37,8 @@ var ServiceRegistry = (function () {
     calculator: safeRef_('calculator', function () { return typeof CalculatorService !== 'undefined' ? CalculatorService : undefined; }),
     logging: safeRef_('logging', function () { return typeof LoggingService !== 'undefined' ? LoggingService : undefined; }),
     catalog: safeRef_('catalog', function () { return typeof CatalogService !== 'undefined' ? CatalogService : undefined; }),
-    system: safeRef_('system', function () { return typeof StatusService !== 'undefined' ? StatusService : undefined; })
+    system: safeRef_('system', function () { return typeof StatusService !== 'undefined' ? StatusService : undefined; }),
+    manualEntrada: safeRef_('manualEntrada', function () { return typeof ManualEntradaService !== 'undefined' ? ManualEntradaService : undefined; })
   };
 
   function listActions() {

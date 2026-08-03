@@ -16,6 +16,7 @@
         <button class="btn" data-route="nfeEntrada">NFe Entrada</button>
         <button class="btn" data-route="nfeEntradaProdutos">Entrada Produtos</button>
         <button class="btn" data-route="catalog">Catálogo</button>
+        <button class="btn" id="manual-entrada-btn">Entrada Manual</button>
         <div style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
           <status-view></status-view>
           <button class="btn" id="calc-nav-btn" aria-label="Abrir Calculadora" style="font-size:18px; padding: 6px 10px; min-width: auto;">🧮</button>
@@ -42,6 +43,7 @@
     <?!= include('ui/nfeEntradaProdutos/NFeEntradaProdutosView'); ?>
     <?!= include('ui/catalog/CatalogView'); ?>
     <?!= include('ui/calculator/CalculatorView'); ?>
+    <?!= include('ui/manualEntrada/ManualEntradaView'); ?>
 
     <calculator-widget></calculator-widget>
 
@@ -113,6 +115,11 @@
         if (calcWidget && calcWidget.shadowRoot) {
           calcWidget.shadowRoot.getElementById('calc-overlay').setAttribute('open', '');
         }
+      });
+
+      document.getElementById('manual-entrada-btn').addEventListener('click', function () {
+        var widget = document.querySelector('manual-entrada-widget');
+        if (widget) widget.open();
       });
     </script>
   </body>

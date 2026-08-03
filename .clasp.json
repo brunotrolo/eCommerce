@@ -16,6 +16,8 @@
     "src/03_services/nfeEntrada/NFeEntradaService.js",
     "src/03_services/nfeEntradaProdutos/NFeEntradaProdutosRepository.js",
     "src/03_services/nfeEntradaProdutos/NFeEntradaProdutosService.js",
+    "src/03_services/manualEntrada/ManualEntradaProdutosRepository.js",
+    "src/03_services/manualEntrada/ManualEntradaService.js",
     "src/03_services/pricing/PricingService.js",
     "src/03_services/catalog/CatalogService.js",
     "src/03_services/system/StatusService.js",

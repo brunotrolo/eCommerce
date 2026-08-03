@@ -73,8 +73,17 @@ var CatalogService = (function () {
     try {
       allProdutos = NFeEntradaProdutosRepository.getProdutos(sheetId);
     } catch (e) {
-      return { error: 'Erro ao buscar produtos: ' + e.message };
+      return { error: 'Erro ao buscar produtos NF: ' + e.message };
     }
+
+    var allProdutosManual = [];
+    try {
+      allProdutosManual = ManualEntradaProdutosRepository.getRows(sheetId);
+    } catch (e) {
+      // Aba manual pode não existir ainda — ignorar
+    }
+
+    var allProdutos = allProdutos.concat(allProdutosManual);
 
     if (!allProdutos || allProdutos.length === 0) {
       return { success: true, data: [], totalCount: 0, lastSync: new Date().toISOString() };
@@ -98,7 +107,7 @@ var CatalogService = (function () {
       var cod = String(row.CODIGO_PRODUTO || '').trim();
       if (!cod) continue;
 
-      var dataEmissao = row.DATA_EMISSAO || '';
+      var dataEmissao = row.DATA_EMISSAO || row.DATA_ENTRADA || '';
       var existing = grouped[cod];
 
       if (!existing) {

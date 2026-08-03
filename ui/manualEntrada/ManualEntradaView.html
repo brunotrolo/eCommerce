@@ -1,0 +1,510 @@
+<template id="manual-entrada-template">
+  <style>
+    :host { display: block; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+    .modal {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      width: 95vw; max-width: 600px;
+      max-height: 90vh; overflow-y: auto;
+      padding: var(--space-xl);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: var(--space-xl);
+    }
+    .modal-header h2 {
+      margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-bold);
+      color: var(--color-text);
+    }
+    .btn-close {
+      background: none; border: none; cursor: pointer;
+      font-size: var(--font-size-lg); color: var(--color-text-secondary);
+      padding: var(--space-xs); border-radius: var(--radius-xs);
+    }
+    .btn-close:hover { background: var(--color-surface-hover); }
+
+    .form-group { margin-bottom: var(--space-lg); }
+    .form-group label {
+      display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary); margin-bottom: var(--space-xs);
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      font-size: var(--font-size-base); font-family: var(--font-family-base);
+      background: var(--color-surface); color: var(--color-text);
+      box-sizing: border-box;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none; border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px var(--color-primary-light);
+    }
+    .form-group input.error, .form-group select.error {
+      border-color: var(--color-error);
+    }
+    .form-group .error-msg {
+      font-size: var(--font-size-xs); color: var(--color-error-text);
+      margin-top: var(--space-xs); display: none;
+    }
+    .form-group input.error + .error-msg { display: block; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
+
+    .autocomplete-wrapper { position: relative; }
+    .autocomplete-list {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); max-height: 150px; overflow-y: auto;
+      z-index: 10; display: none;
+    }
+    .autocomplete-list.show { display: block; }
+    .autocomplete-item {
+      padding: var(--space-sm) var(--space-md); cursor: pointer;
+      font-size: var(--font-size-sm); color: var(--color-text);
+    }
+    .autocomplete-item:hover { background: var(--color-surface-hover); }
+
+    .product-search-wrapper { position: relative; }
+    .product-list {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); max-height: 200px; overflow-y: auto;
+      z-index: 10; display: none;
+    }
+    .product-list.show { display: block; }
+    .product-item {
+      padding: var(--space-sm) var(--space-md); cursor: pointer;
+      font-size: var(--font-size-sm); color: var(--color-text);
+      border-bottom: 1px solid var(--color-border-light);
+    }
+    .product-item:hover { background: var(--color-surface-hover); }
+    .product-item .product-code { color: var(--color-text-tertiary); font-size: var(--font-size-xs); }
+
+    .summary {
+      background: var(--color-surface-alt); border-radius: var(--radius-sm);
+      padding: var(--space-md); margin-bottom: var(--space-lg);
+      font-size: var(--font-size-sm); color: var(--color-text-secondary);
+    }
+    .summary-row { display: flex; justify-content: space-between; margin-bottom: var(--space-xs); }
+    .summary-row:last-child { margin-bottom: 0; }
+    .summary-value { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+
+    .form-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-xl); }
+
+    .btn {
+      padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+      cursor: pointer; border: 1px solid var(--color-border);
+      background: var(--color-surface); color: var(--color-text);
+    }
+    .btn:hover { background: var(--color-surface-hover); }
+    .btn-primary {
+      background: var(--color-primary); color: var(--color-on-primary);
+      border-color: var(--color-primary);
+    }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .btn-primary:disabled {
+      background: var(--color-disabled); border-color: var(--color-disabled);
+      cursor: not-allowed;
+    }
+
+    .toast {
+      position: fixed; bottom: var(--space-xl); right: var(--space-xl);
+      padding: var(--space-md) var(--space-lg); border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm); color: var(--color-on-primary);
+      z-index: 2000; opacity: 0; transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: var(--color-success); }
+    .toast.error { background: var(--color-error); }
+  </style>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Entrada Manual de Produtos</h2>
+        <button class="btn-close" id="btn-close" aria-label="Fechar">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label for="product-search">Produto</label>
+        <div class="product-search-wrapper">
+          <input type="text" id="product-search" placeholder="Buscar por nome ou código..." autocomplete="off" />
+          <div class="product-list" id="product-list"></div>
+        </div>
+        <input type="hidden" id="codigo-produto" />
+        <input type="hidden" id="descricao-produto" />
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="quantidade">Quantidade</label>
+          <input type="number" id="quantidade" min="0" step="1" />
+          <div class="error-msg">Quantidade deve ser > 0</div>
+        </div>
+        <div class="form-group">
+          <label for="valor-unitario">Valor Unitário (R$)</label>
+          <input type="number" id="valor-unitario" min="0" step="0.01" />
+          <div class="error-msg">Valor deve ser >= 0</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="fornecedor">Fornecedor</label>
+        <div class="autocomplete-wrapper">
+          <input type="text" id="fornecedor" placeholder="Nome do fornecedor..." autocomplete="off" />
+          <div class="autocomplete-list" id="fornecedor-list"></div>
+        </div>
+        <div class="error-msg">Fornecedor é obrigatório</div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="data-compra">Data da Compra</label>
+          <input type="text" id="data-compra" placeholder="DD/MM/AAAA" />
+        </div>
+        <div class="form-group">
+          <label for="aliquota-icms">Alíquota ICMS (%)</label>
+          <input type="number" id="aliquota-icms" min="0" max="100" step="0.01" value="18" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="valor-outros">Despesas Acessórias (R$)</label>
+          <input type="number" id="valor-outros" min="0" step="0.01" value="0" />
+        </div>
+        <div class="form-group">
+          <label for="ncm">NCM</label>
+          <input type="text" id="ncm" placeholder="Opcional" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="observacoes">Observações</label>
+        <textarea id="observacoes" rows="2" placeholder="Notas livres..."></textarea>
+      </div>
+
+      <div class="summary" id="summary" style="display:none;">
+        <div class="summary-row">
+          <span>Valor Total:</span>
+          <span class="summary-value" id="summary-total">R$ 0,00</span>
+        </div>
+        <div class="summary-row">
+          <span>ICMS:</span>
+          <span class="summary-value" id="summary-icms">R$ 0,00</span>
+        </div>
+        <div class="summary-row">
+          <span>Custo Líquido:</span>
+          <span class="summary-value" id="summary-liquido">R$ 0,00</span>
+        </div>
+        <div class="summary-row">
+          <span>Custo Unitário Líquido:</span>
+          <span class="summary-value" id="summary-unitario">R$ 0,00</span>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn" id="btn-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-confirm" disabled>Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</template>
+
+<script>
+(function () {
+  if (document.getElementById('manual-entrada-widget')) return;
+
+  var template = document.getElementById('manual-entrada-template');
+  if (!template) return;
+
+  var TAG = 'manual-entrada-widget';
+
+  customElements.define(TAG, class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.shadowRoot.appendChild(template.content.cloneNode(true));
+      if (window.__DESIGN_SHEET__) {
+        this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+      }
+      this._products = [];
+      this._suppliers = [];
+    }
+
+    connectedCallback() {
+      this._loadProducts();
+      this._loadSuppliers();
+      this._bindEvents();
+      this._setDefaultDate();
+    }
+
+    open() {
+      this.shadowRoot.getElementById('modal-overlay').classList.add('open');
+    }
+
+    close() {
+      this.shadowRoot.getElementById('modal-overlay').classList.remove('open');
+      this._resetForm();
+    }
+
+    _loadProducts() {
+      var self = this;
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (result && result.data) {
+            self._products = result.data;
+          }
+        })
+        .withFailureHandler(function () {})
+        .apiDispatch('catalog.getProducts', { sortBy: 'code', sortOrder: 'asc' });
+    }
+
+    _loadSuppliers() {
+      var self = this;
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (result && result.data) {
+            self._suppliers = result.data.suppliers || [];
+          }
+        })
+        .withFailureHandler(function () {})
+        .apiDispatch('manualEntrada.getSupplierHistory', {});
+    }
+
+    _bindEvents() {
+      var self = this;
+      var overlay = this.shadowRoot.getElementById('modal-overlay');
+      var closeBtn = this.shadowRoot.getElementById('btn-close');
+      var cancelBtn = this.shadowRoot.getElementById('btn-cancel');
+      var confirmBtn = this.shadowRoot.getElementById('btn-confirm');
+      var productSearch = this.shadowRoot.getElementById('product-search');
+      var fornecedor = this.shadowRoot.getElementById('fornecedor');
+      var quantidade = this.shadowRoot.getElementById('quantidade');
+      var valorUnitario = this.shadowRoot.getElementById('valor-unitario');
+      var aliquotaIcms = this.shadowRoot.getElementById('aliquota-icms');
+      var valorOutros = this.shadowRoot.getElementById('valor-outros');
+
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) self.close();
+      });
+      closeBtn.addEventListener('click', function () { self.close(); });
+      cancelBtn.addEventListener('click', function () { self.close(); });
+
+      productSearch.addEventListener('input', function () {
+        self._filterProducts(productSearch.value);
+      });
+      productSearch.addEventListener('focus', function () {
+        self._filterProducts(productSearch.value);
+      });
+
+      fornecedor.addEventListener('input', function () {
+        self._filterSuppliers(fornecedor.value);
+        self._validate();
+      });
+      fornecedor.addEventListener('focus', function () {
+        self._filterSuppliers(fornecedor.value);
+      });
+
+      [quantidade, valorUnitario, aliquotaIcms, valorOutros].forEach(function (el) {
+        el.addEventListener('input', function () {
+          self._updateSummary();
+          self._validate();
+        });
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!self.shadowRoot.contains(e.target)) {
+          self.shadowRoot.getElementById('product-list').classList.remove('show');
+          self.shadowRoot.getElementById('fornecedor-list').classList.remove('show');
+        }
+      });
+
+      confirmBtn.addEventListener('click', function () {
+        self._submit();
+      });
+    }
+
+    _setDefaultDate() {
+      var now = new Date();
+      var dd = String(now.getDate()).padStart(2, '0');
+      var mm = String(now.getMonth() + 1).padStart(2, '0');
+      var yyyy = now.getFullYear();
+      this.shadowRoot.getElementById('data-compra').value = dd + '/' + mm + '/' + yyyy;
+    }
+
+    _filterProducts(query) {
+      var list = this.shadowRoot.getElementById('product-list');
+      list.innerHTML = '';
+      if (!query || query.length < 1) {
+        list.classList.remove('show');
+        return;
+      }
+      var q = query.toLowerCase();
+      var matches = this._products.filter(function (p) {
+        return (p.codigoProduto || '').toLowerCase().indexOf(q) !== -1 ||
+               (p.descricaoProduto || '').toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 10);
+
+      if (matches.length === 0) {
+        list.classList.remove('show');
+        return;
+      }
+
+      var self = this;
+      matches.forEach(function (p) {
+        var div = document.createElement('div');
+        div.className = 'product-item';
+        div.innerHTML = '<div>' + (p.descricaoProduto || '') + '</div>' +
+                        '<div class="product-code">' + (p.codigoProduto || '') + '</div>';
+        div.addEventListener('click', function () {
+          self.shadowRoot.getElementById('product-search').value = p.descricaoProduto;
+          self.shadowRoot.getElementById('codigo-produto').value = p.codigoProduto;
+          self.shadowRoot.getElementById('descricao-produto').value = p.descricaoProduto;
+          list.classList.remove('show');
+          self._validate();
+        });
+        list.appendChild(div);
+      });
+      list.classList.add('show');
+    }
+
+    _filterSuppliers(query) {
+      var list = this.shadowRoot.getElementById('fornecedor-list');
+      list.innerHTML = '';
+      var q = (query || '').toLowerCase();
+      var matches = this._suppliers.filter(function (s) {
+        return s.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 10);
+
+      if (matches.length === 0) {
+        list.classList.remove('show');
+        return;
+      }
+
+      var self = this;
+      matches.forEach(function (s) {
+        var div = document.createElement('div');
+        div.className = 'autocomplete-item';
+        div.textContent = s;
+        div.addEventListener('click', function () {
+          self.shadowRoot.getElementById('fornecedor').value = s;
+          list.classList.remove('show');
+          self._validate();
+        });
+        list.appendChild(div);
+      });
+      list.classList.add('show');
+    }
+
+    _updateSummary() {
+      var qty = parseFloat(this.shadowRoot.getElementById('quantidade').value) || 0;
+      var unit = parseFloat(this.shadowRoot.getElementById('valor-unitario').value) || 0;
+      var icmsPct = parseFloat(this.shadowRoot.getElementById('aliquota-icms').value) || 0;
+      var outros = parseFloat(this.shadowRoot.getElementById('valor-outros').value) || 0;
+
+      var total = Math.round(qty * unit * 100) / 100;
+      var icms = Math.round(total * (icmsPct / 100) * 100) / 100;
+      var liquido = Math.round((total + outros) * 100) / 100;
+      var unitLiq = qty > 0 ? Math.round((liquido / qty) * 100) / 100 : 0;
+
+      var fmt = function (v) { return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+
+      this.shadowRoot.getElementById('summary-total').textContent = fmt(total);
+      this.shadowRoot.getElementById('summary-icms').textContent = fmt(icms);
+      this.shadowRoot.getElementById('summary-liquido').textContent = fmt(liquido);
+      this.shadowRoot.getElementById('summary-unitario').textContent = fmt(unitLiq);
+      this.shadowRoot.getElementById('summary').style.display = 'block';
+    }
+
+    _validate() {
+      var codigo = this.shadowRoot.getElementById('codigo-produto').value;
+      var fornecedor = this.shadowRoot.getElementById('fornecedor').value.trim();
+      var qty = parseFloat(this.shadowRoot.getElementById('quantidade').value);
+      var unit = parseFloat(this.shadowRoot.getElementById('valor-unitario').value);
+
+      var valid = codigo && fornecedor && !isNaN(qty) && qty > 0 && !isNaN(unit) && unit >= 0;
+      this.shadowRoot.getElementById('btn-confirm').disabled = !valid;
+    }
+
+    _submit() {
+      var self = this;
+      var params = {
+        codigoProduto: this.shadowRoot.getElementById('codigo-produto').value,
+        descricaoProduto: this.shadowRoot.getElementById('descricao-produto').value,
+        quantidade: parseFloat(this.shadowRoot.getElementById('quantidade').value) || 0,
+        valorUnitario: parseFloat(this.shadowRoot.getElementById('valor-unitario').value) || 0,
+        aliquotaIcms: parseFloat(this.shadowRoot.getElementById('aliquota-icms').value) / 100 || 0.18,
+        emitenteNome: this.shadowRoot.getElementById('fornecedor').value.trim(),
+        dataCompra: this.shadowRoot.getElementById('data-compra').value,
+        valorOutrosItem: parseFloat(this.shadowRoot.getElementById('valor-outros').value) || 0,
+        observacoes: this.shadowRoot.getElementById('observacoes').value,
+        ncm: this.shadowRoot.getElementById('ncm').value,
+        cfop: ''
+      };
+
+      this.shadowRoot.getElementById('btn-confirm').disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (result && result.error) {
+            self._showToast(result.error, 'error');
+            self.shadowRoot.getElementById('btn-confirm').disabled = false;
+          } else {
+            var msg = 'Entrada registrada com sucesso!';
+            if (result.data && result.data.warnings && result.data.warnings.length > 0) {
+              msg += ' Aviso: ' + result.data.warnings.join(', ');
+            }
+            self._showToast(msg, 'success');
+            self.close();
+          }
+        })
+        .withFailureHandler(function (e) {
+          self._showToast('Erro: ' + e.message, 'error');
+          self.shadowRoot.getElementById('btn-confirm').disabled = false;
+        })
+        .apiDispatch('manualEntrada.addEntry', params);
+    }
+
+    _resetForm() {
+      this.shadowRoot.getElementById('product-search').value = '';
+      this.shadowRoot.getElementById('codigo-produto').value = '';
+      this.shadowRoot.getElementById('descricao-produto').value = '';
+      this.shadowRoot.getElementById('quantidade').value = '';
+      this.shadowRoot.getElementById('valor-unitario').value = '';
+      this.shadowRoot.getElementById('fornecedor').value = '';
+      this.shadowRoot.getElementById('valor-outros').value = '0';
+      this.shadowRoot.getElementById('aliquota-icms').value = '18';
+      this.shadowRoot.getElementById('observacoes').value = '';
+      this.shadowRoot.getElementById('ncm').value = '';
+      this.shadowRoot.getElementById('summary').style.display = 'none';
+      this.shadowRoot.getElementById('btn-confirm').disabled = true;
+      this._setDefaultDate();
+    }
+
+    _showToast(message, type) {
+      var toast = this.shadowRoot.getElementById('toast');
+      toast.textContent = message;
+      toast.className = 'toast ' + type + ' show';
+      setTimeout(function () {
+        toast.className = 'toast';
+      }, 4000);
+    }
+  });
+})();
+</script>
