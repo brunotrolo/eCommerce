@@ -97,8 +97,11 @@ var EstoqueRepository = (function () {
         });
       }
       if (filters.status) {
+        var filterStatus = String(filters.status).trim();
+        var normalizedFilter = filterStatus.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
         rows = rows.filter(function (r) {
-          return String(r.STATUS || '').trim() === String(filters.status).trim();
+          var rowStatus = String(r.STATUS || '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+          return rowStatus === normalizedFilter;
         });
       }
       if (filters.numeroNf) {
