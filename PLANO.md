@@ -45,15 +45,16 @@ Ciclo padrão de uma fase:
 
 ---
 
-## 3. Escopo funcional v1 — 5 domínios
+## 3. Escopo funcional v1 — 6 domínios
 
 | # | Domínio | Spec | O que entrega |
 |---|---|---|---|
 | 1 | **Precificação** | `specs/pricing.md` | Preço sugerido por canal a partir de custo + margem, descontando taxa. Comparativo Shopee × ML lado a lado. |
 | 2 | **Dashboard** | `specs/dashboard.md` | Visão única: pedidos recentes, receita, estoque baixo. Cache de 5 min. |
 | 3 | **Pedidos** | `specs/orders.md` | Lista unificada dos dois canais em shape normalizado + detalhe do pedido. |
-| 4 | **Anúncios** | `specs/listings.md` | Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação. |
-| 5 | **Preço & Estoque** | `specs/inventory-pricing.md` | Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo. |
+| 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. Consultável antes de criar/editar anúncios. |
+| 5 | **Anúncios** | `specs/listings.md` | Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação. |
+| 6 | **Preço & Estoque** | `specs/inventory-pricing.md` | Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo. |
 
 ---
 
@@ -71,13 +72,14 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | 1 | Precificação | ✅ | ⬜ |
 | 2 | Dashboard | ✅ | ⬜ |
 | 3 | Pedidos | ✅ | ⬜ |
-| 4 | Anúncios | ✅ | ⬜ |
-| 5 | Preço & Estoque | ✅ | ⬜ |
-| 6 | Endurecimento | ⬜ | ⬜ |
+| 4 | Catálogo | ⬜ | ⬜ |
+| 5 | Anúncios | ✅ | ⬜ |
+| 6 | Preço & Estoque | ✅ | ⬜ |
+| 7 | Endurecimento | ⬜ | ⬜ |
 
-> **Estado real de hoje:** todo o código das fases 0–5 está escrito e no
-> repositório, mas **nada foi executado no Apps Script ainda** — falta
-> rodar o primeiro deploy. A Fase 0 é, portanto, o próximo passo real.
+> **Estado real de hoje:** todo o código das fases 0–3, 5–6 está escrito e no
+> repositório. A **Fase 4 (Catálogo)** está pronta para implementar. Nada foi
+> executado no Apps Script ainda — falta rodar o primeiro deploy (Fase 0).
 
 ### Fase 0 — Fundação + pipeline de sincronização (/dev)
 
@@ -115,7 +117,19 @@ workflow do GitHub Actions (apenas push automático, deploy manual).
 - [ ] O Dashboard continua correto depois de passar a consumir `OrdersService`.
 - [ ] Canal sem pedido no período devolve lista vazia, não erro.
 
-### Fase 4 — Anúncios
+### Fase 4 — Catálogo
+
+**Critério de aceite:**
+- [ ] `catalog.getProducts()` retorna produtos únicos de NFE_ENTRADA_PRODUTOS com status='Recebido', agrupados por código.
+- [ ] Produto que aparece em 3 NFes mostra 1 linha com custo mais recente (maior DATA_EMISSAO).
+- [ ] `catalog.getProductByCode()` retorna histórico completo (todas as 3 entradas).
+- [ ] Preço sugerido para cada marketplace bate com PricingService.calculateSuggestedPrice() (mesma margem).
+- [ ] Clique no preço sugerido abre sidebar com memória de cálculo passo-a-passo.
+- [ ] Ordenação por código, descrição, custo e preço sugerido funciona crescente e decrescente.
+- [ ] Margem exibida reflete a retenção real após taxa do marketplace (ex.: 20% Shopee → margem líquida < margem alvo).
+- [ ] Aba NFE_ENTRADA_PRODUTOS vazia retorna lista vazia, não erro.
+
+### Fase 5 — Anúncios
 
 **Critério de aceite:**
 - [ ] Pausar e reativar um anúncio de teste real funciona nos dois canais.
@@ -123,16 +137,16 @@ workflow do GitHub Actions (apenas push automático, deploy manual).
       nunca só pela resposta do update.
 - [ ] Anúncio inexistente devolve erro tratado na UI.
 
-### Fase 5 — Preço & Estoque
+### Fase 6 — Preço & Estoque
 
 **Critério de aceite:**
 - [ ] Fluxo completo calcular → aplicar → reler → confirmar, num item de teste.
 - [ ] O preço novo aparece no app oficial do canal.
 - [ ] Caminho de erro (item inexistente, preço inválido) tratado na UI.
 
-### Fase 6 — Endurecimento (a fazer)
+### Fase 7 — Endurecimento (a fazer)
 
-Só entra depois que 0–5 estiverem **validadas**. Escopo:
+Só entra depois que 0–6 estiverem **validadas**. Escopo:
 
 - Log de operações de escrita em `SheetsRepository` (o que mudou, quando, resultado).
 - Padronização do tratamento de erro em todos os widgets (hoje cada view trata do seu jeito).
