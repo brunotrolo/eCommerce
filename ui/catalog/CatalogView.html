@@ -649,7 +649,7 @@
       }
 
       _renderHistory(container, data) {
-        var entries = data.data || [];
+        var entries = Array.isArray(data) ? data : (data.data || []);
         if (!entries.length) {
           container.innerHTML = '<div class="catalog-empty">Nenhuma entrada encontrada.</div>';
           return;
