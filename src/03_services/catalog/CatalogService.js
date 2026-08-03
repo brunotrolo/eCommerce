@@ -80,7 +80,7 @@ var CatalogService = (function () {
     try {
       allProdutosManual = ManualEntradaProdutosRepository.getRows(sheetId);
     } catch (e) {
-      // Aba manual pode não existir ainda — ignorar
+      console.warn('CatalogService: Erro ao ler aba manual — ' + e.message);
     }
 
     var allProdutos = allProdutos.concat(allProdutosManual);
@@ -91,8 +91,8 @@ var CatalogService = (function () {
 
     var filtered = [];
     for (var i = 0; i < allProdutos.length; i++) {
-      var status = String(allProdutos[i].STATUS || '').trim();
-      if (status === 'Recebido') {
+      var status = String(allProdutos[i].STATUS || '').trim().toLowerCase();
+      if (status === 'recebido') {
         filtered.push(allProdutos[i]);
       }
     }
