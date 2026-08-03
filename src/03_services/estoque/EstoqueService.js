@@ -106,7 +106,7 @@ var EstoqueService = (function () {
     if (!numeroNf) return { error: 'numeroNf é obrigatório.' };
     if (!chaveNf) return { error: 'chaveNf é obrigatório.' };
 
-    var nfRows = NFeEntradaProdutosRepository.getRows(sheetId, numeroNf);
+    var nfRows = NFeEntradaProdutosRepository.getProdutosByNf(sheetId, numeroNf);
     if (!nfRows || nfRows.length === 0) {
       return { error: 'Nenhum produto encontrado para NF ' + numeroNf };
     }
@@ -328,10 +328,76 @@ var EstoqueService = (function () {
     var totalImportados = 0;
     var totalSincronizados = 0;
 
-    var nfResult = importarDeNfe({ numeroNf: '*', chaveNf: '*' });
-    if (nfResult.itemsImported) {
-      totalImportados += nfResult.itemsImported;
-      totalSincronizados += nfResult.itemsImported;
+    var allNfeRows = NFeEntradaProdutosRepository.getProdutos(sheetId);
+    var existingItems = EstoqueRepository.getRows(sheetId);
+    var existingRefs = {};
+    for (var i = 0; i < existingItems.length; i++) {
+      existingRefs[existingItems[i].REFERENCIA_ORIGEM] = true;
+    }
+
+    var nfGroups = {};
+    for (var j = 0; j < allNfeRows.length; j++) {
+      var r = allNfeRows[j];
+      var status = String(r.STATUS || '').trim().toLowerCase();
+      if (status !== 'recebido') continue;
+      var numNf = String(r.NUMERO_NF || '').trim();
+      if (!numNf) continue;
+      if (!nfGroups[numNf]) nfGroups[numNf] = { chaveNf: r.CHAVE_NF || '', items: [] };
+      nfGroups[numNf].items.push(r);
+    }
+
+    var nfKeys = Object.keys(nfGroups);
+    for (var k = 0; k < nfKeys.length; k++) {
+      var ref = 'NF#' + nfKeys[k];
+      if (existingRefs[ref]) continue;
+
+      var result = importarDeNfe({
+        numeroNf: nfKeys[k],
+        chaveNf: nfGroups[nfKeys[k]].chaveNf
+      });
+      if (result.itemsImported) {
+        totalImportados += result.itemsImported;
+        totalSincronizados += result.itemsImported;
+      }
+    }
+
+    var allManualRows = ManualEntradaProdutosRepository.getRows(sheetId);
+    for (var m = 0; m < allManualRows.length; m++) {
+      var rm = allManualRows[m];
+      var statusM = String(rm.STATUS || '').trim().toLowerCase();
+      if (statusM !== 'recebido') continue;
+      var logId = String(rm.LOG_ID || '').trim();
+      var refMan = 'MAN#' + logId;
+      if (existingRefs[refMan]) continue;
+
+      var qty = parseInt(rm.QUANTIDADE) || 1;
+      var custo = parseFloat(rm.VALOR_UNITARIO_LIQUIDO) || parseFloat(rm.VALOR_UNITARIO) || 0;
+      var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+      var rowsToInsert = [];
+      for (var u = 0; u < qty; u++) {
+        rowsToInsert.push({
+          estoqueId: gerarEstoqueId_(sheetId),
+          codigoProduto: rm.CODIGO_PRODUTO || '',
+          descricaoProduto: rm.DESCRICAO_PRODUTO || '',
+          dataEntrada: rm.DATA_ENTRADA || now,
+          referenciaOrigem: refMan,
+          precoCustoOriginal: custo,
+          precoVendaShopee: '',
+          precoVendaMercadoLivre: '',
+          margemShopee: '',
+          margemMercadoLivre: '',
+          status: 'DISPONÍVEL',
+          alertaEstoqueBaixo: false,
+          dataSincronizacao: now,
+          logId: generateLogId_()
+        });
+      }
+      if (rowsToInsert.length > 0) {
+        EstoqueRepository.appendRows(sheetId, rowsToInsert);
+        totalImportados += rowsToInsert.length;
+        totalSincronizados += rowsToInsert.length;
+        existingRefs[refMan] = true;
+      }
     }
 
     return {
