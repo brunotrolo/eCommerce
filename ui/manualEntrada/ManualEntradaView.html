@@ -357,15 +357,17 @@
     _filterProducts(query) {
       var list = this.shadowRoot.getElementById('product-list');
       list.innerHTML = '';
+
+      var matches;
       if (!query || query.length < 1) {
-        list.classList.remove('show');
-        return;
+        matches = this._products.slice(0, 20);
+      } else {
+        var q = query.toLowerCase();
+        matches = this._products.filter(function (p) {
+          return (p.codigoProduto || '').toLowerCase().indexOf(q) !== -1 ||
+                 (p.descricaoProduto || '').toLowerCase().indexOf(q) !== -1;
+        }).slice(0, 20);
       }
-      var q = query.toLowerCase();
-      var matches = this._products.filter(function (p) {
-        return (p.codigoProduto || '').toLowerCase().indexOf(q) !== -1 ||
-               (p.descricaoProduto || '').toLowerCase().indexOf(q) !== -1;
-      }).slice(0, 10);
 
       if (matches.length === 0) {
         list.classList.remove('show');
