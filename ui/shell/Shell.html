@@ -8,15 +8,68 @@
     <div class="app-shell">
       <nav class="app-nav">
         <span class="nav-brand">eCommerce</span>
+
+        <!-- Dashboard (botão direto) -->
         <button class="btn" data-route="dashboard">Dashboard</button>
-        <button class="btn" data-route="orders">Pedidos</button>
-        <button class="btn" data-route="listings">Anúncios</button>
-        <button class="btn" data-route="inventoryPricing">Preço e Estoque</button>
-        <button class="btn" data-route="nfeEntrada">NFe Entrada</button>
-        <button class="btn" data-route="nfeEntradaProdutos">Entrada Produtos</button>
-        <button class="btn" data-route="catalog">Catálogo</button>
-        <button class="btn" data-route="estoque">Estoque</button>
-        <button class="btn" data-route="manualEntrada">Entrada Manual</button>
+
+        <!-- Compras (dropdown) -->
+        <div class="nav-dropdown">
+          <button class="btn nav-dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+            Compras
+            <span class="nav-dropdown-icon">▾</span>
+          </button>
+          <ul class="nav-dropdown-menu" role="menu">
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="nfeEntrada" role="menuitem">NFe Entrada</button>
+            </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="nfeEntradaProdutos" role="menuitem">Entrada Produtos</button>
+            </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="catalog" role="menuitem">Catálogo</button>
+            </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="manualEntrada" role="menuitem">Entrada Manual</button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Produtos (dropdown) -->
+        <div class="nav-dropdown">
+          <button class="btn nav-dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+            Produtos
+            <span class="nav-dropdown-icon">▾</span>
+          </button>
+          <ul class="nav-dropdown-menu" role="menu">
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="inventoryPricing" role="menuitem">Preço e Estoque</button>
+            </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="estoque" role="menuitem">Estoque</button>
+            </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="catalog" role="menuitem">Catálogo</button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Vendas (dropdown) -->
+        <div class="nav-dropdown">
+          <button class="btn nav-dropdown-toggle" aria-haspopup="true" aria-expanded="false">
+            Vendas
+            <span class="nav-dropdown-icon">▾</span>
+          </button>
+          <ul class="nav-dropdown-menu" role="menu">
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="orders" role="menuitem">Pedidos</button>
+            </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="listings" role="menuitem">Anúncios</button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Elementos à direita -->
         <div style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
           <status-view></status-view>
           <button class="btn" id="calc-nav-btn" aria-label="Abrir Calculadora" style="font-size:18px; padding: 6px 10px; min-width: auto;">🧮</button>
@@ -96,11 +149,147 @@
         });
       }
 
-      document.querySelectorAll('.app-nav button[data-route]').forEach(function (btn) {
+      // Gerenciamento de dropdowns (hover em desktop, click em mobile)
+      var openDropdown = null;
+
+      function toggleDropdown(event) {
+        var toggle = event.currentTarget;
+        var container = toggle.closest('.nav-dropdown');
+        var isOpen = toggle.getAttribute('aria-expanded') === 'true';
+
+        // Fechar dropdown aberto anterior
+        if (openDropdown && openDropdown !== container) {
+          var prevToggle = openDropdown.querySelector('.nav-dropdown-toggle');
+          prevToggle.setAttribute('aria-expanded', 'false');
+          openDropdown.removeAttribute('open');
+        }
+
+        // Toggle current
+        toggle.setAttribute('aria-expanded', !isOpen);
+        if (!isOpen) {
+          container.setAttribute('open', '');
+          openDropdown = container;
+        } else {
+          container.removeAttribute('open');
+          openDropdown = null;
+        }
+      }
+
+      function closeDropdownAfterNavigation() {
+        if (openDropdown) {
+          var toggle = openDropdown.querySelector('.nav-dropdown-toggle');
+          toggle.setAttribute('aria-expanded', 'false');
+          openDropdown.removeAttribute('open');
+          openDropdown = null;
+        }
+      }
+
+      function closeDropdownOnClickOutside(event) {
+        var isClickInsideNav = event.target.closest('.app-nav');
+        if (!isClickInsideNav && openDropdown) {
+          var toggle = openDropdown.querySelector('.nav-dropdown-toggle');
+          toggle.setAttribute('aria-expanded', 'false');
+          openDropdown.removeAttribute('open');
+          openDropdown = null;
+        }
+      }
+
+      function handleDropdownKeyboard(event) {
+        var menu = event.currentTarget;
+        var toggle = menu.previousElementSibling;
+        var items = Array.from(menu.querySelectorAll('.nav-dropdown-item'));
+        var currentIndex = items.indexOf(document.activeElement);
+
+        switch (event.key) {
+          case 'Escape':
+            toggle.setAttribute('aria-expanded', 'false');
+            menu.parentElement.removeAttribute('open');
+            openDropdown = null;
+            toggle.focus();
+            event.preventDefault();
+            break;
+
+          case 'ArrowDown':
+            var nextIndex = Math.min(currentIndex + 1, items.length - 1);
+            items[nextIndex].focus();
+            event.preventDefault();
+            break;
+
+          case 'ArrowUp':
+            var prevIndex = Math.max(currentIndex - 1, 0);
+            items[prevIndex].focus();
+            event.preventDefault();
+            break;
+
+          case 'Home':
+            items[0] && items[0].focus();
+            event.preventDefault();
+            break;
+
+          case 'End':
+            items[items.length - 1] && items[items.length - 1].focus();
+            event.preventDefault();
+            break;
+        }
+      }
+
+      function initializeDropdowns() {
+        // Listeners nos toggles (click para abrir/fechar)
+        document.querySelectorAll('.nav-dropdown-toggle').forEach(function (toggle) {
+          toggle.addEventListener('click', toggleDropdown);
+
+          // Hover em desktop (simulado com mouseenter/mouseleave)
+          toggle.closest('.nav-dropdown').addEventListener('mouseenter', function () {
+            toggle.setAttribute('aria-expanded', 'true');
+            if (openDropdown && openDropdown !== this) {
+              openDropdown.querySelector('.nav-dropdown-toggle').setAttribute('aria-expanded', 'false');
+            }
+            openDropdown = this;
+          });
+
+          toggle.closest('.nav-dropdown').addEventListener('mouseleave', function () {
+            toggle.setAttribute('aria-expanded', 'false');
+            if (openDropdown === this) openDropdown = null;
+          });
+        });
+
+        // Listeners nos items de dropdown
+        document.querySelectorAll('.nav-dropdown-item').forEach(function (item) {
+          item.addEventListener('click', function () {
+            navigate(item.dataset.route);
+            closeDropdownAfterNavigation();
+          });
+        });
+
+        // Listeners nos menus (navegação por teclado)
+        document.querySelectorAll('.nav-dropdown-menu').forEach(function (menu) {
+          menu.addEventListener('keydown', handleDropdownKeyboard);
+        });
+
+        // Fechar ao clicar fora
+        document.addEventListener('click', closeDropdownOnClickOutside);
+      }
+
+      // Estender navigate() para atualizar dropdown items ativos
+      var originalNavigate = window.navigate;
+      window.navigate = function (route) {
+        originalNavigate(route);
+
+        // Atualizar .nav-dropdown-item-active
+        document.querySelectorAll('.nav-dropdown-item').forEach(function (item) {
+          item.classList.toggle('nav-dropdown-item-active', item.dataset.route === route);
+        });
+      };
+
+      // Listeners em botões diretos (Dashboard)
+      document.querySelectorAll('.app-nav > button[data-route]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           navigate(btn.dataset.route);
         });
       });
+
+      // Inicializar dropdowns após tudo carregado
+      initializeDropdowns();
 
       initTheme();
       navigate((window.location.hash || '#dashboard').replace('#', ''));
