@@ -1,7 +1,7 @@
 # Spec: Calculadora de Precificação Mercado Livre (PrecificaPro)
 
 ## Status
-Implemented
+Approved
 
 ## Objetivo
 
