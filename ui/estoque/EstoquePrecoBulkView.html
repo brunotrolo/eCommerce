@@ -1,0 +1,539 @@
+<template id="estoque-preco-bulk-template">
+  <style>
+    :host { display: block; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+    .modal {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      width: 95vw; max-width: 600px;
+      max-height: 90vh; overflow-y: auto;
+      padding: var(--space-xl);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: var(--space-xl);
+    }
+    .modal-header h2 {
+      margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-bold);
+      color: var(--color-text);
+    }
+    .btn-close {
+      background: none; border: none; cursor: pointer;
+      font-size: var(--font-size-lg); color: var(--color-text-secondary);
+      padding: var(--space-xs); border-radius: var(--radius-xs);
+    }
+    .btn-close:hover { background: var(--color-surface-hover); }
+
+    .form-group { margin-bottom: var(--space-lg); }
+    .form-group label {
+      display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary); margin-bottom: var(--space-xs);
+    }
+    .form-group input {
+      width: 100%; padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      font-size: var(--font-size-base); background: var(--color-surface); color: var(--color-text);
+      box-sizing: border-box;
+    }
+    .form-group input:focus {
+      outline: none; border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px var(--color-primary-light);
+    }
+    .form-group input.error { border-color: var(--color-error); }
+    .form-group .error-msg {
+      font-size: var(--font-size-xs); color: var(--color-error-text);
+      margin-top: var(--space-xs); display: none;
+    }
+    .form-group input.error + .error-msg { display: block; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
+
+    .autocomplete-wrapper { position: relative; }
+    .autocomplete-list {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); max-height: 150px; overflow-y: auto;
+      z-index: 10; display: none;
+    }
+    .autocomplete-list.show { display: block; }
+    .autocomplete-item {
+      padding: var(--space-sm) var(--space-md); cursor: pointer;
+      font-size: var(--font-size-sm); color: var(--color-text);
+    }
+    .autocomplete-item:hover { background: var(--color-surface-hover); }
+
+    .summary {
+      background: var(--color-surface-alt); border-radius: var(--radius-sm);
+      padding: var(--space-md); margin-bottom: var(--space-lg);
+      font-size: var(--font-size-sm); color: var(--color-text-secondary);
+    }
+    .summary-row { display: flex; justify-content: space-between; margin-bottom: var(--space-xs); }
+    .summary-row:last-child { margin-bottom: 0; }
+    .summary-value { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+
+    .form-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-xl); }
+
+    .btn {
+      padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+      cursor: pointer; border: 1px solid var(--color-border);
+      background: var(--color-surface); color: var(--color-text);
+    }
+    .btn:hover { background: var(--color-surface-hover); }
+    .btn-primary {
+      background: var(--color-primary); color: var(--color-on-primary);
+      border-color: var(--color-primary);
+    }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .btn-primary:disabled {
+      background: var(--color-disabled); border-color: var(--color-disabled);
+      cursor: not-allowed;
+    }
+
+    .alert-list { margin-top: var(--space-md); }
+    .alert-item {
+      padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-xs);
+      font-size: var(--font-size-xs); margin-bottom: var(--space-xs);
+    }
+    .alert-item.warning {
+      background: var(--color-warning-light); color: var(--color-warning-text);
+    }
+    .alert-item.error {
+      background: var(--color-error-light); color: var(--color-error-text);
+    }
+
+    .toast {
+      position: fixed; bottom: var(--space-xl); right: var(--space-xl);
+      padding: var(--space-md) var(--space-lg); border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm); color: var(--color-on-primary);
+      z-index: 2000; opacity: 0; transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: var(--color-success); }
+    .toast.error { background: var(--color-error); }
+  </style>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Atualizar Preco de Venda</h2>
+        <button class="btn-close" id="btn-close" aria-label="Fechar">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label for="codigo-produto">Codigo do Produto</label>
+        <div class="autocomplete-wrapper">
+          <input type="text" id="codigo-produto" placeholder="Buscar por codigo..." autocomplete="off" />
+          <div class="autocomplete-list" id="codigo-produto-list"></div>
+        </div>
+        <div class="error-msg">Informe o codigo do produto</div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="preco-shopee">Preco Shopee (R$)</label>
+          <input type="number" id="preco-shopee" min="0" step="0.01" placeholder="Opcional" />
+          <div class="error-msg">Preco deve ser > 0</div>
+        </div>
+        <div class="form-group">
+          <label for="preco-ml">Preco ML (R$)</label>
+          <input type="number" id="preco-ml" min="0" step="0.01" placeholder="Opcional" />
+          <div class="error-msg">Preco deve ser > 0</div>
+        </div>
+      </div>
+
+      <div class="summary" id="summary-current" style="display:none;">
+        <div class="summary-row">
+          <span>Custo Atual:</span>
+          <span class="summary-value" id="val-custo">R$ 0,00</span>
+        </div>
+        <div class="summary-row">
+          <span>Preco Atual Shopee:</span>
+          <span class="summary-value" id="val-preco-s">-</span>
+        </div>
+        <div class="summary-row">
+          <span>Preco Atual ML:</span>
+          <span class="summary-value" id="val-preco-ml">-</span>
+        </div>
+        <div class="summary-row">
+          <span>Margem Atual:</span>
+          <span class="summary-value" id="val-margem">-</span>
+        </div>
+      </div>
+
+      <div id="preview-section" style="display:none;">
+        <div class="summary" id="summary-preview">
+          <div class="summary-row">
+            <span>Preco Simulado Shopee:</span>
+            <span class="summary-value" id="val-sim-s">-</span>
+          </div>
+          <div class="summary-row">
+            <span>Margem Simulada Shopee:</span>
+            <span class="summary-value" id="val-margem-sim-s">-</span>
+          </div>
+          <div class="summary-row">
+            <span>Preco Simulado ML:</span>
+            <span class="summary-value" id="val-sim-ml">-</span>
+          </div>
+          <div class="summary-row">
+            <span>Margem Simulada ML:</span>
+            <span class="summary-value" id="val-margem-sim-ml">-</span>
+          </div>
+        </div>
+        <div class="alert-list" id="alert-list"></div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn" id="btn-cancel">Cancelar</button>
+        <button class="btn" id="btn-simular" disabled>Simular</button>
+        <button class="btn btn-primary" id="btn-aplicar" disabled>Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</template>
+
+<script>
+(function () {
+  if (document.getElementById('estoque-preco-bulk-widget')) return;
+
+  var template = document.getElementById('estoque-preco-bulk-template');
+  if (!template) return;
+
+  var TAG = 'estoque-preco-bulk-widget';
+
+  customElements.define(TAG, class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.shadowRoot.appendChild(template.content.cloneNode(true));
+      if (window.__DESIGN_SHEET__) {
+        this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+      }
+      this._products = [];
+      this._selectedProduct = null;
+      this._onSaveCallback = null;
+    }
+
+    connectedCallback() {
+      this._bindEvents();
+    }
+
+    open() {
+      this._el('modal-overlay').classList.add('open');
+      this._resetForm();
+      this._loadProducts();
+    }
+
+    close() {
+      this._el('modal-overlay').classList.remove('open');
+    }
+
+    setOnSaveCallback(fn) {
+      this._onSaveCallback = fn;
+    }
+
+    _el(id) {
+      return this.shadowRoot.getElementById(id);
+    }
+
+    _loadProducts() {
+      var self = this;
+      var input = this._el('codigo-produto');
+      input.value = '';
+      input.setAttribute('placeholder', 'Carregando...');
+
+      google.script.run
+        .withSuccessHandler(function (resp) {
+          var envelope = (resp && resp.data) || resp || {};
+          var data = envelope.data || envelope;
+          var raw = data.items || data;
+          if (!Array.isArray(raw)) raw = [];
+
+          var grouped = {};
+          for (var i = 0; i < raw.length; i++) {
+            var r = raw[i];
+            var status = String(r.STATUS || '').trim().toUpperCase();
+            if (status !== 'DISPONIVEL') continue;
+            var code = String(r.CODIGO_PRODUTO || '').trim();
+            if (!code) continue;
+            if (!grouped[code]) {
+              grouped[code] = {
+                codigo: code,
+                descricao: r.DESCRICAO_PRODUTO || '',
+                precoCusto: parseFloat(r.PRECO_CUSTO_ORIGINAL) || 0,
+                precoShopee: parseFloat(r.PRECO_VENDA_SHOPEE) || 0,
+                precoML: parseFloat(r.PRECO_VENDA_MERCADO_LIVRE) || 0
+              };
+            }
+          }
+
+          var items = [];
+          var codes = Object.keys(grouped);
+          for (var j = 0; j < codes.length; j++) {
+            items.push(grouped[codes[j]]);
+          }
+          items.sort(function (a, b) {
+            return a.descricao.toLowerCase() < b.descricao.toLowerCase() ? -1 : 1;
+          });
+
+          self._products = items;
+          input.setAttribute('placeholder', 'Buscar por codigo...');
+        })
+        .withFailureHandler(function (e) {
+          input.setAttribute('placeholder', 'Erro ao carregar produtos');
+          self._showToast('Erro ao carregar produtos: ' + (e.message || 'desconhecido'), 'error');
+        })
+        .apiDispatch('estoque.getItems', { status: 'DISPONIVEL' });
+    }
+
+    _bindEvents() {
+      var self = this;
+
+      this._el('modal-overlay').addEventListener('click', function (e) {
+        if (e.target.id === 'modal-overlay') self.close();
+      });
+      this._el('btn-close').addEventListener('click', function () { self.close(); });
+      this._el('btn-cancel').addEventListener('click', function () { self.close(); });
+      this._el('btn-simular').addEventListener('click', function () { self._simular(); });
+      this._el('btn-aplicar').addEventListener('click', function () { self._aplicar(); });
+
+      var input = this._el('codigo-produto');
+      input.addEventListener('input', function () {
+        self._filterProducts(input.value);
+        self._selectedProduct = null;
+        self._el('summary-current').style.display = 'none';
+        self._el('preview-section').style.display = 'none';
+        self._validate();
+      });
+      input.addEventListener('focus', function () {
+        self._filterProducts(input.value);
+      });
+
+      this._el('preco-shopee').addEventListener('input', function () {
+        self._validate();
+      });
+      this._el('preco-ml').addEventListener('input', function () {
+        self._validate();
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!self.shadowRoot.contains(e.target)) {
+          self._el('codigo-produto-list').classList.remove('show');
+        }
+      });
+    }
+
+    _filterProducts(query) {
+      var list = this._el('codigo-produto-list');
+      list.innerHTML = '';
+      var q = (query || '').toLowerCase();
+      var matches = this._products.filter(function (p) {
+        return p.codigo.toLowerCase().indexOf(q) !== -1 ||
+               p.descricao.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 10);
+
+      if (matches.length === 0) {
+        list.classList.remove('show');
+        return;
+      }
+
+      var self = this;
+      for (var i = 0; i < matches.length; i++) {
+        (function (p) {
+          var div = document.createElement('div');
+          div.className = 'autocomplete-item';
+          div.textContent = p.codigo + ' — ' + p.descricao;
+          div.addEventListener('click', function () {
+            self._el('codigo-produto').value = p.codigo;
+            list.classList.remove('show');
+            self._selectProduct(p);
+          });
+          list.appendChild(div);
+        })(matches[i]);
+      }
+      list.classList.add('show');
+    }
+
+    _selectProduct(product) {
+      this._selectedProduct = product;
+      this._el('summary-current').style.display = 'block';
+      this._el('preview-section').style.display = 'none';
+
+      var fmt = function (v) {
+        if (!v || v === 0) return '-';
+        return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      };
+
+      this._el('val-custo').textContent = fmt(product.precoCusto);
+      this._el('val-preco-s').textContent = fmt(product.precoShopee);
+      this._el('val-preco-ml').textContent = fmt(product.precoML);
+
+      var margem = '';
+      if (product.precoShopee && product.precoCusto) {
+        margem = ((product.precoShopee - product.precoCusto) / product.precoShopee * 100).toFixed(1) + '%';
+      }
+      this._el('val-margem').textContent = margem || '-';
+
+      this._validate();
+    }
+
+    _validate() {
+      var codigo = this._el('codigo-produto').value.trim();
+      var precoS = this._el('preco-shopee').value;
+      var precoML = this._el('preco-ml').value;
+
+      var hasCode = codigo.length > 0 && this._selectedProduct !== null;
+      var hasPrice = (precoS !== '' && parseFloat(precoS) > 0) ||
+                     (precoML !== '' && parseFloat(precoML) > 0);
+
+      this._el('btn-simular').disabled = !(hasCode && hasPrice);
+      this._el('btn-aplicar').disabled = !(hasCode && hasPrice);
+    }
+
+    _getParams() {
+      var precoS = this._el('preco-shopee').value;
+      var precoML = this._el('preco-ml').value;
+      return {
+        codigoProduto: this._selectedProduct.codigo,
+        novoPrecoShopee: precoS !== '' ? parseFloat(precoS) : null,
+        novoPrecoMercadoLivre: precoML !== '' ? parseFloat(precoML) : null
+      };
+    }
+
+    _simular() {
+      var self = this;
+      var params = this._getParams();
+
+      this._el('btn-simular').disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (resp) {
+          var envelope = (resp && resp.data) || resp || {};
+          var data = envelope.data || envelope;
+
+          if (data.error) {
+            self._showToast(data.error, 'error');
+            self._el('btn-simular').disabled = false;
+            return;
+          }
+
+          self._showPreview(data);
+          self._el('btn-simular').disabled = false;
+        })
+        .withFailureHandler(function (e) {
+          self._showToast('Erro na simulacao: ' + (e.message || 'desconhecido'), 'error');
+          self._el('btn-simular').disabled = false;
+        })
+        .apiDispatch('estoque.simularMudancaPreco', params);
+    }
+
+    _showPreview(data) {
+      var section = this._el('preview-section');
+      section.style.display = 'block';
+
+      var fmt = function (v) {
+        if (v === '' || v === null || v === undefined) return '-';
+        return 'R$ ' + parseFloat(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      };
+
+      this._el('val-sim-s').textContent = fmt(data.precoSimuladoShopee);
+      this._el('val-margem-sim-s').textContent = data.margemSimuladaShopee !== '' ?
+        data.margemSimuladaShopee + '%' : '-';
+      this._el('val-sim-ml').textContent = fmt(data.precoSimuladoMercadoLivre);
+      this._el('val-margem-sim-ml').textContent = data.margemSimuladaMercadoLivre !== '' ?
+        data.margemSimuladaMercadoLivre + '%' : '-';
+
+      var alertList = this._el('alert-list');
+      alertList.innerHTML = '';
+      var alerts = data.alertas || [];
+      for (var i = 0; i < alerts.length; i++) {
+        var div = document.createElement('div');
+        var tipo = alerts[i].tipo === 'prejuizo' || alerts[i].tipo === 'preco_zero' ? 'error' : 'warning';
+        div.className = 'alert-item ' + tipo;
+        div.textContent = alerts[i].msg;
+        alertList.appendChild(div);
+      }
+    }
+
+    _aplicar() {
+      var self = this;
+      var precoS = this._el('preco-shopee').value;
+      var precoML = this._el('preco-ml').value;
+
+      var params = {
+        codigoProduto: this._selectedProduct.codigo,
+        precoVendaShopee: precoS !== '' ? parseFloat(precoS) : null,
+        precoVendaMercadoLivre: precoML !== '' ? parseFloat(precoML) : null
+      };
+
+      this._el('btn-aplicar').disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (resp) {
+          var envelope = (resp && resp.data) || resp || {};
+          var data = envelope.data || envelope;
+
+          if (data.error) {
+            self._showToast(data.error, 'error');
+            self._el('btn-aplicar').disabled = false;
+            return;
+          }
+
+          var msg = 'Preco atualizado com sucesso!';
+          if (data.itemsAtualizados) {
+            msg += ' (' + data.itemsAtualizados + ' itens)';
+          }
+          if (data.alertasGerados && data.alertasGerados.length > 0) {
+            msg += ' Avisos: ' + data.alertasGerados.map(function (a) { return a.msg; }).join(', ');
+          }
+
+          self._showToast(msg, 'success');
+          self.close();
+
+          if (typeof self._onSaveCallback === 'function') {
+            self._onSaveCallback();
+          }
+        })
+        .withFailureHandler(function (e) {
+          self._showToast('Erro ao aplicar preco: ' + (e.message || 'desconhecido'), 'error');
+          self._el('btn-aplicar').disabled = false;
+        })
+        .apiDispatch('estoque.updatePrecoVenda', params);
+    }
+
+    _resetForm() {
+      this._el('codigo-produto').value = '';
+      this._el('preco-shopee').value = '';
+      this._el('preco-ml').value = '';
+      this._el('summary-current').style.display = 'none';
+      this._el('preview-section').style.display = 'none';
+      this._el('alert-list').innerHTML = '';
+      this._el('btn-simular').disabled = true;
+      this._el('btn-aplicar').disabled = true;
+      this._selectedProduct = null;
+    }
+
+    _showToast(message, type) {
+      var toast = this._el('toast');
+      toast.textContent = message;
+      toast.className = 'toast ' + type + ' show';
+      setTimeout(function () {
+        toast.className = 'toast';
+      }, 4000);
+    }
+  });
+})();
+</script>

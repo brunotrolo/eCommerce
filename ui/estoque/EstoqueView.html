@@ -1,0 +1,381 @@
+<template id="estoque-widget-template">
+  <style>
+    :host { display: block; }
+    .container { padding: var(--space-xl); }
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-xl); }
+    .header h1 { margin: 0; font-size: var(--font-size-xl); font-weight: var(--font-weight-bold); color: var(--color-text); }
+    .btn { padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); cursor: pointer; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); transition: background var(--transition-fast); }
+    .btn:hover { background: var(--color-surface-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .stats { display: flex; gap: var(--space-xl); margin-bottom: var(--space-lg); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+    .stats-value { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+    .filter-bar { display: flex; gap: var(--space-md); margin-bottom: var(--space-lg); flex-wrap: wrap; }
+    .filter-bar input, .filter-bar select { padding: var(--space-xs) var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: var(--font-size-sm); background: var(--color-surface); color: var(--color-text); }
+    .table-wrapper { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+    table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); color: var(--color-text); }
+    th { text-align: left; padding: var(--space-sm) var(--space-md); background: var(--color-surface-alt); font-weight: var(--font-weight-semibold); border-bottom: 1px solid var(--color-border); white-space: nowrap; cursor: pointer; user-select: none; }
+    th:hover { background: var(--color-surface-hover); }
+    td { padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--color-border-light); white-space: nowrap; }
+    tr:hover td { background: var(--color-surface-hover); }
+    .badge { display: inline-block; padding: 2px var(--space-sm); border-radius: var(--radius-xs); font-size: var(--font-size-xs); font-weight: var(--font-weight-medium); }
+    .badge-success { background: var(--color-success-light); color: var(--color-success-text); }
+    .badge-warning { background: var(--color-warning-light); color: var(--color-warning-text); }
+    .badge-error { background: var(--color-error-light); color: var(--color-error-text); }
+    .badge-info { background: var(--color-info-light); color: var(--color-info-text); }
+    .alert-icon { color: var(--color-warning); font-size: var(--font-size-lg); }
+    .empty-state { text-align: center; padding: var(--space-3xl); color: var(--color-text-secondary); }
+    .loading { text-align: center; padding: var(--space-3xl); color: var(--color-text-tertiary); }
+    .detail-row { display: none; }
+    .detail-row.open { display: table-row; }
+    .detail-cell { padding: var(--space-md) var(--space-xl); background: var(--color-surface-alt); font-size: var(--font-size-xs); color: var(--color-text-secondary); }
+    .margem-positive { color: var(--color-success-text); }
+    .margem-warning { color: var(--color-warning-text); }
+    .margem-negative { color: var(--color-error-text); }
+    .sort-arrow { margin-left: 4px; font-size: 10px; }
+    .toast { position: fixed; bottom: var(--space-xl); right: var(--space-xl); padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); z-index: var(--z-notification); opacity: 0; transform: translateY(10px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .toast.success { background: var(--color-success-light); color: var(--color-success-text); border: 1px solid var(--color-success); }
+    .toast.error { background: var(--color-error-light); color: var(--color-error-text); border: 1px solid var(--color-error); }
+    .toast.info { background: var(--color-info-light); color: var(--color-info-text); border: 1px solid var(--color-info); }
+  </style>
+  <div class="container">
+    <div class="header">
+      <h1>Controle de Estoque</h1>
+      <button class="btn btn-primary" id="btn-sync">Sincronizar</button>
+    </div>
+    <div class="stats" id="stats-bar">
+      <span>Total: <span class="stats-value" id="stat-total">0</span></span>
+      <span>Disponível: <span class="stats-value" id="stat-disponivel">0</span></span>
+      <span>Vendido: <span class="stats-value" id="stat-vendido">0</span></span>
+      <span>Alertas: <span class="stats-value" id="stat-alertas">0</span></span>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="filter-codigo" placeholder="Filtrar por código..." />
+      <select id="filter-status">
+        <option value="">Todos</option>
+        <option value="DISPONÍVEL" selected>DISPONÍVEL</option>
+        <option value="VENDIDO">VENDIDO</option>
+        <option value="DEVOLVIDO">DEVOLVIDO</option>
+        <option value="QUEBRADO">QUEBRADO</option>
+        <option value="COM_DEFEITO">COM_DEFEITO</option>
+      </select>
+    </div>
+    <div class="table-wrapper">
+      <table id="estoque-table">
+        <thead>
+          <tr>
+            <th data-sort="estoque_id">ESTOQUE_ID <span class="sort-arrow"></span></th>
+            <th>Produto</th>
+            <th data-sort="data_entrada">Data Entrada <span class="sort-arrow"></span></th>
+            <th data-sort="preco_custo">Custo <span class="sort-arrow"></span></th>
+            <th>Preço Shopee</th>
+            <th>Preço ML</th>
+            <th data-sort="margem">Margem% <span class="sort-arrow"></span></th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="estoque-tbody"></tbody>
+      </table>
+    </div>
+    <div class="loading" id="loading-state">Carregando estoque...</div>
+    <div id="error-box" hidden></div>
+    <div id="result-box" hidden></div>
+  </div>
+  <div class="toast" id="toast"></div>
+</template>
+<script>
+  (function () {
+    if (document.getElementById('estoque-widget')) return;
+    if (customElements.get('estoque-widget')) return;
+
+    var STATUS_BADGE = {
+      'DISPONÍVEL': 'badge-success',
+      'VENDIDO': 'badge-info',
+      'DEVOLVIDO': 'badge-warning',
+      'QUEBRADO': 'badge-error',
+      'COM_DEFEITO': 'badge-error'
+    };
+
+    class EstoqueWidget extends HTMLElement {
+      connectedCallback() {
+        var template = document.getElementById('estoque-widget-template');
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        shadow.appendChild(template.content.cloneNode(true));
+        this._shadow = shadow;
+        this._items = [];
+        this._filtered = [];
+        this._sortField = 'data_entrada';
+        this._sortOrder = 'asc';
+        this._openRows = {};
+
+        var self = this;
+        shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(); });
+        shadow.getElementById('filter-codigo').addEventListener('input', function () { self._applyFilters(); });
+        shadow.getElementById('filter-status').addEventListener('change', function () { self._applyFilters(); });
+
+        var ths = shadow.querySelectorAll('th[data-sort]');
+        for (var i = 0; i < ths.length; i++) {
+          (function (th) {
+            th.addEventListener('click', function () { self._onSort(th.getAttribute('data-sort')); });
+          })(ths[i]);
+        }
+
+        this._load();
+      }
+
+      _el(id) {
+        return this._shadow.getElementById(id);
+      }
+
+      _load() {
+        var self = this;
+        var loadingEl = this._el('loading-state');
+        if (loadingEl) loadingEl.style.display = 'block';
+
+        var statusVal = this._el('filter-status').value || 'DISPONÍVEL';
+        var params = { status: statusVal };
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            var data = self._unwrap(resp);
+            self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+            self._applyFilters();
+          })
+          .withFailureHandler(function (err) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            self._showToast('Erro ao carregar estoque: ' + (err.message || err), 'error');
+          })
+          .apiDispatch('estoque.getItems', params);
+      }
+
+      _unwrap(resp) {
+        if (!resp) return null;
+        if (resp.data && resp.data.data !== undefined) return resp.data.data;
+        if (resp.data !== undefined) return resp.data;
+        return resp;
+      }
+
+      _sync() {
+        var self = this;
+        var btn = this._el('btn-sync');
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Sincronizando...';
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            var data = self._unwrap(resp);
+            var msg = 'Sincronizado!';
+            if (data && data.itemsImportados != null) {
+              msg = data.itemsImportados + ' item(ns) importado(s).';
+            }
+            self._showToast(msg, 'success');
+            self._load();
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            self._showToast('Erro ao sincronizar: ' + (err.message || err), 'error');
+          })
+          .apiDispatch('estoque.sincronizar', {});
+      }
+
+      _applyFilters() {
+        var codigo = (this._el('filter-codigo').value || '').toLowerCase().trim();
+        var status = this._el('filter-status').value;
+
+        var items = this._items;
+        if (status) {
+          items = items.filter(function (it) {
+            return (it.STATUS || '').toUpperCase() === status.toUpperCase();
+          });
+        }
+        if (codigo) {
+          items = items.filter(function (it) {
+            return ((it.CODIGO_PRODUTO || '') + ' ' + (it.DESCRICAO_PRODUTO || '')).toLowerCase().indexOf(codigo) !== -1;
+          });
+        }
+
+        this._filtered = items;
+        this._render();
+      }
+
+      _onSort(field) {
+        if (this._sortField === field) {
+          this._sortOrder = this._sortOrder === 'asc' ? 'desc' : 'asc';
+        } else {
+          this._sortField = field;
+          this._sortOrder = 'asc';
+        }
+        this._applyFilters();
+        this._updateSortArrows();
+      }
+
+      _updateSortArrows() {
+        var ths = this._shadow.querySelectorAll('th[data-sort]');
+        for (var i = 0; i < ths.length; i++) {
+          var arrow = ths[i].querySelector('.sort-arrow');
+          if (ths[i].getAttribute('data-sort') === this._sortField) {
+            arrow.textContent = this._sortOrder === 'asc' ? '\u25B2' : '\u25BC';
+          } else {
+            arrow.textContent = '';
+          }
+        }
+      }
+
+      _sortItems(items) {
+        var field = this._sortField;
+        var order = this._sortOrder;
+        var sortMap = {
+          'estoque_id': 'ESTOQUE_ID',
+          'data_entrada': 'DATA_ENTRADA',
+          'preco_custo': 'PRECO_CUSTO_ORIGINAL',
+          'margem': 'MARGEM_SHOPEE'
+        };
+        var key = sortMap[field] || 'DATA_ENTRADA';
+
+        return items.slice().sort(function (a, b) {
+          var valA = a[key];
+          var valB = b[key];
+          if (key === 'DATA_ENTRADA') {
+            valA = new Date(valA || 0).getTime();
+            valB = new Date(valB || 0).getTime();
+          } else {
+            valA = parseFloat(valA) || 0;
+            valB = parseFloat(valB) || 0;
+          }
+          return order === 'asc' ? valA - valB : valB - valA;
+        });
+      }
+
+      _render() {
+        var items = this._sortItems(this._filtered);
+        var tbody = this._el('estoque-tbody');
+        var loadingEl = this._el('loading-state');
+        if (loadingEl) loadingEl.style.display = 'none';
+
+        this._updateStats(items);
+
+        if (!items.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Nenhum item encontrado.</td></tr>';
+          return;
+        }
+
+        var html = '';
+        for (var i = 0; i < items.length; i++) {
+          var it = items[i];
+          var id = it.ESTOQUE_ID || '';
+          var isOpen = this._openRows[id];
+          var badgeClass = STATUS_BADGE[it.STATUS] || 'badge-info';
+          var margem = it.MARGEM_SHOPEE;
+          var margemClass = '';
+          var margemText = '-';
+          if (margem !== '' && margem != null && margem !== undefined) {
+            var m = parseFloat(margem);
+            margemText = m.toFixed(1) + '%';
+            if (m > 30) margemClass = 'margem-positive';
+            else if (m >= 10) margemClass = 'margem-warning';
+            else margemClass = 'margem-negative';
+          }
+          var alertIcon = (it.ALERTA_ESTOQUE_BAIXO === true || it.ALERTA_ESTOQUE_BAIXO === 'true')
+            ? '<span class="alert-icon">\u26A0</span>' : '';
+          var custo = it.PRECO_CUSTO_ORIGINAL != null ? this._fmtCurrency(it.PRECO_CUSTO_ORIGINAL) : '-';
+          var precoShopee = it.PRECO_VENDA_SHOPEE != null && it.PRECO_VENDA_SHOPEE !== '' ? this._fmtCurrency(it.PRECO_VENDA_SHOPEE) : '-';
+          var precoML = it.PRECO_VENDA_MERCADO_LIVRE != null && it.PRECO_VENDA_MERCADO_LIVRE !== '' ? this._fmtCurrency(it.PRECO_VENDA_MERCADO_LIVRE) : '-';
+          var dataEntrada = it.DATA_ENTRADA ? this._fmtDate(it.DATA_ENTRADA) : '-';
+          var produto = '<div>' + (it.CODIGO_PRODUTO || '') + '</div><div style="color:var(--color-text-secondary);font-size:var(--font-size-xs)">' + (it.DESCRICAO_PRODUTO || '') + '</div>';
+
+          html += '<tr data-id="' + id + '" class="estoque-row' + (isOpen ? ' row-open' : '') + '">';
+          html += '<td>' + id + '</td>';
+          html += '<td>' + produto + '</td>';
+          html += '<td>' + dataEntrada + '</td>';
+          html += '<td>' + custo + '</td>';
+          html += '<td>' + precoShopee + '</td>';
+          html += '<td>' + precoML + '</td>';
+          html += '<td class="' + margemClass + '">' + margemText + '</td>';
+          html += '<td><span class="badge ' + badgeClass + '">' + (it.STATUS || '') + '</span></td>';
+          html += '<td>' + alertIcon + '</td>';
+          html += '</tr>';
+          html += '<tr class="detail-row' + (isOpen ? ' open' : '') + '" data-detail="' + id + '">';
+          html += '<td class="detail-cell" colspan="9">';
+          html += '<strong>Refer\u00EAncia origem:</strong> ' + (it.REFERENCIA_ORIGEM || '-') + ' &nbsp;|&nbsp; ';
+          html += '<strong>Sincronizado:</strong> ' + (it.DATA_SINCRONIZACAO ? this._fmtDate(it.DATA_SINCRONIZACAO) : '-') + ' &nbsp;|&nbsp; ';
+          html += '<strong>Log ID:</strong> ' + (it.LOG_ID || '-');
+          html += '</td></tr>';
+        }
+        tbody.innerHTML = html;
+
+        var self = this;
+        var rows = tbody.querySelectorAll('.estoque-row');
+        for (var r = 0; r < rows.length; r++) {
+          (function (row) {
+            row.addEventListener('click', function () {
+              var itemId = row.getAttribute('data-id');
+              self._openRows[itemId] = !self._openRows[itemId];
+              var detail = tbody.querySelector('[data-detail="' + itemId + '"]');
+              if (detail) {
+                detail.classList.toggle('open', self._openRows[itemId]);
+              }
+              row.classList.toggle('row-open', self._openRows[itemId]);
+            });
+          })(rows[r]);
+        }
+      }
+
+      _updateStats(items) {
+        var total = this._items.length;
+        var disponivel = 0;
+        var vendido = 0;
+        var alertas = 0;
+        for (var i = 0; i < this._items.length; i++) {
+          var st = (this._items[i].STATUS || '').toUpperCase();
+          if (st === 'DISPON\u00CDVEL') disponivel++;
+          else if (st === 'VENDIDO') vendido++;
+          if (this._items[i].ALERTA_ESTOQUE_BAIXO === true || this._items[i].ALERTA_ESTOQUE_BAIXO === 'true') {
+            alertas++;
+          }
+        }
+        this._el('stat-total').textContent = total;
+        this._el('stat-disponivel').textContent = disponivel;
+        this._el('stat-vendido').textContent = vendido;
+        this._el('stat-alertas').textContent = alertas;
+      }
+
+      _fmtCurrency(value) {
+        if (value == null || isNaN(value)) return '-';
+        try {
+          return FormatterService.formatCurrency(value);
+        } catch (e) {
+          return 'R$ ' + parseFloat(value).toFixed(2);
+        }
+      }
+
+      _fmtDate(value) {
+        if (!value) return '-';
+        try {
+          return FormatterService.formatDate(value);
+        } catch (e) {
+          return String(value);
+        }
+      }
+
+      _showToast(message, type) {
+        var toast = this._el('toast');
+        toast.textContent = message;
+        toast.className = 'toast ' + (type || 'info') + ' show';
+        setTimeout(function () {
+          toast.className = 'toast';
+        }, 4000);
+      }
+    }
+
+    customElements.define('estoque-widget', EstoqueWidget);
+  })();
+</script>

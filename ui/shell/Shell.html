@@ -15,6 +15,7 @@
         <button class="btn" data-route="nfeEntrada">NFe Entrada</button>
         <button class="btn" data-route="nfeEntradaProdutos">Entrada Produtos</button>
         <button class="btn" data-route="catalog">Catálogo</button>
+        <button class="btn" data-route="estoque">Estoque</button>
         <button class="btn" data-route="manualEntrada">Entrada Manual</button>
         <div style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
           <status-view></status-view>
@@ -41,6 +42,8 @@
     <?!= include('ui/nfeEntrada/NFeEntradaView'); ?>
     <?!= include('ui/nfeEntradaProdutos/NFeEntradaProdutosView'); ?>
     <?!= include('ui/catalog/CatalogView'); ?>
+    <?!= include('ui/estoque/EstoqueView'); ?>
+    <?!= include('ui/estoque/EstoquePrecoBulkView'); ?>
     <?!= include('ui/calculator/CalculatorView'); ?>
     <?!= include('ui/manualEntrada/ManualEntradaView'); ?>
     <?!= include('ui/manualEntrada/ManualEntradaListView'); ?>
@@ -59,6 +62,7 @@
         nfeEntrada: 'nfe-entrada-widget',
         nfeEntradaProdutos: 'nfe-entrada-produtos-widget',
         catalog: 'catalog-widget',
+        estoque: 'estoque-widget',
         manualEntrada: 'manual-entrada-list-widget'
       };
 

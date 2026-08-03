@@ -38,7 +38,9 @@ var ServiceRegistry = (function () {
     logging: safeRef_('logging', function () { return typeof LoggingService !== 'undefined' ? LoggingService : undefined; }),
     catalog: safeRef_('catalog', function () { return typeof CatalogService !== 'undefined' ? CatalogService : undefined; }),
     system: safeRef_('system', function () { return typeof StatusService !== 'undefined' ? StatusService : undefined; }),
-    manualEntrada: safeRef_('manualEntrada', function () { return typeof ManualEntradaService !== 'undefined' ? ManualEntradaService : undefined; })
+    manualEntrada: safeRef_('manualEntrada', function () { return typeof ManualEntradaService !== 'undefined' ? ManualEntradaService : undefined; }),
+    estoque: safeRef_('estoque', function () { return typeof EstoqueService !== 'undefined' ? EstoqueService : undefined; }),
+    estoquePreco: safeRef_('estoquePreco', function () { return typeof EstoquePrecoService !== 'undefined' ? EstoquePrecoService : undefined; })
   };
 
   function listActions() {
