@@ -3,6 +3,7 @@
  * Busca pedidos nos status operacionais (UNPAID, READY_TO_SHIP, SHIPPED) e
  * também em COMPLETED/CANCELLED para manter histórico atualizado.
  * Faz upsert: insere novos e atualiza status dos existentes.
+ * Dados financeiros via shopee_get_escrow_detail (comissão, taxa serviço, líquido).
  * Regras completas em specs/orders-import.md.
  *
  * Logging: toda etapa é auditada via LoggingService (sync) — cada chamada
@@ -172,7 +173,53 @@ var OrdersImportService = (function () {
     return detail;
   }
 
-  function normalizeOrder_(detail) {
+  function getEscrowDetail_(orderSn) {
+    var startTime = Date.now();
+    var result = callTiops_('shopee_get_escrow_detail', {
+      order_sn: orderSn
+    });
+
+    if (!result) {
+      LoggingService.log({
+        service: 'OrdersImport',
+        action: 'getEscrowDetail',
+        status: 'ERROR',
+        caller: 'OrdersImportService',
+        summary: 'shopee_get_escrow_detail[' + orderSn + '] retornou null',
+        durationMs: Date.now() - startTime,
+        errorMessage: 'empty result',
+        context: { orderSn: orderSn }
+      });
+      return null;
+    }
+
+    var response = result.response || result;
+    var income = response.order_income || null;
+
+    LoggingService.log({
+      service: 'OrdersImport',
+      action: 'getEscrowDetail',
+      status: income ? 'OK' : 'ERROR',
+      caller: 'OrdersImportService',
+      summary: 'shopee_get_escrow_detail[' + orderSn + '] => ' + (income ? 'OK (escrow=' + (income.escrow_amount || 0) + ')' : 'no income data'),
+      durationMs: Date.now() - startTime,
+      errorMessage: income ? '' : 'order_income not found',
+      context: {
+        orderSn: orderSn,
+        found: !!income,
+        escrowAmount: income ? income.escrow_amount : '',
+        commissionFee: income ? income.commission_fee : '',
+        netCommissionFee: income ? income.net_commission_fee : '',
+        serviceFee: income ? income.service_fee : '',
+        netServiceFee: income ? income.net_service_fee : '',
+        rawResponseKeys: Object.keys(response)
+      }
+    });
+
+    return income;
+  }
+
+  function normalizeOrder_(detail, escrow) {
     if (!detail) return null;
 
     var items = detail.item_list || [];
@@ -185,7 +232,7 @@ var OrdersImportService = (function () {
 
     var addr = detail.recipient_address || {};
 
-    return {
+    var order = {
       ORDER_ID: detail.order_sn || '',
       STATUS: detail.order_status || '',
       TOTAL_AMOUNT: Number(detail.total_amount) || 0,
@@ -210,6 +257,20 @@ var OrdersImportService = (function () {
       CREATE_TIME: formatDateTime_(detail.create_time),
       MARKETPLACE: 'shopee'
     };
+
+    if (escrow) {
+      order.ESCROW_AMOUNT = Number(escrow.escrow_amount) || 0;
+      order.COMMISSION_FEE = Number(escrow.commission_fee) || 0;
+      order.NET_COMMISSION_FEE = Number(escrow.net_commission_fee) || 0;
+      order.SERVICE_FEE = Number(escrow.service_fee) || 0;
+      order.NET_SERVICE_FEE = Number(escrow.net_service_fee) || 0;
+      order.PIX_DISCOUNT = Number(escrow.pix_discount) || 0;
+      order.SELLER_REBATE = Number(escrow.seller_product_rebate && escrow.seller_product_rebate.amount) || 0;
+      order.SELLER_REBATE_COMMISSION_OFFSET = Number(escrow.seller_product_rebate && escrow.seller_product_rebate.commission_fee_offset) || 0;
+      order.SELLER_REBATE_SERVICE_OFFSET = Number(escrow.seller_product_rebate && escrow.seller_product_rebate.service_fee_offset) || 0;
+    }
+
+    return order;
   }
 
   function importShopeeOrders(params) {
@@ -320,7 +381,23 @@ var OrdersImportService = (function () {
       var sn = uniqueSns[j];
       try {
         var detail = getOrderDetail_(sn);
-        var normalized = normalizeOrder_(detail);
+        var escrow = null;
+        try {
+          escrow = getEscrowDetail_(sn);
+        } catch (escrowErr) {
+          LoggingService.log({
+            service: 'OrdersImport',
+            action: 'getEscrowDetail',
+            status: 'WARN',
+            caller: 'OrdersImportService',
+            summary: 'Escrow não disponível para ' + sn + ': ' + escrowErr.message,
+            durationMs: Date.now() - importStart,
+            errorMessage: escrowErr.message,
+            context: { orderSn: sn }
+          });
+        }
+
+        var normalized = normalizeOrder_(detail, escrow);
         if (normalized) {
           toUpsert.push(normalized);
           detailSuccess++;
