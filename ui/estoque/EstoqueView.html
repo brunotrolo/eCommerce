@@ -569,11 +569,13 @@
         var alertas = 0;
         for (var i = 0; i < this._items.length; i++) {
           var st = (this._items[i].STATUS || '').toUpperCase();
-          if (st === 'DISPONIVEL') disponivel++;
-          else if (st === 'VENDIDO') vendido++;
+          var stNorm = st.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          if (stNorm === 'DISPONIVEL') disponivel++;
+          else if (stNorm === 'VENDIDO') vendido++;
           if (this._items[i].ALERTA_ESTOQUE_BAIXO === true || this._items[i].ALERTA_ESTOQUE_BAIXO === 'true') {
             alertas++;
           }
+        }
         }
         this._el('stat-total').textContent = total;
         this._el('stat-disponivel').textContent = disponivel;
