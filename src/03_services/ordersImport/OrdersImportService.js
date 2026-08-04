@@ -61,12 +61,18 @@ var OrdersImportService = (function () {
       };
     }
 
-    var imported = 0;
+    var existingIds = OrdersRepository.getAllOrderIds();
+    var existingSet = {};
+    for (var i = 0; i < existingIds.length; i++) {
+      existingSet[existingIds[i]] = true;
+    }
+
+    var newOrders = [];
     var duplicates = 0;
     var errors = [];
 
-    for (var i = 0; i < orders.length; i++) {
-      var order = orders[i];
+    for (var j = 0; j < orders.length; j++) {
+      var order = orders[j];
       var orderId = String(order.order_id || '').trim();
 
       if (!orderId) {
@@ -74,16 +80,21 @@ var OrdersImportService = (function () {
         continue;
       }
 
+      if (existingSet[orderId]) {
+        duplicates++;
+      } else {
+        newOrders.push(order);
+        existingSet[orderId] = true;
+      }
+    }
+
+    var imported = 0;
+    if (newOrders.length > 0) {
       try {
-        var existing = OrdersRepository.getByOrderId(orderId);
-        if (existing) {
-          duplicates++;
-        } else {
-          OrdersRepository.insertOrder(order);
-          imported++;
-        }
+        var result = OrdersRepository.insertOrdersBulk(newOrders);
+        imported = result.inserted || newOrders.length;
       } catch (e) {
-        errors.push({ orderId: orderId, reason: e.message || 'Erro ao gravar' });
+        errors.push({ orderId: '(batch)', reason: e.message || 'Erro ao gravar em lote' });
       }
     }
 

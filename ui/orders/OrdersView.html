@@ -19,6 +19,7 @@
         <button class="btn btn--primary" id="btn-sync-shopee">Sincronizar Pedidos Shopee</button>
       </div>
       <div class="alert alert-error" id="error-box" hidden></div>
+      <div class="alert alert-success" id="toast-box" hidden></div>
       <div id="result-box" hidden></div>
     </div>
     <div class="card table-container">
@@ -77,6 +78,7 @@
       _syncShopee(shadow) {
         var ds = window.__DataStore;
         var self = this;
+        var toastBox = shadow.getElementById('toast-box');
 
         withLoading(
           shadow.getElementById('btn-sync-shopee'),
@@ -91,11 +93,11 @@
               if (data.errors && data.errors.length > 0) {
                 msg += ' (' + data.errors.length + ' erros)';
               }
-              alert(msg);
+              showToast(shadow, msg);
               if (ds) ds.invalidate('orders.all.30');
               self._load(shadow, true);
             } else {
-              alert('Erro: ' + (data && data.message ? data.message : 'Falha na importação.'));
+              showToast(shadow, 'Erro: ' + (data && data.message ? data.message : 'Falha na importação.'), true);
             }
           },
           'Sincronizando pedidos Shopee...'
@@ -103,16 +105,33 @@
       }
     }
 
+    function escapeHtml_(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showToast(shadow, msg, isError) {
+      var toast = shadow.getElementById('toast-box');
+      toast.textContent = msg;
+      toast.className = isError ? 'alert alert-error' : 'alert alert-success';
+      toast.hidden = false;
+      setTimeout(function () { toast.hidden = true; }, 5000);
+    }
+
     function renderRows(shadow, orders) {
       var tbody = shadow.querySelector('#orders-table tbody');
       tbody.innerHTML = orders
         .map(function (o) {
           return (
-            '<tr><td>' + o.id + '</td><td><span class="badge badge-' +
-            (o.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' + o.marketplace + '</span></td>' +
-            '<td>' + o.status + '</td><td>' + (o.buyerName || '-') + '</td>' +
+            '<tr><td>' + escapeHtml_(o.id) + '</td><td><span class="badge badge-' +
+            (o.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' + escapeHtml_(o.marketplace) + '</span></td>' +
+            '<td>' + escapeHtml_(o.status) + '</td><td>' + escapeHtml_(o.buyerName || '-') + '</td>' +
             '<td>' + (o.total != null ? FormatterService.formatCurrency(o.total) : '-') + '</td>' +
-            '<td>' + (o.createdAt || '-') + '</td></tr>'
+            '<td>' + escapeHtml_(o.createdAt || '-') + '</td></tr>'
           );
         })
         .join('') || '<tr><td colspan="6">Nenhum pedido encontrado.</td></tr>';

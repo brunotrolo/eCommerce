@@ -5,32 +5,49 @@
  */
 var OrdersRepository = (function () {
   var SHEET_NAME = 'PEDIDOS';
+  var _sheetCache = null;
+  var _sheetCacheTs = 0;
+  var SHEET_CACHE_TTL = 30000;
 
   function getOrCreateSheet() {
+    var now = Date.now();
+    if (_sheetCache && (now - _sheetCacheTs) < SHEET_CACHE_TTL) {
+      return _sheetCache;
+    }
     var ss = SpreadsheetApp.openById(ConfigService.getSheetId());
     var sheet = ss.getSheetByName(SHEET_NAME);
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME);
       sheet.setFrozenRows(1);
     }
+    _sheetCache = sheet;
+    _sheetCacheTs = now;
     return sheet;
   }
 
-  function getHeaders_() {
+  function getAllOrderIds() {
     var sheet = getOrCreateSheet();
+    var lastRow = sheet.getLastRow();
     var lastCol = sheet.getLastColumn();
-    if (lastCol === 0) return [];
-    return sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  }
+    if (lastRow < 2 || lastCol === 0) return [];
 
-  function getColumnMap_() {
-    var headers = getHeaders_();
-    var map = {};
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var orderIdCol = -1;
     for (var i = 0; i < headers.length; i++) {
-      var h = String(headers[i]).trim();
-      if (h) map[h] = i + 1;
+      if (String(headers[i]).trim() === 'order_id') {
+        orderIdCol = i + 1;
+        break;
+      }
     }
-    return map;
+    if (orderIdCol === -1) return [];
+
+    var allIds = sheet.getRange(2, orderIdCol, lastRow - 1, 1).getValues();
+    var ids = [];
+    for (var j = 0; j < allIds.length; j++) {
+      var v = String(allIds[j][0]).trim();
+      if (v) ids.push(v);
+    }
+    return ids;
   }
 
   function getByOrderId(orderId) {
@@ -63,22 +80,29 @@ var OrdersRepository = (function () {
     return null;
   }
 
-  function insertOrder(order) {
+  function insertOrdersBulk(orders) {
+    if (!orders || orders.length === 0) return { success: true, inserted: 0 };
+
     var sheet = getOrCreateSheet();
     var lastCol = sheet.getLastColumn();
 
     if (lastCol === 0) {
-      var keys = Object.keys(order);
-      sheet.getRange(1, 1, 1, keys.length).setValues([keys]);
-      for (var h = 0; h < keys.length; h++) {
+      var allKeys = [];
+      var keySet = {};
+      for (var a = 0; a < orders.length; a++) {
+        var keys = Object.keys(orders[a]);
+        for (var b = 0; b < keys.length; b++) {
+          if (!keySet[keys[b]]) {
+            keySet[keys[b]] = true;
+            allKeys.push(keys[b]);
+          }
+        }
+      }
+      sheet.getRange(1, 1, 1, allKeys.length).setValues([allKeys]);
+      for (var h = 0; h < allKeys.length; h++) {
         sheet.getRange(1, h + 1).setFontWeight('bold').setBackground('#f0f0f0');
       }
-      var values = [];
-      for (var v = 0; v < keys.length; v++) {
-        values.push(order[keys[v]]);
-      }
-      sheet.getRange(2, 1, 1, keys.length).setValues([values]);
-      return { success: true, rowNumber: 2 };
+      lastCol = allKeys.length;
     }
 
     var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
@@ -87,33 +111,45 @@ var OrdersRepository = (function () {
       existingHeaders[String(headers[e]).trim()] = e + 1;
     }
 
-    var newKeys = Object.keys(order);
-    var missingHeaders = [];
-    for (var m = 0; m < newKeys.length; m++) {
-      if (!existingHeaders[newKeys[m]]) {
-        missingHeaders.push(newKeys[m]);
+    var allNewKeys = {};
+    for (var n = 0; n < orders.length; n++) {
+      var oKeys = Object.keys(orders[n]);
+      for (var p = 0; p < oKeys.length; p++) {
+        if (!existingHeaders[oKeys[p]] && !allNewKeys[oKeys[p]]) {
+          allNewKeys[oKeys[p]] = true;
+        }
       }
     }
 
+    var missingHeaders = Object.keys(allNewKeys);
     if (missingHeaders.length > 0) {
       var startCol = lastCol + 1;
       sheet.getRange(1, startCol, 1, missingHeaders.length).setValues([missingHeaders]);
-      for (var n = 0; n < missingHeaders.length; n++) {
-        existingHeaders[missingHeaders[n]] = startCol + n;
+      for (var q = 0; q < missingHeaders.length; q++) {
+        existingHeaders[missingHeaders[q]] = startCol + q;
       }
       lastCol = sheet.getLastColumn();
       headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
     }
 
-    var newRow = sheet.getLastRow() + 1;
-    var rowValues = [];
-    for (var r = 0; r < headers.length; r++) {
-      var key = String(headers[r]).trim();
-      rowValues.push(order[key] !== undefined ? order[key] : '');
+    var matrix = [];
+    for (var r = 0; r < orders.length; r++) {
+      var row = [];
+      for (var s = 0; s < headers.length; s++) {
+        var key = String(headers[s]).trim();
+        row.push(orders[r][key] !== undefined ? orders[r][key] : '');
+      }
+      matrix.push(row);
     }
-    sheet.getRange(newRow, 1, 1, rowValues.length).setValues([rowValues]);
 
-    return { success: true, rowNumber: newRow };
+    var newRow = sheet.getLastRow() + 1;
+    sheet.getRange(newRow, 1, matrix.length, headers.length).setValues(matrix);
+
+    return { success: true, inserted: matrix.length };
+  }
+
+  function insertOrder(order) {
+    return insertOrdersBulk([order]);
   }
 
   function getAll() {
@@ -138,7 +174,9 @@ var OrdersRepository = (function () {
 
   return {
     getOrCreateSheet: getOrCreateSheet,
+    getAllOrderIds: getAllOrderIds,
     getByOrderId: getByOrderId,
+    insertOrdersBulk: insertOrdersBulk,
     insertOrder: insertOrder,
     getAll: getAll
   };
