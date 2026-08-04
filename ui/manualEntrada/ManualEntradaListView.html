@@ -172,6 +172,7 @@
         self._entries = cached.data.entries || [];
         self._filtered = self._entries.slice();
         self._render();
+        return;
       }
 
       self.shadowRoot.getElementById('content').innerHTML = '<div class="loading">Carregando...</div>';
@@ -188,10 +189,8 @@
           self._render();
         })
         .withFailureHandler(function (e) {
-          if (!cached) {
-            self.shadowRoot.getElementById('content').innerHTML =
-              '<div class="empty-state"><p>Erro ao carregar: ' + e.message + '</p></div>';
-          }
+          self.shadowRoot.getElementById('content').innerHTML =
+            '<div class="empty-state"><p>Erro ao carregar: ' + e.message + '</p></div>';
         })
         .apiDispatch('manualEntrada.listEntries', { limit: 500 });
     }
