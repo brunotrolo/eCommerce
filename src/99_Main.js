@@ -455,6 +455,10 @@ function runCatalogSmokeTests_() {
   Logger.log('OK — todos os smoke tests de Catalog passaram.');
 }
 
+function forceImportOrders_(orderSns) {
+  return OrdersImportService.importShopeeOrders({ forceOrderSns: orderSns });
+}
+
 function runCalculatorSmokeTests_() {
   var failures = [];
 
