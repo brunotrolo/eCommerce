@@ -45,6 +45,25 @@ var OrdersImportService = (function () {
     }
   }
 
+  function formatDateTime_(ts) {
+    if (!ts) return '';
+    var d;
+    if (typeof ts === 'number' && ts > 1000000000) {
+      d = new Date(ts * 1000);
+    } else if (typeof ts === 'string') {
+      d = new Date(ts);
+    } else {
+      return String(ts);
+    }
+    if (isNaN(d.getTime())) return String(ts);
+    var dd = ('0' + d.getDate()).slice(-2);
+    var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+    var yyyy = d.getFullYear();
+    var hh = ('0' + d.getHours()).slice(-2);
+    var mi = ('0' + d.getMinutes()).slice(-2);
+    return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
+  }
+
   function listOrderSnsByStatus_(orderStatus) {
     var startTime = Date.now();
     var result = callTiops_('shopee_list_orders', {
@@ -147,9 +166,7 @@ var OrdersImportService = (function () {
     var total = Number(detail.total_amount) || 0;
     var buyer = detail.buyer_username || '';
     var createdAt = detail.create_time || 0;
-    if (typeof createdAt === 'number' && createdAt > 1000000000) {
-      createdAt = new Date(createdAt * 1000).toISOString();
-    }
+    var createdAtFormatted = formatDateTime_(createdAt);
 
     var items = detail.item_list || [];
     var itemNames = [];
@@ -161,15 +178,15 @@ var OrdersImportService = (function () {
     var shippingFee = Number(detail.actual_shipping_fee) || 0;
 
     return {
-      order_id: orderId,
-      status: status,
-      total_amount: total,
-      buyer_username: buyer,
-      create_time: createdAt,
-      payment_method: paymentMethod,
-      shipping_fee: shippingFee,
-      item_names: itemNames.join(', '),
-      marketplace: 'shopee'
+      ORDER_ID: orderId,
+      STATUS: status,
+      TOTAL_AMOUNT: total,
+      BUYER_USERNAME: buyer,
+      CREATE_TIME: createdAtFormatted,
+      PAYMENT_METHOD: paymentMethod,
+      SHIPPING_FEE: shippingFee,
+      ITEM_NAMES: itemNames.join(', '),
+      MARKETPLACE: 'shopee'
     };
   }
 

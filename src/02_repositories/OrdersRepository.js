@@ -8,6 +8,11 @@
  */
 var OrdersRepository = (function () {
   var SHEET_NAME = 'PEDIDOS';
+  var HEADERS = [
+    'ORDER_ID', 'STATUS', 'TOTAL_AMOUNT', 'BUYER_USERNAME',
+    'CREATE_TIME', 'PAYMENT_METHOD', 'SHIPPING_FEE',
+    'ITEM_NAMES', 'MARKETPLACE'
+  ];
   var _sheetCache = null;
   var _sheetCacheTs = 0;
   var SHEET_CACHE_TTL = 30000;
@@ -21,6 +26,10 @@ var OrdersRepository = (function () {
     var sheet = ss.getSheetByName(SHEET_NAME);
     if (!sheet) {
       sheet = ss.insertSheet(SHEET_NAME);
+      sheet.appendRow(HEADERS);
+      for (var h = 0; h < HEADERS.length; h++) {
+        sheet.getRange(1, h + 1).setFontWeight('bold').setBackground('#f0f0f0');
+      }
       sheet.setFrozenRows(1);
     }
     _sheetCache = sheet;
@@ -37,7 +46,7 @@ var OrdersRepository = (function () {
     var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
     var orderIdCol = -1;
     for (var i = 0; i < headers.length; i++) {
-      if (String(headers[i]).trim() === 'order_id') {
+      if (String(headers[i]).trim() === 'ORDER_ID') {
         orderIdCol = i + 1;
         break;
       }
@@ -62,7 +71,7 @@ var OrdersRepository = (function () {
     var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
     var orderIdCol = -1;
     for (var i = 0; i < headers.length; i++) {
-      if (String(headers[i]).trim() === 'order_id') {
+      if (String(headers[i]).trim() === 'ORDER_ID') {
         orderIdCol = i + 1;
         break;
       }
@@ -89,25 +98,6 @@ var OrdersRepository = (function () {
     var startTime = Date.now();
     var sheet = getOrCreateSheet();
     var lastCol = sheet.getLastColumn();
-
-    if (lastCol === 0) {
-      var allKeys = [];
-      var keySet = {};
-      for (var a = 0; a < orders.length; a++) {
-        var keys = Object.keys(orders[a]);
-        for (var b = 0; b < keys.length; b++) {
-          if (!keySet[keys[b]]) {
-            keySet[keys[b]] = true;
-            allKeys.push(keys[b]);
-          }
-        }
-      }
-      sheet.getRange(1, 1, 1, allKeys.length).setValues([allKeys]);
-      for (var h = 0; h < allKeys.length; h++) {
-        sheet.getRange(1, h + 1).setFontWeight('bold').setBackground('#f0f0f0');
-      }
-      lastCol = allKeys.length;
-    }
 
     var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
     var existingHeaders = {};
@@ -164,7 +154,7 @@ var OrdersRepository = (function () {
         newHeadersAdded: missingHeaders.length,
         newHeaders: missingHeaders.slice(0, 10),
         startRow: newRow,
-        orderIds: orders.slice(0, 5).map(function (o) { return o.order_id || ''; })
+        orderIds: orders.slice(0, 5).map(function (o) { return o.ORDER_ID || ''; })
       }
     });
 
@@ -187,8 +177,8 @@ var OrdersRepository = (function () {
     var statusCol = -1;
     for (var i = 0; i < headers.length; i++) {
       var h = String(headers[i]).trim();
-      if (h === 'order_id') orderIdCol = i + 1;
-      if (h === 'status') statusCol = i + 1;
+      if (h === 'ORDER_ID') orderIdCol = i + 1;
+      if (h === 'STATUS') statusCol = i + 1;
     }
     if (orderIdCol === -1) return {};
 
@@ -273,7 +263,7 @@ var OrdersRepository = (function () {
 
     for (var i = 0; i < orders.length; i++) {
       var order = orders[i];
-      var orderId = String(order.order_id || order.order_sn || '').trim();
+      var orderId = String(order.ORDER_ID || '').trim();
       if (!orderId) {
         skipped++;
         continue;
@@ -281,20 +271,20 @@ var OrdersRepository = (function () {
 
       var existing = existingMap[orderId];
       if (existing) {
-        if (existing.status && order.status && existing.status !== order.status) {
-          updateOrderRow(existing.rowNumber, { status: order.status });
+        if (existing.status && order.STATUS && existing.status !== order.STATUS) {
+          updateOrderRow(existing.rowNumber, { STATUS: order.STATUS });
           updated++;
           updateDetails.push({
             orderId: orderId,
             from: existing.status,
-            to: order.status,
+            to: order.STATUS,
             row: existing.rowNumber
           });
         }
       } else {
         toInsert.push(order);
         insertIds.push(orderId);
-        existingMap[orderId] = { rowNumber: -1, status: order.status || '' };
+        existingMap[orderId] = { rowNumber: -1, status: order.STATUS || '' };
       }
     }
 
@@ -347,6 +337,8 @@ var OrdersRepository = (function () {
   }
 
   return {
+    SHEET_NAME: SHEET_NAME,
+    HEADERS: HEADERS,
     getOrCreateSheet: getOrCreateSheet,
     getAllOrderIds: getAllOrderIds,
     getByOrderId: getByOrderId,

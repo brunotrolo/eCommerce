@@ -55,16 +55,14 @@ var OrdersService = (function () {
       };
     }
 
-    var marketplace = row.marketplace || 'shopee';
-    var orderId = row.order_id || row.order_sn || row.id || '';
-    var status = row.status || '';
-    var total = Number(row.total_amount || row.total || 0);
-    var buyerName = row.buyer_username || row.buyerName || row.buyer_name || '';
-    var createdAt = row.create_time || row.createdAt || row.created_at || '';
-
-    if (typeof createdAt === 'number' && createdAt > 1000000000) {
-      createdAt = new Date(createdAt * 1000).toISOString();
-    }
+    var marketplace = row.MARKETPLACE || row.marketplace || 'shopee';
+    var orderId = row.ORDER_ID || row.order_id || row.order_sn || row.id || '';
+    var status = row.STATUS || row.status || '';
+    var total = Number(row.TOTAL_AMOUNT || row.total_amount || row.total || 0);
+    var buyerName = row.BUYER_USERNAME || row.buyer_username || row.buyerName || row.buyer_name || '';
+    var createdAt = row.CREATE_TIME || row.create_time || row.createdAt || row.created_at || '';
+    var paymentMethod = row.PAYMENT_METHOD || row.payment_method || row.paymentMethod || '';
+    var itemNames = row.ITEM_NAMES || row.item_names || row.itemNames || '';
 
     return {
       id: String(orderId),
@@ -74,8 +72,8 @@ var OrdersService = (function () {
       total: total,
       buyerName: buyerName,
       createdAt: createdAt,
-      paymentMethod: row.payment_method || row.paymentMethod || '',
-      itemNames: row.item_names || row.itemNames || ''
+      paymentMethod: paymentMethod,
+      itemNames: itemNames
     };
   }
 
