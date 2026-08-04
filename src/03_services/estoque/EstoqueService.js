@@ -67,9 +67,24 @@ var EstoqueService = (function () {
           returns: { success: 'boolean', updated: 'number', perda_total: 'number' }
         },
         sincronizar: {
-          description: 'Processa import pendentes de NFE e MANUAL.',
+          description: 'Sincroniza todas as NFs e entradas manuais pendentes em uma única chamada.',
           params: {},
           returns: { success: 'boolean', itemsImportados: 'number', itemsSincronizados: 'number' }
+        },
+        sincronizarPreparar: {
+          description: 'Prepara o plano de sincronização: lista NFs e entradas manuais pendentes de importação (passo a passo).',
+          params: {},
+          returns: { success: 'boolean', nfes: 'array', manuais: 'array', totalPassos: 'number' }
+        },
+        sincronizarPasso: {
+          description: 'Executa UM passo da sincronização: importa 1 NF (tipo=nf) ou 1 entrada manual (tipo=manual).',
+          params: {
+            tipo: { type: 'string', required: true, values: ['nf', 'manual'] },
+            numeroNf: { type: 'string', requiredIf: 'tipo=nf' },
+            chaveNf: { type: 'string', optional: true },
+            logId: { type: 'string', requiredIf: 'tipo=manual' }
+          },
+          returns: { success: 'boolean', passoTipo: 'string', itemsImported: 'number' }
         },
         updateItem: {
           description: 'Atualiza precoShopee, precoMercadoLivre e/ou status de um item. Preços propagam para todos DISPONÍVEL do mesmo produto.',
@@ -248,6 +263,8 @@ var EstoqueService = (function () {
       var r = allRows[i];
       var status = String(r.STATUS || '').trim().toLowerCase();
       if (status !== 'recebido') continue;
+
+      if (params.logId && String(r.LOG_ID || '').trim() !== String(params.logId).trim()) continue;
 
       var qty = parseInt(r.QUANTIDADE) || 1;
       var custo = parseFloat(r.VALOR_UNITARIO_LIQUIDO) || parseFloat(r.VALOR_UNITARIO) || 0;
@@ -520,6 +537,106 @@ var EstoqueService = (function () {
       itemsImportados: totalImportados,
       itemsSincronizados: totalSincronizados
     };
+  }
+
+  function sincronizarPreparar() {
+    var startTime = Date.now();
+    var sheetId = getSheetId_();
+    if (!sheetId) {
+      traceError_('sincronizarPreparar', 'Sheet ID nao configurado', {});
+      return { error: 'Sheet ID não configurado.' };
+    }
+
+    var allNfeRows = NFeEntradaProdutosRepository.getProdutos(sheetId);
+    var existingItems = EstoqueRepository.getRows(sheetId);
+    var existingRefs = {};
+    for (var i = 0; i < existingItems.length; i++) {
+      existingRefs[existingItems[i].REFERENCIA_ORIGEM] = true;
+    }
+
+    var nfGroups = {};
+    for (var j = 0; j < allNfeRows.length; j++) {
+      var r = allNfeRows[j];
+      var status = String(r.STATUS || '').trim().toLowerCase();
+      if (status !== 'recebido') continue;
+      var numNf = String(r.NUMERO_NF || '').trim();
+      if (!numNf) continue;
+      if (!nfGroups[numNf]) nfGroups[numNf] = { chaveNf: r.CHAVE_NF || '', items: 0 };
+      nfGroups[numNf].items++;
+    }
+
+    var nfes = [];
+    var nfKeys = Object.keys(nfGroups);
+    for (var k = 0; k < nfKeys.length; k++) {
+      var ref = 'NF#' + nfKeys[k];
+      if (existingRefs[ref]) continue;
+      nfes.push({ numeroNf: nfKeys[k], chaveNf: nfGroups[nfKeys[k]].chaveNf, itens: nfGroups[nfKeys[k]].items });
+    }
+
+    var manuais = [];
+    var allManualRows = ManualEntradaProdutosRepository.getRows(sheetId);
+    var seenLogs = {};
+    for (var m = 0; m < allManualRows.length; m++) {
+      var rm = allManualRows[m];
+      var statusM = String(rm.STATUS || '').trim().toLowerCase();
+      if (statusM !== 'recebido') continue;
+      var logId = String(rm.LOG_ID || '').trim();
+      if (!logId) continue;
+      if (seenLogs[logId]) continue;
+      seenLogs[logId] = true;
+      var refMan = 'MAN#' + logId;
+      if (existingRefs[refMan]) continue;
+      manuais.push({ logId: logId });
+    }
+
+    var totalPassos = nfes.length + manuais.length;
+    var duration = Date.now() - startTime;
+    trace_('sincronizarPreparar', totalPassos + ' passo(s) pendente(s): ' + nfes.length + ' NF(s) + ' + manuais.length + ' manual(is)', {
+      nfes: nfes.map(function (n) { return n.numeroNf; }),
+      manuais: manuais.map(function (m) { return m.logId; }),
+      totalPassos: totalPassos,
+      durationMs: duration
+    });
+
+    return { success: true, nfes: nfes, manuais: manuais, totalPassos: totalPassos };
+  }
+
+  function sincronizarPasso(params) {
+    var startTime = Date.now();
+    var sheetId = getSheetId_();
+    if (!sheetId) {
+      traceError_('sincronizarPasso', 'Sheet ID nao configurado', { params: params });
+      return { error: 'Sheet ID não configurado.' };
+    }
+
+    params = params || {};
+    var tipo = String(params.tipo || '').trim().toLowerCase();
+
+    if (tipo === 'nf') {
+      var numeroNf = String(params.numeroNf || '').trim();
+      if (!numeroNf) return { error: 'numeroNf é obrigatório para tipo=nf.' };
+      var result = importarDeNfe({ numeroNf: numeroNf, chaveNf: String(params.chaveNf || '').trim() });
+      if (result && result.error) return result;
+      var imported = (result && result.itemsImported) ? result.itemsImported : 0;
+      trace_('sincronizarPasso', 'Passo NF#' + numeroNf + ': ' + imported + ' unidade(s)', {
+        passoTipo: 'nf', numeroNf: numeroNf, itemsImported: imported, durationMs: Date.now() - startTime
+      });
+      return { success: true, passoTipo: 'nf', numeroNf: numeroNf, itemsImported: imported };
+    }
+
+    if (tipo === 'manual') {
+      var logId = String(params.logId || '').trim();
+      if (!logId) return { error: 'logId é obrigatório para tipo=manual.' };
+      var resultM = importarDeManualEntrada({ logId: logId });
+      if (resultM && resultM.error) return resultM;
+      var importedM = (resultM && resultM.itemsImported) ? resultM.itemsImported : 0;
+      trace_('sincronizarPasso', 'Passo MAN#' + logId + ': ' + importedM + ' unidade(s)', {
+        passoTipo: 'manual', logId: logId, itemsImported: importedM, durationMs: Date.now() - startTime
+      });
+      return { success: true, passoTipo: 'manual', logId: logId, itemsImported: importedM };
+    }
+
+    return { error: 'tipo inválido: use "nf" ou "manual".' };
   }
 
   function updateItem(params) {
@@ -824,6 +941,8 @@ var EstoqueService = (function () {
     getPrecosCatalogo: getPrecosCatalogo,
     sincronizarPrecosCatalogo: sincronizarPrecosCatalogo,
     sincronizar: sincronizar,
+    sincronizarPreparar: sincronizarPreparar,
+    sincronizarPasso: sincronizarPasso,
     getEstoqueAtualPorProduto: getEstoqueAtualPorProduto
   };
 })();

@@ -53,6 +53,57 @@
     .row-edited td { background: var(--color-info-light) !important; }
     .header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
     .header-actions { display: flex; align-items: center; gap: var(--space-sm); }
+
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      width: 95vw; max-width: 480px;
+      padding: var(--space-xl);
+      box-shadow: var(--shadow-lg);
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: var(--space-lg);
+    }
+    .modal-header h2 {
+      margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-bold);
+      color: var(--color-text);
+    }
+    .btn-close {
+      background: none; border: none; cursor: pointer;
+      font-size: var(--font-size-lg); color: var(--color-text-secondary);
+      padding: var(--space-xs); border-radius: var(--radius-xs);
+    }
+    .btn-close:hover { background: var(--color-surface-hover); }
+    .btn-close:disabled { cursor: default; opacity: 0.4; }
+    .sync-status {
+      font-size: var(--font-size-base); font-weight: var(--font-weight-medium);
+      color: var(--color-text); margin-bottom: var(--space-xs);
+    }
+    .sync-stage {
+      font-size: var(--font-size-sm); color: var(--color-text-secondary);
+      margin-bottom: var(--space-sm); min-height: 1.2em;
+    }
+    .progress-track {
+      height: 8px; border-radius: var(--radius-full);
+      background: var(--color-surface-alt); overflow: hidden;
+      margin-bottom: var(--space-md);
+    }
+    .progress-fill {
+      height: 100%; width: 0%;
+      background: var(--color-primary);
+      border-radius: var(--radius-full);
+      transition: width 0.25s ease;
+    }
+    .sync-summary { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
   </style>
   <div class="container">
     <div class="header">
@@ -102,6 +153,19 @@
     <div id="result-box" hidden></div>
   </div>
   <div class="toast" id="toast"></div>
+
+  <div class="modal-overlay" id="sync-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Sincronizando Estoque</h2>
+        <button class="btn-close" id="btn-sync-close" title="Fechar">&times;</button>
+      </div>
+      <div class="sync-status" id="sync-status">Preparando sincronização...</div>
+      <div class="sync-stage" id="sync-stage"></div>
+      <div class="progress-track"><div class="progress-fill" id="sync-progress"></div></div>
+      <div class="sync-summary" id="sync-summary"></div>
+    </div>
+  </div>
 </template>
 <script>
   (function () {
@@ -141,6 +205,9 @@
         var self = this;
         shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(); });
         shadow.getElementById('btn-sync-prices').addEventListener('click', function () { self._syncPrecos(); });
+        shadow.getElementById('btn-sync-close').addEventListener('click', function () {
+          shadow.getElementById('sync-overlay').classList.remove('open');
+        });
         shadow.getElementById('filter-codigo').addEventListener('input', function () { self._applyFilters(); });
         shadow.getElementById('filter-status').addEventListener('change', function () { self._applyFilters(); });
 
@@ -190,28 +257,117 @@
       _sync() {
         var self = this;
         var btn = this._el('btn-sync');
-        var originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'Sincronizando...';
+        var overlay = this._el('sync-overlay');
+        var closeBtn = this._el('btn-sync-close');
+        var statusEl = this._el('sync-status');
+        var stageEl = this._el('sync-stage');
+        var summaryEl = this._el('sync-summary');
+        var fill = this._el('sync-progress');
+
+        var totalPassos = 0;
+        var passoAtual = 0;
+        var totalImportado = 0;
+        var fila = [];
+        var encerrado = false;
+
+        function setStatus(text) { statusEl.textContent = text; }
+        function setStage(text) { stageEl.textContent = text; }
+        function setSummary(text) { summaryEl.textContent = text; }
+        function setProgress(pct) { fill.style.width = pct + '%'; }
+
+        function abrir() {
+          overlay.classList.add('open');
+          closeBtn.disabled = true;
+          btn.disabled = true;
+          setProgress(0);
+          setStage('');
+          setSummary('');
+          setStatus('Preparando sincronização...');
+        }
+
+        function concluir(mensagem, erro) {
+          if (encerrado) return;
+          encerrado = true;
+          closeBtn.disabled = false;
+          btn.disabled = false;
+          if (!erro) setProgress(100);
+          setSummary(mensagem);
+          self._load();
+        }
+
+        function proximo() {
+          if (encerrado) return;
+          if (passoAtual >= totalPassos) {
+            setStatus('Sincronização concluída');
+            concluir(totalImportado + ' unidade(s) importada(s).');
+            return;
+          }
+          var item = fila[passoAtual];
+          setStatus(item.label);
+          setProgress(Math.round((passoAtual / totalPassos) * 100));
+
+          google.script.run
+            .withSuccessHandler(function (resp) {
+              var data = self._unwrap(resp);
+              if (data && data.error) {
+                setStatus('Erro no passo ' + item.label);
+                concluir(data.error, true);
+                return;
+              }
+              var imp = (data && data.itemsImported) ? data.itemsImported : 0;
+              totalImportado += imp;
+              passoAtual++;
+              setStage('Passo ' + passoAtual + ' de ' + totalPassos);
+              proximo();
+            })
+            .withFailureHandler(function (err) {
+              setStatus('Erro');
+              concluir('Erro no passo ' + item.label + ': ' + (err.message || err), true);
+            })
+            .apiDispatch('estoque.sincronizarPasso', item.acoes);
+        }
+
+        abrir();
 
         google.script.run
           .withSuccessHandler(function (resp) {
-            btn.disabled = false;
-            btn.textContent = originalText;
             var data = self._unwrap(resp);
-            var msg = 'Sincronizado!';
-            if (data && data.itemsImportados != null) {
-              msg = data.itemsImportados + ' item(ns) importado(s).';
+            if (data && data.error) {
+              setStatus('Erro ao preparar');
+              concluir(data.error, true);
+              return;
             }
-            self._showToast(msg, 'success');
-            self._load();
+            var nfes = (data && data.nfes) ? data.nfes : [];
+            var manuais = (data && data.manuais) ? data.manuais : [];
+            totalPassos = nfes.length + manuais.length;
+
+            if (totalPassos === 0) {
+              setStatus('Nada novo para sincronizar');
+              concluir('Tudo em dia — nenhuma NF ou entrada manual pendente.');
+              return;
+            }
+
+            for (var i = 0; i < nfes.length; i++) {
+              fila.push({
+                label: 'Sincronizando NF ' + nfes[i].numeroNf + '...',
+                acoes: { tipo: 'nf', numeroNf: nfes[i].numeroNf, chaveNf: nfes[i].chaveNf }
+              });
+            }
+            for (var j = 0; j < manuais.length; j++) {
+              fila.push({
+                label: 'Sincronizando entrada manual ' + manuais[j].logId + '...',
+                acoes: { tipo: 'manual', logId: manuais[j].logId }
+              });
+            }
+
+            setStage('Encontrado(s) ' + totalPassos + ' passo(s) pendente(s)');
+            proximo();
           })
           .withFailureHandler(function (err) {
-            btn.disabled = false;
-            btn.textContent = originalText;
-            self._showToast('Erro ao sincronizar: ' + (err.message || err), 'error');
+            setStatus('Erro ao preparar');
+            concluir('Erro ao preparar sincronização: ' + (err.message || err), true);
           })
-          .apiDispatch('estoque.sincronizar', {});
+          .apiDispatch('estoque.sincronizarPreparar', {});
       }
 
       _syncPrecos() {

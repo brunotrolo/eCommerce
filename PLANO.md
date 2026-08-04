@@ -68,24 +68,29 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
   critério de aceite abaixo.
 
 | Fase | Escopo | Código | Validado |
-|---|---|:---:|:---:|
-| 0 | Fundação + pipeline de deploy | ✅ | ⬜ |
-| 1 | Precificação | ✅ | ⬜ |
+|---|---|---|:---:|
+| 0 | Fundação + pipeline de deploy | ✅ | ✅ |
+| 1 | Precificação | ✅ | ✅ |
 | 2 | Dashboard | ✅ | ⬜ |
 | 3 | Pedidos | ✅ | ⬜ |
 | 4 | Catálogo | ✅ | ⬜ |
 | 5 | Anúncios | ✅ | ⬜ |
 | 6 | Preço & Estoque | ✅ | ⬜ |
 | 7 | Endurecimento | ⬜ | ⬜ |
-| 8 | Calculadora PrecificaPro | ✅ | ⬜ |
+| 8 | Calculadora PrecificaPro | ✅ | ✅ |
 | — | Status Online + Speed Meter | ✅ | ⬜ |
 | — | DataStore (cache client-side) | ✅ | ⬜ |
+| — | Estoque (unidades FIFO) | ✅ | ✅ |
 
-> **Estado real de hoje:** todo o código das fases 0–6 e 8 está escrito e no
-> repositório. Extras implementados: Status Online + Speed Meter
-> (`specs/system-status.md`), DataStore client-side para navegação instantânea.
-> Nada foi executado no Apps Script ainda — falta rodar o primeiro deploy
-> (Fase 0).
+> **Estado real de hoje:** o app roda em produção (Web App deployado, última
+> versão @89). O fluxo funcional ativo é o domínio **Estoque**: 157 unidades
+> rastreadas unitariamente (FIFO), alimentado por NFe + Manual com importação
+> passo a passo (modal de progresso) e preços sincronizáveis com o catálogo.
+> Fases 0, 1 e 8 foram validadas por cálculos/smoke executados (fórmulas de
+> taxa: Shopee 20% → R$90,91; ML 14%+R$6 → R$91,80; calculadora 6 cenários
+> GWT). As demais fases dependem de dado real dos marketplaces via Tiops e/
+> ou de acesso ao editor Apps Script (`runSmokeTests_`) — pendente de
+> validação manual ativa.
 
 ### Fase 0 — Fundação + pipeline de sincronização (/dev)
 
