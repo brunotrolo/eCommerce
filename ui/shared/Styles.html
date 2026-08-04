@@ -928,7 +928,10 @@
     opacity: 0;
     visibility: hidden;
     transform: translateY(-8px);
-    transition: opacity var(--transition-fast), visibility var(--transition-fast), transform var(--transition-fast);
+    /* visibility com delay: ao fechar, permanece visivel durante o fade e
+       so esconde no fim; ao abrir, o estado [open] sobrescreve com 0s */
+    transition: opacity var(--transition-fast), transform var(--transition-fast),
+                visibility 0s linear var(--transition-fast);
     pointer-events: none;
   }
 
@@ -937,21 +940,24 @@
     opacity: 1;
     visibility: visible;
     transform: translateY(4px);
+    /* visibility imediato: o menu recebe hit-test ja no primeiro frame da
+       abertura, sem a janela de 150ms em que ele nao era clicavel */
+    transition: opacity var(--transition-fast), transform var(--transition-fast),
+                visibility 0s;
     pointer-events: auto;
   }
 
-  /* Ponte invisivel no CONTAINER (nao no menu): o menu fica com
-     `visibility: hidden` durante a transicao de abertura, entao um
-     ::before nele nao recebe hit-test nos primeiros 150ms. A ponte no
-     container existe SEMPRE e mantem o ponteiro "dentro" do nav-dropdown
-     enquanto atravessa o vao (translateY de 4px do estado aberto). */
+  /* Ponte invisivel no CONTAINER (nao no menu): cobre o vao do translateY
+     (4px) e se estende bem alem dele (24px de altura, +8px de cada lado),
+     garantindo que o ponteiro nunca saia do nav-dropdown ao descer devagar
+     do toggle para os itens. Existe sempre — independe do estado do menu. */
   .nav-dropdown::after {
     content: '';
     position: absolute;
     top: 100%;
-    left: 0;
-    right: 0;
-    height: var(--space-md);
+    left: calc(-1 * var(--space-sm));
+    right: calc(-1 * var(--space-sm));
+    height: var(--space-xl);
   }
 
   .nav-dropdown-item {
