@@ -26,7 +26,6 @@ ainda (falta o primeiro deploy). Ver [PLANO.md](./PLANO.md).
 | **Precificação** | Preço sugerido por canal (Shopee × ML) a partir de custo + margem | `specs/pricing.md` |
 | **Pedidos** | Lista unificada dos dois canais com filtro por marketplace | `specs/orders.md` |
 | **Anúncios** | Listar, pausar e reativar anúncios com releitura obrigatória | `specs/listings.md` |
-| **Preço & Estoque** | Calcula, aplica preço no canal e confirma por releitura | `specs/inventory-pricing.md` |
 | **Catálogo** | Produtos de NFe agrupados por código com preços sugeridos | `specs/catalog.md` |
 | **NFe Entrada** | Importação de XMLs/PDFs de NFes do Drive para o Sheets | `specs/nfe-entrada.md` |
 | **Entrada Produtos** | Produtos das NFes com busca, filtros e status de recebimento | `specs/nfe-entrada-produtos.md` |
@@ -44,7 +43,7 @@ Claude Code e OpenCode — estão em **[AGENTS.md](./AGENTS.md)**.
 src/00_config       → ConfigService + FormatterService
 src/01_adapters     → TiopsClient (único cliente HTTP para a Tiops), DriveAdapter
 src/02_repositories → Properties/Cache/Sheets/Config (únicos que tocam serviços nativos do GAS)
-src/03_services     → Pricing, Orders, Listings, InventoryPricing, Dashboard,
+src/03_services     → Pricing, Orders, Listings, Dashboard,
                       Catalog, NFeEntrada, NFeEntradaProdutos, Calculator, Status
 src/04_gateway      → ServiceRegistry + Router (doGet/doPost/apiDispatch)
 ui/shared           → Design tokens, DataStore (cache client-side), UiHelpers,

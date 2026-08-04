@@ -54,7 +54,7 @@ Ciclo padrão de uma fase:
 | 3 | **Pedidos** | `specs/orders.md` | Lista unificada dos dois canais em shape normalizado + detalhe do pedido. |
 | 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. Consultável antes de criar/editar anúncios. |
 | 5 | **Anúncios** | `specs/listings.md` | Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação. |
-| 6 | **Preço & Estoque** | `specs/inventory-pricing.md` | Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo. |
+| 6 | ~~Preço & Estoque~~ | `specs/inventory-pricing.md` | ~~Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo.~~ **Removida** — página e serviço legacy excluídos; regras de preço/estoque seguem em `specs/pricing.md`, `listings.md` e `estoque.md`. |
 | 8 | **Calculadora PrecificaPro** | `specs/calculator.md` | Calculadora interativa de precificação Mercado Livre com widget flutuante (modal). Simula custos, taxas, imposto, margem em tempo real. |
 
 ---
