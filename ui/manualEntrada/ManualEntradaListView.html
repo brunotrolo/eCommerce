@@ -168,8 +168,8 @@
       var ds = window.__DataStore;
 
       var cached = ds && ds.get(cacheKey);
-      if (cached && cached.data) {
-        self._entries = cached.data.entries || [];
+      if (cached) {
+        self._entries = cached.entries || cached.data && cached.data.entries || [];
         self._filtered = self._entries.slice();
         self._render();
         return;
@@ -182,6 +182,8 @@
           if (ds) ds.set(cacheKey, result);
           if (result && result.data) {
             self._entries = result.data.entries || [];
+          } else if (result && result.entries) {
+            self._entries = result.entries || [];
           } else {
             self._entries = [];
           }
