@@ -128,6 +128,54 @@ em estruturas seguras do Google (PropertiesService). Nunca comitadas no código
 e nunca expostas em logs ou chats. Ver skill `gas-ops` para validação antes
 de push.
 
+### Autenticação MCP Tiops
+
+**Endpoint:** `POST https://mcp.tiops.com.br`
+
+**Autenticação:** Bearer token em header
+```
+Authorization: Bearer mc_live_XXX
+```
+
+**Como obter/configurar:**
+1. Você recebeu um token `mc_live_XXX` da Tiops (solicitar se não tiver)
+2. No Google Apps Script editor:
+   - Clicar em "Projeto" (canto superior esquerdo)
+   - Ir a "Configurações do projeto"
+   - Aba "Variáveis de ambiente"
+   - OU usar Script Properties (menu: Extensões → Apps Script → Propriedades do projeto)
+   - Adicionar propriedade: `TIOPS_API_KEY = mc_live_XXX`
+3. Em `src/00_config/ConfigService.js` ou `src/02_repositories/PropertiesRepository.js`:
+   ```javascript
+   var apiKey = PropertiesService.getScriptProperties().getProperty('TIOPS_API_KEY');
+   ```
+4. `TiopsClient.js` usa essa chave em todas as chamadas de UrlFetchApp
+
+**TiopsClient padrão (usar em todos os serviços):**
+```javascript
+var TiopsClient = (function () {
+  function call(action, params) {
+    var apiKey = PropertiesService.getScriptProperties().getProperty('TIOPS_API_KEY');
+    if (!apiKey) throw new Error('TIOPS_API_KEY não configurada em Script Properties');
+    
+    var options = {
+      method: 'post',
+      headers: { 'Authorization': 'Bearer ' + apiKey },
+      payload: JSON.stringify({ action: action, params: params || {} }),
+      muteHttpExceptions: true
+    };
+    
+    var response = UrlFetchApp.fetch('https://mcp.tiops.com.br', options);
+    var data = JSON.parse(response.getContentText());
+    
+    if (data.error) throw new Error('Tiops error: ' + data.error);
+    return data;
+  }
+  
+  return { call: call, describe: describe };
+})();
+```
+
 ## Fórmulas de taxa por canal (fato do projeto, não redescobrir)
 
 | Canal | Taxa percentual | Taxa fixa |
