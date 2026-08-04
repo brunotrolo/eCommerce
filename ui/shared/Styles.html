@@ -876,9 +876,104 @@
     width: 100%;
   }
 
+  /* ============================================================
+     NAV DROPDOWNS — menus suspensos da navbar (Compras/Produtos/Vendas)
+     Estado aberto controlado por [open] no container ou
+     [aria-expanded="true"] no toggle (Shell.html).
+     ============================================================ */
+  .nav-dropdown {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .nav-dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 8px 16px;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+
+  .nav-dropdown-toggle:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+
+  .nav-dropdown-icon {
+    display: inline-block;
+    transform: scaleY(1);
+    transition: transform var(--transition-fast);
+  }
+
+  .nav-dropdown-toggle[aria-expanded="true"] .nav-dropdown-icon {
+    transform: scaleY(-1);
+  }
+
+  .nav-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: var(--z-dropdown);
+    min-width: 200px;
+    padding: var(--space-sm) 0;
+    list-style: none;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity var(--transition-fast), visibility var(--transition-fast), transform var(--transition-fast);
+    pointer-events: none;
+  }
+
+  .nav-dropdown[open] .nav-dropdown-menu,
+  .nav-dropdown-toggle[aria-expanded="true"] ~ .nav-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(4px);
+    pointer-events: auto;
+  }
+
+  .nav-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: var(--space-sm) var(--space-lg);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    color: var(--color-text);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .nav-dropdown-item:hover {
+    background: var(--color-surface-hover);
+  }
+
+  .nav-dropdown-item-active {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-weight: var(--font-weight-medium);
+  }
+
   @media (max-width: 640px) {
     .app-nav {
       flex-wrap: wrap;
+    }
+
+    .nav-dropdown-menu {
+      position: fixed;
+      top: auto;
+      left: var(--space-md);
+      right: var(--space-md);
+      width: calc(100% - 2 * var(--space-md));
     }
 
     #app-view {
