@@ -64,6 +64,20 @@ var OrdersImportService = (function () {
     return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
   }
 
+  function formatItemsDetail_(items) {
+    if (!items || items.length === 0) return '';
+    var parts = [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      var sku = it.item_sku || '';
+      var name = it.item_name || '';
+      var qty = it.model_quantity_purchased || 1;
+      var price = it.model_discounted_price || 0;
+      parts.push(name + ' (SKU:' + sku + ' x' + qty + ' R$' + price + ')');
+    }
+    return parts.join(' | ');
+  }
+
   function listOrderSnsByStatus_(orderStatus) {
     var startTime = Date.now();
     var result = callTiops_('shopee_list_orders', {
@@ -161,31 +175,39 @@ var OrdersImportService = (function () {
   function normalizeOrder_(detail) {
     if (!detail) return null;
 
-    var orderId = detail.order_sn || '';
-    var status = detail.order_status || '';
-    var total = Number(detail.total_amount) || 0;
-    var buyer = detail.buyer_username || '';
-    var createdAt = detail.create_time || 0;
-    var createdAtFormatted = formatDateTime_(createdAt);
-
     var items = detail.item_list || [];
     var itemNames = [];
+    var totalWeightGram = 0;
     for (var i = 0; i < items.length; i++) {
       if (items[i].item_name) itemNames.push(items[i].item_name);
+      totalWeightGram += (items[i].weight || 0) * 1000;
     }
 
-    var paymentMethod = detail.payment_method || '';
-    var shippingFee = Number(detail.actual_shipping_fee) || 0;
+    var addr = detail.recipient_address || {};
 
     return {
-      ORDER_ID: orderId,
-      STATUS: status,
-      TOTAL_AMOUNT: total,
-      BUYER_USERNAME: buyer,
-      CREATE_TIME: createdAtFormatted,
-      PAYMENT_METHOD: paymentMethod,
-      SHIPPING_FEE: shippingFee,
-      ITEM_NAMES: itemNames.join(', '),
+      ORDER_ID: detail.order_sn || '',
+      STATUS: detail.order_status || '',
+      TOTAL_AMOUNT: Number(detail.total_amount) || 0,
+      PAYMENT_METHOD: detail.payment_method || '',
+      ACTUAL_SHIPPING_FEE: Number(detail.actual_shipping_fee) || 0,
+      ESTIMATED_SHIPPING_FEE: Number(detail.estimated_shipping_fee) || 0,
+      CURRENCY: detail.currency || 'BRL',
+      DAYS_TO_SHIP: detail.days_to_ship || 0,
+      PAY_TIME: formatDateTime_(detail.pay_time),
+      PICKUP_TIME: formatDateTime_(detail.pickup_done_time),
+      UPDATE_TIME: formatDateTime_(detail.update_time),
+      BUYER_USERNAME: detail.buyer_username || '',
+      RECIPIENT_NAME: addr.name || '',
+      RECIPIENT_CITY: addr.city || '',
+      RECIPIENT_STATE: addr.state || '',
+      RECIPIENT_ZIPCODE: addr.zipcode || '',
+      RECIPIENT_FULL_ADDRESS: addr.full_address || '',
+      ITEMS_DETAIL: formatItemsDetail_(items),
+      ITEM_COUNT: items.length,
+      TOTAL_WEIGHT_GRAM: Math.round(totalWeightGram),
+      MESSAGE_TO_SELLER: detail.message_to_seller || '',
+      CREATE_TIME: formatDateTime_(detail.create_time),
       MARKETPLACE: 'shopee'
     };
   }

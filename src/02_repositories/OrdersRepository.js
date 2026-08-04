@@ -9,9 +9,13 @@
 var OrdersRepository = (function () {
   var SHEET_NAME = 'PEDIDOS';
   var HEADERS = [
-    'ORDER_ID', 'STATUS', 'TOTAL_AMOUNT', 'BUYER_USERNAME',
-    'CREATE_TIME', 'PAYMENT_METHOD', 'SHIPPING_FEE',
-    'ITEM_NAMES', 'MARKETPLACE'
+    'ORDER_ID', 'STATUS', 'TOTAL_AMOUNT', 'PAYMENT_METHOD',
+    'ACTUAL_SHIPPING_FEE', 'ESTIMATED_SHIPPING_FEE', 'CURRENCY',
+    'DAYS_TO_SHIP', 'PAY_TIME', 'PICKUP_TIME', 'UPDATE_TIME',
+    'BUYER_USERNAME', 'RECIPIENT_NAME', 'RECIPIENT_CITY',
+    'RECIPIENT_STATE', 'RECIPIENT_ZIPCODE', 'RECIPIENT_FULL_ADDRESS',
+    'ITEMS_DETAIL', 'ITEM_COUNT', 'TOTAL_WEIGHT_GRAM',
+    'MESSAGE_TO_SELLER', 'CREATE_TIME', 'MARKETPLACE'
   ];
   var _sheetCache = null;
   var _sheetCacheTs = 0;
@@ -271,8 +275,14 @@ var OrdersRepository = (function () {
 
       var existing = existingMap[orderId];
       if (existing) {
+        var fieldsToUpdate = {};
+        var hasChanges = false;
         if (existing.status && order.STATUS && existing.status !== order.STATUS) {
-          updateOrderRow(existing.rowNumber, { STATUS: order.STATUS });
+          fieldsToUpdate.STATUS = order.STATUS;
+          hasChanges = true;
+        }
+        if (hasChanges) {
+          updateOrderRow(existing.rowNumber, fieldsToUpdate);
           updated++;
           updateDetails.push({
             orderId: orderId,
