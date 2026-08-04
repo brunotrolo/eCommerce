@@ -152,6 +152,88 @@ var OrdersRepository = (function () {
     return insertOrdersBulk([order]);
   }
 
+  function getAllOrdersMap() {
+    var sheet = getOrCreateSheet();
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2 || lastCol === 0) return {};
+
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var orderIdCol = -1;
+    var statusCol = -1;
+    for (var i = 0; i < headers.length; i++) {
+      var h = String(headers[i]).trim();
+      if (h === 'order_id') orderIdCol = i + 1;
+      if (h === 'status') statusCol = i + 1;
+    }
+    if (orderIdCol === -1) return {};
+
+    var allValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var map = {};
+    for (var r = 0; r < allValues.length; r++) {
+      var oid = String(allValues[r][orderIdCol - 1]).trim();
+      if (!oid) continue;
+      var rowNumber = r + 2;
+      var status = statusCol !== -1 ? String(allValues[r][statusCol - 1]).trim() : '';
+      map[oid] = { rowNumber: rowNumber, status: status };
+    }
+    return map;
+  }
+
+  function updateOrderRow(rowNumber, order) {
+    var sheet = getOrCreateSheet();
+    var lastCol = sheet.getLastColumn();
+    if (lastCol === 0) return false;
+
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headerMap = {};
+    for (var i = 0; i < headers.length; i++) {
+      headerMap[String(headers[i]).trim()] = i + 1;
+    }
+
+    var keys = Object.keys(order);
+    for (var k = 0; k < keys.length; k++) {
+      var col = headerMap[keys[k]];
+      if (col) {
+        sheet.getRange(rowNumber, col).setValue(order[keys[k]]);
+      }
+    }
+    return true;
+  }
+
+  function upsertOrders(orders) {
+    if (!orders || orders.length === 0) return { inserted: 0, updated: 0 };
+
+    var existingMap = getAllOrdersMap();
+    var toInsert = [];
+    var updated = 0;
+
+    for (var i = 0; i < orders.length; i++) {
+      var order = orders[i];
+      var orderId = String(order.order_id || order.order_sn || '').trim();
+      if (!orderId) continue;
+
+      var existing = existingMap[orderId];
+      if (existing) {
+        if (existing.status && order.status && existing.status !== order.status) {
+          updateOrderRow(existing.rowNumber, { status: order.status });
+          updated++;
+        }
+      } else {
+        toInsert.push(order);
+        existingMap[orderId] = { rowNumber: -1, status: order.status || '' };
+      }
+    }
+
+    var inserted = 0;
+    if (toInsert.length > 0) {
+      var result = insertOrdersBulk(toInsert);
+      inserted = result.inserted || toInsert.length;
+    }
+
+    return { inserted: inserted, updated: updated };
+  }
+
   function getAll() {
     var sheet = getOrCreateSheet();
     var lastRow = sheet.getLastRow();
@@ -178,6 +260,9 @@ var OrdersRepository = (function () {
     getByOrderId: getByOrderId,
     insertOrdersBulk: insertOrdersBulk,
     insertOrder: insertOrder,
+    getAllOrdersMap: getAllOrdersMap,
+    updateOrderRow: updateOrderRow,
+    upsertOrders: upsertOrders,
     getAll: getAll
   };
 })();

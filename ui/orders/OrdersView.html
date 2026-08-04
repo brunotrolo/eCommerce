@@ -24,7 +24,7 @@
     </div>
     <div class="card table-container">
       <table class="table" id="orders-table">
-        <thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Comprador</th><th>Total</th><th>Data</th></tr></thead>
+        <thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Comprador</th><th>Produto(s)</th><th>Pagamento</th><th>Total</th><th>Data</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -78,7 +78,6 @@
       _syncShopee(shadow) {
         var ds = window.__DataStore;
         var self = this;
-        var toastBox = shadow.getElementById('toast-box');
 
         withLoading(
           shadow.getElementById('btn-sync-shopee'),
@@ -86,12 +85,12 @@
             google.script.run
               .withSuccessHandler(success)
               .withFailureHandler(failure)
-              .apiDispatch('ordersImport.importShopeeOrders', { limit: 100, offset: 0 }),
+              .apiDispatch('ordersImport.importShopeeOrders', { mode: 'all' }),
           (data) => {
             if (data && data.success) {
-              var msg = data.message || ('Importados: ' + data.imported + ', Duplicatas: ' + data.duplicates);
+              var msg = data.message || ('Novos: ' + data.imported + ', Atualizados: ' + data.updated);
               if (data.errors && data.errors.length > 0) {
-                msg += ' (' + data.errors.length + ' erros)';
+                msg += ' (' + data.errors.length + ' erro' + (data.errors.length !== 1 ? 's' : '') + ')';
               }
               showToast(shadow, msg);
               if (ds) ds.invalidate('orders.all.30');
@@ -122,19 +121,40 @@
       setTimeout(function () { toast.hidden = true; }, 5000);
     }
 
+    function getStatusBadgeClass_(status) {
+      switch (status) {
+        case 'UNPAID': return 'badge-warning';
+        case 'READY_TO_SHIP': return 'badge-info';
+        case 'SHIPPED': return 'badge-primary';
+        case 'TO_CONFIRM_RECEIVE': return 'badge-success';
+        case 'COMPLETED': return 'badge-success';
+        case 'CANCELLED': return 'badge-error';
+        case 'IN_CANCEL': return 'badge-error';
+        default: return '';
+      }
+    }
+
     function renderRows(shadow, orders) {
       var tbody = shadow.querySelector('#orders-table tbody');
       tbody.innerHTML = orders
         .map(function (o) {
+          var statusLabel = o.statusLabel || o.status || '-';
+          var badgeClass = getStatusBadgeClass_(o.status);
+          var statusHtml = badgeClass
+            ? '<span class="badge ' + badgeClass + '">' + escapeHtml_(statusLabel) + '</span>'
+            : escapeHtml_(statusLabel);
+          var itens = o.itemNames || '-';
+          var pagamento = o.paymentMethod || '-';
           return (
             '<tr><td>' + escapeHtml_(o.id) + '</td><td><span class="badge badge-' +
             (o.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' + escapeHtml_(o.marketplace) + '</span></td>' +
-            '<td>' + escapeHtml_(o.status) + '</td><td>' + escapeHtml_(o.buyerName || '-') + '</td>' +
+            '<td>' + statusHtml + '</td><td>' + escapeHtml_(o.buyerName || '-') + '</td>' +
+            '<td>' + escapeHtml_(itens) + '</td><td>' + escapeHtml_(pagamento) + '</td>' +
             '<td>' + (o.total != null ? FormatterService.formatCurrency(o.total) : '-') + '</td>' +
             '<td>' + escapeHtml_(o.createdAt || '-') + '</td></tr>'
           );
         })
-        .join('') || '<tr><td colspan="6">Nenhum pedido encontrado.</td></tr>';
+        .join('') || '<tr><td colspan="8">Nenhum pedido encontrado.</td></tr>';
     }
 
     customElements.define('orders-widget', OrdersWidget);

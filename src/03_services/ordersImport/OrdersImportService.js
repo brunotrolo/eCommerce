@@ -1,22 +1,27 @@
 /**
  * OrdersImportService — importação de pedidos Shopee para Google Sheets via Tiops.
+ * Busca pedidos nos status operacionais (UNPAID, READY_TO_SHIP, SHIPPED) e
+ * também em COMPLETED/CANCELLED para manter histórico atualizado.
+ * Faz upsert: insere novos e atualiza status dos existentes.
  * Regras completas em specs/orders-import.md.
  */
 var OrdersImportService = (function () {
+  var OPERATIONAL_STATUSES = ['UNPAID', 'READY_TO_SHIP', 'SHIPPED'];
+  var ALL_STATUSES = ['UNPAID', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'IN_CANCEL'];
+
   function describe() {
     return {
       name: 'ordersImport',
       actions: {
         importShopeeOrders: {
-          description: 'Busca pedidos Shopee via Tiops, verifica duplicatas por order_id, insere novos em Sheets.',
+          description: 'Busca pedidos Shopee via Tiops (todos os status), insere novos e atualiza status dos existentes.',
           params: {
-            limit: { type: 'number', required: false, default: 100, description: 'Quantos pedidos buscar (máx 100)' },
-            offset: { type: 'number', required: false, default: 0, description: 'Paginação — offset da última busca' }
+            mode: { type: 'string', required: false, default: 'all', enum: ['operational', 'all'], description: 'operational=UNPAID/READY_TO_SHIP/SHIPPED, all=todos' }
           },
           returns: {
             success: 'boolean',
             imported: 'number',
-            duplicates: 'number',
+            updated: 'number',
             errors: 'array',
             message: 'string'
           }
@@ -25,88 +30,157 @@ var OrdersImportService = (function () {
     };
   }
 
-  function importShopeeOrders(params) {
-    params = params || {};
-    var limit = Math.min(params.limit || 100, 100);
-    var offset = params.offset || 0;
-
-    var response;
+  function callTiops_(action, params) {
     try {
-      response = TiopsClient.call('shopee_list_orders', {
-        limit: limit,
-        offset: offset
-      });
+      return TiopsClient.call(action, params);
     } catch (e) {
       var msg = e.message || String(e);
       if (msg.indexOf('TIOPS_API_KEY_MISSING') !== -1) {
-        return { success: false, error: 'TIOPS_API_KEY_MISSING', message: 'Configure TIOPS_API_KEY em Script Properties.' };
+        throw new Error('TIOPS_API_KEY_MISSING');
       }
-      return { success: false, error: 'TIOPS_CALL_FAILED', message: 'Tiops indisponível: ' + msg };
+      throw new Error('Tiops indisponível: ' + msg);
+    }
+  }
+
+  function listOrderSnsByStatus_(orderStatus) {
+    var result = callTiops_('shopee_list_orders', {
+      limit: 100,
+      order_status: orderStatus
+    });
+
+    if (!result) return [];
+
+    var response = result.response || result;
+    var orderList = response.order_list || response.orders || [];
+
+    var sns = [];
+    for (var i = 0; i < orderList.length; i++) {
+      var sn = orderList[i].order_sn || orderList[i].order_id || '';
+      if (sn) sns.push(sn);
+    }
+    return sns;
+  }
+
+  function getOrderDetail_(orderSn) {
+    var result = callTiops_('shopee_get_order_detail', {
+      order_sn: orderSn
+    });
+
+    if (!result) return null;
+
+    var response = result.response || result;
+    var orderList = response.order_list || [];
+    return orderList.length > 0 ? orderList[0] : null;
+  }
+
+  function normalizeOrder_(detail) {
+    if (!detail) return null;
+
+    var orderId = detail.order_sn || '';
+    var status = detail.order_status || '';
+    var total = Number(detail.total_amount) || 0;
+    var buyer = detail.buyer_username || '';
+    var createdAt = detail.create_time || 0;
+    if (typeof createdAt === 'number' && createdAt > 1000000000) {
+      createdAt = new Date(createdAt * 1000).toISOString();
     }
 
-    var orders = [];
-    if (response && response.orders) {
-      orders = response.orders;
-    } else if (Array.isArray(response)) {
-      orders = response;
+    var items = detail.item_list || [];
+    var itemNames = [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].item_name) itemNames.push(items[i].item_name);
     }
 
-    if (!orders || orders.length === 0) {
+    var paymentMethod = detail.payment_method || '';
+    var shippingFee = Number(detail.actual_shipping_fee) || 0;
+
+    return {
+      order_id: orderId,
+      status: status,
+      total_amount: total,
+      buyer_username: buyer,
+      create_time: createdAt,
+      payment_method: paymentMethod,
+      shipping_fee: shippingFee,
+      item_names: itemNames.join(', '),
+      marketplace: 'shopee'
+    };
+  }
+
+  function importShopeeOrders(params) {
+    params = params || {};
+    var mode = params.mode || 'all';
+    var statuses = mode === 'operational' ? OPERATIONAL_STATUSES : ALL_STATUSES;
+
+    var allOrderSns = {};
+    var statusMap = {};
+    var errors = [];
+
+    for (var s = 0; s < statuses.length; s++) {
+      var st = statuses[s];
+      try {
+        var sns = listOrderSnsByStatus_(st);
+        for (var i = 0; i < sns.length; i++) {
+          if (!allOrderSns[sns[i]]) {
+            allOrderSns[sns[i]] = true;
+            statusMap[sns[i]] = st;
+          }
+        }
+      } catch (e) {
+        errors.push({ status: st, reason: e.message });
+      }
+    }
+
+    var uniqueSns = Object.keys(allOrderSns);
+    if (uniqueSns.length === 0) {
       return {
-        success: true,
+        success: errors.length === 0,
         imported: 0,
-        duplicates: 0,
-        errors: [],
-        message: 'Nenhum pedido novo encontrado.'
+        updated: 0,
+        errors: errors,
+        message: errors.length > 0
+          ? 'Erros ao buscar status: ' + errors.length
+          : 'Nenhum pedido encontrado.'
       };
     }
 
-    var existingIds = OrdersRepository.getAllOrderIds();
-    var existingSet = {};
-    for (var i = 0; i < existingIds.length; i++) {
-      existingSet[existingIds[i]] = true;
-    }
+    var existingMap = OrdersRepository.getAllOrdersMap();
 
-    var newOrders = [];
-    var duplicates = 0;
-    var errors = [];
+    var toUpsert = [];
+    var detailErrors = 0;
 
-    for (var j = 0; j < orders.length; j++) {
-      var order = orders[j];
-      var orderId = String(order.order_id || '').trim();
-
-      if (!orderId) {
-        errors.push({ orderId: '(sem id)', reason: 'order_id vazio' });
-        continue;
-      }
-
-      if (existingSet[orderId]) {
-        duplicates++;
-      } else {
-        newOrders.push(order);
-        existingSet[orderId] = true;
-      }
-    }
-
-    var imported = 0;
-    if (newOrders.length > 0) {
+    for (var j = 0; j < uniqueSns.length; j++) {
+      var sn = uniqueSns[j];
       try {
-        var result = OrdersRepository.insertOrdersBulk(newOrders);
-        imported = result.inserted || newOrders.length;
+        var detail = getOrderDetail_(sn);
+        var normalized = normalizeOrder_(detail);
+        if (normalized) {
+          toUpsert.push(normalized);
+        }
       } catch (e) {
-        errors.push({ orderId: '(batch)', reason: e.message || 'Erro ao gravar em lote' });
+        detailErrors++;
+        errors.push({ order_sn: sn, reason: e.message });
       }
     }
 
-    var message = 'Importados ' + imported + ', ' + duplicates + ' duplicata' + (duplicates !== 1 ? 's' : '');
-    if (errors.length > 0) {
-      message += ' (' + errors.length + ' erro' + (errors.length !== 1 ? 's' : '') + ')';
+    var result = { inserted: 0, updated: 0 };
+    if (toUpsert.length > 0) {
+      result = OrdersRepository.upsertOrders(toUpsert);
+    }
+
+    var imported = result.inserted || 0;
+    var updated = result.updated || 0;
+    var totalErrors = errors.length;
+
+    var message = imported + ' novos, ' + updated + ' atualizados';
+    if (totalErrors > 0) {
+      message += ' (' + totalErrors + ' erro' + (totalErrors !== 1 ? 's' : '') + ')';
     }
 
     return {
-      success: true,
+      success: totalErrors === 0 || imported > 0 || updated > 0,
       imported: imported,
-      duplicates: duplicates,
+      updated: updated,
       errors: errors,
       message: message
     };
