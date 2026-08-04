@@ -121,6 +121,7 @@
     </div>
     <div class="filter-bar">
       <input type="text" id="filter-codigo" placeholder="Filtrar por codigo..." />
+      <input type="text" id="filter-categoria" placeholder="Filtrar por categoria..." />
       <select id="filter-status">
         <option value="">Todos</option>
         <option value="DISPONIVEL" selected>DISPONIVEL</option>
@@ -135,6 +136,7 @@
         <thead>
           <tr>
             <th data-sort="estoque_id">ESTOQUE_ID <span class="sort-arrow"></span></th>
+            <th data-sort="categoria">Categoria <span class="sort-arrow"></span></th>
             <th>Produto</th>
             <th data-sort="data_entrada">Data Entrada <span class="sort-arrow"></span></th>
             <th data-sort="preco_custo">Custo <span class="sort-arrow"></span></th>
@@ -209,6 +211,7 @@
           shadow.getElementById('sync-overlay').classList.remove('open');
         });
         shadow.getElementById('filter-codigo').addEventListener('input', function () { self._applyFilters(); });
+        shadow.getElementById('filter-categoria').addEventListener('input', function () { self._applyFilters(); });
         shadow.getElementById('filter-status').addEventListener('change', function () { self._applyFilters(); });
 
         var ths = shadow.querySelectorAll('th[data-sort]');
@@ -403,6 +406,7 @@
 
       _applyFilters() {
         var codigo = (this._el('filter-codigo').value || '').toLowerCase().trim();
+        var categoria = (this._el('filter-categoria').value || '').toLowerCase().trim();
         var status = this._el('filter-status').value;
 
         var items = this._items;
@@ -416,6 +420,11 @@
         if (codigo) {
           items = items.filter(function (it) {
             return ((it.CODIGO_PRODUTO || '') + ' ' + (it.DESCRICAO_PRODUTO || '')).toLowerCase().indexOf(codigo) !== -1;
+          });
+        }
+        if (categoria) {
+          items = items.filter(function (it) {
+            return ((it.CATEGORIA || '') + ' ' + (it.CATEGORIA_PRODUTO || '')).toLowerCase().indexOf(categoria) !== -1;
           });
         }
 
@@ -451,6 +460,7 @@
         var order = this._sortOrder;
         var sortMap = {
           'estoque_id': 'ESTOQUE_ID',
+          'categoria': 'CATEGORIA',
           'data_entrada': 'DATA_ENTRADA',
           'preco_custo': 'PRECO_CUSTO_ORIGINAL',
           'margem': 'MARGEM_SHOPEE'
@@ -463,10 +473,15 @@
           if (key === 'DATA_ENTRADA') {
             valA = new Date(valA || 0).getTime();
             valB = new Date(valB || 0).getTime();
-          } else {
-            valA = parseFloat(valA) || 0;
-            valB = parseFloat(valB) || 0;
+            return order === 'asc' ? valA - valB : valB - valA;
           }
+          if (key === 'CATEGORIA' || key === 'ESTOQUE_ID') {
+            valA = String(valA || '').toLowerCase();
+            valB = String(valB || '').toLowerCase();
+            return order === 'asc' ? (valA < valB ? -1 : valA > valB ? 1 : 0) : (valA < valB ? 1 : valA > valB ? -1 : 0);
+          }
+          valA = parseFloat(valA) || 0;
+          valB = parseFloat(valB) || 0;
           return order === 'asc' ? valA - valB : valB - valA;
         });
       }
@@ -480,7 +495,7 @@
         this._updateStats(items);
 
         if (!items.length) {
-          tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Nenhum item encontrado.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Nenhum item encontrado.</td></tr>';
           return;
         }
 
@@ -524,6 +539,7 @@
 
           html += '<tr data-id="' + id + '" class="estoque-row' + (isOpen ? ' row-open' : '') + (isSaving ? ' row-edited' : '') + '">';
           html += '<td>' + id + '</td>';
+          html += '<td>' + (it.CATEGORIA || '') + '</td>';
           html += '<td>' + produto + '</td>';
           html += '<td>' + dataEntrada + '</td>';
           html += '<td>' + custo + '</td>';
@@ -544,7 +560,7 @@
           html += '</tr>';
 
           html += '<tr class="detail-row' + (isOpen ? ' open' : '') + '" data-detail="' + id + '">';
-          html += '<td class="detail-cell" colspan="9">';
+          html += '<td class="detail-cell" colspan="10">';
           html += '<strong>Referencia origem:</strong> ' + (it.REFERENCIA_ORIGEM || '-') + ' &nbsp;|&nbsp; ';
           html += '<strong>Sincronizado:</strong> ' + (it.DATA_SINCRONIZACAO ? this._fmtDate(it.DATA_SINCRONIZACAO) : '-') + ' &nbsp;|&nbsp; ';
           html += '<strong>Log ID:</strong> ' + (it.LOG_ID || '-');

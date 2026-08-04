@@ -9,7 +9,8 @@ var EstoqueRepository = (function () {
     'ESTOQUE_ID', 'CODIGO_PRODUTO', 'DESCRICAO_PRODUTO', 'DATA_ENTRADA',
     'REFERENCIA_ORIGEM', 'PRECO_CUSTO_ORIGINAL', 'PRECO_VENDA_SHOPEE',
     'PRECO_VENDA_MERCADO_LIVRE', 'MARGEM_SHOPEE', 'MARGEM_MERCADO_LIVRE',
-    'STATUS', 'ALERTA_ESTOQUE_BAIXO', 'DATA_SINCRONIZACAO', 'LOG_ID'
+    'STATUS', 'ALERTA_ESTOQUE_BAIXO', 'DATA_SINCRONIZACAO', 'LOG_ID',
+    'CATEGORIA'
   ];
 
   function getOrCreateSheet(sheetId) {
@@ -193,25 +194,33 @@ var EstoqueRepository = (function () {
       logId: 'LOG_ID'
     };
 
+    var fields = Object.keys(fieldToHeader);
+    var cols = [];
+    for (var c = 0; c < fields.length; c++) {
+      cols.push(colMap[fieldToHeader[fields[c]]] || null);
+    }
+
     var allRows = [];
     for (var i = 0; i < rowsData.length; i++) {
       var rowData = rowsData[i];
       var row = [];
-      for (var k = 0; k < HEADERS.length; k++) {
-        var header = HEADERS[k];
-        var field = null;
-        var keys = Object.keys(fieldToHeader);
-        for (var f = 0; f < keys.length; f++) {
-          if (fieldToHeader[keys[f]] === header) {
-            field = keys[f];
-            break;
-          }
-        }
-        var value = field ? rowData[field] : '';
+      for (var k = 0; k < fields.length; k++) {
+        var col = cols[k];
+        if (!col) continue;
+        var field = fields[k];
+        var value = rowData[field];
         if (field === 'descricaoProduto') {
           value = (value || '').toUpperCase();
         } else if (value === undefined || value === null) {
-          value = '';
+          if (field === 'precoCustoOriginal' || field === 'precoVendaShopee' ||
+              field === 'precoVendaMercadoLivre' || field === 'margemShopee' ||
+              field === 'margemMercadoLivre') {
+            value = '';
+          } else if (field === 'alertaEstoqueBaixo') {
+            value = false;
+          } else {
+            value = '';
+          }
         }
         row.push(value);
       }
@@ -219,8 +228,32 @@ var EstoqueRepository = (function () {
     }
 
     if (allRows.length > 0) {
-      var range = sheet.getRange(startRow, 1, allRows.length, HEADERS.length);
-      range.setValues(allRows);
+      var validCols = [];
+      var insertIndex = [];
+      for (var v = 0; v < cols.length; v++) {
+        if (cols[v]) {
+          validCols.push(cols[v]);
+          insertIndex.push(v);
+        }
+      }
+
+      if (validCols.length > 0) {
+        var firstCol = Math.min.apply(null, validCols);
+        var lastCol = Math.max.apply(null, validCols);
+        var matrix = [];
+        for (var r = 0; r < allRows.length; r++) {
+          var line = [];
+          for (var w = firstCol; w <= lastCol; w++) {
+            line.push('');
+          }
+          for (var f = 0; f < insertIndex.length; f++) {
+            line[validCols[f] - firstCol] = allRows[r][insertIndex[f]];
+          }
+          matrix.push(line);
+        }
+        var range = sheet.getRange(startRow, firstCol, matrix.length, lastCol - firstCol + 1);
+        range.setValues(matrix);
+      }
     }
 
     return { success: true, rowsInserted: allRows.length, startRow: startRow };
