@@ -1,10 +1,10 @@
 /**
  * OrdersService — pedidos normalizados lidos da aba PEDIDOS do Google Sheets.
  * Regras completas em specs/orders.md.
+ * Lê tanto formato normalizado (legacy) quanto formato Shopee raw (ordersImport).
  */
 var OrdersService = (function () {
-  var SHEET_NAME = 'Pedidos';
-  var HEADERS = ['id', 'marketplace', 'status', 'total', 'buyerName', 'createdAt'];
+  var SHEET_NAME = 'PEDIDOS';
 
   function describe() {
     return {
@@ -30,12 +30,47 @@ var OrdersService = (function () {
     };
   }
 
+  function normalizeOrder_(row) {
+    if (row.id !== undefined && row.marketplace !== undefined) {
+      return {
+        id: String(row.id),
+        marketplace: row.marketplace,
+        status: row.status || '',
+        total: Number(row.total) || 0,
+        buyerName: row.buyerName || '',
+        createdAt: row.createdAt || ''
+      };
+    }
+
+    var marketplace = 'shopee';
+    var orderId = row.order_id || row.order_sn || row.id || '';
+    var status = row.status || '';
+    var total = Number(row.total_amount || row.total || 0);
+    var buyerName = row.buyer_username || row.buyerName || row.buyer_name || '';
+    var createdAt = row.create_time || row.createdAt || row.created_at || '';
+
+    if (typeof createdAt === 'number' && createdAt > 1000000000) {
+      createdAt = new Date(createdAt * 1000).toISOString();
+    }
+
+    return {
+      id: String(orderId),
+      marketplace: marketplace,
+      status: status,
+      total: total,
+      buyerName: buyerName,
+      createdAt: createdAt
+    };
+  }
+
   function listUnified(params) {
     var marketplace = params.marketplace || 'all';
     var limit = params.limit || 20;
 
     var rows = SheetsRepository.getRows(SHEET_NAME);
-    var filtered = rows.filter(function (row) {
+    var normalized = rows.map(normalizeOrder_);
+
+    var filtered = normalized.filter(function (row) {
       if (marketplace === 'all') return true;
       return row.marketplace === marketplace;
     });
@@ -46,23 +81,14 @@ var OrdersService = (function () {
 
     var limited = sorted.slice(0, limit);
 
-    var orders = limited.map(function (row) {
-      return {
-        id: String(row.id),
-        marketplace: row.marketplace,
-        status: row.status,
-        total: Number(row.total) || 0,
-        buyerName: row.buyerName || '',
-        createdAt: row.createdAt || ''
-      };
-    });
-
-    return { orders: orders };
+    return { orders: limited };
   }
 
   function getDetail(params) {
     var rows = SheetsRepository.getRows(SHEET_NAME);
-    var found = rows.filter(function (row) {
+    var normalized = rows.map(normalizeOrder_);
+
+    var found = normalized.filter(function (row) {
       return String(row.id) === String(params.orderId) && row.marketplace === params.marketplace;
     })[0];
 
@@ -70,16 +96,7 @@ var OrdersService = (function () {
       return { error: 'Pedido não encontrado: ' + params.orderId };
     }
 
-    return {
-      order: {
-        id: String(found.id),
-        marketplace: found.marketplace,
-        status: found.status,
-        total: Number(found.total) || 0,
-        buyerName: found.buyerName || '',
-        createdAt: found.createdAt || ''
-      }
-    };
+    return { order: found };
   }
 
   return { describe: describe, listUnified: listUnified, getDetail: getDetail };
