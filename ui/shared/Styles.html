@@ -940,15 +940,18 @@
     pointer-events: auto;
   }
 
-  /* Ponte invisivel: cobre o vao de 4px entre o toggle e o menu
-     (translateY do estado aberto) para o hover nao cair no mouseleave */
-  .nav-dropdown-menu::before {
+  /* Ponte invisivel no CONTAINER (nao no menu): o menu fica com
+     `visibility: hidden` durante a transicao de abertura, entao um
+     ::before nele nao recebe hit-test nos primeiros 150ms. A ponte no
+     container existe SEMPRE e mantem o ponteiro "dentro" do nav-dropdown
+     enquanto atravessa o vao (translateY de 4px do estado aberto). */
+  .nav-dropdown::after {
     content: '';
     position: absolute;
-    top: calc(-1 * var(--space-xs));
+    top: 100%;
     left: 0;
     right: 0;
-    height: var(--space-xs);
+    height: var(--space-md);
   }
 
   .nav-dropdown-item {
