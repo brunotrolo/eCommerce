@@ -876,9 +876,124 @@
     width: 100%;
   }
 
+  /* ============================================================
+     NAV DROPDOWNS — menus suspensos da navbar (Compras/Produtos/Vendas)
+     Estado aberto controlado por [open] no container ou
+     [aria-expanded="true"] no toggle (Shell.html).
+     ============================================================ */
+  .nav-dropdown {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .nav-dropdown-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 8px 16px;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+
+  .nav-dropdown-toggle:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+
+  .nav-dropdown-icon {
+    display: inline-block;
+    transform: scaleY(1);
+    transition: transform var(--transition-fast);
+  }
+
+  .nav-dropdown-toggle[aria-expanded="true"] .nav-dropdown-icon {
+    transform: scaleY(-1);
+  }
+
+  .nav-dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: var(--z-dropdown);
+    min-width: 200px;
+    padding: var(--space-sm) 0;
+    list-style: none;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    /* visibility com delay: ao fechar, permanece visivel durante o fade e
+       so esconde no fim; ao abrir, o estado [open] sobrescreve com 0s */
+    transition: opacity var(--transition-fast), transform var(--transition-fast),
+                visibility 0s linear var(--transition-fast);
+    pointer-events: none;
+  }
+
+  .nav-dropdown[open] .nav-dropdown-menu,
+  .nav-dropdown-toggle[aria-expanded="true"] ~ .nav-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(4px);
+    /* visibility imediato: o menu recebe hit-test ja no primeiro frame da
+       abertura, sem a janela de 150ms em que ele nao era clicavel */
+    transition: opacity var(--transition-fast), transform var(--transition-fast),
+                visibility 0s;
+    pointer-events: auto;
+  }
+
+  /* Ponte invisivel no CONTAINER (nao no menu): cobre o vao do translateY
+     (4px) e se estende bem alem dele (24px de altura, +8px de cada lado),
+     garantindo que o ponteiro nunca saia do nav-dropdown ao descer devagar
+     do toggle para os itens. Existe sempre — independe do estado do menu. */
+  .nav-dropdown::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: calc(-1 * var(--space-sm));
+    right: calc(-1 * var(--space-sm));
+    height: var(--space-xl);
+  }
+
+  .nav-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: var(--space-sm) var(--space-lg);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    color: var(--color-text);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .nav-dropdown-item:hover {
+    background: var(--color-surface-hover);
+  }
+
+  .nav-dropdown-item-active {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    font-weight: var(--font-weight-medium);
+  }
+
   @media (max-width: 640px) {
     .app-nav {
       flex-wrap: wrap;
+    }
+
+    .nav-dropdown-menu {
+      position: fixed;
+      top: auto;
+      left: var(--space-md);
+      right: var(--space-md);
+      width: calc(100% - 2 * var(--space-md));
     }
 
     #app-view {

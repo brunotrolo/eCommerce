@@ -46,7 +46,6 @@ depende de B? B carrega antes de A.
 │  ├─ OrdersService.js
 │  ├─ ListingsService.js
 │  ├─ DashboardService.js
-│  ├─ InventoryPricingService.js
 │  └─ CatalogService.js ← novo
 │
 ├─ Camada 4: Gateway (todos os serviços)

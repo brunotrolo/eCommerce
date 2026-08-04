@@ -1,7 +1,10 @@
 # Spec: Preço e Estoque (sincronização)
 
 ## Status
-Approved
+Removed — página e serviço (`inventoryPricing.*`) excluídos por decisão do
+usuário (página legacy). O contrato de marketplace abaixo permanece como
+referência de regras de preço/estoque para `pricing.md`, `listings.md` e
+`estoque.md`; não implementar novas ações sob o namespace `inventoryPricing`.
 
 ## Objetivo
 Ligar a Calculadora de Precificação a um anúncio real: calcular o preço

@@ -26,9 +26,6 @@
               <button class="nav-dropdown-item" data-route="nfeEntradaProdutos" role="menuitem">Entrada Produtos</button>
             </li>
             <li role="none">
-              <button class="nav-dropdown-item" data-route="catalog" role="menuitem">Catálogo</button>
-            </li>
-            <li role="none">
               <button class="nav-dropdown-item" data-route="manualEntrada" role="menuitem">Entrada Manual</button>
             </li>
           </ul>
@@ -41,9 +38,6 @@
             <span class="nav-dropdown-icon">▾</span>
           </button>
           <ul class="nav-dropdown-menu" role="menu">
-            <li role="none">
-              <button class="nav-dropdown-item" data-route="inventoryPricing" role="menuitem">Preço e Estoque</button>
-            </li>
             <li role="none">
               <button class="nav-dropdown-item" data-route="estoque" role="menuitem">Estoque</button>
             </li>
@@ -91,7 +85,6 @@
     <?!= include('ui/pricing/PricingView'); ?>
     <?!= include('ui/orders/OrdersView'); ?>
     <?!= include('ui/listings/ListingsView'); ?>
-    <?!= include('ui/inventoryPricing/InventoryPricingView'); ?>
     <?!= include('ui/nfeEntrada/NFeEntradaView'); ?>
     <?!= include('ui/nfeEntradaProdutos/NFeEntradaProdutosView'); ?>
     <?!= include('ui/catalog/CatalogView'); ?>
@@ -111,7 +104,6 @@
         dashboard: 'dashboard-widget',
         orders: 'orders-widget',
         listings: 'listings-widget',
-        inventoryPricing: 'inventory-pricing-widget',
         nfeEntrada: 'nfe-entrada-widget',
         nfeEntradaProdutos: 'nfe-entrada-produtos-widget',
         catalog: 'catalog-widget',

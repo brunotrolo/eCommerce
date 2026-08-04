@@ -263,7 +263,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 #### Validação pós-criação
 - [ ] Testar nova página: carregamento, chamadas API, navegação
-- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, Anúncios, Preço e Estoque, NFe Entrada, Entrada Produtos, Catálogo
+- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, Anúncios, NFe Entrada, Entrada Produtos, Estoque, Catálogo
 - [ ] Verificar que `FormatterService` está acessível em todas as páginas
 - [ ] Verificar que `DebugConsole` funciona em todas as páginas
 

@@ -123,7 +123,7 @@ Diferenças de NFE/MANUAL:
 Colunas (cada linha = 1 unidade):
 
 ```
-ESTOQUE_ID | CODIGO_PRODUTO | DESCRICAO_PRODUTO | DATA_ENTRADA | REFERENCIA_ORIGEM | 
+ESTOQUE_ID | CATEGORIA | CODIGO_PRODUTO | DESCRICAO_PRODUTO | DATA_ENTRADA | REFERENCIA_ORIGEM | 
 PRECO_CUSTO_ORIGINAL | PRECO_VENDA_SHOPEE | PRECO_VENDA_MERCADO_LIVRE | 
 MARGEM_SHOPEE | MARGEM_MERCADO_LIVRE | STATUS | ALERTA_ESTOQUE_BAIXO | 
 DATA_SINCRONIZACAO | LOG_ID
@@ -132,6 +132,7 @@ DATA_SINCRONIZACAO | LOG_ID
 | Campo | Formato | Descrição |
 |-------|---------|-----------|
 | ESTOQUE_ID | string | Chave única (ex: "EST-20260803-001" ou UUID) |
+| CATEGORIA | string | Categoria do produto, **preenchimento manual direto na planilha** (não é preenchido pela sincronização). Exibida no Web App entre ESTOQUE_ID e Produto; filtro por digitação. |
 | CODIGO_PRODUTO | string | Código do produto (ex: "0000000006231") |
 | DESCRICAO_PRODUTO | string | Nome do produto |
 | DATA_ENTRADA | ISO 8601 | Quando entrou no estoque (vem de NFE/MANUAL) |
