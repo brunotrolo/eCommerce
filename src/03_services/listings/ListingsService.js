@@ -99,21 +99,18 @@ var ListingsService = (function () {
   }
 
   function updateStatus_(params, newStatus) {
-    var ss = SpreadsheetApp.openById(ConfigService.getSheetId());
-    var sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) {
-      return { error: 'Aba "' + SHEET_NAME + '" não encontrada.' };
-    }
-
-    var values = sheet.getDataRange().getValues();
-    var headers = values[0];
+    var rows = SheetsRepository.getRows(SHEET_NAME);
+    var headers = Object.keys(rows[0] || {});
     var idCol = headers.indexOf('id');
     var mpCol = headers.indexOf('marketplace');
     var statusCol = headers.indexOf('status');
 
+    var sheet = SheetsRepository.getOrCreateSheet(SHEET_NAME);
+    var values = sheet.getDataRange().getValues();
     for (var i = 1; i < values.length; i++) {
       if (String(values[i][idCol]) === String(params.itemId) && values[i][mpCol] === params.marketplace) {
         sheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
+        SheetsRepository.invalidateRowsCache(SHEET_NAME);
         return getDetail(params);
       }
     }

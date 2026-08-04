@@ -235,17 +235,30 @@
 
         var statusVal = this._el('filter-status').value || 'DISPONIVEL';
         var params = { status: statusVal };
+        var cacheKey = 'estoque.Items.' + statusVal;
+        var ds = window.__DataStore;
+
+        var cached = ds && ds.get(cacheKey);
+        if (cached) {
+          if (loadingEl) loadingEl.style.display = 'none';
+          var data = self._unwrap(cached);
+          self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+          self._applyFilters();
+        }
 
         google.script.run
           .withSuccessHandler(function (resp) {
             if (loadingEl) loadingEl.style.display = 'none';
+            if (ds) ds.set(cacheKey, resp);
             var data = self._unwrap(resp);
             self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
             self._applyFilters();
           })
           .withFailureHandler(function (err) {
             if (loadingEl) loadingEl.style.display = 'none';
-            self._showToast('Erro ao carregar estoque: ' + (err.message || err), 'error');
+            if (!cached) {
+              self._showToast('Erro ao carregar estoque: ' + (err.message || err), 'error');
+            }
           })
           .apiDispatch('estoque.getItems', params);
       }

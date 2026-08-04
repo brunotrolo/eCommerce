@@ -164,23 +164,34 @@
 
     _loadData() {
       var self = this;
+      var cacheKey = 'manualEntrada.listEntries';
+      var ds = window.__DataStore;
+
+      var cached = ds && ds.get(cacheKey);
+      if (cached && cached.data) {
+        self._entries = cached.data.entries || [];
+        self._filtered = self._entries.slice();
+        self._render();
+      }
+
       self.shadowRoot.getElementById('content').innerHTML = '<div class="loading">Carregando...</div>';
 
       google.script.run
         .withSuccessHandler(function (result) {
+          if (ds) ds.set(cacheKey, result);
           if (result && result.data) {
             self._entries = result.data.entries || [];
-            self._filtered = self._entries.slice();
-            self._render();
           } else {
             self._entries = [];
-            self._filtered = [];
-            self._render();
           }
+          self._filtered = self._entries.slice();
+          self._render();
         })
         .withFailureHandler(function (e) {
-          self.shadowRoot.getElementById('content').innerHTML =
-            '<div class="empty-state"><p>Erro ao carregar: ' + e.message + '</p></div>';
+          if (!cached) {
+            self.shadowRoot.getElementById('content').innerHTML =
+              '<div class="empty-state"><p>Erro ao carregar: ' + e.message + '</p></div>';
+          }
         })
         .apiDispatch('manualEntrada.listEntries', { limit: 500 });
     }

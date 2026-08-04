@@ -288,11 +288,15 @@
 
       if (window.__DataStore) {
         window.__DataStore.preFetch([
+          { key: 'config.config', action: 'config.getConfig', params: {} },
           { key: 'dashboard.summary', action: 'dashboard.getSummary', params: {} },
           { key: 'nfeEntrada.recent', action: 'nfeEntrada.getRecent', params: { limit: 20 } },
           { key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: {} },
-          { key: 'config.config', action: 'config.getConfig', params: {} },
-          { key: 'catalog.products.codigoProduto.asc', action: 'catalog.getProducts', params: { sortBy: 'codigoProduto', sortOrder: 'asc' } }
+          { key: 'catalog.products.codigoProduto.asc', action: 'catalog.getProducts', params: { sortBy: 'codigoProduto', sortOrder: 'asc' } },
+          { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } },
+          { key: 'listings.all', action: 'listings.listUnified', params: { marketplace: 'all' } },
+          { key: 'estoque.Items.DISPONIVEL', action: 'estoque.getItems', params: { status: 'DISPONIVEL' } },
+          { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } }
         ]);
       }
 

@@ -114,13 +114,22 @@ var NFeEntradaProdutosRepository = (function () {
    */
   function jaExisteProduto(sheetId, numeroNf, codigoProduto) {
     var rows = getProdutos(sheetId);
+    var key = String(numeroNf).trim() + '|' + String(codigoProduto).trim();
     for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i].NUMERO_NF).trim() === String(numeroNf).trim() &&
-        String(rows[i].CODIGO_PRODUTO).trim() === String(codigoProduto).trim()) {
-        return true;
-      }
+      var rowKey = String(rows[i].NUMERO_NF).trim() + '|' + String(rows[i].CODIGO_PRODUTO).trim();
+      if (rowKey === key) return true;
     }
     return false;
+  }
+
+  function buildExistenteSet_(sheetId) {
+    var rows = getProdutos(sheetId);
+    var set = {};
+    for (var i = 0; i < rows.length; i++) {
+      var key = String(rows[i].NUMERO_NF).trim() + '|' + String(rows[i].CODIGO_PRODUTO).trim();
+      set[key] = true;
+    }
+    return set;
   }
 
   /**
@@ -133,44 +142,32 @@ var NFeEntradaProdutosRepository = (function () {
     var errors = [];
 
     var fieldToHeader = {
-      numeroNf: 'NUMERO_NF',
-      chaveNf: 'CHAVE_NF',
-      dataEmissao: 'DATA_EMISSAO',
-      emitenteCnpj: 'EMITENTE_CNPJ',
-      emitenteNome: 'EMITENTE_NOME',
-      codigoProduto: 'CODIGO_PRODUTO',
-      descricaoProduto: 'DESCRICAO_PRODUTO',
-      ncm: 'NCM',
-      cfop: 'CFOP',
-      quantidade: 'QUANTIDADE',
-      valorUnitario: 'VALOR_UNITARIO',
-      valorTotal: 'VALOR_TOTAL',
-      aliquotaIcms: 'ALIQUOTA_ICMS',
-      valorIcmsItem: 'VALOR_ICMS_ITEM',
-      status: 'STATUS',
-      dataEntrada: 'DATA_ENTRADA',
-      tipoMovimentacao: 'TIPO_MOVIMENTACAO',
-      logId: 'LOG_ID',
-      valorDescontoItem: 'VALOR_DESCONTO_ITEM',
-      tipoDesconto: 'TIPO_DESCONTO',
-      valorOutrosItem: 'VALOR_OUTROS_ITEM',
-      tipoOutros: 'TIPO_OUTROS',
-      valorLiquidoItem: 'VALOR_LIQUIDO_ITEM',
-      valorUnitarioLiquido: 'VALOR_UNITARIO_LIQUIDO'
+      numeroNf: 'NUMERO_NF', chaveNf: 'CHAVE_NF', dataEmissao: 'DATA_EMISSAO',
+      emitenteCnpj: 'EMITENTE_CNPJ', emitenteNome: 'EMITENTE_NOME',
+      codigoProduto: 'CODIGO_PRODUTO', descricaoProduto: 'DESCRICAO_PRODUTO',
+      ncm: 'NCM', cfop: 'CFOP', quantidade: 'QUANTIDADE',
+      valorUnitario: 'VALOR_UNITARIO', valorTotal: 'VALOR_TOTAL',
+      aliquotaIcms: 'ALIQUOTA_ICMS', valorIcmsItem: 'VALOR_ICMS_ITEM',
+      status: 'STATUS', dataEntrada: 'DATA_ENTRADA',
+      tipoMovimentacao: 'TIPO_MOVIMENTACAO', logId: 'LOG_ID',
+      valorDescontoItem: 'VALOR_DESCONTO_ITEM', tipoDesconto: 'TIPO_DESCONTO',
+      valorOutrosItem: 'VALOR_OUTROS_ITEM', tipoOutros: 'TIPO_OUTROS',
+      valorLiquidoItem: 'VALOR_LIQUIDO_ITEM', valorUnitarioLiquido: 'VALOR_UNITARIO_LIQUIDO'
     };
 
+    var headerKeys = Object.keys(fieldToHeader);
+    var cols = [];
+    for (var c = 0; c < headerKeys.length; c++) {
+      cols.push(colMap[fieldToHeader[headerKeys[c]]] || null);
+    }
+
+    var allRows = [];
     for (var i = 0; i < produtos.length; i++) {
       var p = produtos[i];
       try {
-        var newRow = sheet.getLastRow() + 1;
-
-        var keys = Object.keys(fieldToHeader);
-        for (var k = 0; k < keys.length; k++) {
-          var field = keys[k];
-          var header = fieldToHeader[field];
-          var col = colMap[header];
-          if (!col) continue;
-
+        var row = [];
+        for (var k = 0; k < headerKeys.length; k++) {
+          var field = headerKeys[k];
           var value = p[field];
           if (field === 'descricaoProduto') {
             value = (value || '').toUpperCase();
@@ -192,14 +189,41 @@ var NFeEntradaProdutosRepository = (function () {
               value = '';
             }
           }
-          sheet.getRange(newRow, col).setValue(value);
+          row.push(value);
         }
-
+        allRows.push(row);
         inserted++;
       } catch (err) {
         errors.push({ codigoProduto: p.codigoProduto, reason: err.message });
       }
     }
+
+    if (allRows.length > 0) {
+      var validCols = [];
+      var insertIndex = [];
+      for (var v = 0; v < cols.length; v++) {
+        if (cols[v]) {
+          validCols.push(cols[v]);
+          insertIndex.push(v);
+        }
+      }
+      if (validCols.length > 0) {
+        var firstCol = Math.min.apply(null, validCols);
+        var lastCol = Math.max.apply(null, validCols);
+        var startRow = sheet.getLastRow() + 1;
+        var matrix = [];
+        for (var r = 0; r < allRows.length; r++) {
+          var line = [];
+          for (var w = firstCol; w <= lastCol; w++) { line.push(''); }
+          for (var f = 0; f < insertIndex.length; f++) {
+            line[validCols[f] - firstCol] = allRows[r][insertIndex[f]];
+          }
+          matrix.push(line);
+        }
+        sheet.getRange(startRow, firstCol, matrix.length, lastCol - firstCol + 1).setValues(matrix);
+      }
+    }
+
     return { inserted: inserted, errors: errors };
   }
 
@@ -357,6 +381,7 @@ var NFeEntradaProdutosRepository = (function () {
     getOrCreateSheet: getOrCreateSheet,
     getProdutos: getProdutos,
     jaExisteProduto: jaExisteProduto,
+    buildExistenteSet: buildExistenteSet_,
     insertProdutos: insertProdutos,
     updateStatus: updateStatus,
     getProdutosByNf: getProdutosByNf,

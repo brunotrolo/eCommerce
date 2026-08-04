@@ -89,6 +89,10 @@ var ServiceRegistry = (function () {
       }
 
       return { error: err.message };
+    } finally {
+      if (typeof LoggingService !== 'undefined' && LoggingService.flushLogs) {
+        try { LoggingService.flushLogs(); } catch (e) { /* ignore */ }
+      }
     }
   }
 
