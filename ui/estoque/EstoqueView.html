@@ -51,11 +51,16 @@
     .catalog-btn { cursor: pointer; border: none; background: none; color: var(--color-info); font-size: 12px; padding: 0; line-height: 1; title: { content: 'Preencher com preço do catálogo'; } }
     .catalog-btn:hover { color: var(--color-info-hover); }
     .row-edited td { background: var(--color-info-light) !important; }
+    .header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
+    .header-actions { display: flex; align-items: center; gap: var(--space-sm); }
   </style>
   <div class="container">
     <div class="header">
       <h1>Controle de Estoque</h1>
-      <button class="btn btn-primary" id="btn-sync">Sincronizar</button>
+      <div class="header-actions">
+        <button class="btn" id="btn-sync-prices" title="Preenche/atualiza preços Shopee e ML de TODOS os itens a partir do catálogo">Sincronizar Preços Catálogo</button>
+        <button class="btn btn-primary" id="btn-sync">Sincronizar</button>
+      </div>
     </div>
     <div class="stats" id="stats-bar">
       <span>Total: <span class="stats-value" id="stat-total">0</span></span>
@@ -135,6 +140,7 @@
 
         var self = this;
         shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(); });
+        shadow.getElementById('btn-sync-prices').addEventListener('click', function () { self._syncPrecos(); });
         shadow.getElementById('filter-codigo').addEventListener('input', function () { self._applyFilters(); });
         shadow.getElementById('filter-status').addEventListener('change', function () { self._applyFilters(); });
 
@@ -206,6 +212,37 @@
             self._showToast('Erro ao sincronizar: ' + (err.message || err), 'error');
           })
           .apiDispatch('estoque.sincronizar', {});
+      }
+
+      _syncPrecos() {
+        var self = this;
+        var btn = this._el('btn-sync-prices');
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Sincronizando preços...';
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            var data = self._unwrap(resp);
+            if (data && data.error) {
+              self._showToast(data.error, 'error');
+            } else if (data) {
+              var msg = data.atualizados + ' item(ns) atualizado(s).';
+              if (data.semPrecoCatalogo > 0) {
+                msg += ' ' + data.semPrecoCatalogo + ' sem preço no catálogo.';
+              }
+              self._showToast(msg, 'success');
+              self._load();
+            }
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            self._showToast('Erro ao sincronizar preços: ' + (err.message || err), 'error');
+          })
+          .apiDispatch('estoque.sincronizarPrecosCatalogo', {});
       }
 
       _applyFilters() {

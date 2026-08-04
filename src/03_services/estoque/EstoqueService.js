@@ -88,6 +88,11 @@ var EstoqueService = (function () {
           },
           returns: { precoShopee: 'number', precoMercadoLivre: 'number' }
         },
+        sincronizarPrecosCatalogo: {
+          description: 'Preenche/atualiza preços Shopee e ML de TODOS os itens do estoque a partir dos preços do catálogo.',
+          params: {},
+          returns: { success: 'boolean', atualizados: 'number', semPrecoCatalogo: 'number', total: 'number' }
+        },
         getEstoqueAtualPorProduto: {
           description: 'Resume estoque por código de produto.',
           params: {
@@ -647,6 +652,80 @@ var EstoqueService = (function () {
     return { precoShopee: 0, precoMercadoLivre: 0 };
   }
 
+  function sincronizarPrecosCatalogo(params) {
+    var startTime = Date.now();
+    var sheetId = getSheetId_();
+    if (!sheetId) {
+      traceError_('sincronizarPrecosCatalogo', 'Sheet ID não configurado', {});
+      return { error: 'Sheet ID não configurado.' };
+    }
+
+    try {
+      var items = EstoqueRepository.getRows(sheetId);
+      if (!items || items.length === 0) {
+        trace_('sincronizarPrecosCatalogo', '0 itens no estoque, nada a fazer', { total: 0 });
+        return { success: true, atualizados: 0, semPrecoCatalogo: 0, total: 0 };
+      }
+
+      var result = CatalogService.getProducts({ sortBy: 'code', sortOrder: 'asc' });
+      var products = (result && result.data) ? result.data : [];
+      var priceMap = {};
+      for (var i = 0; i < products.length; i++) {
+        var cod = String(products[i].codigoProduto || '').trim();
+        if (!cod) continue;
+        priceMap[cod] = {
+          precoShopee: products[i].precoShopee || 0,
+          precoMercadoLivre: products[i].precoMercadoLivre || 0
+        };
+      }
+
+      var atualizados = 0;
+      var semPreco = 0;
+      for (var j = 0; j < items.length; j++) {
+        var item = items[j];
+        var codItem = String(item.CODIGO_PRODUTO || '').trim();
+        var preco = priceMap[codItem];
+        if (!preco) {
+          semPreco++;
+          continue;
+        }
+
+        var updates = {};
+        var custo = parseFloat(item.PRECO_CUSTO_ORIGINAL) || 0;
+
+        var atualShopee = item.PRECO_VENDA_SHOPEE === '' || item.PRECO_VENDA_SHOPEE == null ? 0 : parseFloat(item.PRECO_VENDA_SHOPEE) || 0;
+        if (preco.precoShopee > 0 && Math.abs(atualShopee - preco.precoShopee) > 0.001) {
+          updates.precoVendaShopee = preco.precoShopee;
+          updates.margemShopee = calcularMargem_(preco.precoShopee, custo);
+        }
+
+        var atualML = item.PRECO_VENDA_MERCADO_LIVRE === '' || item.PRECO_VENDA_MERCADO_LIVRE == null ? 0 : parseFloat(item.PRECO_VENDA_MERCADO_LIVRE) || 0;
+        if (preco.precoMercadoLivre > 0 && Math.abs(atualML - preco.precoMercadoLivre) > 0.001) {
+          updates.precoVendaMercadoLivre = preco.precoMercadoLivre;
+          updates.margemMercadoLivre = calcularMargem_(preco.precoMercadoLivre, custo);
+        }
+
+        if (Object.keys(updates).length > 0) {
+          EstoqueRepository.updateRow(sheetId, item.ESTOQUE_ID, updates);
+          atualizados++;
+        }
+      }
+
+      var duration = Date.now() - startTime;
+      trace_('sincronizarPrecosCatalogo', atualizados + ' item(ns) atualizado(s), ' + semPreco + ' sem preço no catálogo (total ' + items.length + ')', {
+        total: items.length,
+        atualizados: atualizados,
+        semPrecoCatalogo: semPreco,
+        durationMs: duration
+      });
+
+      return { success: true, atualizados: atualizados, semPrecoCatalogo: semPreco, total: items.length };
+    } catch (e) {
+      traceError_('sincronizarPrecosCatalogo', 'Erro: ' + e.message, {});
+      return { error: 'Erro ao sincronizar preços do catálogo: ' + e.message };
+    }
+  }
+
   function getEstoqueAtualPorProduto(params) {
     var sheetId = getSheetId_();
     if (!sheetId) return { error: 'Sheet ID não configurado.' };
@@ -743,6 +822,7 @@ var EstoqueService = (function () {
     updateStatusBulk: updateStatusBulk,
     updateItem: updateItem,
     getPrecosCatalogo: getPrecosCatalogo,
+    sincronizarPrecosCatalogo: sincronizarPrecosCatalogo,
     sincronizar: sincronizar,
     getEstoqueAtualPorProduto: getEstoqueAtualPorProduto
   };
