@@ -214,8 +214,10 @@
 
         var items = this._items;
         if (status) {
+          var statusNorm = status.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
           items = items.filter(function (it) {
-            return (it.STATUS || '').toUpperCase() === status.toUpperCase();
+            var st = (it.STATUS || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return st === statusNorm;
           });
         }
         if (codigo) {
