@@ -2,33 +2,28 @@
  * OrdersImportService — importação de pedidos Shopee para Google Sheets via Tiops.
  * Busca pedidos nos status operacionais (UNPAID, READY_TO_SHIP, SHIPPED) e
  * também em COMPLETED/CANCELLED para manter histórico atualizado.
+ * Fonte adicional: shopee_sales_summary pega pedidos COMPLETED extras.
+ * Escrow via batch (1 chamada para N pedidos) — economiza ações.
  * Faz upsert: insere novos e atualiza status dos existentes.
- * Dados financeiros via shopee_get_escrow_detail (comissão, taxa serviço, líquido).
  * Regras completas em specs/orders-import.md.
  *
- * Logging: toda etapa é auditada via LoggingService (sync) — cada chamada
- * Tiops, cada detail fetch, cada upsert, cada erro. Aba LOGS no Sheets.
+ * Logging: toda etapa é auditada via LoggingService (sync).
  */
 var OrdersImportService = (function () {
   var OPERATIONAL_STATUSES = ['UNPAID', 'READY_TO_SHIP', 'SHIPPED'];
   var ALL_STATUSES = ['UNPAID', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'IN_CANCEL'];
+  var ESCROW_BATCH_SIZE = 20;
 
   function describe() {
     return {
       name: 'ordersImport',
       actions: {
         importShopeeOrders: {
-          description: 'Busca pedidos Shopee via Tiops (todos os status), insere novos e atualiza status dos existentes.',
+          description: 'Busca pedidos Shopee via Tiops (todos os status + sales_summary), insere novos e atualiza existentes.',
           params: {
-            mode: { type: 'string', required: false, default: 'all', enum: ['operational', 'all'], description: 'operational=UNPAID/READY_TO_SHIP/SHIPPED, all=todos' }
+            mode: { type: 'string', required: false, default: 'all', enum: ['operational', 'all'] }
           },
-          returns: {
-            success: 'boolean',
-            imported: 'number',
-            updated: 'number',
-            errors: 'array',
-            message: 'string'
-          }
+          returns: { success: 'boolean', imported: 'number', updated: 'number', errors: 'array', message: 'string' }
         }
       }
     };
@@ -39,9 +34,7 @@ var OrdersImportService = (function () {
       return TiopsClient.call(action, params);
     } catch (e) {
       var msg = e.message || String(e);
-      if (msg.indexOf('TIOPS_API_KEY_MISSING') !== -1) {
-        throw new Error('TIOPS_API_KEY_MISSING');
-      }
+      if (msg.indexOf('TIOPS_API_KEY_MISSING') !== -1) throw new Error('TIOPS_API_KEY_MISSING');
       throw new Error('Tiops indisponível: ' + msg);
     }
   }
@@ -81,28 +74,11 @@ var OrdersImportService = (function () {
 
   function listOrderSnsByStatus_(orderStatus) {
     var startTime = Date.now();
-    var result = callTiops_('shopee_list_orders', {
-      limit: 100,
-      order_status: orderStatus
-    });
-
-    if (!result) {
-      LoggingService.log({
-        service: 'OrdersImport',
-        action: 'listOrderSns',
-        status: 'ERROR',
-        caller: 'OrdersImportService',
-        summary: 'shopee_list_orders[' + orderStatus + '] retornou null/undefined',
-        durationMs: Date.now() - startTime,
-        errorMessage: 'empty result',
-        context: { orderStatus: orderStatus }
-      });
-      return [];
-    }
+    var result = callTiops_('shopee_list_orders', { limit: 100, order_status: orderStatus });
+    if (!result) return [];
 
     var response = result.response || result;
     var orderList = response.order_list || response.orders || [];
-
     var sns = [];
     for (var i = 0; i < orderList.length; i++) {
       var sn = orderList[i].order_sn || orderList[i].order_id || '';
@@ -110,113 +86,108 @@ var OrdersImportService = (function () {
     }
 
     LoggingService.log({
-      service: 'OrdersImport',
-      action: 'listOrderSns',
-      status: 'OK',
+      service: 'OrdersImport', action: 'listOrderSns', status: 'OK',
       caller: 'OrdersImportService',
       summary: 'shopee_list_orders[' + orderStatus + '] => ' + sns.length + ' pedidos',
       durationMs: Date.now() - startTime,
-      context: {
-        orderStatus: orderStatus,
-        orderCount: sns.length,
-        orderSns: sns.slice(0, 20),
-        rawResponseKeys: Object.keys(response)
-      }
+      context: { orderStatus: orderStatus, orderCount: sns.length }
     });
-
     return sns;
+  }
+
+  function getCompletedOrdersFromSalesSummary_() {
+    var startTime = Date.now();
+    try {
+      var result = callTiops_('shopee_sales_summary', {});
+      if (!result) return [];
+
+      var response = result.response || result;
+      var orders = response.orders || [];
+
+      var sns = [];
+      for (var i = 0; i < orders.length; i++) {
+        if (orders[i].order_sn) sns.push(orders[i].order_sn);
+      }
+
+      LoggingService.log({
+        service: 'OrdersImport', action: 'salesSummary', status: 'OK',
+        caller: 'OrdersImportService',
+        summary: 'shopee_sales_summary => ' + sns.length + ' pedidos COMPLETED (receita: R$ ' + (response.total_revenue || 0) + ')',
+        durationMs: Date.now() - startTime,
+        context: {
+          orderCount: sns.length,
+          totalRevenue: response.total_revenue || 0,
+          totalOrders: response.total_orders || 0,
+          avgOrderValue: response.avg_order_value || 0
+        }
+      });
+      return sns;
+    } catch (e) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'salesSummary', status: 'WARN',
+        caller: 'OrdersImportService',
+        summary: 'sales_summary indisponível: ' + e.message,
+        durationMs: Date.now() - startTime, errorMessage: e.message
+      });
+      return [];
+    }
   }
 
   function getOrderDetail_(orderSn) {
     var startTime = Date.now();
-    var result = callTiops_('shopee_get_order_detail', {
-      order_sn: orderSn
-    });
-
-    if (!result) {
-      LoggingService.log({
-        service: 'OrdersImport',
-        action: 'getOrderDetail',
-        status: 'ERROR',
-        caller: 'OrdersImportService',
-        summary: 'shopee_get_order_detail[' + orderSn + '] retornou null',
-        durationMs: Date.now() - startTime,
-        errorMessage: 'empty result',
-        context: { orderSn: orderSn }
-      });
-      return null;
-    }
+    var result = callTiops_('shopee_get_order_detail', { order_sn: orderSn });
+    if (!result) return null;
 
     var response = result.response || result;
     var orderList = response.order_list || [];
     var detail = orderList.length > 0 ? orderList[0] : null;
 
     LoggingService.log({
-      service: 'OrdersImport',
-      action: 'getOrderDetail',
-      status: detail ? 'OK' : 'ERROR',
+      service: 'OrdersImport', action: 'getOrderDetail', status: detail ? 'OK' : 'ERROR',
       caller: 'OrdersImportService',
-      summary: 'shopee_get_order_detail[' + orderSn + '] => ' + (detail ? 'OK (status=' + (detail.order_status || '?') + ')' : 'not found'),
+      summary: 'shopee_get_order_detail[' + orderSn + '] => ' + (detail ? 'OK' : 'not found'),
       durationMs: Date.now() - startTime,
-      errorMessage: detail ? '' : 'order_sn ' + orderSn + ' not in response',
-      context: {
-        orderSn: orderSn,
-        found: !!detail,
-        orderStatus: detail ? detail.order_status : '',
-        totalAmount: detail ? detail.total_amount : '',
-        buyerUsername: detail ? detail.buyer_username : '',
-        itemCount: detail && detail.item_list ? detail.item_list.length : 0,
-        rawResponseKeys: Object.keys(response)
-      }
+      context: { orderSn: orderSn, found: !!detail, orderStatus: detail ? detail.order_status : '' }
     });
-
     return detail;
   }
 
-  function getEscrowDetail_(orderSn) {
+  function getEscrowDetailBatch_(orderSns) {
+    if (!orderSns || orderSns.length === 0) return {};
     var startTime = Date.now();
-    var result = callTiops_('shopee_get_escrow_detail', {
-      order_sn: orderSn
-    });
+    var result = callTiops_('shopee_get_escrow_detail_batch', { order_sn_list: orderSns });
+    if (!result) return {};
 
-    if (!result) {
-      LoggingService.log({
-        service: 'OrdersImport',
-        action: 'getEscrowDetail',
-        status: 'ERROR',
-        caller: 'OrdersImportService',
-        summary: 'shopee_get_escrow_detail[' + orderSn + '] retornou null',
-        durationMs: Date.now() - startTime,
-        errorMessage: 'empty result',
-        context: { orderSn: orderSn }
-      });
-      return null;
+    var response = result.response || [];
+    var escrowMap = {};
+    var found = 0;
+    var notFound = 0;
+
+    for (var i = 0; i < response.length; i++) {
+      var item = response[i];
+      var escrow = item.escrow_detail || {};
+      var sn = escrow.order_sn || '';
+      if (sn && escrow.order_income) {
+        escrowMap[sn] = escrow.order_income;
+        found++;
+      } else if (sn) {
+        notFound++;
+      }
     }
 
-    var response = result.response || result;
-    var income = response.order_income || null;
-
     LoggingService.log({
-      service: 'OrdersImport',
-      action: 'getEscrowDetail',
-      status: income ? 'OK' : 'ERROR',
+      service: 'OrdersImport', action: 'getEscrowBatch', status: 'OK',
       caller: 'OrdersImportService',
-      summary: 'shopee_get_escrow_detail[' + orderSn + '] => ' + (income ? 'OK (escrow=' + (income.escrow_amount || 0) + ')' : 'no income data'),
+      summary: 'shopee_get_escrow_detail_batch[' + orderSns.length + '] => ' + found + ' com dados, ' + notFound + ' sem',
       durationMs: Date.now() - startTime,
-      errorMessage: income ? '' : 'order_income not found',
       context: {
-        orderSn: orderSn,
-        found: !!income,
-        escrowAmount: income ? income.escrow_amount : '',
-        commissionFee: income ? income.commission_fee : '',
-        netCommissionFee: income ? income.net_commission_fee : '',
-        serviceFee: income ? income.service_fee : '',
-        netServiceFee: income ? income.net_service_fee : '',
-        rawResponseKeys: Object.keys(response)
+        requested: orderSns.length,
+        found: found,
+        notFound: notFound,
+        actionsUsed: 1
       }
     });
-
-    return income;
+    return escrowMap;
   }
 
   function normalizeOrder_(detail, escrow) {
@@ -280,17 +251,12 @@ var OrdersImportService = (function () {
     var statuses = mode === 'operational' ? OPERATIONAL_STATUSES : ALL_STATUSES;
 
     LoggingService.log({
-      service: 'OrdersImport',
-      action: 'importShopeeOrders',
-      status: 'OK',
-      caller: 'UI',
-      summary: 'Iniciando importação mode=' + mode + ', statuses=' + statuses.join(','),
-      durationMs: 0,
-      context: { mode: mode, statuses: statuses }
+      service: 'OrdersImport', action: 'importShopeeOrders', status: 'OK',
+      caller: 'UI', summary: 'Iniciando importação mode=' + mode,
+      durationMs: 0, context: { mode: mode, statuses: statuses }
     });
 
     var allOrderSns = {};
-    var statusMap = {};
     var errors = [];
     var statusCounts = {};
 
@@ -300,200 +266,140 @@ var OrdersImportService = (function () {
         var sns = listOrderSnsByStatus_(st);
         statusCounts[st] = sns.length;
         for (var i = 0; i < sns.length; i++) {
-          if (!allOrderSns[sns[i]]) {
-            allOrderSns[sns[i]] = true;
-            statusMap[sns[i]] = st;
-          }
+          if (!allOrderSns[sns[i]]) allOrderSns[sns[i]] = st;
         }
       } catch (e) {
         errors.push({ status: st, reason: e.message });
         statusCounts[st] = -1;
-        LoggingService.log({
-          service: 'OrdersImport',
-          action: 'listByStatus',
-          status: 'ERROR',
-          caller: 'OrdersImportService',
-          summary: 'Erro ao listar status ' + st + ': ' + e.message,
-          durationMs: Date.now() - importStart,
-          errorMessage: e.message,
-          context: { status: st }
-        });
+      }
+    }
+
+    var beforeSales = Object.keys(allOrderSns).length;
+
+    if (mode === 'all') {
+      try {
+        var salesSns = getCompletedOrdersFromSalesSummary_();
+        for (var j = 0; j < salesSns.length; j++) {
+          if (!allOrderSns[salesSns[j]]) {
+            allOrderSns[salesSns[j]] = 'COMPLETED';
+          }
+        }
+      } catch (e) {
+        errors.push({ status: 'SALES_SUMMARY', reason: e.message });
       }
     }
 
     var uniqueSns = Object.keys(allOrderSns);
+    var fromSales = uniqueSns.length - beforeSales;
 
     LoggingService.log({
-      service: 'OrdersImport',
-      action: 'listAllStatuses',
-      status: 'OK',
+      service: 'OrdersImport', action: 'mergeSources', status: 'OK',
       caller: 'OrdersImportService',
-      summary: 'Listagem concluída: ' + uniqueSns.length + ' pedidos únicos de ' + statuses.length + ' status',
+      summary: uniqueSns.length + ' pedidos únicos (' + beforeSales + ' de list_orders + ' + fromSales + ' de sales_summary)',
       durationMs: Date.now() - importStart,
-      context: {
-        statusCounts: statusCounts,
-        uniqueOrderCount: uniqueSns.length,
-        errors: errors.length
-      }
+      context: { total: uniqueSns.length, fromList: beforeSales, fromSales: fromSales, statusCounts: statusCounts }
     });
 
     if (uniqueSns.length === 0) {
       var totalMs = Date.now() - importStart;
       LoggingService.log({
-        service: 'OrdersImport',
-        action: 'importShopeeOrders',
+        service: 'OrdersImport', action: 'importShopeeOrders',
         status: errors.length > 0 ? 'ERROR' : 'OK',
-        caller: 'UI',
-        summary: 'Importação concluída (vazio): 0 pedidos (' + totalMs + 'ms)',
-        durationMs: totalMs,
-        errorMessage: errors.length > 0 ? errors.length + ' erros na listagem' : '',
-        context: { errors: errors }
+        caller: 'UI', summary: 'Importação concluída (vazio): 0 pedidos (' + totalMs + 'ms)',
+        durationMs: totalMs, context: { errors: errors }
       });
-      return {
-        success: errors.length === 0,
-        imported: 0,
-        updated: 0,
-        errors: errors,
-        message: errors.length > 0
-          ? 'Erros ao buscar status: ' + errors.length
-          : 'Nenhum pedido encontrado.'
-      };
+      return { success: errors.length === 0, imported: 0, updated: 0, errors: errors, message: 'Nenhum pedido encontrado.' };
     }
 
     var existingMap = OrdersRepository.getAllOrdersMap();
-    var existingCount = Object.keys(existingMap).length;
+    var toFetchDetail = [];
+    for (var k = 0; k < uniqueSns.length; k++) {
+      if (!existingMap[uniqueSns[k]]) toFetchDetail.push(uniqueSns[k]);
+    }
 
     LoggingService.log({
-      service: 'OrdersImport',
-      action: 'loadExisting',
-      status: 'OK',
+      service: 'OrdersImport', action: 'planFetches', status: 'OK',
       caller: 'OrdersImportService',
-      summary: 'Planilha carregada: ' + existingCount + ' pedidos existentes',
+      summary: uniqueSns.length + ' pedidos: ' + toFetchDetail.length + ' precisam detail, ' + (uniqueSns.length - toFetchDetail.length) + ' já existem',
       durationMs: Date.now() - importStart,
-      context: { existingOrderCount: existingCount }
+      context: { needDetail: toFetchDetail.length, alreadyExist: uniqueSns.length - toFetchDetail.length }
     });
 
-    var toUpsert = [];
+    var details = {};
     var detailErrors = 0;
-    var detailSuccess = 0;
-
-    for (var j = 0; j < uniqueSns.length; j++) {
-      var sn = uniqueSns[j];
+    for (var d = 0; d < toFetchDetail.length; d++) {
+      var sn = toFetchDetail[d];
       try {
         var detail = getOrderDetail_(sn);
-        var escrow = null;
-        try {
-          escrow = getEscrowDetail_(sn);
-        } catch (escrowErr) {
-          LoggingService.log({
-            service: 'OrdersImport',
-            action: 'getEscrowDetail',
-            status: 'WARN',
-            caller: 'OrdersImportService',
-            summary: 'Escrow não disponível para ' + sn + ': ' + escrowErr.message,
-            durationMs: Date.now() - importStart,
-            errorMessage: escrowErr.message,
-            context: { orderSn: sn }
-          });
-        }
-
-        var normalized = normalizeOrder_(detail, escrow);
-        if (normalized) {
-          toUpsert.push(normalized);
-          detailSuccess++;
+        if (detail) {
+          details[sn] = detail;
         } else {
           detailErrors++;
-          errors.push({ order_sn: sn, reason: 'detail normalization returned null' });
+          errors.push({ order_sn: sn, reason: 'detail not found' });
         }
       } catch (e) {
         detailErrors++;
         errors.push({ order_sn: sn, reason: e.message });
+      }
+    }
+
+    var allDetailSns = Object.keys(details);
+    var escrowMap = {};
+
+    for (var b = 0; b < allDetailSns.length; b += ESCROW_BATCH_SIZE) {
+      var batch = allDetailSns.slice(b, b + ESCROW_BATCH_SIZE);
+      try {
+        var batchResult = getEscrowDetailBatch_(batch);
+        var batchKeys = Object.keys(batchResult);
+        for (var e = 0; e < batchKeys.length; e++) {
+          escrowMap[batchKeys[e]] = batchResult[batchKeys[e]];
+        }
+      } catch (escrowErr) {
         LoggingService.log({
-          service: 'OrdersImport',
-          action: 'getOrderDetail',
-          status: 'ERROR',
+          service: 'OrdersImport', action: 'escrowBatch', status: 'WARN',
           caller: 'OrdersImportService',
-          summary: 'Erro ao buscar detail ' + sn + ': ' + e.message,
-          durationMs: Date.now() - importStart,
-          errorMessage: e.message,
-          context: { orderSn: sn, progress: (j + 1) + '/' + uniqueSns.length }
+          summary: 'Escrow batch falhou: ' + escrowErr.message,
+          durationMs: Date.now() - importStart, errorMessage: escrowErr.message
         });
       }
     }
 
-    LoggingService.log({
-      service: 'OrdersImport',
-      action: 'fetchDetails',
-      status: 'OK',
-      caller: 'OrdersImportService',
-      summary: 'Details buscados: ' + detailSuccess + ' OK, ' + detailErrors + ' erros',
-      durationMs: Date.now() - importStart,
-      context: {
-        totalSns: uniqueSns.length,
-        detailSuccess: detailSuccess,
-        detailErrors: detailErrors
-      }
-    });
+    var toUpsert = [];
+    for (var u = 0; u < allDetailSns.length; u++) {
+      var orderSn = allDetailSns[u];
+      var normalized = normalizeOrder_(details[orderSn], escrowMap[orderSn]);
+      if (normalized) toUpsert.push(normalized);
+    }
 
     var upsertResult = { inserted: 0, updated: 0 };
     if (toUpsert.length > 0) {
-      var upsertStart = Date.now();
       upsertResult = OrdersRepository.upsertOrders(toUpsert);
-
-      LoggingService.log({
-        service: 'OrdersImport',
-        action: 'upsertOrders',
-        status: 'OK',
-        caller: 'OrdersImportService',
-        summary: 'Upsert concluído: ' + upsertResult.inserted + ' novos, ' + upsertResult.updated + ' atualizados',
-        durationMs: Date.now() - upsertStart,
-        context: {
-          inputCount: toUpsert.length,
-          inserted: upsertResult.inserted,
-          updated: upsertResult.updated,
-          skipped: toUpsert.length - upsertResult.inserted - upsertResult.updated
-        }
-      });
     }
 
     var imported = upsertResult.inserted || 0;
     var updated = upsertResult.updated || 0;
-    var totalErrors = errors.length;
     var totalMs = Date.now() - importStart;
+    var totalErrors = errors.length;
 
     var message = imported + ' novos, ' + updated + ' atualizados';
-    if (totalErrors > 0) {
-      message += ' (' + totalErrors + ' erro' + (totalErrors !== 1 ? 's' : '') + ')';
-    }
+    if (totalErrors > 0) message += ' (' + totalErrors + ' erro' + (totalErrors !== 1 ? 's' : '') + ')';
 
     LoggingService.log({
-      service: 'OrdersImport',
-      action: 'importShopeeOrders',
+      service: 'OrdersImport', action: 'importShopeeOrders',
       status: totalErrors > 0 && imported === 0 && updated === 0 ? 'ERROR' : 'OK',
-      caller: 'UI',
-      summary: 'Importação concluída: ' + message + ' (' + totalMs + 'ms)',
-      durationMs: totalMs,
-      errorMessage: totalErrors > 0 ? totalErrors + ' erros' : '',
-      context: {
-        mode: mode,
-        imported: imported,
-        updated: updated,
-        totalErrors: totalErrors,
+      caller: 'UI', summary: 'Importação concluída: ' + message + ' (' + totalMs + 'ms)',
+      durationMs: totalMs, context: {
+        mode: mode, imported: imported, updated: updated, totalErrors: totalErrors,
+        escrowBatchCalls: Math.ceil(allDetailSns.length / ESCROW_BATCH_SIZE),
         errors: errors.slice(0, 10)
       }
     });
 
     return {
       success: totalErrors === 0 || imported > 0 || updated > 0,
-      imported: imported,
-      updated: updated,
-      errors: errors,
-      message: message
+      imported: imported, updated: updated, errors: errors, message: message
     };
   }
 
-  return {
-    describe: describe,
-    importShopeeOrders: importShopeeOrders
-  };
+  return { describe: describe, importShopeeOrders: importShopeeOrders };
 })();
