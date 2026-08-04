@@ -21,7 +21,8 @@ var OrdersImportService = (function () {
         importShopeeOrders: {
           description: 'Busca pedidos Shopee via Tiops (todos os status + sales_summary), insere novos e atualiza existentes.',
           params: {
-            mode: { type: 'string', required: false, default: 'all', enum: ['operational', 'all'] }
+            mode: { type: 'string', required: false, default: 'all', enum: ['operational', 'all'] },
+            forceOrderSns: { type: 'array', required: false, default: [], description: 'Order SNs específicos para buscar (ignora filtro de status/list)' }
           },
           returns: { success: 'boolean', imported: 'number', updated: 'number', errors: 'array', message: 'string' }
         }
@@ -248,20 +249,25 @@ var OrdersImportService = (function () {
     var importStart = Date.now();
     params = params || {};
     var mode = params.mode || 'all';
+    var forceOrderSns = params.forceOrderSns || [];
     var statuses = mode === 'operational' ? OPERATIONAL_STATUSES : ALL_STATUSES;
 
     LoggingService.log({
       service: 'OrdersImport', action: 'importShopeeOrders', status: 'OK',
-      caller: 'UI', summary: 'Iniciando importação mode=' + mode,
-      durationMs: 0, context: { mode: mode, statuses: statuses }
+      caller: 'UI', summary: 'Iniciando importação mode=' + mode + (forceOrderSns.length > 0 ? ' force=' + forceOrderSns.length : ''),
+      durationMs: 0, context: { mode: mode, statuses: statuses, forceCount: forceOrderSns.length }
     });
 
     var allOrderSns = {};
     var errors = [];
     var statusCounts = {};
 
-    for (var s = 0; s < statuses.length; s++) {
-      var st = statuses[s];
+    for (var s = 0; s < forceOrderSns.length; s++) {
+      allOrderSns[forceOrderSns[s]] = 'FORCE';
+    }
+
+    for (var s2 = 0; s2 < statuses.length; s2++) {
+      var st = statuses[s2];
       try {
         var sns = listOrderSnsByStatus_(st);
         statusCounts[st] = sns.length;
