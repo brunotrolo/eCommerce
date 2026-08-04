@@ -2,6 +2,9 @@
  * OrdersRepository — leitura/escrita na aba PEDIDOS do Google Sheets.
  * Usado para importação de pedidos Shopee via Tiops.
  * Regras completas em specs/orders-import.md.
+ *
+ * Logging: operações de upsert/insert/update são auditadas via LoggingService
+ * com timing, contadores e detalhes de cada operação.
  */
 var OrdersRepository = (function () {
   var SHEET_NAME = 'PEDIDOS';
@@ -83,6 +86,7 @@ var OrdersRepository = (function () {
   function insertOrdersBulk(orders) {
     if (!orders || orders.length === 0) return { success: true, inserted: 0 };
 
+    var startTime = Date.now();
     var sheet = getOrCreateSheet();
     var lastCol = sheet.getLastColumn();
 
@@ -145,7 +149,26 @@ var OrdersRepository = (function () {
     var newRow = sheet.getLastRow() + 1;
     sheet.getRange(newRow, 1, matrix.length, headers.length).setValues(matrix);
 
-    return { success: true, inserted: matrix.length };
+    var inserted = matrix.length;
+    var totalMs = Date.now() - startTime;
+
+    LoggingService.log({
+      service: 'OrdersRepo',
+      action: 'insertOrdersBulk',
+      status: 'OK',
+      caller: 'OrdersRepository',
+      summary: 'Bulk insert: ' + inserted + ' linhas na planilha',
+      durationMs: totalMs,
+      context: {
+        inserted: inserted,
+        newHeadersAdded: missingHeaders.length,
+        newHeaders: missingHeaders.slice(0, 10),
+        startRow: newRow,
+        orderIds: orders.slice(0, 5).map(function (o) { return o.order_id || ''; })
+      }
+    });
+
+    return { success: true, inserted: inserted };
   }
 
   function insertOrder(order) {
@@ -153,6 +176,7 @@ var OrdersRepository = (function () {
   }
 
   function getAllOrdersMap() {
+    var startTime = Date.now();
     var sheet = getOrCreateSheet();
     var lastRow = sheet.getLastRow();
     var lastCol = sheet.getLastColumn();
@@ -177,10 +201,27 @@ var OrdersRepository = (function () {
       var status = statusCol !== -1 ? String(allValues[r][statusCol - 1]).trim() : '';
       map[oid] = { rowNumber: rowNumber, status: status };
     }
+
+    var totalMs = Date.now() - startTime;
+    LoggingService.log({
+      service: 'OrdersRepo',
+      action: 'getAllOrdersMap',
+      status: 'OK',
+      caller: 'OrdersRepository',
+      summary: 'Mapa carregado: ' + Object.keys(map).length + ' pedidos (' + totalMs + 'ms)',
+      durationMs: totalMs,
+      context: {
+        totalOrders: Object.keys(map).length,
+        sheetRows: lastRow - 1,
+        hasStatusCol: statusCol !== -1
+      }
+    });
+
     return map;
   }
 
   function updateOrderRow(rowNumber, order) {
+    var startTime = Date.now();
     var sheet = getOrCreateSheet();
     var lastCol = sheet.getLastColumn();
     if (lastCol === 0) return false;
@@ -191,45 +232,96 @@ var OrdersRepository = (function () {
       headerMap[String(headers[i]).trim()] = i + 1;
     }
 
+    var updatedFields = [];
     var keys = Object.keys(order);
     for (var k = 0; k < keys.length; k++) {
       var col = headerMap[keys[k]];
       if (col) {
         sheet.getRange(rowNumber, col).setValue(order[keys[k]]);
+        updatedFields.push(keys[k]);
       }
     }
+
+    var totalMs = Date.now() - startTime;
+    LoggingService.log({
+      service: 'OrdersRepo',
+      action: 'updateOrderRow',
+      status: 'OK',
+      caller: 'OrdersRepository',
+      summary: 'Linha ' + rowNumber + ' atualizada: ' + updatedFields.join(', '),
+      durationMs: totalMs,
+      context: {
+        rowNumber: rowNumber,
+        updatedFields: updatedFields,
+        newValues: order
+      }
+    });
+
     return true;
   }
 
   function upsertOrders(orders) {
     if (!orders || orders.length === 0) return { inserted: 0, updated: 0 };
 
+    var startTime = Date.now();
     var existingMap = getAllOrdersMap();
     var toInsert = [];
     var updated = 0;
+    var skipped = 0;
+    var updateDetails = [];
+    var insertIds = [];
 
     for (var i = 0; i < orders.length; i++) {
       var order = orders[i];
       var orderId = String(order.order_id || order.order_sn || '').trim();
-      if (!orderId) continue;
+      if (!orderId) {
+        skipped++;
+        continue;
+      }
 
       var existing = existingMap[orderId];
       if (existing) {
         if (existing.status && order.status && existing.status !== order.status) {
           updateOrderRow(existing.rowNumber, { status: order.status });
           updated++;
+          updateDetails.push({
+            orderId: orderId,
+            from: existing.status,
+            to: order.status,
+            row: existing.rowNumber
+          });
         }
       } else {
         toInsert.push(order);
+        insertIds.push(orderId);
         existingMap[orderId] = { rowNumber: -1, status: order.status || '' };
       }
     }
 
     var inserted = 0;
     if (toInsert.length > 0) {
-      var result = insertOrdersBulk(toInsert);
-      inserted = result.inserted || toInsert.length;
+      var insertResult = insertOrdersBulk(toInsert);
+      inserted = insertResult.inserted || toInsert.length;
     }
+
+    var totalMs = Date.now() - startTime;
+    LoggingService.log({
+      service: 'OrdersRepo',
+      action: 'upsertOrders',
+      status: 'OK',
+      caller: 'OrdersRepository',
+      summary: 'Upsert: ' + inserted + ' novos, ' + updated + ' atualizados, ' + skipped + ' ignorados (' + totalMs + 'ms)',
+      durationMs: totalMs,
+      context: {
+        inputCount: orders.length,
+        inserted: inserted,
+        updated: updated,
+        skipped: skipped,
+        updateDetails: updateDetails.slice(0, 20),
+        insertIds: insertIds.slice(0, 20),
+        existingBefore: Object.keys(existingMap).length - toInsert.length
+      }
+    });
 
     return { inserted: inserted, updated: updated };
   }
