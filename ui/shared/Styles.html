@@ -940,6 +940,17 @@
     pointer-events: auto;
   }
 
+  /* Ponte invisivel: cobre o vao de 4px entre o toggle e o menu
+     (translateY do estado aberto) para o hover nao cair no mouseleave */
+  .nav-dropdown-menu::before {
+    content: '';
+    position: absolute;
+    top: calc(-1 * var(--space-xs));
+    left: 0;
+    right: 0;
+    height: var(--space-xs);
+  }
+
   .nav-dropdown-item {
     display: block;
     width: 100%;
