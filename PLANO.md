@@ -81,9 +81,10 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | — | Status Online + Speed Meter | ✅ | ⬜ |
 | — | DataStore (cache client-side) | ✅ | ⬜ |
 | — | Estoque (unidades FIFO) | ✅ | ✅ |
+| — | Webhook Shopee (Push) | ✅ | ⬜ |
 
 > **Estado real de hoje:** o app roda em produção (Web App deployado, última
-> versão @89). O fluxo funcional ativo é o domínio **Estoque**: 157 unidades
+> versão @146). O fluxo funcional ativo é o domínio **Estoque**: 157 unidades
 > rastreadas unitariamente (FIFO), alimentado por NFe + Manual com importação
 > passo a passo (modal de progresso) e preços sincronizáveis com o catálogo.
 > Fases 0, 1 e 8 foram validadas por cálculos/smoke executados (fórmulas de
@@ -91,6 +92,12 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > GWT). As demais fases dependem de dado real dos marketplaces via Tiops e/
 > ou de acesso ao editor Apps Script (`runSmokeTests_`) — pendente de
 > validação manual ativa.
+>
+> **Webhook Shopee:** código implementado e testado (PushNotificationService,
+> specs/push-notification.md), mas **inativo** — a Tiops detém as credenciais
+> de API da loja, logo os pushes vão para a callback URL da Tiops, não para
+> nós. Para ativar, o usuário precisa criar app próprio na Shopee Open
+> Platform e migrar as credenciais (ver seção "Refatoração Futura" na spec).
 
 ### Fase 0 — Fundação + pipeline de sincronização (/dev)
 

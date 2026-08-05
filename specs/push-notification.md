@@ -121,13 +121,63 @@ verdade do `ordersImport`.
    - When `doPost` processa
    - Then vai para `apiDispatch` normal (não trata como push).
 
+## Limitação Atual (importante)
+
+**O webhook está implementado e testado, mas está INATIVO na prática.**
+
+Motivo: neste projeto, a integração com a Shopee passa pela **Tiops** —
+quem detém as credenciais de API (partner key) da loja é a Tiops.
+Quando a Shopee envia um push de status de pedido, ela envia para a
+**URL de callback registrada no app da Tiops** (open.shopee.com), não
+para o nosso Google Script. Portanto, o push nunca chega ao nosso
+receptor, mesmo estando funcional.
+
+O botão "Sincronizar Pedidos Shopee" continua sendo o mecanismo
+principal de atualização de pedidos.
+
+## Refatoração Futura (quando criar app próprio)
+
+Quando o usuário criar seu próprio app na **Shopee Open Platform**
+(open.shopee.com) e obter suas próprias credenciais (partner_id,
+partner_key), o webhook passará a funcionar. Mudanças necessárias:
+
+1. **Criar app no Open Platform:**
+   - Acessar open.shopee.com → My App → criar novo app
+   - Ativar "Push Notification" nas permissões
+   - Configurar a **callback URL** apontando para o deploy do GAS
+     (formato: `<deploy_url>?secret=<valor>`)
+
+2. **Migrar credenciais para o projeto:**
+   - Guardar `SHOPEE_PARTNER_ID` e `SHOPEE_PARTNER_KEY` em Script
+     Properties (já existe `TIOPS_API_KEY`, usar padrão similar)
+   - Decidir se mantém Tiops para outras operações ou migra tudo
+
+3. **Verificar assinatura (opcional mas recomendado):**
+   - Com partner_key próprio, é possível validar a assinatura
+     `Authorization` que a Shopee envia no header
+   - O GAS não expõe headers no `doPost`, mas é possível usar
+     `e.postData` + `e.parameter` para extrair o que a Shopee manda
+   - Alternativa: manter o secret em query param (solução atual)
+
+4. **Testar com push de teste:**
+   - O Open Platform tem ferramenta de teste de push
+   - Simular mudança de status e confirmar que chega ao receptor
+
+5. **Deploy:**
+   - `clasp push --force` → `clasp deploy` (nova versão)
+   - Atualizar a callback URL no Open Platform se o deploy mudar
+
+**NÃO altere este spec nem o código do webhook enquanto o app próprio
+não estiver criado e as credenciais obtidas.**
+
 ## Fora de Escopo
 
 - Webhooks do Mercado Livre (só Shopee v1).
-- Verificação da assinatura `Authorization`/`X-Callback-Signature` (GAS não
-  expõe headers no `doPost`).
+- Verificação da assinatura `Authorization`/`X-Callback-Signature` enquanto
+  as credenciais da Tiops forem usadas (GAS não expõe headers no `doPost`).
 - Fila de reprocessamento/retry com backoff (depende do reenvio da Shopee).
-- Configuração da callback URL dentro do painel (feita no console Shopee).
+- Configuração da callback URL dentro do painel (feita no console Shopee
+  ou Open Platform conforme o caso).
 
 ## Dependências
 
