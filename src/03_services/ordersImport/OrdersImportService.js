@@ -2,7 +2,6 @@
  * OrdersImportService — importação de pedidos Shopee para Google Sheets via Tiops.
  * Busca pedidos nos status operacionais (UNPAID, READY_TO_SHIP, SHIPPED) e
  * também em COMPLETED/CANCELLED para manter histórico atualizado.
- * Fonte adicional: shopee_sales_summary pega pedidos COMPLETED extras.
  * Escrow via batch (1 chamada para N pedidos) — economiza ações.
  * Faz upsert: insere novos e atualiza status dos existentes.
  * Regras completas em specs/orders-import.md.
@@ -19,7 +18,7 @@ var OrdersImportService = (function () {
       name: 'ordersImport',
       actions: {
         importShopeeOrders: {
-          description: 'Busca pedidos Shopee via Tiops (todos os status + sales_summary), insere novos e atualiza existentes.',
+          description: 'Busca pedidos Shopee via Tiops (todos os status), insere novos e atualiza existentes.',
           params: {
             mode: { type: 'string', required: false, default: 'all', enum: ['operational', 'all'] },
             forceOrderSns: { type: 'array', required: false, default: [], description: 'Order SNs específicos para buscar (ignora filtro de status/list)' }
@@ -94,44 +93,6 @@ var OrdersImportService = (function () {
       context: { orderStatus: orderStatus, orderCount: sns.length }
     });
     return sns;
-  }
-
-  function getCompletedOrdersFromSalesSummary_() {
-    var startTime = Date.now();
-    try {
-      var result = callTiops_('shopee_sales_summary', {});
-      if (!result) return [];
-
-      var response = result.response || result;
-      var orders = response.orders || [];
-
-      var sns = [];
-      for (var i = 0; i < orders.length; i++) {
-        if (orders[i].order_sn) sns.push(orders[i].order_sn);
-      }
-
-      LoggingService.log({
-        service: 'OrdersImport', action: 'salesSummary', status: 'OK',
-        caller: 'OrdersImportService',
-        summary: 'shopee_sales_summary => ' + sns.length + ' pedidos COMPLETED (receita: R$ ' + (response.total_revenue || 0) + ')',
-        durationMs: Date.now() - startTime,
-        context: {
-          orderCount: sns.length,
-          totalRevenue: response.total_revenue || 0,
-          totalOrders: response.total_orders || 0,
-          avgOrderValue: response.avg_order_value || 0
-        }
-      });
-      return sns;
-    } catch (e) {
-      LoggingService.log({
-        service: 'OrdersImport', action: 'salesSummary', status: 'WARN',
-        caller: 'OrdersImportService',
-        summary: 'sales_summary indisponível: ' + e.message,
-        durationMs: Date.now() - startTime, errorMessage: e.message
-      });
-      return [];
-    }
   }
 
   function getOrderDetail_(orderSn) {
@@ -280,31 +241,7 @@ var OrdersImportService = (function () {
       }
     }
 
-    var beforeSales = Object.keys(allOrderSns).length;
-
-    if (mode === 'all') {
-      try {
-        var salesSns = getCompletedOrdersFromSalesSummary_();
-        for (var j = 0; j < salesSns.length; j++) {
-          if (!allOrderSns[salesSns[j]]) {
-            allOrderSns[salesSns[j]] = 'COMPLETED';
-          }
-        }
-      } catch (e) {
-        errors.push({ status: 'SALES_SUMMARY', reason: e.message });
-      }
-    }
-
     var uniqueSns = Object.keys(allOrderSns);
-    var fromSales = uniqueSns.length - beforeSales;
-
-    LoggingService.log({
-      service: 'OrdersImport', action: 'mergeSources', status: 'OK',
-      caller: 'OrdersImportService',
-      summary: uniqueSns.length + ' pedidos únicos (' + beforeSales + ' de list_orders + ' + fromSales + ' de sales_summary)',
-      durationMs: Date.now() - importStart,
-      context: { total: uniqueSns.length, fromList: beforeSales, fromSales: fromSales, statusCounts: statusCounts }
-    });
 
     if (uniqueSns.length === 0) {
       var totalMs = Date.now() - importStart;

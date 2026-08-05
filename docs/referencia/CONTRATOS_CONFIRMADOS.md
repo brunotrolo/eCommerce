@@ -57,7 +57,7 @@ Sondagem via MCP Tiops (`shopId` = `1880105398`). Item sem variação usa `model
 | `shopee_sales_by_item` | `item_id`, `period` (e.g. "30d") | `total_orders`, `total_quantity`, `total_revenue`, `avg_price`, `orders[]` |
 | `shopee_get_item_content_diagnosis_result` | `item_id` | diagnóstico de qualidade do item |
 
-**Aviso crítico:** `shopee_sales_summary` **NÃO existe** no catálogo (citar na spec estava errado). Para agregados de vendas, somar `shopee_sales_by_item` por item ou usar `shopee_get_income_overview` (por mês).
+**Aviso crítico:** `shopee_sales_summary` **NÃO existe** no catálogo (citar na spec estava errado). Para agregados de vendas, somar `shopee_sales_by_item` por item ou usar `shopee_get_income_overview` (por mês). ✅ **Corrigido em 2026-08-05:** chamada removida de `OrdersImportService` (pedidos COMPLETED já são cobertos por `shopee_list_orders` com `order_status: COMPLETED` em `ALL_STATUSES`).
 
 **Não testar `shopee_unlist_item`/`shopee_delete_item` em item real** — resposta 200 com `success_list` causa estado real de pause/delete imediato. Use `item_id` fake ou só `describe_action` para sondar.
 
