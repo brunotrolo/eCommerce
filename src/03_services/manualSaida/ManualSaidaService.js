@@ -168,7 +168,11 @@ var ManualSaidaService = (function () {
         ncm: r.NCM || '',
         valorUnitario: parseFloat(r.VALOR_UNITARIO) || 0,
         valorUnitarioLiquido: parseFloat(r.VALOR_UNITARIO_LIQUIDO) || 0,
-        valorLiquidoItem: parseFloat(r.VALOR_LIQUIDO_ITEM) || 0
+        valorLiquidoItem: parseFloat(r.VALOR_LIQUIDO_ITEM) || 0,
+        emitenteNome: r.EMITENTE_NOME || '',
+        dataCompra: r.DATA_COMPRA || '',
+        valorOutrosItem: parseFloat(r.VALOR_OUTROS_ITEM) || 0,
+        tipoOutros: r.TIPO_OUTROS || ''
       });
     }
 
