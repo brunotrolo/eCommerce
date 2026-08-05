@@ -100,12 +100,16 @@
           <select id="status-filter">
             <option value="all">Todos</option>
             <option value="UNPAID">Não Pago</option>
+            <option value="INVOICE_PENDING">Aguardando NF</option>
+            <option value="PROCESSED">Processado</option>
             <option value="READY_TO_SHIP">A Enviar</option>
             <option value="SHIPPED">Enviado</option>
             <option value="TO_CONFIRM_RECEIVE">Entregue</option>
             <option value="COMPLETED">Concluído</option>
-            <option value="CANCELLED">Cancelado</option>
+            <option value="RETRY_SHIP">Reenviar</option>
             <option value="IN_CANCEL">Em Cancelamento</option>
+            <option value="CANCELLED">Cancelado</option>
+            <option value="TO_RETURN">Devolução Solicitada</option>
           </select>
         </div>
         <div class="form-field">
@@ -271,13 +275,17 @@
     function getStatusBadgeClass_(status) {
       switch (status) {
         case 'UNPAID': return 'badge-warning';
+        case 'INVOICE_PENDING': return 'badge-secondary';
+        case 'PROCESSED': return 'badge-info';
         case 'READY_TO_SHIP': return 'badge-info';
         case 'SHIPPED': return 'badge-primary';
         case 'TO_CONFIRM_RECEIVE': return 'badge-success';
         case 'COMPLETED': return 'badge-success';
-        case 'CANCELLED': return 'badge-error';
+        case 'RETRY_SHIP': return 'badge-warning';
         case 'IN_CANCEL': return 'badge-error';
-        default: return '';
+        case 'CANCELLED': return 'badge-error';
+        case 'TO_RETURN': return 'badge-error';
+        default: return 'badge-secondary';
       }
     }
 
@@ -385,11 +393,14 @@
     function renderStats_(shadow, orders) {
       var counts = { 'READY_TO_SHIP': 0, 'SHIPPED': 0, 'TO_CONFIRM_RECEIVE': 0, 'COMPLETED': 0, 'CANCELLED': 0, 'IN_CANCEL': 0 };
       var liquidSum = 0;
+      var canceledStatuses = { 'CANCELLED': 1, 'IN_CANCEL': 1, 'TO_RETURN': 1 };
       for (var i = 0; i < orders.length; i++) {
         var st = String(orders[i].status || '').toUpperCase();
         if (counts[st] === undefined) counts[st] = 0;
         counts[st]++;
-        liquidSum += Number(orders[i].liquid) || 0;
+        if (!canceledStatuses[st]) {
+          liquidSum += Number(orders[i].liquid) || 0;
+        }
       }
       shadow.getElementById('stat-total').textContent = orders.length;
       shadow.getElementById('stat-liquido').textContent = FormatterService.formatCurrency(liquidSum);
@@ -460,6 +471,7 @@
       var rowsHtml = '';
       var sumTotal = 0;
       var sumLiquid = 0;
+      var canceledStatuses = { 'CANCELLED': 1, 'IN_CANCEL': 1, 'TO_RETURN': 1 };
 
       for (var i = 0; i < sorted.length; i++) {
         var o = sorted[i];
@@ -470,8 +482,11 @@
           : escapeHtml_(statusLabel);
         var itens = escapeHtml_(o.itemNames || '-');
         var liquid = Number(o.liquid) || 0;
-        sumTotal += Number(o.total) || 0;
-        sumLiquid += liquid;
+        var st = String(o.status || '').toUpperCase();
+        if (!canceledStatuses[st]) {
+          sumTotal += Number(o.total) || 0;
+          sumLiquid += liquid;
+        }
 
         rowsHtml +=
           '<tr class="row-clickable" data-id="' + escapeHtml_(o.id) + '">' +
