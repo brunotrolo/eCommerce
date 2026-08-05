@@ -21,6 +21,14 @@
       <div class="alert alert-error" id="error-box" hidden style="margin-top: var(--space-xl)"></div>
       <div class="alert alert-success" id="toast-box" hidden style="margin-top: var(--space-xl)"></div>
       <div id="result-box" hidden style="margin-top: var(--space-xl)"></div>
+      <div id="stats-bar" style="display: flex; flex-wrap: wrap; gap: var(--space-xl); margin-top: var(--space-xl); font-size: var(--font-size-sm); color: var(--color-text-secondary)">
+        <span>Total: <span class="stats-value" id="stat-total" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>A enviar: <span class="stats-value" id="stat-READY_TO_SHIP" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Enviado: <span class="stats-value" id="stat-SHIPPED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Entregue: <span class="stats-value" id="stat-TO_CONFIRM_RECEIVE" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Concluído: <span class="stats-value" id="stat-COMPLETED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Cancelado: <span class="stats-value" id="stat-CANCELLED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+      </div>
     </div>
     <div class="card table-container">
       <table class="table" id="orders-table">
@@ -134,7 +142,23 @@
       }
     }
 
+    function renderStats_(shadow, orders) {
+      var counts = { 'READY_TO_SHIP': 0, 'SHIPPED': 0, 'TO_CONFIRM_RECEIVE': 0, 'COMPLETED': 0, 'CANCELLED': 0, 'IN_CANCEL': 0 };
+      for (var i = 0; i < orders.length; i++) {
+        var st = String(orders[i].status || '').toUpperCase();
+        if (counts[st] === undefined) counts[st] = 0;
+        counts[st]++;
+      }
+      shadow.getElementById('stat-total').textContent = orders.length;
+      var keys = Object.keys(counts);
+      for (var j = 0; j < keys.length; j++) {
+        var el = shadow.getElementById('stat-' + keys[j]);
+        if (el) el.textContent = counts[keys[j]];
+      }
+    }
+
     function renderRows(shadow, orders) {
+      renderStats_(shadow, orders);
       var tbody = shadow.querySelector('#orders-table tbody');
       tbody.innerHTML = orders
         .map(function (o) {
