@@ -34,7 +34,7 @@ verdade do `ordersImport`.
     updated: number        // 1 se linha existente atualizada
   }
   ```
-- **Erros esperados (throw → HTTP 500 → Shopee reenvia):**
+- **Erros esperados (throw):**
   - `WEBHOOK_SECRET_NOT_CONFIGURED`: secret não cadastrado em Script Properties.
   - `INVALID_WEBHOOK_SECRET`: secret recebido não bate com o cadastrado.
   - `PUSH_WITHOUT_ORDER_SN`: corpo sem `order_sn` (nem `data.order_sn`).
@@ -72,7 +72,11 @@ verdade do `ordersImport`.
    - Secret não configurado → rejeita com 500 (evita aceitar pushes "no escuro").
    - Secret divergente → rejeita com 500 (Shopee reenvia e faz log de WARN).
 3. **Resposta à Shopee:** em caso de sucesso responder HTTP 2xx com corpo
-   vazio (`ACK`). Em erro, `throw` → GAS responde 500 → Shopee reenvia.
+   vazio (`ACK`). Em erro, o `throw` faz o GAS responder com página de erro —
+   **nota verificada em runtime:** o GAS devolve HTTP 200 com HTML de erro
+   (não 500), então a Shopee não distingue erro por status HTTP; a proteção
+   real é o secret (push inválido nunca toca a planilha) + logs de WARN. O
+   polling do botão "Sincronizar" continua sendo o fallback de consistência.
 4. **Estado nunca confia no push:** o push só dispara; o status salvo vem de
    `shopee_get_order_detail` (releitura — ver AGENTS.md, regras de marketplace).
 5. **Upsert:** pedido inexistente → insere linha nova; existente → atualiza
@@ -106,8 +110,8 @@ verdade do `ordersImport`.
 3. **Caso: secret inválido**
    - Given `SHOPEE_WEBHOOK_SECRET` = "abc" e push com `?secret=x`
    - When `handlePush` é chamado
-   - Then lança `INVALID_WEBHOOK_SECRET` (HTTP 500) e nada é alterado na
-     planilha.
+   - Then lança `INVALID_WEBHOOK_SECRET`, loga WARN e nada é alterado na
+     planilha (verificado em runtime: `Push | handlePush | WARN`).
 4. **Caso: corpo sem order_sn**
    - Given push sem `order_sn` em qualquer nível
    - When `handlePush` é chamado
