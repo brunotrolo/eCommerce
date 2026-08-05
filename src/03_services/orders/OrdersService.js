@@ -38,7 +38,9 @@ var OrdersService = (function () {
     'COMPLETED': 'Concluído',
     'CANCELLED': 'Cancelado',
     'IN_CANCEL': 'Em Cancelamento',
-    'PROCESSED': 'Processado'
+    'PROCESSED': 'Processado',
+    'RETRY_SHIP': 'Reenviar',
+    'TO_RETURN': 'Devolução Solicitada'
   };
 
   function num_(value) {
@@ -50,8 +52,10 @@ var OrdersService = (function () {
   function calculateNet(params) {
     params = params || {};
     var escrow = num_(params.escrowAmount);
-    var base = escrow > 0 ? escrow : num_(params.total);
-    return base - num_(params.netCommissionFee) - num_(params.netServiceFee) - num_(params.pixDiscount);
+    // escrow_amount da API Shopee JÁ É o valor líquido do vendedor (taxas já descontadas).
+    if (escrow > 0) return escrow;
+    // Fallback: se não houver escrow (ex: pedido não pago), usa total - taxas.
+    return num_(params.total) - num_(params.netCommissionFee) - num_(params.netServiceFee) - num_(params.pixDiscount);
   }
 
   // Converte Date / epoch(segundos) / ISO / "dd/mm/yyyy hh:mm" para "dd/mm/yyyy hh:mm".

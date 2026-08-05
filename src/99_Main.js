@@ -131,17 +131,17 @@ function runSmokeTests_() {
   var r4 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.25, marketplace: 'amazon' });
   expectError('marketplace desconhecido', r4);
 
-  // Given escrow=120, netCommission=24, netService=6, pix=0 -> líquido = 120-24-6 = 90
+  // Given escrow=120 → escrow JÁ É o valor líquido (taxas já descontadas pela Shopee)
   var netShopee = OrdersService.calculateNet({ escrowAmount: 120, netCommissionFee: 24, netServiceFee: 6, pixDiscount: 0, total: 120 });
-  expectClose('líquido shopee', netShopee, 90);
+  expectClose('líquido shopee (escrow)', netShopee, 120);
 
-  // Given sem escrow (ML) -> base é o total
+  // Given sem escrow (ML) -> base é o total - taxas
   var netMl = OrdersService.calculateNet({ escrowAmount: 0, netCommissionFee: 0, netServiceFee: 0, pixDiscount: 0, total: 100 });
   expectClose('líquido ML sem escrow', netMl, 100);
 
-  // Given pix_discount presente -> desconta do líquido
+  // Given escrow=120 com pix → escrow prevalece (pix já está embutido no escrow)
   var netPix = OrdersService.calculateNet({ escrowAmount: 120, netCommissionFee: 24, netServiceFee: 6, pixDiscount: 3, total: 120 });
-  expectClose('líquido com pix', netPix, 87);
+  expectClose('líquido com pix (escrow)', netPix, 120);
 
   if (failures.length) {
     Logger.log('FALHOU:\n' + failures.join('\n'));
