@@ -407,5 +407,73 @@ var OrdersImportService = (function () {
     };
   }
 
-  return { describe: describe, importShopeeOrders: importShopeeOrders };
+  /**
+   * Sincroniza um único pedido pelo order_sn: busca detail + escrow, normaliza
+   * e faz upsert. Se o pedido já existe, atualiza TODAS as colunas da linha
+   * (não só STATUS). Usado pelo PushNotificationService nos webhooks Shopee.
+   */
+  function syncOrderBySn(orderSn) {
+    if (!orderSn) return { success: false, error: 'orderSn obrigatório' };
+
+    var startTime = Date.now();
+    var detail = null;
+    try {
+      detail = getOrderDetail_(orderSn);
+    } catch (e) {
+      return { success: false, error: 'detail error: ' + e.message };
+    }
+
+    if (!detail) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'syncOrderBySn', status: 'ERROR',
+        caller: 'PushNotification', summary: 'order_sn não encontrado na Shopee: ' + orderSn,
+        durationMs: Date.now() - startTime, context: { orderSn: orderSn }
+      });
+      return { success: false, error: 'detail not found: ' + orderSn };
+    }
+
+    var escrow = null;
+    try {
+      var escrowMap = getEscrowDetailBatch_([orderSn]);
+      escrow = escrowMap[orderSn] || null;
+    } catch (e) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'syncOrderBySn', status: 'WARN',
+        caller: 'PushNotification', summary: 'escrow indisponível para ' + orderSn + ': ' + e.message,
+        durationMs: Date.now() - startTime, context: { orderSn: orderSn }
+      });
+    }
+
+    var order = normalizeOrder_(detail, escrow);
+    if (!order) return { success: false, error: 'normalize failed' };
+
+    var map = OrdersRepository.getAllOrdersMap();
+    var inserted = 0;
+    var updated = 0;
+
+    if (map[orderSn]) {
+      OrdersRepository.updateOrderRow(map[orderSn].rowNumber, order);
+      updated = 1;
+    } else {
+      var ins = OrdersRepository.insertOrdersBulk([order]);
+      inserted = ins.inserted || 1;
+    }
+
+    LoggingService.log({
+      service: 'OrdersImport', action: 'syncOrderBySn', status: 'OK',
+      caller: 'PushNotification', summary: orderSn + ' => ' + order.STATUS + ' (ins ' + inserted + ', upd ' + updated + ')',
+      durationMs: Date.now() - startTime,
+      context: { orderSn: orderSn, status: order.STATUS, inserted: inserted, updated: updated, escrowAvailable: !!escrow }
+    });
+
+    return {
+      success: true,
+      orderSn: orderSn,
+      status: order.STATUS,
+      inserted: inserted,
+      updated: updated
+    };
+  }
+
+  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn };
 })();

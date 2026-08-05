@@ -69,6 +69,28 @@ Importar pedidos da Shopee via MCP Tiops e armazená-los em Google Sheets (aba P
 - **Mesma função chamada 2 vezes seguidas:** Segunda chamada retorna `imported: 0, duplicates: N` (toda primeira batch já foi inserida).
 - **Mudança de status de um pedido já importado:** Ignorar (v1 não atualiza, apenas insere novos).
 
+### `ordersImport.syncOrderBySn`
+- **Descrição:** Sincroniza um único pedido pelo `order_sn`: busca detail +
+  escrow na Tiops, normaliza e faz upsert na planilha. Se o pedido já
+  existe, atualiza **todas** as colunas da linha (não só o STATUS). Usado
+  pelo `PushNotificationService` nos webhooks Shopee.
+- **Params:**
+  | Nome | Tipo | Obrigatório | Descrição |
+  |------|------|-------------|-----------|
+  | `orderSn` | string | Sim | order_sn do pedido Shopee |
+- **Retorno:**
+  ```javascript
+  {
+    success: boolean,
+    orderSn: string,
+    status: string,      // status salvo na planilha
+    inserted: number,    // 1 se linha nova
+    updated: number      // 1 se linha existente atualizada
+  }
+  ```
+- **Erros esperados:** `orderSn obrigatório`, `detail error`, `detail not
+  found`, `normalize failed`.
+
 ## Critérios de Aceite (Given/When/Then)
 
 1. **Caso: Primeiro import com pedidos novos**

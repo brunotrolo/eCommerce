@@ -28,6 +28,7 @@
     "src/03_services/calculator/CalculatorService.js",
     "src/03_services/orders/OrdersService.js",
     "src/03_services/ordersImport/OrdersImportService.js",
+    "src/03_services/pushNotification/PushNotificationService.js",
     "src/03_services/listings/ListingsService.js",
     "src/03_services/dashboard/DashboardService.js",
     "src/04_gateway/ServiceRegistry.js",

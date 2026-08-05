@@ -31,6 +31,7 @@ function onOpen() {
           .addItem('Formatter', 'runFormatterSmokeTests_')
           .addItem('Catalog', 'runCatalogSmokeTests_')
           .addItem('Calculator', 'runCalculatorSmokeTests_')
+          .addItem('Push Notification', 'runPushSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -542,4 +543,52 @@ function runCalculatorSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de Calculator passaram.');
+}
+
+function runPushSmokeTests_() {
+  var failures = [];
+
+  function expectEqual(label, actual, expected) {
+    if (actual !== expected) {
+      failures.push(label + ': esperado "' + expected + '", obtido "' + actual + '"');
+    }
+  }
+
+  function expectNull(label, actual) {
+    if (actual !== null) {
+      failures.push(label + ': esperado null, obtido ' + JSON.stringify(actual));
+    }
+  }
+
+  // Cenário 1: push top-level (formato com order_sn direto)
+  var p1 = PushNotificationService.extractPushFields({ order_sn: '260805ABC', status: 'SHIPPED' });
+  expectEqual('push top-level orderSn', p1.orderSn, '260805ABC');
+  expectEqual('push top-level status', p1.status, 'SHIPPED');
+
+  // Cenário 2: push aninhado em data (formato com data.order_sn)
+  var p2 = PushNotificationService.extractPushFields({
+    data: { order_sn: '260805DEF', status: 'READY_TO_SHIP' },
+    timestamp: 1700000000
+  });
+  expectEqual('push nested orderSn', p2.orderSn, '260805DEF');
+  expectEqual('push nested status', p2.status, 'READY_TO_SHIP');
+
+  // Cenário 3: fallback order_status (nivel raiz)
+  var p3 = PushNotificationService.extractPushFields({ order_sn: '260805GHI', order_status: 'CANCELLED' });
+  expectEqual('push order_status fallback', p3.status, 'CANCELLED');
+
+  // Cenário 4: corpo sem order_sn em nenhum nível -> null
+  var p4 = PushNotificationService.extractPushFields({ status: 'SHIPPED' });
+  expectNull('push sem order_sn', p4);
+
+  // Cenário 5: corpo nulo / não-objeto
+  expectNull('push body nulo', PushNotificationService.extractPushFields(null));
+  expectNull('push body string', PushNotificationService.extractPushFields('x'));
+
+  if (failures.length) {
+    Logger.log('FALHOU PUSH:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Push smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Push Notification passaram.');
 }
