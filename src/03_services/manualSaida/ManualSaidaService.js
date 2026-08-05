@@ -92,8 +92,6 @@ var ManualSaidaService = (function () {
     var dataSaida = params.dataCompra || Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy');
     var dataCompraOrigem = produtoOrigem.dataCompra || '';
 
-    var valorUnitarioLiquido = produtoOrigem.valorUnitarioLiquido;
-
     var rowData = {
       codigoProduto: params.codigoProduto,
       descricaoProduto: params.descricaoProduto,
@@ -102,16 +100,16 @@ var ManualSaidaService = (function () {
       tipoSaida: tipoSaida,
       precoUnitario: precoUnitario,
       valorTotal: valorTotal,
-      valorUnitario: valorUnitarioLiquido,
-      valorUnitarioLiquido: valorUnitarioLiquido,
-      valorLiquidoItem: Math.round(valorUnitarioLiquido * quantidade * 100) / 100,
+      valorUnitario: precoUnitario,
+      valorUnitarioLiquido: precoUnitario,
+      valorLiquidoItem: valorTotal,
       status: 'Saído',
       dataSaida: dataSaida,
       tipoMovimentacao: 'Saída Manual',
       logId: logId,
       clienteNome: params.clienteName || '',
       motivoPerda: (tipoSaida === 'Perda' ? (params.motivoPerda || '') : ''),
-      dataRegistro: now.toISOString(),
+      dataRegistro: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
       observacoes: params.observacoes || '',
       emitenteNome: produtoOrigem.emitenteNome,
       dataCompra: params.dataCompra || dataCompraOrigem,
@@ -126,7 +124,7 @@ var ManualSaidaService = (function () {
     return {
       success: result.success,
       exitId: logId,
-      processedAt: now.toISOString(),
+      processedAt: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
       estoqueRestante: estoqueRestante,
       row: rowData,
       errors: []
@@ -158,19 +156,19 @@ var ManualSaidaService = (function () {
         precoUnitario: parseFloat(r.PRECO_UNITARIO) || 0,
         valorTotal: parseFloat(r.VALOR_TOTAL) || 0,
         status: r.STATUS || '',
-        dataSaida: r.DATA_SAIDA || '',
+        dataSaida: _fmtDataBR_(r.DATA_SAIDA),
         tipoMovimentacao: r.TIPO_MOVIMENTACAO || '',
         logId: r.LOG_ID || '',
         clienteNome: r.CLIENTE_NOME || '',
         motivoPerda: r.MOTIVO_PERDA || '',
-        dataRegistro: r.DATA_REGISTRO || '',
+        dataRegistro: _fmtDataBR_(r.DATA_REGISTRO),
         observacoes: r.OBSERVACOES || '',
         ncm: r.NCM || '',
         valorUnitario: parseFloat(r.VALOR_UNITARIO) || 0,
         valorUnitarioLiquido: parseFloat(r.VALOR_UNITARIO_LIQUIDO) || 0,
         valorLiquidoItem: parseFloat(r.VALOR_LIQUIDO_ITEM) || 0,
         emitenteNome: r.EMITENTE_NOME || '',
-        dataCompra: r.DATA_COMPRA || '',
+        dataCompra: _fmtDataBR_(r.DATA_COMPRA),
         valorOutrosItem: parseFloat(r.VALOR_OUTROS_ITEM) || 0,
         tipoOutros: r.TIPO_OUTROS || ''
       });
@@ -319,6 +317,21 @@ var ManualSaidaService = (function () {
     return { clientes: ManualSaidaProdutosRepository.getClienteHistory(sheetId) };
   }
 
+  function _fmtDataBR_(value) {
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+    }
+    var s = String(value || '').trim();
+    if (!s) return '';
+    if (s.indexOf('T') !== -1) {
+      var iso = new Date(s);
+      if (!isNaN(iso.getTime())) {
+        return Utilities.formatDate(iso, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+      }
+    }
+    return s;
+  }
+
   function _getProdutoOrigem(sheetId, codigoProduto) {
     var info = {
       ncm: '',
@@ -359,7 +372,7 @@ var ManualSaidaService = (function () {
       if (vOutros > 0) info.valorOutrosItem = vOutros;
       if (r.TIPO_OUTROS) info.tipoOutros = String(r.TIPO_OUTROS);
       if (r.EMITENTE_NOME) info.emitenteNome = String(r.EMITENTE_NOME);
-      if (r.DATA_COMPRA) info.dataCompra = String(r.DATA_COMPRA);
+      if (r.DATA_COMPRA) info.dataCompra = _fmtDataBR_(r.DATA_COMPRA);
     }
 
     return info;
