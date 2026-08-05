@@ -34,12 +34,23 @@
         var shadow = this.attachShadow({ mode: 'open' });
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
-        shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow));
-        this._load(shadow);
+        shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow, true));
+
+        var ds = window.__DataStore;
+        var cached = ds && ds.get('listings.all');
+        if (cached) {
+          this._renderRows(shadow, cached.listings || []);
+        }
+        this._load(shadow, false);
       }
 
-      _load(shadow) {
+      _load(shadow, force) {
         var marketplace = shadow.getElementById('marketplace-filter').value;
+        var cacheKey = 'listings.' + marketplace;
+        var ds = window.__DataStore;
+
+        if (force && ds) ds.invalidate(cacheKey);
+
         withLoading(
           shadow.getElementById('btn-refresh'),
           (success, failure) =>
@@ -47,7 +58,10 @@
               .withSuccessHandler(success)
               .withFailureHandler(failure)
               .apiDispatch('listings.listUnified', { marketplace: marketplace }),
-          (data) => this._renderRows(shadow, data.listings || []),
+          (data) => {
+            if (ds) ds.set(cacheKey, data);
+            this._renderRows(shadow, data.listings || []);
+          },
           'Anúncios atualizados.'
         );
       }
@@ -77,6 +91,7 @@
       }
 
       _toggle(shadow, button, item, shouldActivate) {
+        var ds = window.__DataStore;
         withLoading(
           button,
           (success, failure) =>
@@ -87,7 +102,10 @@
                 marketplace: item.marketplace,
                 itemId: item.id
               }),
-          () => this._load(shadow)
+          () => {
+            if (ds) ds.invalidate('listings.all');
+            this._load(shadow, true);
+          }
         );
       }
     }

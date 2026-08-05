@@ -32,10 +32,11 @@ var DashboardService = (function () {
 
   function computeSummary_() {
     var recentOrders = OrdersService.listUnified({ marketplace: 'all', limit: 10 }).orders;
-
+    var allListings = ListingsService.listUnified({ marketplace: 'all' }).listings;
     var salesByChannel = computeSalesByChannel_(recentOrders);
-    var lowStock = findLowStock_();
-
+    var lowStock = allListings.filter(function (item) {
+      return typeof item.stock === 'number' && item.stock <= 3;
+    });
     return {
       orders: recentOrders,
       salesByChannel: salesByChannel,
@@ -58,13 +59,6 @@ var DashboardService = (function () {
       shopee: { gmv: channels.shopee.total, orders: channels.shopee.count },
       mercado_livre: { gmv: channels.mercado_livre.total, orders: channels.mercado_livre.count }
     };
-  }
-
-  function findLowStock_() {
-    var listings = ListingsService.listUnified({ marketplace: 'all' }).listings;
-    return listings.filter(function (item) {
-      return typeof item.stock === 'number' && item.stock <= 3;
-    });
   }
 
   return { describe: describe, getSummary: getSummary };

@@ -6,6 +6,7 @@
  * Regras completas em specs/logging.md.
  */
 var LoggingService = (function () {
+  var _logBuffer = [];
   function describe() {
     return {
       name: 'logging',
@@ -166,7 +167,7 @@ var LoggingService = (function () {
       resultKeys: result ? Object.keys(result) : []
     };
 
-    log({
+    _logBuffer.push({
       service: service,
       action: action,
       status: status,
@@ -176,6 +177,35 @@ var LoggingService = (function () {
       errorMessage: errorMessage,
       context: context
     });
+  }
+
+  function flushLogs() {
+    if (_logBuffer.length === 0) return;
+    var sheetId = ConfigService.getSheetId();
+    if (!sheetId) { _logBuffer = []; return; }
+    try {
+      var sheet = SheetsRepository.getOrCreateSheet('LOGS', [
+        'updatedAt', 'service', 'action', 'status', 'caller', 'summary',
+        'durationMs', 'errorMessage', 'context', 'environment', 'logId'
+      ]);
+      var rows = [];
+      for (var i = 0; i < _logBuffer.length; i++) {
+        var entry = _logBuffer[i];
+        rows.push([
+          new Date().toISOString(),
+          entry.service, entry.action, entry.status, entry.caller,
+          entry.summary, entry.durationMs, entry.errorMessage,
+          JSON.stringify(entry.context), getEnvironment_(), generateLogId_()
+        ]);
+      }
+      if (rows.length > 0) {
+        var startRow = sheet.getLastRow() + 1;
+        sheet.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+      }
+    } catch (e) {
+      console.error('[LoggingService] Failed to flush logs: ' + e.message);
+    }
+    _logBuffer = [];
   }
 
   function sanitizeContext_(obj) {
@@ -199,6 +229,7 @@ var LoggingService = (function () {
     init: init,
     getLogs: getLogs,
     clearOldLogs: clearOldLogs,
-    logAction: logAction
+    logAction: logAction,
+    flushLogs: flushLogs
   };
 })();

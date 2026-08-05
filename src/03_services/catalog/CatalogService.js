@@ -52,6 +52,14 @@ var CatalogService = (function () {
 
   function getProducts(params) {
     params = params || {};
+    var cacheKey = 'catalog_products_' + JSON.stringify(params);
+    var result = CacheRepository.getOrCompute(cacheKey, 300, function () {
+      return computeProducts_(params);
+    });
+    return result.value;
+  }
+
+  function computeProducts_(params) {
     var targetMarginShopee = typeof params.targetMarginShopee === 'number' ? params.targetMarginShopee : 0.25;
     var targetMarginMercadoLivre = typeof params.targetMarginMercadoLivre === 'number' ? params.targetMarginMercadoLivre : 0.25;
     var sortBy = params.sortBy || 'code';

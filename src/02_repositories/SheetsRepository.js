@@ -5,6 +5,9 @@
  * chama SpreadsheetApp diretamente.
  */
 var SheetsRepository = (function () {
+  var _rowsCache = {};
+  var ROWS_CACHE_TTL = 120000;
+
   function getSpreadsheet() {
     return SpreadsheetApp.openById(ConfigService.getSheetId());
   }
@@ -24,29 +27,45 @@ var SheetsRepository = (function () {
   function appendRow(sheetName, headerRow, rowValues) {
     var sheet = getOrCreateSheet(sheetName, headerRow);
     sheet.appendRow(rowValues);
+    invalidateRowsCache(sheetName);
   }
 
-  /** Lê uma aba como lista de objetos, usando a primeira linha como cabeçalho. */
   function getRows(sheetName) {
+    var now = Date.now();
+    var cached = _rowsCache[sheetName];
+    if (cached && (now - cached.timestamp) < ROWS_CACHE_TTL) {
+      return cached.value;
+    }
     var ss = getSpreadsheet();
     var sheet = ss.getSheetByName(sheetName);
     if (!sheet) return [];
     var values = sheet.getDataRange().getValues();
     if (values.length < 2) return [];
     var headers = values[0];
-    return values.slice(1).map(function (row) {
+    var rows = values.slice(1).map(function (row) {
       var obj = {};
       headers.forEach(function (h, i) {
         obj[h] = row[i];
       });
       return obj;
     });
+    _rowsCache[sheetName] = { value: rows, timestamp: now };
+    return rows;
+  }
+
+  function invalidateRowsCache(sheetName) {
+    if (sheetName) {
+      delete _rowsCache[sheetName];
+    } else {
+      _rowsCache = {};
+    }
   }
 
   return {
     getSpreadsheet: getSpreadsheet,
     getOrCreateSheet: getOrCreateSheet,
     appendRow: appendRow,
-    getRows: getRows
+    getRows: getRows,
+    invalidateRowsCache: invalidateRowsCache
   };
 })();

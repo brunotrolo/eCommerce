@@ -16,13 +16,23 @@
           <input type="number" id="limit-input" value="30" min="1" max="100" />
         </div>
         <button class="btn" id="btn-refresh">Filtrar</button>
+        <button class="btn btn--primary" id="btn-sync-shopee">Sincronizar Pedidos Shopee</button>
       </div>
-      <div class="alert alert-error" id="error-box" hidden></div>
-      <div id="result-box" hidden></div>
+      <div class="alert alert-error" id="error-box" hidden style="margin-top: var(--space-xl)"></div>
+      <div class="alert alert-success" id="toast-box" hidden style="margin-top: var(--space-xl)"></div>
+      <div id="result-box" hidden style="margin-top: var(--space-xl)"></div>
+      <div id="stats-bar" style="display: flex; flex-wrap: wrap; gap: var(--space-xl); margin-top: var(--space-xl); font-size: var(--font-size-sm); color: var(--color-text-secondary)">
+        <span>Total: <span class="stats-value" id="stat-total" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>A enviar: <span class="stats-value" id="stat-READY_TO_SHIP" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Enviado: <span class="stats-value" id="stat-SHIPPED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Entregue: <span class="stats-value" id="stat-TO_CONFIRM_RECEIVE" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Concluído: <span class="stats-value" id="stat-COMPLETED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Cancelado: <span class="stats-value" id="stat-CANCELLED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+      </div>
     </div>
     <div class="card table-container">
       <table class="table" id="orders-table">
-        <thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Comprador</th><th>Total</th><th>Data</th></tr></thead>
+        <thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Comprador</th><th>Produto(s)</th><th>Pagamento</th><th>Total</th><th>Data</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -38,13 +48,26 @@
         var shadow = this.attachShadow({ mode: 'open' });
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
-        shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow));
-        this._load(shadow);
+        shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow, true));
+        shadow.getElementById('btn-sync-shopee').addEventListener('click', () => this._syncShopee(shadow));
+
+        var ds = window.__DataStore;
+        var cached = ds && ds.get('orders.all.30');
+        var ordersData = cached && (cached.orders || (cached.data && cached.data.orders));
+        if (ordersData) {
+          renderRows(shadow, ordersData);
+        }
+        this._load(shadow, false);
       }
 
-      _load(shadow) {
+      _load(shadow, force) {
         var marketplace = shadow.getElementById('marketplace-filter').value;
         var limit = parseInt(shadow.getElementById('limit-input').value, 10) || 30;
+        var cacheKey = 'orders.' + marketplace + '.' + limit;
+        var ds = window.__DataStore;
+
+        if (force && ds) ds.invalidate(cacheKey);
+
         withLoading(
           shadow.getElementById('btn-refresh'),
           (success, failure) =>
@@ -52,25 +75,110 @@
               .withSuccessHandler(success)
               .withFailureHandler(failure)
               .apiDispatch('orders.listUnified', { marketplace: marketplace, limit: limit }),
-          (data) => renderRows(shadow, data.orders || []),
+          (data) => {
+            if (ds) ds.set(cacheKey, data);
+            renderRows(shadow, data.orders || []);
+          },
           'Pedidos atualizados.'
+        );
+      }
+
+      _syncShopee(shadow) {
+        var ds = window.__DataStore;
+        var self = this;
+
+        withLoading(
+          shadow.getElementById('btn-sync-shopee'),
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('ordersImport.importShopeeOrders', { mode: 'all' }),
+          (data) => {
+            if (data && data.success) {
+              var msg = data.message || ('Novos: ' + data.imported + ', Atualizados: ' + data.updated);
+              if (data.errors && data.errors.length > 0) {
+                msg += ' (' + data.errors.length + ' erro' + (data.errors.length !== 1 ? 's' : '') + ')';
+              }
+              showToast(shadow, msg);
+              if (ds) ds.invalidate('orders.all.30');
+              self._load(shadow, true);
+            } else {
+              showToast(shadow, 'Erro: ' + (data && data.message ? data.message : 'Falha na importação.'), true);
+            }
+          },
+          'Sincronizando pedidos Shopee...'
         );
       }
     }
 
+    function escapeHtml_(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function showToast(shadow, msg, isError) {
+      var toast = shadow.getElementById('toast-box');
+      toast.textContent = msg;
+      toast.className = isError ? 'alert alert-error' : 'alert alert-success';
+      toast.hidden = false;
+      setTimeout(function () { toast.hidden = true; }, 5000);
+    }
+
+    function getStatusBadgeClass_(status) {
+      switch (status) {
+        case 'UNPAID': return 'badge-warning';
+        case 'READY_TO_SHIP': return 'badge-info';
+        case 'SHIPPED': return 'badge-primary';
+        case 'TO_CONFIRM_RECEIVE': return 'badge-success';
+        case 'COMPLETED': return 'badge-success';
+        case 'CANCELLED': return 'badge-error';
+        case 'IN_CANCEL': return 'badge-error';
+        default: return '';
+      }
+    }
+
+    function renderStats_(shadow, orders) {
+      var counts = { 'READY_TO_SHIP': 0, 'SHIPPED': 0, 'TO_CONFIRM_RECEIVE': 0, 'COMPLETED': 0, 'CANCELLED': 0, 'IN_CANCEL': 0 };
+      for (var i = 0; i < orders.length; i++) {
+        var st = String(orders[i].status || '').toUpperCase();
+        if (counts[st] === undefined) counts[st] = 0;
+        counts[st]++;
+      }
+      shadow.getElementById('stat-total').textContent = orders.length;
+      var keys = Object.keys(counts);
+      for (var j = 0; j < keys.length; j++) {
+        var el = shadow.getElementById('stat-' + keys[j]);
+        if (el) el.textContent = counts[keys[j]];
+      }
+    }
+
     function renderRows(shadow, orders) {
+      renderStats_(shadow, orders);
       var tbody = shadow.querySelector('#orders-table tbody');
       tbody.innerHTML = orders
         .map(function (o) {
+          var statusLabel = o.statusLabel || o.status || '-';
+          var badgeClass = getStatusBadgeClass_(o.status);
+          var statusHtml = badgeClass
+            ? '<span class="badge ' + badgeClass + '">' + escapeHtml_(statusLabel) + '</span>'
+            : escapeHtml_(statusLabel);
+          var itens = o.itemNames || '-';
+          var pagamento = o.paymentMethod || '-';
           return (
-            '<tr><td>' + o.id + '</td><td><span class="badge badge-' +
-            (o.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' + o.marketplace + '</span></td>' +
-            '<td>' + o.status + '</td><td>' + (o.buyerName || '-') + '</td>' +
+            '<tr><td>' + escapeHtml_(o.id) + '</td><td><span class="badge badge-' +
+            (o.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' + escapeHtml_(o.marketplace) + '</span></td>' +
+            '<td>' + statusHtml + '</td><td>' + escapeHtml_(o.buyerName || '-') + '</td>' +
+            '<td>' + escapeHtml_(itens) + '</td><td>' + escapeHtml_(pagamento) + '</td>' +
             '<td>' + (o.total != null ? FormatterService.formatCurrency(o.total) : '-') + '</td>' +
-            '<td>' + (o.createdAt || '-') + '</td></tr>'
+            '<td>' + escapeHtml_(o.createdAt || '-') + '</td></tr>'
           );
         })
-        .join('') || '<tr><td colspan="6">Nenhum pedido encontrado.</td></tr>';
+        .join('') || '<tr><td colspan="8">Nenhum pedido encontrado.</td></tr>';
     }
 
     customElements.define('orders-widget', OrdersWidget);

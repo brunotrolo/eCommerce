@@ -364,11 +364,19 @@ var EstoqueRepository = (function () {
   }
 
   function getProximoSequencial(sheetId, dateStr) {
-    var rows = getRows(sheetId);
+    var sheet = getOrCreateSheet(sheetId);
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return 1;
+
+    var colMap = getColumnMap_(sheet);
+    var idCol = colMap['ESTOQUE_ID'];
+    if (!idCol) return 1;
+
+    var allIds = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
     var prefix = 'EST-' + dateStr + '-';
     var maxSeq = 0;
-    for (var i = 0; i < rows.length; i++) {
-      var id = String(rows[i].ESTOQUE_ID || '');
+    for (var i = 0; i < allIds.length; i++) {
+      var id = String(allIds[i][0] || '');
       if (id.indexOf(prefix) === 0) {
         var seq = parseInt(id.substring(prefix.length), 10);
         if (seq > maxSeq) maxSeq = seq;

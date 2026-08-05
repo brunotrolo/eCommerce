@@ -164,19 +164,31 @@
 
     _loadData() {
       var self = this;
+      var cacheKey = 'manualEntrada.listEntries';
+      var ds = window.__DataStore;
+
+      var cached = ds && ds.get(cacheKey);
+      if (cached) {
+        self._entries = cached.entries || cached.data && cached.data.entries || [];
+        self._filtered = self._entries.slice();
+        self._render();
+        return;
+      }
+
       self.shadowRoot.getElementById('content').innerHTML = '<div class="loading">Carregando...</div>';
 
       google.script.run
         .withSuccessHandler(function (result) {
+          if (ds) ds.set(cacheKey, result);
           if (result && result.data) {
             self._entries = result.data.entries || [];
-            self._filtered = self._entries.slice();
-            self._render();
+          } else if (result && result.entries) {
+            self._entries = result.entries || [];
           } else {
             self._entries = [];
-            self._filtered = [];
-            self._render();
           }
+          self._filtered = self._entries.slice();
+          self._render();
         })
         .withFailureHandler(function (e) {
           self.shadowRoot.getElementById('content').innerHTML =
