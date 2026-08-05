@@ -400,29 +400,29 @@ Then:
 ### Ações TIOPS (24 principais de 75+)
 
 **Leitura:**
-- `shopee_list_items` — listar todos os anúncios
-- `shopee_get_item` — detalhes de um item (releitura obrigatória pós-update)
-- `shopee_get_items_batch` — detalhes em lote
-- `shopee_get_models` — variações/SKUs
-- `shopee_sales_by_item` — vendas por item
-- `shopee_sales_summary` — resumo de vendas
-- `shopee_get_item_pictures` — imagens
+- `shopee_list_items` — listar todos os anúncios ✅ confirmada
+- `shopee_get_item` — detalhes de um item (releitura obrigatória pós-update) ✅ confirmada
+- `shopee_get_items_batch` — detalhes em lote ✅ confirmada
+- `shopee_get_models` — variações/SKUs ✅ confirmada
+- `shopee_sales_by_item` — vendas por item ✅ confirmada
+- ~~`shopee_sales_summary`~~ — **NÃO EXISTE no catálogo** (verificado 2026-08-05); usar `shopee_sales_by_item` por item
+- ~~`shopee_get_item_pictures`~~ — **NÃO EXISTE no catálogo** (verificado 2026-08-05); imagens vêm em `shopee_get_item.image.image_url_list`
 
 **Criação/Edição:**
-- `shopee_create_item` — criar novo anúncio
-- `shopee_update_item` — editar anúncio (título, descrição, etc)
-- `shopee_update_price` — atualizar preço
-- `shopee_update_stock` — atualizar estoque
-- `shopee_add_model` — adicionar variação
-- `shopee_update_model` — editar variação
-- `shopee_upload_image` — upload de imagem
+- `shopee_create_item` — criar novo anúncio ✅ confirmada
+- `shopee_update_item` — editar anúncio (título, descrição, etc) ✅ confirmada
+- `shopee_update_price` — atualizar preço ✅ confirmada
+- `shopee_update_stock` — atualizar estoque ✅ confirmada
+- `shopee_add_model` — adicionar variação ✅ confirmada
+- `shopee_update_model` — editar variação ✅ confirmada
+- `shopee_upload_image` — upload de imagem ✅ confirmada
 
 **Status:**
-- `shopee_pause_item` — pausar anúncio
-- `shopee_activate_item` — reativar anúncio (nota: não existe em Shopee após deletar)
-- `shopee_delete_item` — deletar anúncio
-- `shopee_unlist_item` — deslistar (alternativa a pausar)
-- `shopee_boost_item` — impulsionar anúncio
+- ~~`shopee_pause_item`~~ — **NÃO EXISTE no catálogo** (verificado 2026-08-05)
+- ~~`shopee_activate_item`~~ — **NÃO EXISTE no catálogo** (verificado 2026-08-05)
+- `shopee_delete_item` — deletar anúncio ✅ confirmada
+- `shopee_unlist_item` — deslistar (única forma de pausar) ✅ confirmada
+- `shopee_boost_item` — impulsionar anúncio ✅ confirmada
 
 **Métricas:**
 - `shopee_get_item_promotion` — promoções ativas
