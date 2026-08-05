@@ -7,10 +7,12 @@
 var ManualSaidaProdutosRepository = (function () {
   var SHEET_NAME = 'MANUAL_SAIDA_PRODUTOS';
   var HEADERS = [
-    'CODIGO_PRODUTO', 'DESCRICAO_PRODUTO', 'QUANTIDADE', 'TIPO_SAIDA',
-    'PRECO_UNITARIO', 'VALOR_TOTAL', 'STATUS', 'DATA_SAIDA',
-    'TIPO_MOVIMENTACAO', 'LOG_ID', 'CLIENTE_NOME', 'MOTIVO_PERDA',
-    'DATA_REGISTRO', 'OBSERVACOES'
+    'CODIGO_PRODUTO', 'DESCRICAO_PRODUTO', 'NCM', 'QUANTIDADE',
+    'VALOR_UNITARIO', 'VALOR_TOTAL', 'STATUS', 'DATA_ENTRADA',
+    'TIPO_MOVIMENTACAO', 'LOG_ID', 'VALOR_OUTROS_ITEM', 'TIPO_OUTROS',
+    'VALOR_LIQUIDO_ITEM', 'VALOR_UNITARIO_LIQUIDO', 'EMITENTE_NOME',
+    'DATA_COMPRA', 'OBSERVACOES', 'TIPO_SAIDA', 'PRECO_UNITARIO',
+    'DATA_SAIDA', 'CLIENTE_NOME', 'MOTIVO_PERDA', 'DATA_REGISTRO'
   ];
 
   function getOrCreateSheet(sheetId) {
@@ -124,18 +126,27 @@ var ManualSaidaProdutosRepository = (function () {
     var fieldToHeader = {
       codigoProduto: 'CODIGO_PRODUTO',
       descricaoProduto: 'DESCRICAO_PRODUTO',
+      ncm: 'NCM',
       quantidade: 'QUANTIDADE',
-      tipoSaida: 'TIPO_SAIDA',
-      precoUnitario: 'PRECO_UNITARIO',
+      valorUnitario: 'VALOR_UNITARIO',
       valorTotal: 'VALOR_TOTAL',
       status: 'STATUS',
-      dataSaida: 'DATA_SAIDA',
+      dataEntrada: 'DATA_ENTRADA',
       tipoMovimentacao: 'TIPO_MOVIMENTACAO',
       logId: 'LOG_ID',
+      valorOutrosItem: 'VALOR_OUTROS_ITEM',
+      tipoOutros: 'TIPO_OUTROS',
+      valorLiquidoItem: 'VALOR_LIQUIDO_ITEM',
+      valorUnitarioLiquido: 'VALOR_UNITARIO_LIQUIDO',
+      emitenteNome: 'EMITENTE_NOME',
+      dataCompra: 'DATA_COMPRA',
+      observacoes: 'OBSERVACOES',
+      tipoSaida: 'TIPO_SAIDA',
+      precoUnitario: 'PRECO_UNITARIO',
+      dataSaida: 'DATA_SAIDA',
       clienteNome: 'CLIENTE_NOME',
       motivoPerda: 'MOTIVO_PERDA',
-      dataRegistro: 'DATA_REGISTRO',
-      observacoes: 'OBSERVACOES'
+      dataRegistro: 'DATA_REGISTRO'
     };
 
     var keys = Object.keys(fieldToHeader);
@@ -149,7 +160,9 @@ var ManualSaidaProdutosRepository = (function () {
       if (field === 'descricaoProduto') {
         value = (value || '').toUpperCase();
       } else if (value === undefined || value === null) {
-        if (field === 'quantidade' || field === 'precoUnitario' || field === 'valorTotal') {
+        if (field === 'quantidade' || field === 'precoUnitario' || field === 'valorTotal' ||
+            field === 'valorUnitario' || field === 'valorOutrosItem' ||
+            field === 'valorLiquidoItem' || field === 'valorUnitarioLiquido') {
           value = 0;
         } else {
           value = '';

@@ -1,4 +1,4 @@
-<template id="manual-entrada-list-template">
+<template id="manual-saida-list-template">
   <style>
     :host { display: block; }
 
@@ -98,14 +98,14 @@
 
   <div class="container">
     <div class="header">
-      <h1>Entrada Manual de Produtos</h1>
+      <h1>Saída Manual de Produtos</h1>
       <button class="btn btn-primary" id="btn-add">+ Inserir Novo Item</button>
     </div>
 
     <div class="stats" id="stats"></div>
 
     <div class="search-bar">
-      <input type="text" id="search" placeholder="Buscar por código, descrição ou fornecedor..." />
+      <input type="text" id="search" placeholder="Buscar por código, descrição ou cliente..." />
     </div>
 
     <div id="content">
@@ -113,17 +113,17 @@
     </div>
   </div>
 
-  <manual-entrada-widget id="modal-widget"></manual-entrada-widget>
+  <manual-saida-widget id="modal-widget"></manual-saida-widget>
 </template>
 
 <script>
 (function () {
-  if (document.getElementById('manual-entrada-list-widget')) return;
+  if (document.getElementById('manual-saida-list-widget')) return;
 
-  var template = document.getElementById('manual-entrada-list-template');
+  var template = document.getElementById('manual-saida-list-template');
   if (!template) return;
 
-  var TAG = 'manual-entrada-list-widget';
+  var TAG = 'manual-saida-list-widget';
 
   customElements.define(TAG, class extends HTMLElement {
     constructor() {
@@ -135,7 +135,7 @@
       }
       this._entries = [];
       this._filtered = [];
-      this._sortField = 'dataCompra';
+      this._sortField = 'dataSaida';
       this._sortOrder = 'desc';
     }
 
@@ -152,7 +152,7 @@
         if (modal) {
           modal.setOnSaveCallback(function () {
             var ds = window.__DataStore;
-            if (ds) ds.invalidate('manualEntrada.listEntries');
+            if (ds) ds.invalidate('manualSaida.listExits');
             self._loadData();
           });
           modal.open();
@@ -166,12 +166,12 @@
 
     _loadData() {
       var self = this;
-      var cacheKey = 'manualEntrada.listEntries';
+      var cacheKey = 'manualSaida.listExits';
       var ds = window.__DataStore;
 
       var cached = ds && ds.get(cacheKey);
       if (cached) {
-        self._entries = cached.entries || cached.data && cached.data.entries || [];
+        self._entries = cached.exits || cached.data && cached.data.exits || [];
         self._filtered = self._entries.slice();
         self._render();
         return;
@@ -183,9 +183,9 @@
         .withSuccessHandler(function (result) {
           if (ds) ds.set(cacheKey, result);
           if (result && result.data) {
-            self._entries = result.data.entries || [];
-          } else if (result && result.entries) {
-            self._entries = result.entries || [];
+            self._entries = result.data.exits || [];
+          } else if (result && result.exits) {
+            self._entries = result.exits || [];
           } else {
             self._entries = [];
           }
@@ -196,7 +196,7 @@
           self.shadowRoot.getElementById('content').innerHTML =
             '<div class="empty-state"><p>Erro ao carregar: ' + e.message + '</p></div>';
         })
-        .apiDispatch('manualEntrada.listEntries', { limit: 500 });
+        .apiDispatch('manualSaida.listExits', { limit: 500 });
     }
 
     _filter(query) {
@@ -207,7 +207,7 @@
         this._filtered = this._entries.filter(function (e) {
           return (e.codigoProduto || '').toLowerCase().indexOf(q) !== -1 ||
                  (e.descricaoProduto || '').toLowerCase().indexOf(q) !== -1 ||
-                 (e.emitenteNome || '').toLowerCase().indexOf(q) !== -1;
+                 (e.clienteNome || '').toLowerCase().indexOf(q) !== -1;
         });
       }
       this._render();
@@ -218,21 +218,21 @@
       var content = this.shadowRoot.getElementById('content');
       var stats = this.shadowRoot.getElementById('stats');
 
-      var totalEntries = this._entries.length;
+      var totalExits = this._entries.length;
       var totalQty = 0;
       var totalValue = 0;
       for (var i = 0; i < this._entries.length; i++) {
         totalQty += this._entries[i].quantidade || 0;
-        totalValue += this._entries[i].valorLiquidoItem || 0;
+        totalValue += this._entries[i].valorTotal || 0;
       }
 
       stats.innerHTML =
-        '<span>Total: <span class="stats-value">' + totalEntries + ' registros</span></span>' +
+        '<span>Total: <span class="stats-value">' + totalExits + ' registros</span></span>' +
         '<span>Quantidade: <span class="stats-value">' + totalQty + '</span></span>' +
         '<span>Valor Total: <span class="stats-value">R$ ' + totalValue.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '</span></span>';
 
       if (this._filtered.length === 0) {
-        content.innerHTML = '<div class="empty-state"><p>Nenhuma entrada manual registrada.</p></div>';
+        content.innerHTML = '<div class="empty-state"><p>Nenhuma saída manual registrada.</p></div>';
         return;
       }
 
@@ -264,12 +264,11 @@
         '<thead><tr>' +
         '<th data-sort="descricaoProduto">Descrição ' + sortIcon('descricaoProduto') + '</th>' +
         '<th data-sort="codigoProduto">Código ' + sortIcon('codigoProduto') + '</th>' +
-        '<th data-sort="emitenteNome">Fornecedor ' + sortIcon('emitenteNome') + '</th>' +
+        '<th data-sort="tipoSaida">Tipo Saída ' + sortIcon('tipoSaida') + '</th>' +
         '<th data-sort="quantidade">Qtd ' + sortIcon('quantidade') + '</th>' +
-        '<th data-sort="valorUnitario">Vlr Unitário ' + sortIcon('valorUnitario') + '</th>' +
-        '<th data-sort="valorLiquidoItem">Vlr Líquido ' + sortIcon('valorLiquidoItem') + '</th>' +
-        '<th data-sort="valorUnitarioLiquido">Unit Líquido ' + sortIcon('valorUnitarioLiquido') + '</th>' +
-        '<th data-sort="dataCompra">Data Compra ' + sortIcon('dataCompra') + '</th>' +
+        '<th data-sort="valorTotal">Valor Total ' + sortIcon('valorTotal') + '</th>' +
+        '<th data-sort="clienteNome">Cliente ' + sortIcon('clienteNome') + '</th>' +
+        '<th data-sort="dataSaida">Data Saída ' + sortIcon('dataSaida') + '</th>' +
         '<th data-sort="status">Status ' + sortIcon('status') + '</th>' +
         '</tr></thead><tbody>';
 
@@ -278,13 +277,12 @@
         html += '<tr>' +
           '<td>' + (e.descricaoProduto || '') + '</td>' +
           '<td>' + (e.codigoProduto || '') + '</td>' +
-          '<td>' + (e.emitenteNome || '') + '</td>' +
+          '<td>' + (e.tipoSaida || '') + '</td>' +
           '<td>' + (e.quantidade || 0) + '</td>' +
-          '<td>' + fmt(e.valorUnitario) + '</td>' +
-          '<td>' + fmt(e.valorLiquidoItem) + '</td>' +
-          '<td>' + fmt(e.valorUnitarioLiquido) + '</td>' +
-          '<td>' + (e.dataCompra || '') + '</td>' +
-          '<td><span class="badge badge-success">' + (e.status || 'Recebido') + '</span></td>' +
+          '<td>' + fmt(e.valorTotal) + '</td>' +
+          '<td>' + (e.clienteNome || '') + '</td>' +
+          '<td>' + (e.dataSaida || '') + '</td>' +
+          '<td><span class="badge badge-success">' + (e.status || 'Saído') + '</span></td>' +
           '</tr>';
       }
 

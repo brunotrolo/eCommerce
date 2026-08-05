@@ -97,10 +97,12 @@
     <?!= include('ui/manualEntrada/ManualEntradaView'); ?>
     <?!= include('ui/manualEntrada/ManualEntradaListView'); ?>
     <?!= include('ui/manualSaida/ManualSaidaView'); ?>
+    <?!= include('ui/manualSaida/ManualSaidaListView'); ?>
 
       <calculator-widget></calculator-widget>
     <manual-entrada-widget></manual-entrada-widget>
     <manual-saida-widget id="manual-saida-widget"></manual-saida-widget>
+    <manual-saida-list-widget id="manual-saida-list-widget"></manual-saida-list-widget>
 
     <script>
       // Cada rota é um micro-frontend independente: um Web Component com
@@ -114,7 +116,7 @@
         catalog: 'catalog-widget',
         estoque: 'estoque-widget',
         manualEntrada: 'manual-entrada-list-widget',
-        manualSaida: 'manual-saida-widget'
+        manualSaida: 'manual-saida-list-widget'
       };
 
       function navigate(route) {
@@ -314,15 +316,7 @@
         }
       });
 
-      // Manual Saida: abrir modal ao clicar no botão do dropdown
-      document.querySelectorAll('.nav-dropdown-item[data-route="manualSaida"]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var widget = document.getElementById('manual-saida-widget');
-          if (widget && typeof widget.open === 'function') {
-            widget.open();
-          }
-        });
-      });
+
     </script>
   </body>
 </html>

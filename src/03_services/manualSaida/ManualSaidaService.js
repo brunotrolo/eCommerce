@@ -82,6 +82,8 @@ var ManualSaidaService = (function () {
     var tipoSaida = params.tipoSaida;
     var valorTotal = Math.round(quantidade * precoUnitario * 100) / 100;
 
+    var produtoOrigem = _getProdutoOrigem(sheetId, params.codigoProduto);
+
     var now = new Date();
     var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyyMMdd'T'HHmmss");
     var nonce = Utilities.getUuid().substring(0, 6);
@@ -89,13 +91,19 @@ var ManualSaidaService = (function () {
 
     var dataSaida = params.dataCompra || Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy');
 
+    var valorUnitarioLiquido = produtoOrigem.valorUnitarioLiquido;
+
     var rowData = {
       codigoProduto: params.codigoProduto,
       descricaoProduto: params.descricaoProduto,
+      ncm: produtoOrigem.ncm,
       quantidade: quantidade,
       tipoSaida: tipoSaida,
       precoUnitario: precoUnitario,
       valorTotal: valorTotal,
+      valorUnitario: valorUnitarioLiquido,
+      valorUnitarioLiquido: valorUnitarioLiquido,
+      valorLiquidoItem: Math.round(valorUnitarioLiquido * quantidade * 100) / 100,
       status: 'Saído',
       dataSaida: dataSaida,
       tipoMovimentacao: 'Saída Manual',
@@ -296,6 +304,40 @@ var ManualSaidaService = (function () {
       return { clientes: [] };
     }
     return { clientes: ManualSaidaProdutosRepository.getClienteHistory(sheetId) };
+  }
+
+  function _getProdutoOrigem(sheetId, codigoProduto) {
+    var info = { ncm: '', valorUnitarioLiquido: 0 };
+    if (!codigoProduto) return info;
+
+    var cod = String(codigoProduto).trim();
+    var rows = [];
+
+    try {
+      rows = rows.concat(NFeEntradaProdutosRepository.getProdutos(sheetId));
+    } catch (e) { console.warn('ManualSaidaService: Erro ao ler NFeEntradaProdutos — ' + e.message); }
+
+    try {
+      rows = rows.concat(ManualEntradaProdutosRepository.getRows(sheetId));
+    } catch (e) { console.warn('ManualSaidaService: Erro ao ler ManualEntradaProdutos — ' + e.message); }
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (String(r.CODIGO_PRODUTO || '').trim() !== cod) continue;
+
+      var status = String(r.STATUS || '').trim().toLowerCase();
+      if (status && status !== 'recebido') continue;
+
+      var ncm = String(r.NCM || '').trim();
+      var vUnit = parseFloat(r.VALOR_UNITARIO) || 0;
+      var vUnitLiq = parseFloat(r.VALOR_UNITARIO_LIQUIDO);
+      if (isNaN(vUnitLiq)) vUnitLiq = vUnit;
+
+      if (ncm) info.ncm = ncm;
+      if (vUnitLiq > 0) info.valorUnitarioLiquido = vUnitLiq;
+    }
+
+    return info;
   }
 
   function _getEstoqueDisponivel(sheetId, codigoProduto) {
