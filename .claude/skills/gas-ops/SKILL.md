@@ -12,9 +12,10 @@ Wrapper de convenções para operar este projeto via `clasp`
 
 - `clasp push` — envia `src/**/*.js`, `ui/**/*.html` e `appsscript.json`
   (filtrado por `.claspignore`) para o projeto Apps Script.
-- `clasp deploy --description "..."` — cria uma versão de deploy do Web App.
 - `clasp open` — abre o projeto no editor do Apps Script.
 - `clasp logs` — vê logs de execução (`Logger.log`, exceções).
+- **NUNCA rode `clasp deploy`.** O deploy é automático via GitHub Actions
+  (push na `main`). Agentes só usam `clasp push`.
 
 ## Antes de qualquer push/deploy, confirme
 
@@ -54,6 +55,10 @@ O deploy real para produção acontece via `.github/workflows/deploy.yml` a
 cada push na `main` (usa o secret `CLASP_CREDENTIALS`, gerado uma única vez
 por `npx clasp login` local — nunca gere ou rotacione esse secret a partir de
 uma sessão de agente, exige OAuth interativo do usuário).
+
+**Agentes NUNCA devem rodar `clasp deploy`** — isso cria versões publicadas
+no GAS. O fluxo correto é: agente faz `clasp push`, GitHub Actions faz
+`clasp push` + `clasp deploy` automaticamente.
 
 O conteúdo de `~/.clasprc.json` é uma credencial OAuth completa da conta
 Google: ele vive no cofre de secrets do GitHub e **nunca** deve ser colado num

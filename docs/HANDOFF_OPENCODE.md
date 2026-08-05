@@ -60,8 +60,8 @@ fases 0-5 já existe no repositório mas nunca foi executado no Apps Script.
 Esta tarefa é a primeira validação real da fundação.
 
 O pipeline agora funciona assim:
-- GitHub Actions: `git push main` → `clasp push --force` (sincroniza /dev)
-- Manual: você roda `clasp deploy` quando quer criar uma versão produção
+- GitHub Actions: `git push main` → `clasp push --force` + `clasp deploy` (automático)
+- **Agentes NUNCA rodam `clasp deploy`** — apenas `clasp push`
 
 SKILL
 Ative /gas-ops antes de qualquer comando clasp.
@@ -78,7 +78,7 @@ RESTRIÇÕES
 - Não altere appsscript.json nem .clasp.json.
 - Não escreva a API key em lugar nenhum do código.
 - Se o push falhar, reporte o erro exato antes de tentar corrigir.
-- O workflow via GitHub Actions só faz push; não gera versão publicada.
+- O workflow via GitHub Actions faz push + deploy automaticamente; agentes só fazem push.
 
 ACEITE
 Workflow verde, Shell renderizando com estilo no /dev, e ?action=ping devolvendo
