@@ -12,7 +12,10 @@ na UI.
 
 ### `orders.listUnified`
 - Params: `marketplace` (`all`\|`shopee`\|`mercado_livre`, default `all`), `limit` (default 20).
-- Retorno: `{ orders: [{ id, marketplace, status, total, buyerName, createdAt }] }`.
+- Retorno: `{ orders: [{ id, marketplace, status, statusLabel, total, buyerName, createdAt, paymentMethod, itemNames, liquid, escrowAmount, commissionFee, netCommissionFee, serviceFee, netServiceFee, pixDiscount, sellerRebate, actualShippingFee, estimatedShippingFee, recipientName, recipientCity, recipientState, recipientZipcode, recipientFullAddress, itemCount, totalWeightGram, payTime, updateTime, messageToSeller }] }`.
+- Datas sempre em formato BR `dd/mm/yyyy hh:mm` (nunca ISO) — `brDateTime_()` normaliza Date/epoch/ISO no servidor.
+- `liquid` = `escrowAmount` (se > 0, escrow JÁ É o valor líquido final); fallback: `total − netCommissionFee − netServiceFee − pixDiscount`.
+- Ordenação padrão: `createdAt` decrescente (mais recentes primeiro), usando timestamp interno `_sortTs` (não exposto).
 
 ### `orders.getDetail`
 - Params: `marketplace` (obrigatório), `orderId` (obrigatório).
@@ -22,6 +25,7 @@ na UI.
 - Mercado Livre: `list_orders` com `meliUserId`; `get_order` com `order_id`.
 - Shopee: `shopee_list_orders` com `shopId`; `shopee_get_order` com `order_sn`.
 - Normalização de `listUnified`: `id` sempre string; `total` é `total_amount` (ML) ou `total_amount` (Shopee); `buyerName` vem de `buyer.nickname`/`first_name` (ML) ou `buyer_username` (Shopee).
+- **UI (Pedidos):** as datas exibidas usam apenas formato BR; nunca renderizar ISO bruto na view. Finanças vêm das colunas de escrow/commissions da planilha (`ESCROW_AMOUNT`, `NET_COMMISSION_FEE`, `NET_SERVICE_FEE`, `PIX_DISCOUNT`).
 
 ## Casos de Borda
 - `marketplace=all`: erro em um canal não deve descartar os resultados do outro — se necessário, decisão de v1 é deixar propagar o erro (ver nota); revisar se algum canal cair com frequência.

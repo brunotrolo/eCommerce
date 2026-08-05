@@ -46,10 +46,12 @@ var DashboardService = (function () {
 
   function computeSalesByChannel_(orders) {
     var channels = { shopee: { total: 0, count: 0 }, mercado_livre: { total: 0, count: 0 } };
+    var canceledStatuses = { 'CANCELLED': 1, 'IN_CANCEL': 1, 'TO_RETURN': 1 };
 
     orders.forEach(function (order) {
       var ch = channels[order.marketplace];
-      if (ch) {
+      var st = String(order.status || '').toUpperCase();
+      if (ch && !canceledStatuses[st]) {
         ch.total += order.total;
         ch.count += 1;
       }

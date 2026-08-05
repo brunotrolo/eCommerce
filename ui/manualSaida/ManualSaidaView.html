@@ -1,0 +1,514 @@
+<template id="manual-saida-template">
+  <style>
+    :host { display: block; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+    .modal {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      width: 95vw; max-width: 600px;
+      max-height: 90vh; overflow-y: auto;
+      padding: var(--space-xl);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: var(--space-xl);
+    }
+    .modal-header h2 {
+      margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-bold);
+      color: var(--color-text);
+    }
+    .btn-close {
+      background: none; border: none; cursor: pointer;
+      font-size: var(--font-size-lg); color: var(--color-text-secondary);
+      padding: var(--space-xs); border-radius: var(--radius-xs);
+    }
+    .btn-close:hover { background: var(--color-surface-hover); }
+
+    .form-group { margin-bottom: var(--space-lg); }
+    .form-group label {
+      display: block; font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+      color: var(--color-text-secondary); margin-bottom: var(--space-xs);
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: var(--space-sm) var(--space-md);
+      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+      font-size: var(--font-size-base); font-family: var(--font-family-base);
+      background: var(--color-surface); color: var(--color-text);
+      box-sizing: border-box;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none; border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px var(--color-primary-light);
+    }
+    .form-group input.error, .form-group select.error {
+      border-color: var(--color-error);
+    }
+    .form-group .error-msg {
+      font-size: var(--font-size-xs); color: var(--color-error-text);
+      margin-top: var(--space-xs); display: none;
+    }
+    .form-group input.error + .error-msg { display: block; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
+
+    .stock-hint {
+      font-size: var(--font-size-xs); color: var(--color-text-tertiary);
+      margin-top: var(--space-xs); font-style: italic;
+    }
+
+    .autocomplete-wrapper { position: relative; }
+    .autocomplete-list {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm); max-height: 150px; overflow-y: auto;
+      z-index: 10; display: none;
+    }
+    .autocomplete-list.show { display: block; }
+    .autocomplete-item {
+      padding: var(--space-sm) var(--space-md); cursor: pointer;
+      font-size: var(--font-size-sm); color: var(--color-text);
+    }
+    .autocomplete-item:hover { background: var(--color-surface-hover); }
+
+    .summary {
+      background: var(--color-surface-alt); border-radius: var(--radius-sm);
+      padding: var(--space-md); margin-bottom: var(--space-lg);
+      font-size: var(--font-size-sm); color: var(--color-text-secondary);
+    }
+    .summary-row { display: flex; justify-content: space-between; margin-bottom: var(--space-xs); }
+    .summary-row:last-child { margin-bottom: 0; }
+    .summary-value { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+
+    .form-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-xl); }
+
+    .btn {
+      padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+      cursor: pointer; border: 1px solid var(--color-border);
+      background: var(--color-surface); color: var(--color-text);
+    }
+    .btn:hover { background: var(--color-surface-hover); }
+    .btn-primary {
+      background: var(--color-primary); color: var(--color-on-primary);
+      border-color: var(--color-primary);
+    }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .btn-primary:disabled {
+      background: var(--color-disabled); border-color: var(--color-disabled);
+      cursor: not-allowed;
+    }
+
+    .toast {
+      position: fixed; bottom: var(--space-xl); right: var(--space-xl);
+      padding: var(--space-md) var(--space-lg); border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm); color: var(--color-on-primary);
+      z-index: 2000; opacity: 0; transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: var(--color-success); }
+    .toast.error { background: var(--color-error); }
+  </style>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Saída Manual de Produtos</h2>
+        <button class="btn-close" id="btn-close" aria-label="Fechar">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label for="product-select">Produto</label>
+        <select id="product-select">
+          <option value="">Carregando produtos...</option>
+        </select>
+        <div class="stock-hint" id="stock-hint"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="descricao-produto">Nome do Produto</label>
+        <input type="text" id="descricao-produto" placeholder="Nome do produto..." />
+        <div class="error-msg">Nome do produto é obrigatório</div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="tipo-saida">Tipo de Saída</label>
+          <select id="tipo-saida">
+            <option value="">Selecione...</option>
+            <option value="Venda">Venda</option>
+            <option value="Devolução">Devolução</option>
+            <option value="Perda">Perda</option>
+            <option value="Ajuste">Ajuste</option>
+            <option value="Brinde">Brinde</option>
+          </select>
+          <div class="error-msg">Tipo de saída é obrigatório</div>
+        </div>
+        <div class="form-group">
+          <label for="quantidade">Quantidade</label>
+          <input type="number" id="quantidade" min="1" step="1" />
+          <div class="error-msg" id="qty-error">Quantidade deve ser > 0</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="preco-unitario">Preço Unitário (R$)</label>
+          <input type="number" id="preco-unitario" min="0" step="0.01" value="0" />
+        </div>
+        <div class="form-group">
+          <label for="data-saida">Data da Saída</label>
+          <input type="text" id="data-saida" placeholder="DD/MM/AAAA" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="cliente">Cliente / Destino</label>
+        <div class="autocomplete-wrapper">
+          <input type="text" id="cliente" placeholder="Nome do cliente (opcional)..." autocomplete="off" />
+          <div class="autocomplete-list" id="cliente-list"></div>
+        </div>
+      </div>
+
+      <div class="form-group" id="motivo-perda-group" style="display: none;">
+        <label for="motivo-perda">Motivo da Perda</label>
+        <select id="motivo-perda">
+          <option value="">Selecione...</option>
+          <option value="Roubo">Roubo</option>
+          <option value="Danificado">Danificado</option>
+          <option value="Vencimento">Vencimento</option>
+          <option value="Outros">Outros</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="observacoes">Observações</label>
+        <textarea id="observacoes" rows="2" placeholder="Notas livres..."></textarea>
+      </div>
+
+      <div class="summary" id="summary" style="display:none;">
+        <div class="summary-row">
+          <span>Valor Total:</span>
+          <span class="summary-value" id="summary-total">R$ 0,00</span>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn" id="btn-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-confirm" disabled>Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</template>
+
+<script>
+(function () {
+  if (document.getElementById('manual-saida-widget')) return;
+
+  var template = document.getElementById('manual-saida-template');
+  if (!template) return;
+
+  var TAG = 'manual-saida-widget';
+
+  customElements.define(TAG, class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+      this.shadowRoot.appendChild(template.content.cloneNode(true));
+      if (window.__DESIGN_SHEET__) {
+        this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+      }
+      this._products = [];
+      this._clientes = [];
+      this._selectedProduct = null;
+    }
+
+    connectedCallback() {
+      this._loadProducts();
+      this._loadClientes();
+      this._bindEvents();
+      this._setDefaultDate();
+    }
+
+    open() {
+      this.shadowRoot.getElementById('modal-overlay').classList.add('open');
+      this._resetForm();
+      this._loadProducts();
+      this._loadClientes();
+    }
+
+    close() {
+      this.shadowRoot.getElementById('modal-overlay').classList.remove('open');
+    }
+
+    setOnSaveCallback(fn) {
+      this._onSaveCallback = fn;
+    }
+
+    _el(id) {
+      return this.shadowRoot.getElementById(id);
+    }
+
+    _loadProducts() {
+      var self = this;
+      var select = this._el('product-select');
+      select.innerHTML = '<option value="">Carregando produtos...</option>';
+
+      google.script.run
+        .withSuccessHandler(function (resp) {
+          var envelope = (resp && resp.data) || resp || {};
+          var products = envelope.products || [];
+
+          self._products = products;
+          select.innerHTML = '<option value="">Selecione um produto...</option>';
+          if (products.length === 0) {
+            select.innerHTML = '<option value="">Nenhum produto disponível</option>';
+            return;
+          }
+          for (var k = 0; k < products.length; k++) {
+            var opt = document.createElement('option');
+            opt.value = products[k].codigoProduto;
+            opt.textContent = products[k].descricaoProduto + ' (' + products[k].estoqueDisponivel + ' disponível)';
+            select.appendChild(opt);
+          }
+        })
+        .withFailureHandler(function (e) {
+          select.innerHTML = '<option value="">Erro ao carregar: ' + (e.message || 'desconhecido') + '</option>';
+        })
+        .apiDispatch('manualSaida.getAvailableProducts', {});
+    }
+
+    _loadClientes() {
+      var self = this;
+      google.script.run
+        .withSuccessHandler(function (resp) {
+          var envelope = (resp && resp.data) || resp || {};
+          var data = envelope.clientes || envelope;
+          self._clientes = data.clientes || data || [];
+        })
+        .withFailureHandler(function () {})
+        .apiDispatch('manualSaida.getClienteHistory', {});
+    }
+
+    _bindEvents() {
+      var self = this;
+
+      this._el('modal-overlay').addEventListener('click', function (e) {
+        if (e.target.id === 'modal-overlay') self.close();
+      });
+      this._el('btn-close').addEventListener('click', function () { self.close(); });
+      this._el('btn-cancel').addEventListener('click', function () { self.close(); });
+      this._el('btn-confirm').addEventListener('click', function () { self._submit(); });
+
+      this._el('product-select').addEventListener('change', function () {
+        var code = self._el('product-select').value;
+        var product = null;
+        for (var i = 0; i < self._products.length; i++) {
+          if (self._products[i].codigoProduto === code) {
+            product = self._products[i];
+            break;
+          }
+        }
+        self._selectedProduct = product;
+        if (product) {
+          self._el('descricao-produto').value = product.descricaoProduto || '';
+          self._el('stock-hint').textContent = 'Estoque disponível: ' + product.estoqueDisponivel;
+        } else {
+          self._el('stock-hint').textContent = '';
+        }
+        self._updateSummary();
+        self._validate();
+      });
+
+      this._el('descricao-produto').addEventListener('input', function () {
+        self._updateSummary();
+        self._validate();
+      });
+
+      this._el('tipo-saida').addEventListener('change', function () {
+        var tipo = self._el('tipo-saida').value;
+        self._el('motivo-perda-group').style.display = tipo === 'Perda' ? 'block' : 'none';
+        self._validate();
+      });
+
+      var cliente = this._el('cliente');
+      cliente.addEventListener('input', function () {
+        self._filterClientes(cliente.value);
+        self._validate();
+      });
+      cliente.addEventListener('focus', function () {
+        self._filterClientes(cliente.value);
+      });
+
+      ['quantidade', 'preco-unitario'].forEach(function (id) {
+        self._el(id).addEventListener('input', function () {
+          self._updateSummary();
+          self._validate();
+        });
+      });
+
+      document.addEventListener('click', function (e) {
+        if (!self.shadowRoot.contains(e.target)) {
+          self._el('cliente-list').classList.remove('show');
+        }
+      });
+    }
+
+    _setDefaultDate() {
+      var now = new Date();
+      var dd = String(now.getDate()).padStart(2, '0');
+      var mm = String(now.getMonth() + 1).padStart(2, '0');
+      var yyyy = now.getFullYear();
+      this._el('data-saida').value = dd + '/' + mm + '/' + yyyy;
+    }
+
+    _filterClientes(query) {
+      var list = this._el('cliente-list');
+      list.innerHTML = '';
+      var q = (query || '').toLowerCase();
+      var matches = this._clientes.filter(function (c) {
+        return c.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 10);
+
+      if (matches.length === 0) {
+        list.classList.remove('show');
+        return;
+      }
+
+      var self = this;
+      matches.forEach(function (c) {
+        var div = document.createElement('div');
+        div.className = 'autocomplete-item';
+        div.textContent = c;
+        div.addEventListener('click', function () {
+          self._el('cliente').value = c;
+          list.classList.remove('show');
+          self._validate();
+        });
+        list.appendChild(div);
+      });
+      list.classList.add('show');
+    }
+
+    _updateSummary() {
+      var qty = parseFloat(this._el('quantidade').value) || 0;
+      var unit = parseFloat(this._el('preco-unitario').value) || 0;
+      var total = Math.round(qty * unit * 100) / 100;
+
+      var fmt = function (v) { return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+
+      this._el('summary-total').textContent = fmt(total);
+      this._el('summary').style.display = 'block';
+    }
+
+    _validate() {
+      var descricao = this._el('descricao-produto').value.trim();
+      var tipoSaida = this._el('tipo-saida').value;
+      var qty = parseFloat(this._el('quantidade').value);
+
+      var valid = descricao && tipoSaida && !isNaN(qty) && qty > 0;
+
+      if (this._selectedProduct && !isNaN(qty) && qty > 0) {
+        if (qty > this._selectedProduct.estoqueDisponivel) {
+          var qtyErr = this._el('qty-error');
+          qtyErr.textContent = 'Apenas ' + this._selectedProduct.estoqueDisponivel + ' em estoque';
+          this._el('quantidade').classList.add('error');
+          valid = false;
+        } else {
+          this._el('quantidade').classList.remove('error');
+        }
+      }
+
+      this._el('btn-confirm').disabled = !valid;
+    }
+
+    _submit() {
+      var self = this;
+      var codigo = this._el('product-select').value;
+      var descricao = this._el('descricao-produto').value.trim();
+
+      if (!descricao) {
+        this._showToast('Informe o nome do produto.', 'error');
+        return;
+      }
+
+      var tipoSaida = this._el('tipo-saida').value;
+
+      var params = {
+        codigoProduto: codigo,
+        descricaoProduto: descricao,
+        quantidade: parseFloat(this._el('quantidade').value) || 0,
+        tipoSaida: tipoSaida,
+        precoUnitario: parseFloat(this._el('preco-unitario').value) || 0,
+        dataCompra: this._el('data-saida').value,
+        clienteName: this._el('cliente').value.trim(),
+        motivoPerda: tipoSaida === 'Perda' ? this._el('motivo-perda').value : '',
+        observacoes: this._el('observacoes').value
+      };
+
+      this._el('btn-confirm').disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function (resp) {
+          var envelope = (resp && resp.data) || resp || {};
+          var result = envelope.data || envelope;
+          if (result.error) {
+            self._showToast(result.error, 'error');
+            self._el('btn-confirm').disabled = false;
+          } else {
+            var msg = 'Saída registrada! Estoque restante: ' + result.estoqueRestante;
+            self._showToast(msg, 'success');
+            self.close();
+            if (typeof self._onSaveCallback === 'function') {
+              self._onSaveCallback();
+            }
+          }
+        })
+        .withFailureHandler(function (e) {
+          self._showToast('Erro: ' + e.message, 'error');
+          self._el('btn-confirm').disabled = false;
+        })
+        .apiDispatch('manualSaida.addExit', params);
+    }
+
+    _resetForm() {
+      this._el('product-select').value = '';
+      this._el('descricao-produto').value = '';
+      this._el('tipo-saida').value = '';
+      this._el('quantidade').value = '';
+      this._el('preco-unitario').value = '0';
+      this._el('cliente').value = '';
+      this._el('motivo-perda').value = '';
+      this._el('observacoes').value = '';
+      this._el('summary').style.display = 'none';
+      this._el('stock-hint').textContent = '';
+      this._el('motivo-perda-group').style.display = 'none';
+      this._el('quantidade').classList.remove('error');
+      this._el('btn-confirm').disabled = true;
+      this._selectedProduct = null;
+      this._setDefaultDate();
+    }
+
+    _showToast(message, type) {
+      var toast = this._el('toast');
+      toast.textContent = message;
+      toast.className = 'toast ' + type + ' show';
+      setTimeout(function () {
+        toast.className = 'toast';
+      }, 4000);
+    }
+  });
+})();
+</script>

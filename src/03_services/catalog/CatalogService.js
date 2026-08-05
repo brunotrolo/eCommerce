@@ -93,6 +93,19 @@ var CatalogService = (function () {
 
     var allProdutos = allProdutos.concat(allProdutosManual);
 
+    var saidasByCodigo = {};
+    try {
+      var allSaidas = ManualSaidaProdutosRepository.getRows(sheetId);
+      for (var s = 0; s < allSaidas.length; s++) {
+        var sc = String(allSaidas[s].CODIGO_PRODUTO || '').trim();
+        var sq = parseFloat(allSaidas[s].QUANTIDADE) || 0;
+        if (!saidasByCodigo[sc]) saidasByCodigo[sc] = 0;
+        saidasByCodigo[sc] += sq;
+      }
+    } catch (e) {
+      console.warn('CatalogService: Erro ao ler MANUAL_SAIDA_PRODUTOS — ' + e.message);
+    }
+
     if (!allProdutos || allProdutos.length === 0) {
       return { success: true, data: [], totalCount: 0, lastSync: new Date().toISOString() };
     }
@@ -118,6 +131,8 @@ var CatalogService = (function () {
       var dataEmissao = row.DATA_EMISSAO || row.DATA_ENTRADA || '';
       var existing = grouped[cod];
 
+      var qtdRow = parseFloat(row.QUANTIDADE) || 0;
+
       if (!existing) {
         grouped[cod] = {
           codigoProduto: cod,
@@ -126,6 +141,7 @@ var CatalogService = (function () {
           dataEmissaoMaisRecente: dataEmissao,
           emitenteMaisRecente: row.EMITENTE_NOME || '',
           totalEntradas: 1,
+          estoqueEntrada: qtdRow,
           _rows: [row]
         };
         if (isNaN(grouped[cod].valorUnitarioLiquido)) {
@@ -133,6 +149,7 @@ var CatalogService = (function () {
         }
       } else {
         existing.totalEntradas++;
+        existing.estoqueEntrada += qtdRow;
         existing._rows.push(row);
         var newData = new Date(dataEmissao);
         var existingData = new Date(existing.dataEmissaoMaisRecente);
@@ -152,6 +169,9 @@ var CatalogService = (function () {
     for (var k = 0; k < codes.length; k++) {
       var p = grouped[codes[k]];
       var cost = p.valorUnitarioLiquido;
+
+      var estoqueSaida = saidasByCodigo[codes[k]] || 0;
+      p.estoqueDisponivel = Math.max(0, Math.round((p.estoqueEntrada - estoqueSaida) * 100) / 100);
 
       if (cost < 0) {
         p.precoShopee = 0;
@@ -177,7 +197,19 @@ var CatalogService = (function () {
       }
 
       delete p._rows;
-      products.push(p);
+      products.push({
+        codigoProduto: p.codigoProduto,
+        descricaoProduto: p.descricaoProduto,
+        estoqueDisponivel: p.estoqueDisponivel,
+        totalEntradas: p.totalEntradas,
+        valorUnitarioLiquido: p.valorUnitarioLiquido,
+        dataEmissaoMaisRecente: p.dataEmissaoMaisRecente,
+        emitenteMaisRecente: p.emitenteMaisRecente,
+        precoShopee: p.precoShopee,
+        precoMercadoLivre: p.precoMercadoLivre,
+        margemCalculadaShopee: p.margemCalculadaShopee,
+        margemCalculadaMercadoLivre: p.margemCalculadaMercadoLivre
+      });
     }
 
     var sortField = {
