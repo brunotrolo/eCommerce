@@ -40,6 +40,27 @@ reconecte a conta em <https://marketplaces.tiops.com.br> antes de investigar o
 código. Isso é renovação de conexão do marketplace na Tiops, não envolve
 nenhuma API key no Apps Script (Tiops é um MCP usado apenas pelo Claude Code).
 
+## Anuncios Shopee — confirmado em 2026-08-05
+
+Sondagem via MCP Tiops (`shopId` = `1880105398`). Item sem variação usa `model_id: 0` e `location_id: "BRZ"`. Status mapping: `NORMAL`→ativo, `UNLIST`→pausado, `BANNED`→deletado.
+
+| Ação | Params confirmados | Retorno-chave |
+|---|---|---|
+| `shopee_list_items` | `page_size, offset` (opcional) | `response.item[]` (item_id, item_status, update_time epoch, item_url), `total_count`, `has_next_page`, `next_offset` |
+| `shopee_get_item` | `item_id` | `response.item_list[0]`: item_id, item_name, category_id, item_status, `price_info[0]`{currency, original_price, current_price}, `image.image_url_list[0]`, item_url, `stock_info_v2.summary_info.total_available_stock`, `has_model` (bool variações), create_time, update_time (epoch), `brand.original_brand_name`, item_sku, gtin_code |
+| `shopee_get_items_batch` | `item_id_list` (array) — **mesmo payload de `shopee_get_item`, em lote** | `response.item_list[]` com os mesmos campos de `shopee_get_item`. Ideal para sync performático (1 chamada/N itens) |
+| `shopee_get_models` | `item_id` | `response.tier_variation[]`, `response.model[]` (cada model: `model_id`, `model_name`, `normal_price`, `stock_info_v2`) — vazio para item sem variação |
+| `shopee_update_price` | `item_id`, `price_list:[{model_id, original_price, price}]` | `response.success_list[].original_price`, `failure_list` |
+| `shopee_update_stock` | `item_id`, `stock_list:[{model_id, seller_stock:[{location_id:"BRZ", stock:N}]}]` | `response.success_list[].stock`, `failure_list` |
+| `shopee_unlist_item` | `item_id`, `unlist: bool` (default true = pausar) | `response.success_list[].unlist` |
+| `shopee_delete_item` | `item_id` | success/error |
+| `shopee_sales_by_item` | `item_id`, `period` (e.g. "30d") | `total_orders`, `total_quantity`, `total_revenue`, `avg_price`, `orders[]` |
+| `shopee_get_item_content_diagnosis_result` | `item_id` | diagnóstico de qualidade do item |
+
+**Aviso crítico:** `shopee_sales_summary` **NÃO existe** no catálogo (citar na spec estava errado). Para agregados de vendas, somar `shopee_sales_by_item` por item ou usar `shopee_get_income_overview` (por mês).
+
+**Não testar `shopee_unlist_item`/`shopee_delete_item` em item real** — resposta 200 com `success_list` causa estado real de pause/delete imediato. Use `item_id` fake ou só `describe_action` para sondar.
+
 ## Carteira Shopee — confirmado em 2026-08-05
 
 Sondagem via MCP Tiops (`shopId` = `1880105398`). Datas de filtro aceitas como

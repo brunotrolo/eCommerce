@@ -43,7 +43,8 @@ var ServiceRegistry = (function () {
     estoquePreco: safeRef_('estoquePreco', function () { return typeof EstoquePrecoService !== 'undefined' ? EstoquePrecoService : undefined; }),
     ordersImport: safeRef_('ordersImport', function () { return typeof OrdersImportService !== 'undefined' ? OrdersImportService : undefined; }),
     pushNotification: safeRef_('pushNotification', function () { return typeof PushNotificationService !== 'undefined' ? PushNotificationService : undefined; }),
-    carteiraShopee: safeRef_('carteiraShopee', function () { return typeof CarteiraShopeeService !== 'undefined' ? CarteiraShopeeService : undefined; })
+    carteiraShopee: safeRef_('carteiraShopee', function () { return typeof CarteiraShopeeService !== 'undefined' ? CarteiraShopeeService : undefined; }),
+    anunciosShopee: safeRef_('anunciosShopee', function () { return typeof AnunciosShopeeService !== 'undefined' ? AnunciosShopeeService : undefined; })
   };
 
   function listActions() {

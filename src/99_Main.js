@@ -21,6 +21,7 @@ function onOpen() {
         SpreadsheetApp.getUi().createMenu('Utilitários')
           .addItem('Inicializar Logging', 'initLogging_')
           .addItem('Limpar Logs Antigos', 'clearOldLogs_')
+          .addItem('Configurar Sync Diário Anúncios', 'setupAnunciosShopeeTrigger_')
       )
       .addSeparator()
       .addSubMenu(
@@ -34,6 +35,7 @@ function onOpen() {
           .addItem('Push Notification', 'runPushSmokeTests_')
           .addItem('Saída Manual', 'runManualSaidaSmokeTests_')
           .addItem('Carteira Shopee', 'runCarteiraShopeeSmokeTests_')
+          .addItem('Anúncios Shopee', 'runAnunciosShopeeSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -735,4 +737,106 @@ function runPushSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de Push Notification passaram.');
+}
+
+function runAnunciosShopeeSmokeTests_() {
+  var failures = [];
+
+  function expectEqual(label, actual, expected) {
+    if (actual !== expected) {
+      failures.push(label + ': esperado "' + expected + '", obtido "' + actual + '"');
+    }
+  }
+
+  function expectTrue(label, condition) {
+    if (!condition) {
+      failures.push(label + ': esperado true, obtido false');
+    }
+  }
+
+  // Cenário 1: describe() registrado com ações corretas
+  var desc = AnunciosShopeeService.describe();
+  expectEqual('describe.name', desc.name, 'anunciosShopee');
+  expectTrue('ação syncListings', !!desc.actions.syncListings);
+  expectTrue('ação getListings', !!desc.actions.getListings);
+  expectTrue('ação getItemDetail', !!desc.actions.getItemDetail);
+  expectTrue('ação updatePrice', !!desc.actions.updatePrice);
+  expectTrue('ação updateStock', !!desc.actions.updateStock);
+  expectTrue('ação pauseItem', !!desc.actions.pauseItem);
+  expectTrue('ação activateItem', !!desc.actions.activateItem);
+  expectTrue('ação deleteItem', !!desc.actions.deleteItem);
+  expectTrue('ação getSalesMetrics', !!desc.actions.getSalesMetrics);
+  expectTrue('ação getSKUs', !!desc.actions.getSKUs);
+
+  // Cenário 2: mapStatus_ mapeia status Shopee -> label BR
+  expectEqual('status NORMAL', AnunciosShopeeService.mapStatus_('NORMAL'), 'ativo');
+  expectEqual('status UNLIST', AnunciosShopeeService.mapStatus_('UNLIST'), 'pausado');
+  expectEqual('status BANNED', AnunciosShopeeService.mapStatus_('BANNED'), 'deletado');
+  expectEqual('status vazio', AnunciosShopeeService.mapStatus_(''), 'ativo');
+
+  // Cenário 3: buildItemRow_ monta linha com preço/estoque/status da payload
+  var row = AnunciosShopeeService.buildItemRow_({
+    item_id: 1880105397001,
+    item_name: 'Camiseta Teste',
+    category_id: 12345,
+    item_status: 'NORMAL',
+    price_info: [{ currency: 'BRL', original_price: 100, current_price: 89.9 }],
+    stock_info_v2: { summary_info: { total_available_stock: 15 } },
+    image: { image_url_list: ['http://img/x.jpg'] },
+    has_model: false
+  });
+  expectEqual('ITEM_ID', String(row.ITEM_ID), '1880105397001');
+  expectEqual('NOME', row.NOME, 'Camiseta Teste');
+  expectEqual('PRECO', row.PRECO, 89.9);
+  expectEqual('ESTOQUE', row.ESTOQUE, 15);
+  expectEqual('STATUS', row.STATUS, 'ativo');
+  expectEqual('TIPO_VARIACAO', row.TIPO_VARIACAO, 'sem_variacao');
+  expectEqual('MOEDA', row.MOEDA, 'BRL');
+  expectTrue('IMAGEM_URL', row.IMAGEM_URL === 'http://img/x.jpg');
+
+  // Cenário 4: buildItemRow_ com variação
+  var rowVar = AnunciosShopeeService.buildItemRow_({
+    item_id: 1,
+    item_status: 'UNLIST',
+    has_model: true,
+    price_info: [{ currency: 'BRL', current_price: 20 }],
+    stock_info_v2: { summary_info: { total_available_stock: 0 } }
+  });
+  expectEqual('STATUS variação', rowVar.STATUS, 'pausado');
+  expectEqual('TIPO_VARIACAO com modelo', rowVar.TIPO_VARIACAO, '1_nivel');
+
+  // Cenário 5: nowBR_ formata dd/MM/yyyy HH:mm:ss
+  expectTrue('nowBR_ formato BR', /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(AnunciosShopeeService.nowBR_()));
+
+  if (failures.length) {
+    Logger.log('FALHOU ANUNCIOS SHOPEE:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Anuncios Shopee smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Anúncios Shopee passaram.');
+}
+
+function setupAnunciosShopeeTrigger_() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'syncAnunciosShopeeDaily') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  ScriptApp.newTrigger('syncAnunciosShopeeDaily')
+    .timeBased()
+    .atHour(3) // 03:00 BRT = 06:00 UTC (script tz é America/Sao_Paulo)
+    .everyDays(1)
+    .create();
+
+  Logger.log('Trigger diário de sync de anúncios Shopee configurado (06:00 UTC / 03:00 BRT).');
+}
+
+function syncAnunciosShopeeDaily() {
+  var result = AnunciosShopeeService.syncListings({ forceFresh: true });
+  Logger.log('Sync diário anúncios Shopee: success=' + result.success +
+    ' atualizados=' + (result.synced ? result.synced.itemsAtualizados : 0) +
+    ' novos=' + (result.synced ? result.synced.novosCriados : 0) +
+    ' erros=' + result.errors.length);
 }

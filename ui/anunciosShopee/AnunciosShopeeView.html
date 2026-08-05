@@ -1,0 +1,354 @@
+<template id="anuncios-shopee-template">
+  <div class="widget-grid">
+    <div class="card">
+      <h1>Anúncios Shopee</h1>
+      <p class="page-subtitle">Inventário, preço, estoque e vendas da loja Shopee.</p>
+      <button class="btn" id="btn-sync">Sincronizar Anúncios</button>
+      <span class="badge badge-info" id="cache-badge" hidden></span>
+      <div class="alert alert-error" id="error-box" hidden></div>
+      <div id="result-box" hidden></div>
+    </div>
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="card table-container">
+      <h3>Inventário de anúncios</h3>
+      <table class="table" id="items-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nome</th>
+            <th>Preço</th>
+            <th>Estoque</th>
+            <th>Status</th>
+            <th>Vendas 30d</th>
+            <th>Avaliação</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+<script>
+  (function () {
+    if (customElements.get('anuncios-shopee-widget')) return;
+
+    class AnunciosShopeeWidget extends HTMLElement {
+      connectedCallback() {
+        var template = document.getElementById('anuncios-shopee-template');
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        shadow.appendChild(template.content.cloneNode(true));
+
+        var self = this;
+        shadow.getElementById('btn-sync').addEventListener('click', function () {
+          self._sync(shadow);
+        });
+
+        var cached = window.__DataStore && window.__DataStore.get('anunciosShopee.listings');
+        if (cached) {
+          renderAll(shadow, cached);
+          self._showCacheBadge(shadow, cached);
+        }
+
+        this._load(shadow);
+      }
+
+      _load(shadow) {
+        var ds = window.__DataStore;
+        if (!ds) {
+          this._fetch(shadow, false);
+          return;
+        }
+        ds.getOrFetch('anunciosShopee.listings', 'anunciosShopee.getListings', {})
+          .then(function (data) {
+            if (!data || !data.lista) return;
+            renderAll(shadow, data);
+            if (data.fromCache) selfShowCache(shadow, data);
+          })
+          .catch(function () {});
+      }
+
+      _fetch(shadow, force) {
+        var self = this;
+        google.script.run
+          .withSuccessHandler(function (data) {
+            if (!data || !data.lista) return;
+            renderAll(shadow, data);
+            if (window.__DataStore && force) {
+              window.__DataStore.set('anunciosShopee.listings', data);
+            }
+          })
+          .withFailureHandler(function () {})
+          .apiDispatch('anunciosShopee.getListings', { fromCache: !force });
+      }
+
+      _sync(shadow) {
+        var self = this;
+        if (window.__DataStore) window.__DataStore.invalidate('anunciosShopee.listings');
+        withLoading(
+          shadow.getElementById('btn-sync'),
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('anunciosShopee.syncListings', { forceFresh: true }),
+          (data) => {
+            if (!data || !data.success) return;
+            self._load(shadow);
+            if (data.resumo) {
+              shadow.getElementById('stat-grid').innerHTML =
+                statsHtml(data.resumo);
+            }
+          },
+          (data) =>
+            data && data.synced
+              ? 'Sincronizados ' + data.synced.itemsAtualizados + ' anúncios • Estoque total: ' +
+                (data.resumo ? data.resumo.estoqueTotal : 0)
+              : 'Sincronizados'
+        );
+      }
+
+      _updatePrice(shadow, itemId, nome, precoAtual) {
+        var novo = prompt('Novo preço para "' + nome + '" (atual: ' + precoAtual + '):', precoAtual);
+        if (novo === null || novo === '') return;
+        novo = String(novo).replace(',', '.');
+        var valor = parseFloat(novo);
+        if (isNaN(valor) || valor <= 0) {
+          showError(shadow, 'Preço inválido.');
+          return;
+        }
+        this._runAction(
+          shadow,
+          'anunciosShopee.updatePrice',
+          { itemIds: [itemId], priceList: [{ itemId: itemId, preco: valor }] },
+          function (data) {
+            if (data && data.falhas && data.falhas.length > 0) {
+              showError(shadow, data.falhas[0].motivo || 'Falha ao confirmar mudança. Tente novamente.');
+            }
+          },
+          'Preço atualizado para R$ ' + valor.toFixed(2).replace('.', ',')
+        );
+      }
+
+      _updateStock(shadow, itemId, nome, estoqueAtual) {
+        var novo = prompt('Novo estoque para "' + nome + '" (atual: ' + estoqueAtual + '):', estoqueAtual);
+        if (novo === null || novo === '') return;
+        var valor = parseInt(novo, 10);
+        if (isNaN(valor) || valor < 0) {
+          showError(shadow, 'Estoque inválido.');
+          return;
+        }
+        this._runAction(
+          shadow,
+          'anunciosShopee.updateStock',
+          { itemIds: [itemId], stockList: [{ itemId: itemId, quantidade: valor }] },
+          function (data) {
+            if (data && data.falhas && data.falhas.length > 0) {
+              showError(shadow, data.falhas[0].motivo || 'Falha ao confirmar mudança. Tente novamente.');
+            }
+          },
+          'Estoque atualizado para ' + valor
+        );
+      }
+
+      _runAction(shadow, action, params, onSuccess, successMessage) {
+        var btn = shadow.getElementById('btn-sync');
+        withLoading(
+          btn,
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch(action, params),
+          (data) => {
+            if (onSuccess) onSuccess(data);
+            this._load(shadow);
+          },
+          successMessage
+        );
+      }
+
+      _showCacheBadge(shadow, data) {
+        var badge = shadow.getElementById('cache-badge');
+        if (!badge || !data || !data.atualizadoEm) return;
+        badge.hidden = false;
+        badge.textContent = 'Usando dados em cache (atualizado em ' + data.atualizadoEm + ')';
+      }
+    }
+
+    function selfShowCache(shadow, data) {
+      var badge = shadow.getElementById('cache-badge');
+      if (!badge || !data || !data.atualizadoEm) return;
+      badge.hidden = false;
+      badge.textContent = 'Usando dados em cache (atualizado em ' + data.atualizadoEm + ')';
+    }
+
+    function showError(shadow, message) {
+      var errorBox = shadow.getElementById('error-box');
+      if (!errorBox) return;
+      errorBox.innerHTML = '';
+      var text = document.createElement('span');
+      text.textContent = message;
+      var dismiss = document.createElement('button');
+      dismiss.className = 'alert-dismiss';
+      dismiss.setAttribute('aria-label', 'Fechar');
+      dismiss.textContent = '\u00D7';
+      dismiss.addEventListener('click', function () {
+        errorBox.hidden = true;
+      });
+      errorBox.appendChild(text);
+      errorBox.appendChild(dismiss);
+      errorBox.hidden = false;
+    }
+
+    function formatBRL(value) {
+      if (value === '' || value === null || value === undefined || isNaN(value)) return '-';
+      return typeof FormatterService !== 'undefined'
+        ? FormatterService.formatCurrency(value)
+        : 'R$ ' + Number(value).toFixed(2);
+    }
+
+    function statusLabel(status) {
+      var map = { ativo: 'Ativo', pausado: 'Pausado', deletado: 'Deletado' };
+      return map[status] || status || '-';
+    }
+
+    function statsHtml(resumo) {
+      return (
+        '<div class="stat-card stat-card--featured">' +
+        '<span class="stat-label">Anúncios ativos</span>' +
+        '<span class="stat-value">' + (resumo.totalAtivos || 0) + '</span>' +
+        '<span class="stat-meta">publicados e vendendo</span>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<span class="stat-label">Pausados</span>' +
+        '<span class="stat-value stat-value--primary">' + (resumo.totalPausados || 0) + '</span>' +
+        '<span class="stat-meta">fora da busca</span>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<span class="stat-label">Estoque total</span>' +
+        '<span class="stat-value">' + (resumo.estoqueTotal || 0) + '</span>' +
+        '<span class="stat-meta">soma de todos os itens</span>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<span class="stat-label">Vendas 30d</span>' +
+        '<span class="stat-value stat-value--success">' + (resumo.vendasPeriodo || 0) + '</span>' +
+        '<span class="stat-meta">unidades no período</span>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<span class="stat-label">Avaliação média</span>' +
+        '<span class="stat-value">' + (resumo.avaliacaoMedia || '-') + '</span>' +
+        '<span class="stat-meta">de 0 a 5</span>' +
+        '</div>'
+      );
+    }
+
+    function renderAll(shadow, data) {
+      var resumo = data.resumo || {};
+      shadow.getElementById('stat-grid').innerHTML = statsHtml(resumo);
+      renderTable(shadow, data.lista || []);
+    }
+
+    function renderTable(shadow, rows) {
+      var body = shadow.querySelector('#items-table tbody');
+      var html = rows
+        .map(function (r) {
+          var status = r.STATUS || 'ativo';
+          var acoes = '';
+          if (status === 'ativo') {
+            acoes += '<button class="btn btn-secondary" data-act="pause" data-id="' + esc(r.ITEM_ID) + '">Pausar</button> ';
+          } else if (status === 'pausado') {
+            acoes += '<button class="btn btn-secondary" data-act="activate" data-id="' + esc(r.ITEM_ID) + '">Ativar</button> ';
+          }
+          acoes +=
+            '<button class="btn btn--ghost" data-act="price" data-id="' + esc(r.ITEM_ID) +
+            '" data-nome="' + esc(r.NOME) + '" data-valor="' + r.PRECO + '">Preço</button> ' +
+            '<button class="btn btn--ghost" data-act="stock" data-id="' + esc(r.ITEM_ID) +
+            '" data-nome="' + esc(r.NOME) + '" data-valor="' + r.ESTOQUE + '">Estoque</button> ';
+          if (status !== 'deletado') {
+            acoes += '<button class="btn btn-secondary" data-act="delete" data-id="' + esc(r.ITEM_ID) + '">Deletar</button>';
+          }
+          return (
+            '<tr>' +
+            '<td>' + esc(r.ITEM_ID) + '</td>' +
+            '<td>' + esc(r.NOME) + '</td>' +
+            '<td>' + formatBRL(r.PRECO) + '</td>' +
+            '<td>' + (r.ESTOQUE === '' ? '-' : r.ESTOQUE) + '</td>' +
+            '<td>' + statusLabel(status) + '</td>' +
+            '<td>' + (r.VENDAS_30D === '' ? '-' : r.VENDAS_30D) + '</td>' +
+            '<td>' + (r.AVALIACAO ? r.AVALIACAO : '-') + '</td>' +
+            '<td>' + acoes + '</td>' +
+            '</tr>'
+          );
+        })
+        .join('');
+      body.innerHTML = html || '<tr><td colspan="8">Nenhum anúncio ainda. Clique em "Sincronizar Anúncios".</td></tr>';
+
+      body.querySelectorAll('button[data-act]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var itemId = btn.getAttribute('data-id');
+          var act = btn.getAttribute('data-act');
+          var widget = document.querySelector('anuncios-shopee-widget');
+          if (!widget) return;
+          if (act === 'price') {
+            widget._updatePrice(
+              widget.shadowRoot,
+              itemId,
+              btn.getAttribute('data-nome'),
+              btn.getAttribute('data-valor')
+            );
+          } else if (act === 'stock') {
+            widget._updateStock(
+              widget.shadowRoot,
+              itemId,
+              btn.getAttribute('data-nome'),
+              btn.getAttribute('data-valor')
+            );
+          } else if (act === 'pause' || act === 'activate') {
+            widget._setStatus(widget.shadowRoot, itemId, act);
+          } else if (act === 'delete') {
+            widget._deleteItem(widget.shadowRoot, itemId);
+          }
+        });
+      });
+    }
+
+    function esc(value) {
+      return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    class AnunciosShopeeWidgetActions {
+      _setStatus(shadow, itemId, act) {
+        var action = act === 'pause' ? 'anunciosShopee.pauseItem' : 'anunciosShopee.activateItem';
+        this._runAction(
+          shadow,
+          action,
+          { itemId: itemId },
+          null,
+          act === 'pause' ? 'Anúncio pausado.' : 'Anúncio ativado.'
+        );
+      }
+
+      _deleteItem(shadow, itemId) {
+        if (!confirm('Deletar anúncio ' + itemId + ' na Shopee? Esta ação é IRREVERSÍVEL.')) return;
+        this._runAction(
+          shadow,
+          'anunciosShopee.deleteItem',
+          { itemId: itemId },
+          null,
+          'Anúncio deletado.'
+        );
+      }
+    }
+
+    // mixin das ações de status/delete na classe principal
+    Object.assign(AnunciosShopeeWidget.prototype, AnunciosShopeeWidgetActions.prototype);
+
+    customElements.define('anuncios-shopee-widget', AnunciosShopeeWidget);
+  })();
+</script>
