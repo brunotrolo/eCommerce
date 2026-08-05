@@ -32,6 +32,7 @@ function onOpen() {
           .addItem('Catalog', 'runCatalogSmokeTests_')
           .addItem('Calculator', 'runCalculatorSmokeTests_')
           .addItem('Push Notification', 'runPushSmokeTests_')
+          .addItem('Saída Manual', 'runManualSaidaSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -246,6 +247,37 @@ function runNfeProdutosSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de NFe Entrada Produtos passaram.');
+}
+
+function runManualSaidaSmokeTests_() {
+  var failures = [];
+
+  // fmtDateBR: string ISO (formato antigo/entrada) deve virar dd/MM/yyyy HH:mm:ss
+  var iso = ManualSaidaService.fmtDateBR('2026-08-05T05:05:25.403Z');
+  if (!/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(iso)) {
+    failures.push('fmtDateBR ISO: esperado dd/MM/yyyy HH:mm:ss, obtido ' + iso);
+  }
+
+  // fmtDateBR: string já em formato BR deve passar intacta
+  var br = ManualSaidaService.fmtDateBR('05/08/2026 02:30:28');
+  if (br !== '05/08/2026 02:30:28') {
+    failures.push('fmtDateBR BR: deveria manter intacto, obtido ' + br);
+  }
+
+  // fmtDateBR: empty/null devem retornar string vazia
+  if (ManualSaidaService.fmtDateBR(null) !== '') failures.push('fmtDateBR null deveria ser vazio');
+  if (ManualSaidaService.fmtDateBR('') !== '') failures.push('fmtDateBR vazio deveria ser vazio');
+
+  // fmtDateBR: data apenas (sem hora) permanece como string curta
+  var dia = ManualSaidaService.fmtDateBR('05/08/2026');
+  if (dia !== '05/08/2026') failures.push('fmtDateBR data curta deveria manter, obtido ' + dia);
+
+  if (failures.length) {
+    Logger.log('FALHOU SAIDA MANUAL:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Saida Manual smoke test(s) falharam.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Saída Manual passaram.');
 }
 
 function initLogging_() {

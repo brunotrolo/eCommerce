@@ -413,6 +413,7 @@ var ManualSaidaService = (function () {
     listExits: listExits,
     validateExit: validateExit,
     getAvailableProducts: getAvailableProducts,
-    getClienteHistory: getClienteHistory
+    getClienteHistory: getClienteHistory,
+    fmtDateBR: _fmtDataBR_
   };
 })();
