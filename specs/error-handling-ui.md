@@ -1,7 +1,7 @@
 # Spec: Padronização do Tratamento de Erro nos Widgets
 
 ## Status
-Draft
+Approved
 
 ## Objetivo
 Hoje cada view trata erro do seu próprio jeito: há `withLoading` + `#error-box`
