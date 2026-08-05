@@ -60,6 +60,9 @@
             <li role="none">
               <button class="nav-dropdown-item" data-route="listings" role="menuitem">Anúncios</button>
             </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="manualSaida" role="menuitem">Saída Manual</button>
+            </li>
           </ul>
         </div>
 
@@ -93,9 +96,11 @@
     <?!= include('ui/calculator/CalculatorView'); ?>
     <?!= include('ui/manualEntrada/ManualEntradaView'); ?>
     <?!= include('ui/manualEntrada/ManualEntradaListView'); ?>
+    <?!= include('ui/manualSaida/ManualSaidaView'); ?>
 
-    <calculator-widget></calculator-widget>
+      <calculator-widget></calculator-widget>
     <manual-entrada-widget></manual-entrada-widget>
+    <manual-saida-widget id="manual-saida-widget"></manual-saida-widget>
 
     <script>
       // Cada rota é um micro-frontend independente: um Web Component com
@@ -108,7 +113,8 @@
         nfeEntradaProdutos: 'nfe-entrada-produtos-widget',
         catalog: 'catalog-widget',
         estoque: 'estoque-widget',
-        manualEntrada: 'manual-entrada-list-widget'
+        manualEntrada: 'manual-entrada-list-widget',
+        manualSaida: 'manual-saida-widget'
       };
 
       function navigate(route) {
@@ -296,7 +302,8 @@
           { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } },
           { key: 'listings.all', action: 'listings.listUnified', params: { marketplace: 'all' } },
           { key: 'estoque.Items.DISPONIVEL', action: 'estoque.getItems', params: { status: 'DISPONIVEL' } },
-          { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } }
+          { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } },
+          { key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500 } }
         ]);
       }
 
@@ -305,6 +312,16 @@
         if (calcWidget && calcWidget.shadowRoot) {
           calcWidget.shadowRoot.getElementById('calc-overlay').setAttribute('open', '');
         }
+      });
+
+      // Manual Saida: abrir modal ao clicar no botão do dropdown
+      document.querySelectorAll('.nav-dropdown-item[data-route="manualSaida"]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var widget = document.getElementById('manual-saida-widget');
+          if (widget && typeof widget.open === 'function') {
+            widget.open();
+          }
+        });
       });
     </script>
   </body>

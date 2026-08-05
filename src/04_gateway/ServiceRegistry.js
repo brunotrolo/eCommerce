@@ -38,6 +38,7 @@ var ServiceRegistry = (function () {
     catalog: safeRef_('catalog', function () { return typeof CatalogService !== 'undefined' ? CatalogService : undefined; }),
     system: safeRef_('system', function () { return typeof StatusService !== 'undefined' ? StatusService : undefined; }),
     manualEntrada: safeRef_('manualEntrada', function () { return typeof ManualEntradaService !== 'undefined' ? ManualEntradaService : undefined; }),
+    manualSaida: safeRef_('manualSaida', function () { return typeof ManualSaidaService !== 'undefined' ? ManualSaidaService : undefined; }),
     estoque: safeRef_('estoque', function () { return typeof EstoqueService !== 'undefined' ? EstoqueService : undefined; }),
     estoquePreco: safeRef_('estoquePreco', function () { return typeof EstoquePrecoService !== 'undefined' ? EstoquePrecoService : undefined; }),
     ordersImport: safeRef_('ordersImport', function () { return typeof OrdersImportService !== 'undefined' ? OrdersImportService : undefined; }),
