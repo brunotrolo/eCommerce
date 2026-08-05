@@ -14,7 +14,7 @@ na UI.
 - Params: `marketplace` (`all`\|`shopee`\|`mercado_livre`, default `all`), `limit` (default 20).
 - Retorno: `{ orders: [{ id, marketplace, status, statusLabel, total, buyerName, createdAt, paymentMethod, itemNames, liquid, escrowAmount, commissionFee, netCommissionFee, serviceFee, netServiceFee, pixDiscount, sellerRebate, actualShippingFee, estimatedShippingFee, recipientName, recipientCity, recipientState, recipientZipcode, recipientFullAddress, itemCount, totalWeightGram, payTime, updateTime, messageToSeller }] }`.
 - Datas sempre em formato BR `dd/mm/yyyy hh:mm` (nunca ISO) — `brDateTime_()` normaliza Date/epoch/ISO no servidor.
-- `liquid` (líquido) = `escrowAmount` (ou `total` se sem escrow) − `netCommissionFee` − `netServiceFee` − `pixDiscount`.
+- `liquid` = `escrowAmount` (se > 0, escrow JÁ É o valor líquido final); fallback: `total − netCommissionFee − netServiceFee − pixDiscount`.
 - Ordenação padrão: `createdAt` decrescente (mais recentes primeiro), usando timestamp interno `_sortTs` (não exposto).
 
 ### `orders.getDetail`
