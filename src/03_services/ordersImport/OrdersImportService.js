@@ -11,7 +11,7 @@
  */
 var OrdersImportService = (function () {
   var OPERATIONAL_STATUSES = ['UNPAID', 'READY_TO_SHIP', 'SHIPPED'];
-  var ALL_STATUSES = ['UNPAID', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'IN_CANCEL'];
+  var ALL_STATUSES = ['UNPAID', 'PROCESSED', 'READY_TO_SHIP', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'IN_CANCEL'];
   var ESCROW_BATCH_SIZE = 20;
 
   function describe() {
