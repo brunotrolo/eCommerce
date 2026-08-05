@@ -54,6 +54,19 @@
       color: var(--color-text);
       font-weight: var(--font-weight-medium);
     }
+    .detail-sub {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-md);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      padding-left: var(--space-md);
+      margin-top: calc(-1 * var(--space-xs));
+      margin-bottom: var(--space-xs);
+    }
+    .detail-sub strong {
+      font-weight: var(--font-weight-normal);
+    }
     .liquid-positive {
       color: var(--color-success-text);
     }
@@ -333,13 +346,13 @@
     function detailHtml_(o) {
       var financial =
         '<section><h4>Financeiro</h4><div class="detail-line"><span>Total</span><strong>' + fmtMoney_(o.total) + '</strong></div>' +
-        '<div class="detail-line"><span>Escrow</span><strong>' + fmtMoney_(o.escrowAmount) + '</strong></div>' +
         '<div class="detail-line"><span>Comissão (líq.)</span><strong>' + fmtDeduction_(o.netCommissionFee) + '</strong></div>' +
         '<div class="detail-line"><span>Taxa serviço (líq.)</span><strong>' + fmtDeduction_(o.netServiceFee) + '</strong></div>' +
         '<div class="detail-line"><span>Desconto PIX</span><strong>' + fmtDeduction_(o.pixDiscount) + '</strong></div>' +
         '<div class="detail-line"><span>Rebate</span><strong>' + fmtMoney_(o.sellerRebate) + '</strong></div>' +
         '<div class="detail-line"><span>Frete pago</span><strong>' + fmtMoney_(o.actualShippingFee) + '</strong></div>' +
-        '<div class="detail-line"><span><b>Líquido</b></span><strong class="' + liquidClass_(o.liquid) + '">' + fmtMoney_(o.liquid) + '</strong></div></section>';
+        '<div class="detail-line"><span><b>Líquido</b></span><strong class="' + liquidClass_(o.liquid) + '">' + fmtMoney_(o.liquid) + '</strong></div>' +
+        '<div class="detail-sub"><span>Escrow (verificação)</span><strong>' + fmtMoney_(o.escrowAmount) + '</strong></div></section>';
 
       var shipping =
         '<section><h4>Envio</h4>' +

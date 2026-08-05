@@ -40,7 +40,8 @@ var OrdersService = (function () {
     'IN_CANCEL': 'Em Cancelamento',
     'PROCESSED': 'Processado',
     'RETRY_SHIP': 'Reenviar',
-    'TO_RETURN': 'Devolução Solicitada'
+    'TO_RETURN': 'Devolução Solicitada',
+    'INVOICE_PENDING': 'Aguardando NF'
   };
 
   function num_(value) {
