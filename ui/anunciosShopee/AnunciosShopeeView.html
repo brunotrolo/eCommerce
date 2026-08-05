@@ -62,11 +62,17 @@
         }
         ds.getOrFetch('anunciosShopee.listings', 'anunciosShopee.getListings', {})
           .then(function (data) {
+            if (data && data.error) {
+              if (window.__DataStore) window.__DataStore.invalidate('anunciosShopee.listings');
+              showError(shadow, String(data.error));
+              return;
+            }
             if (!data || !data.lista) return;
             renderAll(shadow, data);
             if (data.fromCache) selfShowCache(shadow, data);
           })
           .catch(function (err) {
+            if (window.__DataStore) window.__DataStore.invalidate('anunciosShopee.listings');
             showError(shadow, (err && err.message) || 'Erro ao carregar os anúncios.');
           });
       }

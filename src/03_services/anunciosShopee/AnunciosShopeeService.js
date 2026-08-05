@@ -506,7 +506,24 @@ var AnunciosShopeeService = (function () {
       atualizadoEm: (perf && perf.DATA_SINCRONIZACAO) || '',
       fromCache: false
     };
-    if (rows.length > 0) CacheRepository.set(CACHE_KEY, data, CACHE_TTL_SECONDS);
+    if (rows.length > 0) {
+      try {
+        // Payload enxuto: DADOS_JSON pode passar de 100KB com muitos itens,
+        // o que faria CacheService.set lançar e derrubar a listagem inteira.
+        var slimRows = [];
+        for (var i = 0; i < rows.length; i++) {
+          var slim = {};
+          var keys = Object.keys(rows[i]);
+          for (var k = 0; k < keys.length; k++) {
+            if (keys[k] !== 'DADOS_JSON') slim[keys[k]] = rows[i][keys[k]];
+          }
+          slimRows.push(slim);
+        }
+        CacheRepository.set(CACHE_KEY, { lista: slimRows, resumo: resumo, atualizadoEm: data.atualizadoEm, fromCache: true }, CACHE_TTL_SECONDS);
+      } catch (e) {
+        console.warn('[AnunciosShopeeService] Falha ao gravar cache — entregando direto do Sheets: ' + e.message);
+      }
+    }
     return data;
   }
 
