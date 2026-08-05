@@ -1,4 +1,75 @@
 <template id="orders-template">
+  <style>
+    th[data-sort] {
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .sort-arrow {
+      margin-left: var(--space-xs);
+      font-size: 10px;
+      color: var(--color-text-tertiary);
+    }
+    .row-clickable {
+      cursor: pointer;
+    }
+    .detail-row td {
+      background: var(--color-surface-alt);
+      white-space: normal;
+      padding: var(--space-lg) var(--space-xl);
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: var(--space-element);
+    }
+    .detail-grid h4 {
+      margin: 0 0 var(--space-sm) 0;
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-micro);
+      color: var(--color-text-secondary);
+    }
+    .detail-grid ul {
+      margin: 0;
+      padding-left: var(--space-lg);
+      color: var(--color-text);
+      font-size: var(--font-size-sm);
+      line-height: var(--line-height-relaxed);
+    }
+    .detail-grid li {
+      margin-bottom: var(--space-xs);
+    }
+    .detail-line {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-md);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      margin-bottom: var(--space-xs);
+    }
+    .detail-line strong {
+      color: var(--color-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .liquid-positive {
+      color: var(--color-success-text);
+    }
+    .liquid-negative {
+      color: var(--color-error-text);
+    }
+    .tfoot-total {
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text);
+      text-align: right;
+    }
+    .tfoot-label {
+      text-align: right;
+      color: var(--color-text-secondary);
+    }
+  </style>
   <div class="widget-grid">
     <div class="card">
       <h1>Pedidos</h1>
@@ -12,8 +83,25 @@
           </select>
         </div>
         <div class="form-field">
+          <label for="status-filter">Status</label>
+          <select id="status-filter">
+            <option value="all">Todos</option>
+            <option value="UNPAID">Não Pago</option>
+            <option value="READY_TO_SHIP">A Enviar</option>
+            <option value="SHIPPED">Enviado</option>
+            <option value="TO_CONFIRM_RECEIVE">Entregue</option>
+            <option value="COMPLETED">Concluído</option>
+            <option value="CANCELLED">Cancelado</option>
+            <option value="IN_CANCEL">Em Cancelamento</option>
+          </select>
+        </div>
+        <div class="form-field">
           <label for="limit-input">Limite</label>
           <input type="number" id="limit-input" value="30" min="1" max="100" />
+        </div>
+        <div class="form-field">
+          <label for="search-input">Buscar</label>
+          <input type="text" id="search-input" placeholder="ID, comprador, produto..." />
         </div>
         <button class="btn" id="btn-refresh">Filtrar</button>
         <button class="btn btn--primary" id="btn-sync-shopee">Sincronizar Pedidos Shopee</button>
@@ -28,12 +116,31 @@
         <span>Entregue: <span class="stats-value" id="stat-TO_CONFIRM_RECEIVE" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
         <span>Concluído: <span class="stats-value" id="stat-COMPLETED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
         <span>Cancelado: <span class="stats-value" id="stat-CANCELLED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
+        <span>Líquido total: <span class="stats-value" id="stat-liquido" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">R$ 0,00</span></span>
       </div>
     </div>
     <div class="card table-container">
       <table class="table" id="orders-table">
-        <thead><tr><th>ID</th><th>Canal</th><th>Status</th><th>Comprador</th><th>Produto(s)</th><th>Pagamento</th><th>Total</th><th>Data</th></tr></thead>
-        <tbody></tbody>
+        <thead>
+          <tr>
+            <th data-sort="createdAt">Data <span class="sort-arrow"></span></th>
+            <th data-sort="id">ID <span class="sort-arrow"></span></th>
+            <th data-sort="marketplace">Canal <span class="sort-arrow"></span></th>
+            <th data-sort="status">Status <span class="sort-arrow"></span></th>
+            <th data-sort="buyerName">Comprador <span class="sort-arrow"></span></th>
+            <th>Produto(s)</th>
+            <th data-sort="total">Total <span class="sort-arrow"></span></th>
+            <th data-sort="liquid">Líquido <span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="orders-tbody"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="6" class="tfoot-label">Total ({count})</td>
+            <td class="tfoot-total" id="foot-total">R$ 0,00</td>
+            <td class="tfoot-total" id="foot-liquid">R$ 0,00</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>
@@ -50,6 +157,21 @@
         shadow.appendChild(template.content.cloneNode(true));
         shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow, true));
         shadow.getElementById('btn-sync-shopee').addEventListener('click', () => this._syncShopee(shadow));
+        shadow.getElementById('status-filter').addEventListener('change', () => { if (this._orders) renderRows(shadow, this._orders); });
+        shadow.getElementById('search-input').addEventListener('input', () => { if (this._orders) renderRows(shadow, this._orders); });
+
+        var table = shadow.getElementById('orders-table');
+        var theadThs = table.querySelectorAll('thead th[data-sort]');
+        for (var i = 0; i < theadThs.length; i++) {
+          theadThs[i].addEventListener('click', handlerForSort_(shadow, theadThs[i]));
+        }
+        var tbody = shadow.getElementById('orders-tbody');
+        tbody.addEventListener('click', function (e) {
+          var tr = e.target.closest('tr[data-id]');
+          if (!tr) return;
+          var id = tr.getAttribute('data-id');
+          toggleDetail_(shadow, id);
+        });
 
         var ds = window.__DataStore;
         var cached = ds && ds.get('orders.all.30');
@@ -65,6 +187,7 @@
         var limit = parseInt(shadow.getElementById('limit-input').value, 10) || 30;
         var cacheKey = 'orders.' + marketplace + '.' + limit;
         var ds = window.__DataStore;
+        var self = this;
 
         if (force && ds) ds.invalidate(cacheKey);
 
@@ -77,7 +200,8 @@
               .apiDispatch('orders.listUnified', { marketplace: marketplace, limit: limit }),
           (data) => {
             if (ds) ds.set(cacheKey, data);
-            renderRows(shadow, data.orders || []);
+            self._orders = data.orders || [];
+            renderRows(shadow, self._orders);
           },
           'Pedidos atualizados.'
         );
@@ -112,6 +236,8 @@
       }
     }
 
+    var _sortState = { field: 'createdAt', order: 'desc' };
+
     function escapeHtml_(str) {
       if (str == null) return '';
       return String(str)
@@ -142,14 +268,118 @@
       }
     }
 
+    // Formata data sempre em BR. Se o dado veio em ISO (cache antigo), converte.
+    function fmtDateTime_(value) {
+      if (value == null || value === '') return '-';
+      var s = String(value);
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+        return FormatterService.formatDateTime(s);
+      }
+      return s;
+    }
+
+    function liquidClass_(liquid) {
+      if (!liquid || liquid <= 0) return 'liquid-negative';
+      return 'liquid-positive';
+    }
+
+    function fmtMoney_(value) {
+      return value != null && value !== '' ? FormatterService.formatCurrency(value) : '-';
+    }
+
+    function fmtDeduction_(value) {
+      var n = Number(value) || 0;
+      if (n === 0) return 'R$ 0,00';
+      return '- ' + FormatterService.formatCurrency(n);
+    }
+
+    function handlerForSort_(shadow, th) {
+      return function () {
+        var field = th.getAttribute('data-sort');
+        if (_sortState.field === field) {
+          _sortState.order = _sortState.order === 'asc' ? 'desc' : 'asc';
+        } else {
+          _sortState.field = field;
+          _sortState.order = 'asc';
+        }
+        updateSortArrows_(shadow);
+        if (window.__ordersCurrent) renderRows(shadow, window.__ordersCurrent);
+      };
+    }
+
+    function updateSortArrows_(shadow) {
+      var ths = shadow.querySelectorAll('thead th[data-sort]');
+      for (var i = 0; i < ths.length; i++) {
+        var arrow = ths[i].querySelector('.sort-arrow');
+        if (ths[i].getAttribute('data-sort') === _sortState.field) {
+          arrow.textContent = _sortState.order === 'asc' ? '\u25B2' : '\u25BC';
+        } else {
+          arrow.textContent = '';
+        }
+      }
+    }
+
+    function toggleDetail_(shadow, id) {
+      var rows = shadow.querySelectorAll('#orders-tbody tr[data-id="' + id + '"]');
+      for (var i = 0; i < rows.length; i++) {
+        var detail = rows[i].nextElementSibling;
+        if (detail && detail.classList.contains('detail-row')) {
+          var open = detail.hidden;
+          detail.hidden = !open;
+        }
+      }
+    }
+
+    function detailHtml_(o) {
+      var financial =
+        '<section><h4>Financeiro</h4><div class="detail-line"><span>Total</span><strong>' + fmtMoney_(o.total) + '</strong></div>' +
+        '<div class="detail-line"><span>Escrow</span><strong>' + fmtMoney_(o.escrowAmount) + '</strong></div>' +
+        '<div class="detail-line"><span>Comissão (líq.)</span><strong>' + fmtDeduction_(o.netCommissionFee) + '</strong></div>' +
+        '<div class="detail-line"><span>Taxa serviço (líq.)</span><strong>' + fmtDeduction_(o.netServiceFee) + '</strong></div>' +
+        '<div class="detail-line"><span>Desconto PIX</span><strong>' + fmtDeduction_(o.pixDiscount) + '</strong></div>' +
+        '<div class="detail-line"><span>Rebate</span><strong>' + fmtMoney_(o.sellerRebate) + '</strong></div>' +
+        '<div class="detail-line"><span>Frete pago</span><strong>' + fmtMoney_(o.actualShippingFee) + '</strong></div>' +
+        '<div class="detail-line"><span><b>Líquido</b></span><strong class="' + liquidClass_(o.liquid) + '">' + fmtMoney_(o.liquid) + '</strong></div></section>';
+
+      var shipping =
+        '<section><h4>Envio</h4>' +
+        '<ul>' +
+        (o.recipientName ? '<li>' + escapeHtml_(o.recipientName) + '</li>' : '') +
+        (o.recipientFullAddress ? '<li>' + escapeHtml_(o.recipientFullAddress) + '</li>' : '') +
+        ((o.recipientCity || o.recipientState) ? '<li>' + escapeHtml_([o.recipientCity, o.recipientState].filter(Boolean).join(' - ')) + '</li>' : '') +
+        (o.recipientZipcode ? '<li>CEP: ' + escapeHtml_(o.recipientZipcode) + '</li>' : '') +
+        '<li>Itens: ' + (o.itemCount != null ? o.itemCount : '-') + '</li>' +
+        (o.totalWeightGram ? '<li>Peso: ' + String(o.totalWeightGram).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' g</li>' : '') +
+        '</ul></section>';
+
+      var items =
+        '<section><h4>Produtos</h4>' +
+        (o.itemNames ? '<ul><li>' + escapeHtml_(o.itemNames) + '</li></ul>' : '<span>Sem detalhe de itens</span>') +
+        '</section>';
+
+      var times =
+        '<section><h4>Datas</h4>' +
+        '<div class="detail-line"><span>Pedido</span><strong>' + fmtDateTime_(o.createdAt) + '</strong></div>' +
+        '<div class="detail-line"><span>Pago</span><strong>' + fmtDateTime_(o.payTime) + '</strong></div>' +
+        '<div class="detail-line"><span>Atualizado</span><strong>' + fmtDateTime_(o.updateTime) + '</strong></div>' +
+        '<div class="detail-line"><span>Pagamento</span><strong>' + escapeHtml_(o.paymentMethod || '-') + '</strong></div>' +
+        (o.messageToSeller ? '<div class="detail-line"><span>Mensagem</span><strong>' + escapeHtml_(o.messageToSeller) + '</strong></div>' : '') +
+        '</section>';
+
+      return '<div class="detail-grid">' + financial + items + shipping + times + '</div>';
+    }
+
     function renderStats_(shadow, orders) {
       var counts = { 'READY_TO_SHIP': 0, 'SHIPPED': 0, 'TO_CONFIRM_RECEIVE': 0, 'COMPLETED': 0, 'CANCELLED': 0, 'IN_CANCEL': 0 };
+      var liquidSum = 0;
       for (var i = 0; i < orders.length; i++) {
         var st = String(orders[i].status || '').toUpperCase();
         if (counts[st] === undefined) counts[st] = 0;
         counts[st]++;
+        liquidSum += Number(orders[i].liquid) || 0;
       }
       shadow.getElementById('stat-total').textContent = orders.length;
+      shadow.getElementById('stat-liquido').textContent = FormatterService.formatCurrency(liquidSum);
       var keys = Object.keys(counts);
       for (var j = 0; j < keys.length; j++) {
         var el = shadow.getElementById('stat-' + keys[j]);
@@ -157,28 +387,100 @@
       }
     }
 
+    function sortOrders_(orders) {
+      var field = _sortState.field;
+      var order = _sortState.order;
+      var dateFields = { createdAt: 1, payTime: 1, updateTime: 1 };
+      var isDate = !!dateFields[field];
+      var isNumeric = field === 'total' || field === 'liquid';
+
+      return orders.slice().sort(function (a, b) {
+        var va, vb;
+        if (isNumeric) {
+          va = Number(a[field]) || 0;
+          vb = Number(b[field]) || 0;
+        } else if (isDate) {
+          va = tsOfDateTime_(a[field]);
+          vb = tsOfDateTime_(b[field]);
+        } else {
+          va = String(a[field] != null ? a[field] : '').toLowerCase();
+          vb = String(b[field] != null ? b[field] : '').toLowerCase();
+        }
+        var cmp = 0;
+        if (va < vb) cmp = -1;
+        else if (va > vb) cmp = 1;
+        return order === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    function tsOfDateTime_(value) {
+      if (value == null || value === '') return 0;
+      var d = FormatterService.parseDateTime(value);
+      return d instanceof Date && !isNaN(d.getTime()) ? d.getTime() : 0;
+    }
+
+    function applyFilters_(orders) {
+      var shadow = window.__ordersShadow;
+      if (!shadow) return orders;
+      var status = shadow.getElementById('status-filter').value;
+      var search = shadow.getElementById('search-input').value.toLowerCase().trim();
+
+      var filtered = orders.filter(function (o) {
+        if (status !== 'all' && String(o.status || '').toUpperCase() !== status) return false;
+        if (!search) return true;
+        var haystack = [o.id, o.buyerName, o.itemNames, o.paymentMethod, o.statusLabel, o.recipientName, o.recipientCity].filter(Boolean).join(' ').toLowerCase();
+        return haystack.indexOf(search) !== -1;
+      });
+
+      return filtered;
+    }
+
     function renderRows(shadow, orders) {
-      renderStats_(shadow, orders);
-      var tbody = shadow.querySelector('#orders-table tbody');
-      tbody.innerHTML = orders
-        .map(function (o) {
-          var statusLabel = o.statusLabel || o.status || '-';
-          var badgeClass = getStatusBadgeClass_(o.status);
-          var statusHtml = badgeClass
-            ? '<span class="badge ' + badgeClass + '">' + escapeHtml_(statusLabel) + '</span>'
-            : escapeHtml_(statusLabel);
-          var itens = o.itemNames || '-';
-          var pagamento = o.paymentMethod || '-';
-          return (
-            '<tr><td>' + escapeHtml_(o.id) + '</td><td><span class="badge badge-' +
-            (o.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' + escapeHtml_(o.marketplace) + '</span></td>' +
-            '<td>' + statusHtml + '</td><td>' + escapeHtml_(o.buyerName || '-') + '</td>' +
-            '<td>' + escapeHtml_(itens) + '</td><td>' + escapeHtml_(pagamento) + '</td>' +
-            '<td>' + (o.total != null ? FormatterService.formatCurrency(o.total) : '-') + '</td>' +
-            '<td>' + escapeHtml_(o.createdAt || '-') + '</td></tr>'
-          );
-        })
-        .join('') || '<tr><td colspan="8">Nenhum pedido encontrado.</td></tr>';
+      window.__ordersCurrent = orders;
+      window.__ordersShadow = shadow;
+
+      var filtered = applyFilters_(orders);
+      var sorted = sortOrders_(filtered);
+      renderStats_(shadow, filtered);
+
+      var tbody = shadow.querySelector('#orders-tbody');
+      var rowsHtml = '';
+      var sumTotal = 0;
+      var sumLiquid = 0;
+
+      for (var i = 0; i < sorted.length; i++) {
+        var o = sorted[i];
+        var statusLabel = o.statusLabel || o.status || '-';
+        var badgeClass = getStatusBadgeClass_(o.status);
+        var statusHtml = badgeClass
+          ? '<span class="badge ' + badgeClass + '">' + escapeHtml_(statusLabel) + '</span>'
+          : escapeHtml_(statusLabel);
+        var itens = escapeHtml_(o.itemNames || '-');
+        var liquid = Number(o.liquid) || 0;
+        sumTotal += Number(o.total) || 0;
+        sumLiquid += liquid;
+
+        rowsHtml +=
+          '<tr class="row-clickable" data-id="' + escapeHtml_(o.id) + '">' +
+          '<td>' + fmtDateTime_(o.createdAt) + '</td>' +
+          '<td>' + escapeHtml_(o.id) + '</td>' +
+          '<td><span class="badge badge-' +
+          (o.marketplace === 'shopee' ? 'shopee' : 'mercado-livre') + '">' + escapeHtml_(o.marketplace) + '</span></td>' +
+          '<td>' + statusHtml + '</td>' +
+          '<td>' + escapeHtml_(o.buyerName || '-') + '</td>' +
+          '<td>' + itens + '</td>' +
+          '<td>' + fmtMoney_(o.total) + '</td>' +
+          '<td class="' + liquidClass_(liquid) + '">' + fmtMoney_(liquid) + '</td>' +
+          '</tr>' +
+          '<tr class="detail-row" hidden data-id="' + escapeHtml_(o.id) + '"><td colspan="8">' + detailHtml_(o) + '</td></tr>';
+      }
+
+      tbody.innerHTML = rowsHtml || '<tr><td colspan="8">Nenhum pedido encontrado.</td></tr>';
+
+      shadow.getElementById('foot-total').textContent = FormatterService.formatCurrency(sumTotal);
+      shadow.getElementById('foot-liquid').textContent = FormatterService.formatCurrency(sumLiquid);
+      shadow.querySelector('#orders-table tfoot tr td.tfoot-label').textContent = 'Total (' + sorted.length + ')';
+      updateSortArrows_(shadow);
     }
 
     customElements.define('orders-widget', OrdersWidget);
