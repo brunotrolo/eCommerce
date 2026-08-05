@@ -144,6 +144,13 @@ var AnunciosShopeeRepository = (function () {
         errors.push({ itemId: (item && (item.ITEM_ID || item.item_id)) || '', error: e.message });
       }
     }
+    SheetsRepository.logWriteAudit({
+      sheet: MAIN_SHEET, operation: 'UPSERT',
+      status: errors.length > 0 ? 'ERROR' : 'OK',
+      stats: { rows: atualizados + novos, inserted: novos, updated: atualizados },
+      caller: 'AnunciosShopeeRepository',
+      detail: 'syncMain: ' + novos + ' novos, ' + atualizados + ' atualizados, ' + errors.length + ' erro(s)'
+    });
     return { novos: novos, atualizados: atualizados, errors: errors };
   }
 
@@ -213,6 +220,11 @@ var AnunciosShopeeRepository = (function () {
       sheet.getRange(rowIdx, col).setValue(value);
     }
     if (colMap['DATA_ATUALIZACAO']) sheet.getRange(rowIdx, colMap['DATA_ATUALIZACAO']).setValue(nowBR_());
+    SheetsRepository.logWriteAudit({
+      sheet: MAIN_SHEET, operation: 'UPDATE', status: 'OK',
+      stats: { rows: 1, updated: 1 },
+      caller: 'AnunciosShopeeRepository', rowId: String(itemId)
+    });
     return { success: true, row: rowIdx };
   }
 
@@ -238,6 +250,13 @@ var AnunciosShopeeRepository = (function () {
         errors.push({ error: e.message });
       }
     }
+    SheetsRepository.logWriteAudit({
+      sheet: sheetName, operation: 'APPEND',
+      status: errors.length > 0 ? 'ERROR' : 'OK',
+      stats: { rows: rows.length, inserted: inserted },
+      caller: 'AnunciosShopeeRepository',
+      detail: 'appendRows_: ' + inserted + ' ok, ' + errors.length + ' erro(s)'
+    });
     return { inserted: inserted, errors: errors };
   }
 
@@ -288,6 +307,11 @@ var AnunciosShopeeRepository = (function () {
       if (value === undefined || value === null) value = '';
       sheet.getRange(2, col).setValue(value);
     }
+    SheetsRepository.logWriteAudit({
+      sheet: PERFORMANCE_SHEET, operation: 'UPSERT', status: 'OK',
+      stats: { rows: 1, updated: 1 },
+      caller: 'AnunciosShopeeRepository', rowId: String(perf.periodo || '')
+    });
     return { success: true, sheetName: PERFORMANCE_SHEET };
   }
 

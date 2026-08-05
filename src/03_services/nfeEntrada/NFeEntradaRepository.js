@@ -241,6 +241,14 @@ var NFeEntradaRepository = (function () {
       context: { inserted: inserted, errors: errors, totalRows: sheet.getLastRow() }
     });
 
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME, operation: 'APPEND',
+      status: errors.length > 0 ? 'ERROR' : 'OK',
+      stats: { rows: entries.length, inserted: inserted },
+      caller: 'NFeEntradaRepository',
+      detail: 'insertNfes: ' + inserted + ' ok, ' + errors.length + ' erro(s)'
+    });
+
     return { inserted: inserted, errors: errors };
   }
 
@@ -258,10 +266,20 @@ var NFeEntradaRepository = (function () {
     if (lastRow < 2) return;
 
     var numNfValues = sheet.getRange(2, colNumNf, lastRow - 1, 1).getValues();
+    var updated = 0;
     for (var i = 0; i < numNfValues.length; i++) {
       if (String(numNfValues[i][0]).trim() === String(numeroNf).trim()) {
         sheet.getRange(i + 2, colProcessada).setValue(processadaEm);
+        updated++;
       }
+    }
+
+    if (updated > 0) {
+      SheetsRepository.logWriteAudit({
+        sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
+        stats: { rows: updated, updated: updated },
+        caller: 'NFeEntradaRepository', rowId: String(numeroNf)
+      });
     }
   }
 

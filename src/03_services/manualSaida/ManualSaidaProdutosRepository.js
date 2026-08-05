@@ -171,6 +171,12 @@ var ManualSaidaProdutosRepository = (function () {
       sheet.getRange(newRow, col).setValue(value);
     }
 
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME, operation: 'APPEND', status: 'OK',
+      stats: { rows: 1, inserted: 1 }, caller: 'ManualSaidaProdutosRepository',
+      rowId: String(rowData.codigoProduto || rowData.logId || '')
+    });
+
     return { success: true, rowNumber: newRow };
   }
 

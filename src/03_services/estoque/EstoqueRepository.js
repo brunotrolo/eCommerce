@@ -169,6 +169,12 @@ var EstoqueRepository = (function () {
       sheet.getRange(newRow, col).setValue(value);
     }
 
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME, operation: 'APPEND', status: 'OK',
+      stats: { rows: 1, inserted: 1 }, caller: 'EstoqueRepository',
+      rowId: rowData.estoqueId || rowData.codigoProduto || ''
+    });
+
     return { success: true, rowNumber: newRow };
   }
 
@@ -256,6 +262,12 @@ var EstoqueRepository = (function () {
       }
     }
 
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME, operation: 'APPEND', status: 'OK',
+      stats: { rows: allRows.length, inserted: allRows.length },
+      caller: 'EstoqueRepository', detail: 'appendRows em lote'
+    });
+
     return { success: true, rowsInserted: allRows.length, startRow: startRow };
   }
 
@@ -301,6 +313,12 @@ var EstoqueRepository = (function () {
       if (!header || !colMap[header]) continue;
       sheet.getRange(targetRow, colMap[header]).setValue(updates[field]);
     }
+
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
+      stats: { rows: 1, updated: 1 }, caller: 'EstoqueRepository',
+      rowId: estoqueId || ''
+    });
 
     return { success: true, row: targetRow };
   }
@@ -350,11 +368,16 @@ var EstoqueRepository = (function () {
       updated++;
     }
 
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
+      stats: { rows: updated, updated: updated },
+      caller: 'EstoqueRepository', detail: 'updateRowsBulk'
+    });
+
     return { success: true, updated: updated };
   }
 
-  function countByStatus(sheetId, codigoProduto) {
-    var rows = getRows(sheetId, { codigoProduto: codigoProduto });
+  function countByStatus(sheetId, codigoProduto) {    var rows = getRows(sheetId, { codigoProduto: codigoProduto });
     var counts = { DISPONÍVEL: 0, VENDIDO: 0, DEVOLVIDO: 0, QUEBRADO: 0, COM_DEFEITO: 0 };
     for (var i = 0; i < rows.length; i++) {
       var s = String(rows[i].STATUS || '').trim();

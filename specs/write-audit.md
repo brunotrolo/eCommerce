@@ -1,7 +1,7 @@
 # Spec: Audit de Operações de Escrita (Write Audit)
 
 ## Status
-Draft
+Approved
 
 ## Objetivo
 Criar trilha de auditoria de **todas as operações de escrita** nas planilhas

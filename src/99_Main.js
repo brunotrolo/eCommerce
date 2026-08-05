@@ -36,6 +36,7 @@ function onOpen() {
           .addItem('Saída Manual', 'runManualSaidaSmokeTests_')
           .addItem('Carteira Shopee', 'runCarteiraShopeeSmokeTests_')
           .addItem('Anúncios Shopee', 'runAnunciosShopeeSmokeTests_')
+          .addItem('Write Audit', 'runWriteAuditSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -814,6 +815,52 @@ function runAnunciosShopeeSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de Anúncios Shopee passaram.');
+}
+
+function runWriteAuditSmokeTests_() {
+  var failures = [];
+
+  function expectTrue(label, condition) {
+    if (!condition) failures.push(label);
+  }
+
+  // Cenário 1: logWriteAudit grava entrada e retorna auditId
+  var sheetId = ConfigService.getSheetId();
+  var result = SheetsRepository.logWriteAudit({
+    sheet: 'TESTE_AUDIT', operation: 'APPEND', status: 'OK',
+    stats: { rows: 3, inserted: 3 },
+    caller: 'smokeTest', rowId: 'TESTE-001',
+    detail: 'smoke test de auditoria'
+  });
+  expectTrue('auditId retornado', !!result.success && !!result.auditId);
+
+  // Cenário 2: auditId no formato YYYYMMDDHHMMSS-nonce8
+  expectTrue('auditId formato', /^\d{14}-[0-9a-f]{8}$/.test(result.auditId));
+
+  // Cenário 3: linha gravada na aba com conteúdo esperado
+  var sheet = SpreadsheetApp.openById(sheetId).getSheetByName('AUDIT_LOG');
+  if (sheet) {
+    var lastRow = sheet.getLastRow();
+    var values = sheet.getRange(lastRow, 1, 1, 12).getValues()[0];
+    expectTrue('AUDIT_ID igual', String(values[0]) === result.auditId);
+    expectTrue('SHEET igual', values[1] === 'TESTE_AUDIT');
+    expectTrue('OPERATION igual', values[2] === 'APPEND');
+    expectTrue('INSERTED igual', values[5] === 3);
+    expectTrue('CALLER igual', values[8] === 'smokeTest');
+    expectTrue('CREATED_AT formato BR', /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(String(values[11])));
+  } else {
+    failures.push('Aba AUDIT_LOG não criada');
+  }
+
+  // Cenário 4: chamada sem planilha não lança (falha vira warn)
+  var safe = SheetsRepository.logWriteAudit({ sheet: 'X', operation: 'APPEND' });
+  expectTrue('não lança exceção', !safe || safe.success === true || safe.success === false);
+
+  if (failures.length) {
+    Logger.log('FALHOU WRITE AUDIT:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Write Audit smoke test(s) falharam — ver log.');
+  }
+  Logger.log('OK — todos os smoke tests de Write Audit passaram.');
 }
 
 function setupAnunciosShopeeTrigger_() {

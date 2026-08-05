@@ -224,6 +224,14 @@ var NFeEntradaProdutosRepository = (function () {
       }
     }
 
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME, operation: 'APPEND',
+      status: errors.length > 0 ? 'ERROR' : 'OK',
+      stats: { rows: produtos.length, inserted: inserted },
+      caller: 'NFeEntradaProdutosRepository',
+      detail: 'insertProdutos: ' + inserted + ' ok, ' + errors.length + ' erro(s)'
+    });
+
     return { inserted: inserted, errors: errors };
   }
 
@@ -249,6 +257,14 @@ var NFeEntradaProdutosRepository = (function () {
         sheet.getRange(i + 2, colStatus).setValue(novoStatus);
         updated++;
       }
+    }
+    if (updated > 0) {
+      SheetsRepository.logWriteAudit({
+        sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
+        stats: { rows: updated, updated: updated },
+        caller: 'NFeEntradaProdutosRepository',
+        rowId: String(codigoProduto), detail: 'updateStatus -> ' + novoStatus
+      });
     }
     return { updated: updated > 0, count: updated };
   }
