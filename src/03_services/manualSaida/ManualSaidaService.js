@@ -159,7 +159,11 @@ var ManualSaidaService = (function () {
         clienteNome: r.CLIENTE_NOME || '',
         motivoPerda: r.MOTIVO_PERDA || '',
         dataRegistro: r.DATA_REGISTRO || '',
-        observacoes: r.OBSERVACOES || ''
+        observacoes: r.OBSERVACOES || '',
+        ncm: r.NCM || '',
+        valorUnitario: parseFloat(r.VALOR_UNITARIO) || 0,
+        valorUnitarioLiquido: parseFloat(r.VALOR_UNITARIO_LIQUIDO) || 0,
+        valorLiquidoItem: parseFloat(r.VALOR_LIQUIDO_ITEM) || 0
       });
     }
 
