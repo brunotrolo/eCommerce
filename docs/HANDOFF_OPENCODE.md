@@ -60,7 +60,8 @@ fases 0-5 já existe no repositório mas nunca foi executado no Apps Script.
 Esta tarefa é a primeira validação real da fundação.
 
 O pipeline agora funciona assim:
-- GitHub Actions: `git push main` → `clasp push --force` + `clasp deploy` (automático)
+- GitHub Actions: `git push main` → `clasp push --force` (automático); **sem**
+  `clasp deploy` — o `/dev` (HEAD) já reflete o push
 - **Agentes NUNCA rodam `clasp deploy`** — apenas `clasp push`
 
 SKILL

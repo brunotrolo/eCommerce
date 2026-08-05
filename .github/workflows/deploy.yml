@@ -1,11 +1,11 @@
-name: Deploy to Apps Script
+name: Sync to Apps Script
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
+  push:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +24,3 @@ jobs:
 
       - name: Push source to Apps Script
         run: clasp push --force
-
-      - name: Deploy new version
-        run: clasp deploy --description "Auto-deploy from GitHub Actions — ${{ github.sha }}"

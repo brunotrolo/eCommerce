@@ -312,9 +312,12 @@ extraída de `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
   (`1zU9zBb8QeqWr-m2YORwyKx-6ypK4JrQhqZ29M3FJs8BmWhkO1VErKy3w`).
 - **NUNCA rode `clasp deploy`.** O deploy para produção é automático: todo
   push na branch `main` dispara `.github/workflows/deploy.yml`, que roda
-  `clasp push` + `clasp deploy` no GitHub Actions. Agentes devem fazer
-  apenas `clasp push` — criar versões de deploy manualmente enche o GAS
-  de versões desnecessárias e o usuário usa apenas o `/dev` (HEAD).
+  `clasp push --force` no GitHub Actions. **Não há mais o passo `clasp deploy`
+  no CI** — dava origem a 1 versão GAS por push (o projeto chegou a 181/200)
+  e ninguém usava essas versões; o usuário acessa apenas o `/dev` (HEAD),
+  que o `clasp push` já atualiza sozinho. Agentes devem fazer apenas
+  `clasp push` — criar versões é decisão manual e consciente do usuário
+  (via UI do Apps Script), nunca automática.
 - `clasp login` é interativo (OAuth) e só pode ser feito uma vez,
   manualmente, pelo usuário — nunca por um agente.
 

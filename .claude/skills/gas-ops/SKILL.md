@@ -51,14 +51,15 @@ Wrapper de convenções para operar este projeto via `clasp`
 
 ## CI
 
-O deploy real para produção acontece via `.github/workflows/deploy.yml` a
+A sincronização para produção acontece via `.github/workflows/deploy.yml` a
 cada push na `main` (usa o secret `CLASP_CREDENTIALS`, gerado uma única vez
 por `npx clasp login` local — nunca gere ou rotacione esse secret a partir de
 uma sessão de agente, exige OAuth interativo do usuário).
 
 **Agentes NUNCA devem rodar `clasp deploy`** — isso cria versões publicadas
-no GAS. O fluxo correto é: agente faz `clasp push`, GitHub Actions faz
-`clasp push` + `clasp deploy` automaticamente.
+no GAS (acumulou até 181/200; limite é 200). **O CI também não roda mais
+`clasp deploy`** — apenas `clasp push --force`, que já atualiza o `/dev`
+(HEAD) usado pelo usuário. Agentes fazem só `clasp push`.
 
 O conteúdo de `~/.clasprc.json` é uma credencial OAuth completa da conta
 Google: ele vive no cofre de secrets do GitHub e **nunca** deve ser colado num

@@ -116,7 +116,7 @@ clasp push  # Verifica filePushOrder via gas-ops
 # Se falhar com erro de namespace
 # 1. Confirme a dependência (qual serviço é chamado?)
 # 2. Coloque seu arquivo APÓS o arquivo que depende
-# 3. Teste localmente: clasp push && clasp deploy
+# 3. Teste localmente: clasp push
 ```
 
 Consulte `AGENTS.md` seção "Convenção de namespace (importante em GAS)" para

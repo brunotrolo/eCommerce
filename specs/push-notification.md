@@ -164,7 +164,7 @@ partner_key), o webhook passará a funcionar. Mudanças necessárias:
    - Simular mudança de status e confirmar que chega ao receptor
 
 5. **Deploy:**
-   - `clasp push --force` → `clasp deploy` (nova versão)
+   - `clasp push --force` (o `/dev` HEAD já é a versão ativa; **sem** `clasp deploy` no CI)
    - Atualizar a callback URL no Open Platform se o deploy mudar
 
 **NÃO altere este spec nem o código do webhook enquanto o app próprio
