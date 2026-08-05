@@ -90,6 +90,7 @@ var ManualSaidaService = (function () {
     var logId = timestamp + '-' + nonce;
 
     var dataSaida = params.dataCompra || Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    var dataCompraOrigem = produtoOrigem.dataCompra || '';
 
     var valorUnitarioLiquido = produtoOrigem.valorUnitarioLiquido;
 
@@ -111,7 +112,11 @@ var ManualSaidaService = (function () {
       clienteNome: params.clienteName || '',
       motivoPerda: (tipoSaida === 'Perda' ? (params.motivoPerda || '') : ''),
       dataRegistro: now.toISOString(),
-      observacoes: params.observacoes || ''
+      observacoes: params.observacoes || '',
+      emitenteNome: produtoOrigem.emitenteNome,
+      dataCompra: params.dataCompra || dataCompraOrigem,
+      valorOutrosItem: produtoOrigem.valorOutrosItem,
+      tipoOutros: produtoOrigem.tipoOutros
     };
 
     var result = ManualSaidaProdutosRepository.appendRow(sheetId, rowData);
@@ -311,7 +316,14 @@ var ManualSaidaService = (function () {
   }
 
   function _getProdutoOrigem(sheetId, codigoProduto) {
-    var info = { ncm: '', valorUnitarioLiquido: 0 };
+    var info = {
+      ncm: '',
+      valorUnitarioLiquido: 0,
+      emitenteNome: '',
+      dataCompra: '',
+      valorOutrosItem: 0,
+      tipoOutros: ''
+    };
     if (!codigoProduto) return info;
 
     var cod = String(codigoProduto).trim();
@@ -336,9 +348,14 @@ var ManualSaidaService = (function () {
       var vUnit = parseFloat(r.VALOR_UNITARIO) || 0;
       var vUnitLiq = parseFloat(r.VALOR_UNITARIO_LIQUIDO);
       if (isNaN(vUnitLiq)) vUnitLiq = vUnit;
+      var vOutros = parseFloat(r.VALOR_OUTROS_ITEM) || 0;
 
       if (ncm) info.ncm = ncm;
       if (vUnitLiq > 0) info.valorUnitarioLiquido = vUnitLiq;
+      if (vOutros > 0) info.valorOutrosItem = vOutros;
+      if (r.TIPO_OUTROS) info.tipoOutros = String(r.TIPO_OUTROS);
+      if (r.EMITENTE_NOME) info.emitenteNome = String(r.EMITENTE_NOME);
+      if (r.DATA_COMPRA) info.dataCompra = String(r.DATA_COMPRA);
     }
 
     return info;
