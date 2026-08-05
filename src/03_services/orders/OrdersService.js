@@ -37,7 +37,8 @@ var OrdersService = (function () {
     'TO_CONFIRM_RECEIVE': 'Entregue',
     'COMPLETED': 'Concluído',
     'CANCELLED': 'Cancelado',
-    'IN_CANCEL': 'Em Cancelamento'
+    'IN_CANCEL': 'Em Cancelamento',
+    'PROCESSED': 'Processado'
   };
 
   function num_(value) {
