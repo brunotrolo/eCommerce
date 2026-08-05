@@ -2,7 +2,7 @@ var StatusService = (function () {
   function getStatus() {
     return {
       isOnline: true,
-      timestamp: new Date().toISOString(),
+      timestamp: formatarDataHora(new Date()),
       lastUpdate: formatarDataHora(new Date())
     };
   }

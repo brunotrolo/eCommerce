@@ -200,17 +200,29 @@ function runNfeSmokeTests_() {
   if (deduped[0]._duplicate !== false) failures.push('XML deveria ser mantido');
   if (deduped[1]._duplicate !== true) failures.push('PDF duplicado deveria ser marcado');
 
-  // sanitizeForClient_: Date deve virar ISO string para google.script.run
+  // sanitizeForClient_: Date deve virar string no padrão brasileiro (dd/MM/yyyy HH:mm:ss)
   var sanitized = ServiceRegistry.sanitizeForClient({
     data_emissao: new Date('2026-05-05T12:00:00-03:00'),
     valor_total: 123.45,
     extra: undefined
   });
-  if (sanitized.data_emissao !== '2026-05-05T15:00:00.000Z') failures.push('sanitizeForClient: Date deveria virar ISO string, obtido ' + sanitized.data_emissao);
+  if (!/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(sanitized.data_emissao)) failures.push('sanitizeForClient: Date deveria virar formato BR dd/MM/yyyy HH:mm:ss, obtido ' + sanitized.data_emissao);
   if (!('extra' in sanitized)) failures.push('sanitizeForClient: undefined perdeu o campo?');
   if (sanitized.extra !== '') failures.push('sanitizeForClient: undefined deveria virar string vazia');
   if (sanitized.valor_total !== 123.45) failures.push('sanitizeForClient: número deveria passar intacto');
   if (!Array.isArray(ServiceRegistry.sanitizeForClient([1, new Date(0)]))) failures.push('sanitizeForClient: array deveria virar array');
+
+  // LoggingRepository.parseStoredDate: deve manter datas BR (dd/MM/yyyy[ HH:mm:ss]) e ISO legado
+  var brParsed = LoggingRepository.parseStoredDate('05/08/2026 14:30:00');
+  if (!(brParsed instanceof Date) || isNaN(brParsed.getTime())) failures.push('parseStoredDate BR: esperado Date válido, obtido ' + brParsed);
+  if (brParsed && brParsed.getMonth() !== 7) failures.push('parseStoredDate BR: mês deveria ser agosto (7), obtido ' + (brParsed ? brParsed.getMonth() : 'n/a'));
+  var brDateOnly = LoggingRepository.parseStoredDate('05/08/2026');
+  if (!(brDateOnly instanceof Date) || isNaN(brDateOnly.getTime())) failures.push('parseStoredDate BR date-only: esperado Date válido');
+  if (brDateOnly && brDateOnly.getDate() !== 5) failures.push('parseStoredDate BR date-only: dia deveria ser 5');
+  var isoParsed = LoggingRepository.parseStoredDate('2026-08-05T14:30:00Z');
+  if (!(isoParsed instanceof Date) || isNaN(isoParsed.getTime())) failures.push('parseStoredDate ISO: esperado Date válido');
+  if (LoggingRepository.parseStoredDate('') !== null) failures.push('parseStoredDate empty: esperado null');
+  if (LoggingRepository.parseStoredDate(null) !== null) failures.push('parseStoredDate null: esperado null');
 
   if (failures.length) {
     Logger.log('FALHOU NFE:\n' + failures.join('\n'));
@@ -577,6 +589,20 @@ function runCatalogSmokeTests_() {
   // Cenário 6: Margem alvo inválida
   var r6 = CatalogService.getProducts({ targetMarginShopee: 1.5 });
   expectTrue('getProducts invalid margin returns error', !!r6.error);
+
+  // Cenário 7: parseDataBR converte dd/MM/yyyy e ISO corretamente (sem inverter dia/mês)
+  var brDate = CatalogService.parseDataBR('05/08/2026'); // 5 de agosto
+  var isoDate = CatalogService.parseDataBR('2026-08-05T00:00:00Z');
+  var brTS = CatalogService.parseDataBR('05/08/2026 14:30:00');
+  expectTrue('parseDataBR BR date > 0', brDate > 0);
+  expectTrue('parseDataBR ISO date > 0', isoDate > 0);
+  expectTrue('parseDataBR BR datetime > 0', brTS > 0);
+  // BR "05/08" deve ser maio NÃO — deve ser agosto (ts > 0 já garante parse, mas reforçamos: dia 5 mês 8 → agosto)
+  var augCheck = new Date(brDate);
+  expectTrue('parseDataBR BR date dia=5', augCheck.getDate() === 5);
+  expectTrue('parseDataBR BR date mês=agosto', augCheck.getMonth() === 7); // 0-indexed
+  // "15/08/2026" tem dia=15 (>12) que em new Date() direto seria Invalid Date; parser BR deve funcionar
+  expectTrue('parseDataBR dia>12 funciona', CatalogService.parseDataBR('15/08/2026') > 0);
 
   if (failures.length) {
     Logger.log('FALHOU CATALOG:\n' + failures.join('\n'));

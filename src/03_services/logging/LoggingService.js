@@ -81,7 +81,7 @@ var LoggingService = (function () {
 
     var logId = generateLogId_();
     var entry = {
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowBR_(),
       service: params.service || '',
       action: params.action || '',
       status: params.status || 'OK',
@@ -192,7 +192,7 @@ var LoggingService = (function () {
       for (var i = 0; i < _logBuffer.length; i++) {
         var entry = _logBuffer[i];
         rows.push([
-          new Date().toISOString(),
+          nowBR_(),
           entry.service, entry.action, entry.status, entry.caller,
           entry.summary, entry.durationMs, entry.errorMessage,
           JSON.stringify(entry.context), getEnvironment_(), generateLogId_()
@@ -221,6 +221,10 @@ var LoggingService = (function () {
       }
     }
     return clean;
+  }
+
+  function nowBR_() {
+    return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
   }
 
   return {

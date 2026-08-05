@@ -62,7 +62,7 @@ var ServiceRegistry = (function () {
 
   function dispatch(actionFullName, params) {
     if (actionFullName === 'ping') {
-      return { status: 200, data: { pong: true, time: new Date().toISOString() } };
+      return { status: 200, data: { pong: true, time: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss') } };
     }
 
     var parsed = parse_(actionFullName);
@@ -144,11 +144,12 @@ var ServiceRegistry = (function () {
   /**
    * Sanitiza objeto para transporte via google.script.run / JSON. O cliente
    * do Apps Script NÃO serializa Date → devolve null. Converte Date para
-   * string ISO e undefined para '' antes de sair do dispatcher.
+   * string no padrão brasileiro (dd/MM/yyyy HH:mm:ss) e undefined para ''
+   * antes de sair do dispatcher.
    */
   function sanitizeForClient_(value) {
     if (value === null || value === undefined) return '';
-    if (value instanceof Date) return value.toISOString();
+    if (value instanceof Date) return Utilities.formatDate(value, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
     if (typeof value === 'number' && (isNaN(value) || !isFinite(value))) return 0;
     if (Array.isArray(value)) {
       return value.map(sanitizeForClient_);

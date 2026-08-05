@@ -699,7 +699,7 @@
           var e = entries[i];
           html += '<tr>';
           html += '<td>' + (e.numeroNf || '') + '</td>';
-          html += '<td>' + (e.dataEmissao ? FormatterService.formatDate(new Date(e.dataEmissao)) : '-') + '</td>';
+          html += '<td>' + (e.dataEmissao ? FormatterService.formatDate(FormatterService.parseDate(e.dataEmissao)) : '-') + '</td>';
           html += '<td>' + (e.emitenteNome || '') + '</td>';
           html += '<td>' + (e.quantidade || 0) + '</td>';
           html += '<td>' + formatBRL(e.valorUnitario) + '</td>';

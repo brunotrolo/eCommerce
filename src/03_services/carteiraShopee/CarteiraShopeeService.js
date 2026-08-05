@@ -98,7 +98,7 @@ var CarteiraShopeeService = (function () {
     var renda = fetchRendaPeriodo_(shopId, errors);
 
     var dados = buildDados_(saldo.disponivel, escrow.saldoEscrow, escrow.proximoPayout, escrow.ultimoPayout, renda);
-    var timestamp = new Date().toISOString();
+    var timestamp = nowBR_();
 
     var synced = {
       saldoAtualizado: saldo.success,
@@ -259,7 +259,7 @@ var CarteiraShopeeService = (function () {
           STATUS: 'Concluído',
           REFERENCIA: String(passado[p].order_sn || 'escrow_' + (passado[p].escrow_release_time || p)),
           DIAS_PARA_RECEBER: '',
-          DATA_REGISTRO: new Date().toISOString()
+          DATA_REGISTRO: nowBR_()
         });
       }
 
@@ -307,7 +307,7 @@ var CarteiraShopeeService = (function () {
       proximoPayout: proximoPayout || { data: null, valor: 0, metodo: METODO_PAYOUT },
       ultimoPayout: ultimoPayout || { data: null, valor: 0 },
       rendaPeriodo: renda || { periodo: '', total: 0, comissoes: 0, tarifas: 0 },
-      atualizadoEm: new Date().toISOString()
+      atualizadoEm: nowBR_()
     };
   }
 
@@ -405,7 +405,7 @@ var CarteiraShopeeService = (function () {
         taxasPlataforma: r.tarifas || 0,
         liquido: r.liquido || 0
       },
-      atualizadoEm: timestamp || new Date().toISOString(),
+      atualizadoEm: timestamp || nowBR_(),
       fromCache: fromCache
     };
   }
@@ -444,7 +444,7 @@ var CarteiraShopeeService = (function () {
       SALDO_APOS: round2_(Number(t.current_balance) || 0),
       STATUS: mapStatus_(t.status),
       REFERENCIA: String(t.transaction_id || t.order_sn || ''),
-      DATA_REGISTRO: new Date().toISOString()
+      DATA_REGISTRO: nowBR_()
     };
   }
 
@@ -505,6 +505,10 @@ var CarteiraShopeeService = (function () {
     if (!d) return '';
     var mm = ('0' + (d.getMonth() + 1)).slice(-2);
     return mm + '/' + d.getFullYear();
+  }
+
+  function nowBR_() {
+    return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
   }
 
   function endOfMonthEpoch_(d) {

@@ -137,7 +137,7 @@ var NFeEntradaService = (function () {
     delete result._parsedEntries;
     result.inserted = insertResult.inserted;
     result.duplicated = result.total - insertResult.inserted - (result.errors ? result.errors.length : 0);
-    result.timestamp = new Date().toISOString();
+    result.timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
     result.success = true;
 
     var insertedEntries = [];
@@ -303,7 +303,7 @@ var NFeEntradaService = (function () {
       inserted: insertedCount,
       duplicated: duplicatedCount,
       errors: errors,
-      timestamp: new Date().toISOString(),
+      timestamp: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
       _parsedEntries: deduped.filter(function (e) { return !e._duplicate; })
     };
   }

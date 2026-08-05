@@ -107,7 +107,7 @@ var CatalogService = (function () {
     }
 
     if (!allProdutos || allProdutos.length === 0) {
-      return { success: true, data: [], totalCount: 0, lastSync: new Date().toISOString() };
+      return { success: true, data: [], totalCount: 0, lastSync: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss') };
     }
 
     var filtered = [];
@@ -119,7 +119,7 @@ var CatalogService = (function () {
     }
 
     if (filtered.length === 0) {
-      return { success: true, data: [], totalCount: 0, lastSync: new Date().toISOString() };
+      return { success: true, data: [], totalCount: 0, lastSync: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss') };
     }
 
     var grouped = {};
@@ -151,8 +151,8 @@ var CatalogService = (function () {
         existing.totalEntradas++;
         existing.estoqueEntrada += qtdRow;
         existing._rows.push(row);
-        var newData = new Date(dataEmissao);
-        var existingData = new Date(existing.dataEmissaoMaisRecente);
+        var newData = parseDataBR_(dataEmissao);
+        var existingData = parseDataBR_(existing.dataEmissaoMaisRecente);
         if (newData > existingData) {
           existing.valorUnitarioLiquido = parseFloat(row.VALOR_UNITARIO_LIQUIDO);
           if (isNaN(existing.valorUnitarioLiquido)) {
@@ -235,7 +235,7 @@ var CatalogService = (function () {
       success: true,
       data: products,
       totalCount: products.length,
-      lastSync: new Date().toISOString()
+      lastSync: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss')
     };
   }
 
@@ -275,8 +275,8 @@ var CatalogService = (function () {
     }
 
     entries.sort(function (a, b) {
-      var dA = new Date(a.dataEmissao);
-      var dB = new Date(b.dataEmissao);
+      var dA = parseDataBR_(a.dataEmissao);
+      var dB = parseDataBR_(b.dataEmissao);
       return dB - dA;
     });
 
@@ -322,7 +322,7 @@ var CatalogService = (function () {
     var mostRecentDate = null;
     for (var i = 0; i < allRows.length; i++) {
       var row = allRows[i];
-      var d = new Date(row.DATA_EMISSAO);
+      var d = parseDataBR_(row.DATA_EMISSAO);
       if (!mostRecent || d > mostRecentDate) {
         mostRecent = row;
         mostRecentDate = d;
@@ -433,10 +433,31 @@ var CatalogService = (function () {
     return 'R$ ' + value.toFixed(2).replace('.', ',');
   }
 
+  // Parser de datas BR (dd/MM/yyyy[ HH:mm:ss]) e ISO legado para comparação/ordenação.
+  // Necessário porque new Date("05/08/2026") em V8 é interpretado como US (May 8).
+  function parseDataBR_(str) {
+    if (str === null || str === undefined || str === '') return 0;
+    if (str instanceof Date) return isNaN(str.getTime()) ? 0 : str.getTime();
+    var s = String(str).trim();
+    if (!s) return 0;
+    var m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) {
+      var d = new Date(
+        Number(m[3]), Number(m[2]) - 1, Number(m[1]),
+        Number(m[4]) || 0, Number(m[5]) || 0, Number(m[6]) || 0
+      );
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    var legacy = new Date(s);
+    return isNaN(legacy.getTime()) ? 0 : legacy.getTime();
+  }
+
   return {
     describe: describe,
     getProducts: getProducts,
     getProductByCode: getProductByCode,
-    getCalculationMemory: getCalculationMemory
+    getCalculationMemory: getCalculationMemory,
+    // Exposto para smoke tests (lógica pura)
+    parseDataBR: parseDataBR_
   };
 })();
