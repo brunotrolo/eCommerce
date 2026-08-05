@@ -27,21 +27,7 @@
 
     function showError(message) {
       setLoading(false);
-      if (errorBox) {
-        errorBox.innerHTML = '';
-        var text = document.createElement('span');
-        text.textContent = message;
-        var dismiss = document.createElement('button');
-        dismiss.className = 'alert-dismiss';
-        dismiss.setAttribute('aria-label', 'Fechar');
-        dismiss.textContent = '\u00D7';
-        dismiss.addEventListener('click', function () {
-          errorBox.hidden = true;
-        });
-        errorBox.appendChild(text);
-        errorBox.appendChild(dismiss);
-        errorBox.hidden = false;
-      }
+      UiHelpers_showError(root, message);
     }
 
     function handleSuccess(response) {
@@ -71,7 +57,62 @@
     }
 
     return invoke(handleSuccess, function (err) {
-      showError(err.message || String(err));
+      showError(err && err.message ? err.message : String(err));
+    });
+  }
+
+  // Feedback centralizado de erro/sucesso — fonte única (spec error-handling-ui.md).
+  // As views NÃO definem mais showError/showToast/_showError próprios.
+
+  // showError(root, message): exibe #error-box com role="alert", descartável.
+  function showError(root, message) {
+    var errorBox = root.getElementById('error-box');
+    if (!errorBox) return;
+    errorBox.innerHTML = '';
+    var text = document.createElement('span');
+    text.textContent = message || 'Ocorreu um erro inesperado.';
+    var dismiss = document.createElement('button');
+    dismiss.className = 'alert-dismiss';
+    dismiss.setAttribute('aria-label', 'Fechar');
+    dismiss.textContent = '\u00D7';
+    dismiss.addEventListener('click', function () {
+      errorBox.hidden = true;
+    });
+    errorBox.setAttribute('role', 'alert');
+    errorBox.appendChild(text);
+    errorBox.appendChild(dismiss);
+    errorBox.hidden = false;
+  }
+
+  // showSuccess(root, message): exibe #result-box com badge-success.
+  function showSuccess(root, message) {
+    var resultBox = root.getElementById('result-box');
+    if (!resultBox) return;
+    resultBox.hidden = false;
+    resultBox.innerHTML = '<span class="badge badge-success">' + message + '</span>';
+  }
+
+  // Alias interno usado por withLoading (evita shadowing do parâmetro).
+  function UiHelpers_showError(root, message) {
+    showError(root, message);
+  }
+
+  // withErrorHandling(root, invoke, onSuccess): para chamadas google.script.run
+  // SEM botão (load inicial, refresh). Erro sempre visível, nunca silencioso.
+  function withErrorHandling(root, invoke, onSuccess) {
+    return invoke(function (response) {
+      if (response && response.error) {
+        showError(root, response.error);
+        return;
+      }
+      var data = response ? response.data : null;
+      if (data === null && response && !response.error) {
+        showError(root, 'Nenhuma resposta do servidor.');
+        return;
+      }
+      if (onSuccess) onSuccess(data);
+    }, function (err) {
+      showError(root, (err && err.message) || 'Erro de comunicação com o servidor.');
     });
   }
 </script>

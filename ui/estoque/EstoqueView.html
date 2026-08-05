@@ -37,11 +37,6 @@
     .margem-warning { color: var(--color-warning-text); }
     .margem-negative { color: var(--color-error-text); }
     .sort-arrow { margin-left: 4px; font-size: 10px; }
-    .toast { position: fixed; bottom: var(--space-xl); right: var(--space-xl); padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); z-index: var(--z-notification); opacity: 0; transform: translateY(10px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
-    .toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-    .toast.success { background: var(--color-success-light); color: var(--color-success-text); border: 1px solid var(--color-success); }
-    .toast.error { background: var(--color-error-light); color: var(--color-error-text); border: 1px solid var(--color-error); }
-    .toast.info { background: var(--color-info-light); color: var(--color-info-text); border: 1px solid var(--color-info); }
     .inline-input { width: 90px; padding: 2px 4px; border: 1px solid var(--color-border); border-radius: var(--radius-xs); font-size: var(--font-size-sm); background: var(--color-surface); color: var(--color-text); text-align: right; }
     .inline-input:focus { border-color: var(--color-primary); outline: none; box-shadow: 0 0 0 2px var(--color-primary-light); }
     .inline-input.saving { border-color: var(--color-warning); background: var(--color-warning-light); }
@@ -151,10 +146,9 @@
       </table>
     </div>
     <div class="loading" id="loading-state">Carregando estoque...</div>
-    <div id="error-box" hidden></div>
+    <div id="error-box" class="alert alert-error" hidden></div>
     <div id="result-box" hidden></div>
   </div>
-  <div class="toast" id="toast"></div>
 
   <div class="modal-overlay" id="sync-overlay">
     <div class="modal">
@@ -274,7 +268,7 @@
           .withFailureHandler(function (err) {
             if (loadingEl) loadingEl.style.display = 'none';
             if (!cached) {
-              self._showToast('Erro ao carregar estoque: ' + (err.message || err), 'error');
+              showError(self._shadow, 'Erro ao carregar estoque: ' + (err.message || err));
             }
           })
           .apiDispatch('estoque.getItems', params);
@@ -416,20 +410,20 @@
             btn.textContent = originalText;
             var data = self._unwrap(resp);
             if (data && data.error) {
-              self._showToast(data.error, 'error');
+              showError(self._shadow, data.error);
             } else if (data) {
               var msg = data.atualizados + ' item(ns) atualizado(s).';
               if (data.semPrecoCatalogo > 0) {
                 msg += ' ' + data.semPrecoCatalogo + ' sem preço no catálogo.';
               }
-              self._showToast(msg, 'success');
+              showSuccess(self._shadow, msg);
               self._load();
             }
           })
           .withFailureHandler(function (err) {
             btn.disabled = false;
             btn.textContent = originalText;
-            self._showToast('Erro ao sincronizar preços: ' + (err.message || err), 'error');
+            showError(self._shadow, 'Erro ao sincronizar preços: ' + (err.message || err));
           })
           .apiDispatch('estoque.sincronizarPrecosCatalogo', {});
       }
@@ -701,18 +695,18 @@
             if (data && data.success) {
               item[field] = newVal;
               if (data.updated > 1) {
-                self._showToast('Preco atualizado em ' + data.updated + ' itens do mesmo produto.', 'success');
+                showSuccess(self._shadow, 'Preco atualizado em ' + data.updated + ' itens do mesmo produto.');
               }
               self._load();
             } else {
-              self._showToast('Erro: ' + (data ? data.error : 'desconhecido'), 'error');
+              showError(self._shadow, 'Erro: ' + (data ? data.error : 'desconhecido'));
               self._load();
             }
           })
           .withFailureHandler(function (err) {
             input.classList.remove('saving');
             delete self._saving[estoqueId];
-            self._showToast('Erro ao salvar: ' + (err.message || err), 'error');
+            showError(self._shadow, 'Erro ao salvar: ' + (err.message || err));
             self._load();
           })
           .apiDispatch('estoque.updateItem', params);
@@ -732,17 +726,17 @@
             delete self._saving[estoqueId];
             var data = self._unwrap(resp);
             if (data && data.success) {
-              self._showToast('Status alterado para ' + novoStatus + '.', 'success');
+              showSuccess(self._shadow, 'Status alterado para ' + novoStatus + '.');
               self._load();
             } else {
-              self._showToast('Erro: ' + (data ? data.error : 'desconhecido'), 'error');
+              showError(self._shadow, 'Erro: ' + (data ? data.error : 'desconhecido'));
               self._load();
             }
           })
           .withFailureHandler(function (err) {
             select.disabled = false;
             delete self._saving[estoqueId];
-            self._showToast('Erro ao alterar status: ' + (err.message || err), 'error');
+            showError(self._shadow, 'Erro ao alterar status: ' + (err.message || err));
             self._load();
           })
           .apiDispatch('estoque.updateItem', { estoqueId: estoqueId, status: novoStatus });
@@ -753,13 +747,12 @@
         var self = this;
 
         this._saving[estoqueId] = true;
-        this._showToast('Buscando precos do catalogo...', 'info');
 
         google.script.run
           .withSuccessHandler(function (resp) {
             var data = self._unwrap(resp);
             if (!data || data.error) {
-              self._showToast('Erro: ' + (data ? data.error : 'catalogo vazio'), 'error');
+              showError(self._shadow, 'Erro: ' + (data ? data.error : 'catalogo vazio'));
               delete self._saving[estoqueId];
               return;
             }
@@ -776,7 +769,7 @@
             }
 
             if (!hasUpdate) {
-              self._showToast('Catalogo sem precos para este produto.', 'info');
+              showError(self._shadow, 'Catalogo sem precos para este produto.');
               delete self._saving[estoqueId];
               return;
             }
@@ -786,23 +779,23 @@
                 delete self._saving[estoqueId];
                 var data2 = self._unwrap(resp2);
                 if (data2 && data2.success) {
-                  self._showToast('Precos preenchidos do catalogo. ' + (data2.updated > 1 ? data2.updated + ' itens atualizados.' : ''), 'success');
+                  showSuccess(self._shadow, 'Precos preenchidos do catalogo. ' + (data2.updated > 1 ? data2.updated + ' itens atualizados.' : ''));
                   self._load();
                 } else {
-                  self._showToast('Erro ao salvar: ' + (data2 ? data2.error : 'desconhecido'), 'error');
+                  showError(self._shadow, 'Erro ao salvar: ' + (data2 ? data2.error : 'desconhecido'));
                   self._load();
                 }
               })
               .withFailureHandler(function (err) {
                 delete self._saving[estoqueId];
-                self._showToast('Erro ao salvar precos: ' + (err.message || err), 'error');
+                showError(self._shadow, 'Erro ao salvar precos: ' + (err.message || err));
                 self._load();
               })
               .apiDispatch('estoque.updateItem', params);
           })
           .withFailureHandler(function (err) {
             delete self._saving[estoqueId];
-            self._showToast('Erro ao buscar catalogo: ' + (err.message || err), 'error');
+            showError(self._shadow, 'Erro ao buscar catalogo: ' + (err.message || err));
           })
           .apiDispatch('estoque.getPrecosCatalogo', { codigoProduto: codigoProduto });
       }
@@ -843,15 +836,6 @@
         } catch (e) {
           return String(value);
         }
-      }
-
-      _showToast(message, type) {
-        var toast = this._el('toast');
-        toast.textContent = message;
-        toast.className = 'toast ' + (type || 'info') + ' show';
-        setTimeout(function () {
-          toast.className = 'toast';
-        }, 4000);
       }
     }
 

@@ -296,7 +296,7 @@
             btnProcessar.disabled = true;
             btnProcessar.textContent = 'Processando...';
             status.textContent = 'Lendo NFes e desagregando produtos...';
-            self._hideError();
+            self.shadowRoot.getElementById('error-box').hidden = true;
             self._hideResult();
 
             google.script.run
@@ -306,7 +306,7 @@
                 status.textContent = '';
 
               if (result.error) {
-                self._showError(result.error);
+                showError(self.shadowRoot, result.error);
                 return;
               }
 
@@ -323,15 +323,15 @@
                 html += '</div>';
               }
 
-              self._showResult(html);
-              self._loadProdutos();
-              })
-              .withFailureHandler(function (err) {
-                btnProcessar.disabled = false;
-                btnProcessar.textContent = 'Processar NFes não processadas';
-                status.textContent = '';
-                self._showError(err.message || String(err));
-              })
+self._showResult(html);
+                self._loadProdutos();
+                })
+                .withFailureHandler(function (err) {
+                  btnProcessar.disabled = false;
+                  btnProcessar.textContent = 'Processar NFes não processadas';
+                  status.textContent = '';
+                  showError(self.shadowRoot, err.message || String(err));
+                })
               .apiDispatch('nfeEntradaProdutos.processarTodasNfs', {});
           });
 
@@ -452,16 +452,6 @@
               self._updateStatus(nf, cod, st);
             });
           }
-        }
-
-        _hideError() {
-          this.shadowRoot.getElementById('error-box').hidden = true;
-        }
-
-        _showError(msg) {
-          var box = this.shadowRoot.getElementById('error-box');
-          box.textContent = msg;
-          box.hidden = false;
         }
 
         _hideResult() {

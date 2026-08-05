@@ -131,7 +131,6 @@
         <button class="btn btn--primary" id="btn-sync-shopee">Sincronizar Pedidos Shopee</button>
       </div>
       <div class="alert alert-error" id="error-box" hidden style="margin-top: var(--space-xl)"></div>
-      <div class="alert alert-success" id="toast-box" hidden style="margin-top: var(--space-xl)"></div>
       <div id="result-box" hidden style="margin-top: var(--space-xl)"></div>
       <div id="stats-bar" style="display: flex; flex-wrap: wrap; gap: var(--space-xl); margin-top: var(--space-xl); font-size: var(--font-size-sm); color: var(--color-text-secondary)">
         <span>Total: <span class="stats-value" id="stat-total" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
@@ -248,11 +247,11 @@
               if (data.errors && data.errors.length > 0) {
                 msg += ' (' + data.errors.length + ' erro' + (data.errors.length !== 1 ? 's' : '') + ')';
               }
-              showToast(shadow, msg);
+              showSuccess(shadow, msg);
               if (ds) ds.invalidate('orders.all.30');
               self._load(shadow, true);
             } else {
-              showToast(shadow, 'Erro: ' + (data && data.message ? data.message : 'Falha na importação.'), true);
+              showError(shadow, 'Erro: ' + (data && data.message ? data.message : 'Falha na importação.'));
             }
           },
           'Sincronizando pedidos Shopee...'
@@ -269,14 +268,6 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
-    }
-
-    function showToast(shadow, msg, isError) {
-      var toast = shadow.getElementById('toast-box');
-      toast.textContent = msg;
-      toast.className = isError ? 'alert alert-error' : 'alert alert-success';
-      toast.hidden = false;
-      setTimeout(function () { toast.hidden = true; }, 5000);
     }
 
     function getStatusBadgeClass_(status) {

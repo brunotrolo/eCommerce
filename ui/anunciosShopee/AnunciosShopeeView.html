@@ -66,7 +66,9 @@
             renderAll(shadow, data);
             if (data.fromCache) selfShowCache(shadow, data);
           })
-          .catch(function () {});
+          .catch(function (err) {
+            showError(shadow, (err && err.message) || 'Erro ao carregar os anúncios.');
+          });
       }
 
       _fetch(shadow, force) {
@@ -79,7 +81,9 @@
               window.__DataStore.set('anunciosShopee.listings', data);
             }
           })
-          .withFailureHandler(function () {})
+          .withFailureHandler(function (err) {
+            showError(shadow, (err && err.message) || 'Erro ao carregar os anúncios.');
+          })
           .apiDispatch('anunciosShopee.getListings', { fromCache: !force });
       }
 
@@ -182,24 +186,6 @@
       if (!badge || !data || !data.atualizadoEm) return;
       badge.hidden = false;
       badge.textContent = 'Usando dados em cache (atualizado em ' + data.atualizadoEm + ')';
-    }
-
-    function showError(shadow, message) {
-      var errorBox = shadow.getElementById('error-box');
-      if (!errorBox) return;
-      errorBox.innerHTML = '';
-      var text = document.createElement('span');
-      text.textContent = message;
-      var dismiss = document.createElement('button');
-      dismiss.className = 'alert-dismiss';
-      dismiss.setAttribute('aria-label', 'Fechar');
-      dismiss.textContent = '\u00D7';
-      dismiss.addEventListener('click', function () {
-        errorBox.hidden = true;
-      });
-      errorBox.appendChild(text);
-      errorBox.appendChild(dismiss);
-      errorBox.hidden = false;
     }
 
     function formatBRL(value) {

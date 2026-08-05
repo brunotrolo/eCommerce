@@ -240,7 +240,7 @@
                 status.textContent = '';
 
                 if (!result || result.error) {
-                  self._showError((result && result.error) || 'Resposta vazia do servidor');
+                  showError(self.shadowRoot, (result && result.error) || 'Resposta vazia do servidor');
                   return;
                 }
                 self._showResult(result);
@@ -250,7 +250,7 @@
                 btn.disabled = false;
                 btn.textContent = 'Sincronizar com Drive';
                 status.textContent = '';
-                self._showError(err.message || String(err));
+                showError(self.shadowRoot, err.message || String(err));
               })
               .apiDispatch('nfeEntrada.syncAndUpdateSheets', { driveFolder: folderId });
           });
@@ -264,12 +264,6 @@
         _hideResults() {
           this.shadowRoot.getElementById('error-box').hidden = true;
           this.shadowRoot.getElementById('result-box').hidden = true;
-        }
-
-        _showError(msg) {
-          var box = this.shadowRoot.getElementById('error-box');
-          box.textContent = msg;
-          box.hidden = false;
         }
 
         _showResult(result) {

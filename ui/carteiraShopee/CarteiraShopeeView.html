@@ -60,7 +60,9 @@
             .then(function (data) {
               if (data && data.saldo) render(shadow, data);
             })
-            .catch(function () {});
+            .catch(function (err) {
+              showError(shadow, (err && err.message) || 'Erro ao carregar a carteira.');
+            });
           return;
         }
         this._sync(shadow, force);
@@ -98,7 +100,9 @@
           .withSuccessHandler(function (rows) {
             renderTransacoes(shadow, rows || []);
           })
-          .withFailureHandler(function () {})
+          .withFailureHandler(function (err) {
+            showError(shadow, 'Erro ao carregar transações: ' + ((err && err.message) || 'desconhecido'));
+          })
           .apiDispatch('carteiraShopee.getTransacoes', { limit: 10 });
       }
 
@@ -107,7 +111,9 @@
           .withSuccessHandler(function (rows) {
             renderPayouts(shadow, rows || []);
           })
-          .withFailureHandler(function () {})
+          .withFailureHandler(function (err) {
+            showError(shadow, 'Erro ao carregar payouts: ' + ((err && err.message) || 'desconhecido'));
+          })
           .apiDispatch('carteiraShopee.getPayoutHistory', { limit: 12 });
       }
     }

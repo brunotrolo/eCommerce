@@ -50,7 +50,9 @@
         if (ds && !force) {
           ds.getOrFetch('dashboard.summary', 'dashboard.getSummary', {}).then(function (data) {
             if (data) render(shadow, data);
-          }).catch(function () {});
+          }).catch(function (err) {
+            showError(shadow, (err && err.message) || 'Erro ao carregar o dashboard.');
+          });
           return;
         }
         withLoading(

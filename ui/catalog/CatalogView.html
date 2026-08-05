@@ -440,7 +440,8 @@
             }
             self._loadProducts(shadow);
           })
-          .withFailureHandler(function () {
+          .withFailureHandler(function (err) {
+            showError(shadow, (err && err.message) || 'Erro ao carregar a configuração. Usando padrões.');
             self._loadProducts(shadow);
           })
           .apiDispatch('config.getConfig', {});
