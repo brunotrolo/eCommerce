@@ -40,6 +40,30 @@ reconecte a conta em <https://marketplaces.tiops.com.br> antes de investigar o
 código. Isso é renovação de conexão do marketplace na Tiops, não envolve
 nenhuma API key no Apps Script (Tiops é um MCP usado apenas pelo Claude Code).
 
+## Carteira Shopee — confirmado em 2026-08-05
+
+Sondagem via MCP Tiops (`shopId` = `1880105398`). Datas de filtro aceitas como
+**epoch seconds** (milissegundos rejeitam). Confirmado por resposta real:
+
+| Ação | Params confirmados | Retorno-chave |
+|---|---|---|
+| `shopee_get_wallet_transactions` | `page_size` (e `shopId`) | `transaction_list[]` (transaction_id, status, amount, current_balance, create_time epoch, description, order_sn, money_flow) |
+| `shopee_get_income_overview` | `timestamp` (epoch, fim do mês) + `shop_id` | `response.total_income.released_amount` |
+| `shopee_get_escrow_list` | `release_time_from`, `release_time_to` (epoch), `page_size` | `response.escrow_list[]` (escrow_release_time epoch, order_sn, payout_amount) + `more` |
+
+**Regra de negócio (fonte: open.shopee.com docs):** `get_payout_info` e
+`get_payout_detail` são exclusivas de sellers **Cross Border (CB)**. A loja
+deste projeto é **local BR** — essas chamadas sempre falham (erro genérico de
+`page_size` mascarado). Para loja local BR o "payout" = liberação de escrow
+(`get_escrow_list`) + entrada na carteira (`get_wallet_transactions`).
+`get_payout_detail` é deprecated (substituída por `get_payout_info`).
+
+**Divergências abertas (não forçar nome — pedir `describe_action` ao Claude Code):**
+
+| Ação | Síndrome observada | Suspeita |
+|---|---|---|
+| `shopee_get_payout_info` | Sempre `error_param: "Invalid or missing page_size"` mesmo enviando `page_size`/`page_no`/`limit`/`offset` em todas as formas | Wrapper Tiops provavelmente lê a paginação de outro lugar (top-level do payload, não `params`) ou exige `describe_action` para nome exato |
+
 ## Ainda não confirmados
 
 Estas ações são usadas pelo código mas **não** tiveram nome e schema

@@ -347,7 +347,7 @@
 
       copy() {
         var payload = {
-          exportedAt: new Date().toISOString(),
+          exportedAt: _fmtBrTs_(new Date()),
           url: window.location.href,
           calls: (window.__debugEvents_ || []).slice(0, 50),
           backend: this.backendLogs.slice(0, 50),
@@ -376,12 +376,18 @@
     }
   );
 
-  function redact_(value, depth) {
-    depth = depth || 0;
-    if (depth > 6) return '[depth]';
-    if (value === null || value === undefined) return value;
-    if (typeof value !== 'object') return value;
-    if (value instanceof Date) return value.toISOString();
+    function _fmtBrTs_(d) {
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear()
+        + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+
+    function redact_(value, depth) {
+      depth = depth || 0;
+      if (depth > 6) return '[depth]';
+      if (value === null || value === undefined) return value;
+      if (typeof value !== 'object') return value;
+      if (value instanceof Date) return _fmtBrTs_(value);
     if (Array.isArray(value)) return value.map(function (v) { return redact_(v, depth + 1); });
     var out = {};
     var SENSITIVE = /(api[_-]?key|secret|password|passwd|access[_-]?token|client[_-]?secret|authorization|token|key)/i;

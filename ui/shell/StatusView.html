@@ -50,12 +50,18 @@
     var _pageLoadTime = performance.timing ? performance.timing.navigationStart : Date.now();
     var _dbgSeq = 0;
 
+    function _fmtBrTs_(d) {
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear()
+        + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+
     function _logStatusView(msg, extra) {
       var entry = {
         kind: 'StatusView',
         message: msg,
         seq: ++_dbgSeq,
-        ts: new Date().toISOString()
+        ts: _fmtBrTs_(new Date())
       };
       if (extra !== undefined) entry.extra = extra;
       console.log('[StatusView]', msg, extra !== undefined ? extra : '');

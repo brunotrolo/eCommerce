@@ -63,6 +63,9 @@
             <li role="none">
               <button class="nav-dropdown-item" data-route="manualSaida" role="menuitem">Saída Manual</button>
             </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="carteiraShopee" role="menuitem">Carteira Shopee</button>
+            </li>
           </ul>
         </div>
 
@@ -97,6 +100,8 @@
     <?!= include('ui/manualEntrada/ManualEntradaView'); ?>
     <?!= include('ui/manualEntrada/ManualEntradaListView'); ?>
     <?!= include('ui/manualSaida/ManualSaidaView'); ?>
+    <?!= include('ui/manualSaida/ManualSaidaListView'); ?>
+    <?!= include('ui/carteiraShopee/CarteiraShopeeView'); ?>
 
       <calculator-widget></calculator-widget>
     <manual-entrada-widget></manual-entrada-widget>
@@ -114,7 +119,8 @@
         catalog: 'catalog-widget',
         estoque: 'estoque-widget',
         manualEntrada: 'manual-entrada-list-widget',
-        manualSaida: 'manual-saida-widget'
+        manualSaida: 'manual-saida-list-widget',
+        carteiraShopee: 'carteira-shopee-widget'
       };
 
       function navigate(route) {
@@ -314,15 +320,7 @@
         }
       });
 
-      // Manual Saida: abrir modal ao clicar no botão do dropdown
-      document.querySelectorAll('.nav-dropdown-item[data-route="manualSaida"]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var widget = document.getElementById('manual-saida-widget');
-          if (widget && typeof widget.open === 'function') {
-            widget.open();
-          }
-        });
-      });
+
     </script>
   </body>
 </html>

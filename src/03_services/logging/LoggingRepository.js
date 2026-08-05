@@ -50,7 +50,7 @@ var LoggingRepository = (function () {
     }
 
     var row = [
-      entry.updatedAt || new Date().toISOString(),
+      entry.updatedAt || nowBR_(),
       entry.service || '',
       entry.action || '',
       entry.status || '',
@@ -100,7 +100,8 @@ var LoggingRepository = (function () {
     for (var i = 1; i < values.length; i++) {
       var dateStr = values[i][0];
       if (!dateStr) continue;
-      var logDate = new Date(dateStr);
+      var logDate = parseStoredDate_(dateStr);
+      if (!logDate) continue;
       if (logDate < cutoff) {
         rowsToDelete.push(i + 1);
       }
@@ -113,12 +114,33 @@ var LoggingRepository = (function () {
     return { deleted: rowsToDelete.length };
   }
 
+  function nowBR_() {
+    return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+  }
+
+  function parseStoredDate_(str) {
+    if (typeof str === 'object' && str instanceof Date) return str;
+    var s = String(str || '').trim();
+    if (!s) return null;
+    var m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) {
+      return new Date(
+        Number(m[3]), Number(m[2]) - 1, Number(m[1]),
+        Number(m[4]) || 0, Number(m[5]) || 0, Number(m[6]) || 0
+      );
+    }
+    var legacy = new Date(s);
+    return isNaN(legacy.getTime()) ? null : legacy;
+  }
+
   return {
     HEADERS: HEADERS,
     getOrCreateSheet: getOrCreateSheet,
     sheetExists: sheetExists,
     insertLog: insertLog,
     getLogs: getLogs,
-    clearOldLogs: clearOldLogs
+    clearOldLogs: clearOldLogs,
+    // Exposto para smoke tests (lógica pura)
+    parseStoredDate: parseStoredDate_
   };
 })();

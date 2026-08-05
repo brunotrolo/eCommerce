@@ -243,7 +243,7 @@ var NFeEntradaProdutosService = (function () {
 
     if (!produtos.length) {
       trace_('processarNf:empty', 'NFe sem produtos (PRODUTOS_JSON vazio)', { numeroNf: numeroNf });
-      return { success: true, processedAt: new Date().toISOString(), productCount: 0, totalQuantity: 0, totalValue: 0, errors: [] };
+      return { success: true, processedAt: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'), productCount: 0, totalQuantity: 0, totalValue: 0, errors: [] };
     }
 
     var nfeProdutosSheetId = sheetId; // usa a mesma planilha, aba diferente

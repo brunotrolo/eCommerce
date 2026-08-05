@@ -115,7 +115,7 @@ var ManualEntradaService = (function () {
     return {
       success: result.success,
       entryId: logId,
-      processedAt: now.toISOString(),
+      processedAt: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
       row: rowData,
       warnings: warnings,
       errors: []

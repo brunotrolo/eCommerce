@@ -32,6 +32,8 @@
     "src/03_services/ordersImport/OrdersImportService.js",
     "src/03_services/pushNotification/PushNotificationService.js",
     "src/03_services/listings/ListingsService.js",
+    "src/03_services/carteiraShopee/CarteiraShopeeRepository.js",
+    "src/03_services/carteiraShopee/CarteiraShopeeService.js",
     "src/03_services/dashboard/DashboardService.js",
     "src/04_gateway/ServiceRegistry.js",
     "src/04_gateway/Router.js",

@@ -82,28 +82,39 @@ var ManualSaidaService = (function () {
     var tipoSaida = params.tipoSaida;
     var valorTotal = Math.round(quantidade * precoUnitario * 100) / 100;
 
+    var produtoOrigem = _getProdutoOrigem(sheetId, params.codigoProduto);
+
     var now = new Date();
     var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyyMMdd'T'HHmmss");
     var nonce = Utilities.getUuid().substring(0, 6);
     var logId = timestamp + '-' + nonce;
 
     var dataSaida = params.dataCompra || Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    var dataCompraOrigem = produtoOrigem.dataCompra || '';
 
     var rowData = {
       codigoProduto: params.codigoProduto,
       descricaoProduto: params.descricaoProduto,
+      ncm: produtoOrigem.ncm,
       quantidade: quantidade,
       tipoSaida: tipoSaida,
       precoUnitario: precoUnitario,
       valorTotal: valorTotal,
+      valorUnitario: precoUnitario,
+      valorUnitarioLiquido: precoUnitario,
+      valorLiquidoItem: valorTotal,
       status: 'Saído',
       dataSaida: dataSaida,
       tipoMovimentacao: 'Saída Manual',
       logId: logId,
       clienteNome: params.clienteName || '',
       motivoPerda: (tipoSaida === 'Perda' ? (params.motivoPerda || '') : ''),
-      dataRegistro: now.toISOString(),
-      observacoes: params.observacoes || ''
+      dataRegistro: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
+      observacoes: params.observacoes || '',
+      emitenteNome: produtoOrigem.emitenteNome,
+      dataCompra: params.dataCompra || dataCompraOrigem,
+      valorOutrosItem: produtoOrigem.valorOutrosItem,
+      tipoOutros: produtoOrigem.tipoOutros
     };
 
     var result = ManualSaidaProdutosRepository.appendRow(sheetId, rowData);
@@ -113,7 +124,7 @@ var ManualSaidaService = (function () {
     return {
       success: result.success,
       exitId: logId,
-      processedAt: now.toISOString(),
+      processedAt: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
       estoqueRestante: estoqueRestante,
       row: rowData,
       errors: []
@@ -145,13 +156,21 @@ var ManualSaidaService = (function () {
         precoUnitario: parseFloat(r.PRECO_UNITARIO) || 0,
         valorTotal: parseFloat(r.VALOR_TOTAL) || 0,
         status: r.STATUS || '',
-        dataSaida: r.DATA_SAIDA || '',
+        dataSaida: _fmtDataBR_(r.DATA_SAIDA),
         tipoMovimentacao: r.TIPO_MOVIMENTACAO || '',
         logId: r.LOG_ID || '',
         clienteNome: r.CLIENTE_NOME || '',
         motivoPerda: r.MOTIVO_PERDA || '',
-        dataRegistro: r.DATA_REGISTRO || '',
-        observacoes: r.OBSERVACOES || ''
+        dataRegistro: _fmtDataBR_(r.DATA_REGISTRO),
+        observacoes: r.OBSERVACOES || '',
+        ncm: r.NCM || '',
+        valorUnitario: parseFloat(r.VALOR_UNITARIO) || 0,
+        valorUnitarioLiquido: parseFloat(r.VALOR_UNITARIO_LIQUIDO) || 0,
+        valorLiquidoItem: parseFloat(r.VALOR_LIQUIDO_ITEM) || 0,
+        emitenteNome: r.EMITENTE_NOME || '',
+        dataCompra: _fmtDataBR_(r.DATA_COMPRA),
+        valorOutrosItem: parseFloat(r.VALOR_OUTROS_ITEM) || 0,
+        tipoOutros: r.TIPO_OUTROS || ''
       });
     }
 
@@ -298,6 +317,67 @@ var ManualSaidaService = (function () {
     return { clientes: ManualSaidaProdutosRepository.getClienteHistory(sheetId) };
   }
 
+  function _fmtDataBR_(value) {
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+    }
+    var s = String(value || '').trim();
+    if (!s) return '';
+    if (s.indexOf('T') !== -1) {
+      var iso = new Date(s);
+      if (!isNaN(iso.getTime())) {
+        return Utilities.formatDate(iso, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
+      }
+    }
+    return s;
+  }
+
+  function _getProdutoOrigem(sheetId, codigoProduto) {
+    var info = {
+      ncm: '',
+      valorUnitarioLiquido: 0,
+      emitenteNome: '',
+      dataCompra: '',
+      valorOutrosItem: 0,
+      tipoOutros: ''
+    };
+    if (!codigoProduto) return info;
+
+    var cod = String(codigoProduto).trim();
+    var rows = [];
+
+    try {
+      rows = rows.concat(NFeEntradaProdutosRepository.getProdutos(sheetId));
+    } catch (e) { console.warn('ManualSaidaService: Erro ao ler NFeEntradaProdutos — ' + e.message); }
+
+    try {
+      rows = rows.concat(ManualEntradaProdutosRepository.getRows(sheetId));
+    } catch (e) { console.warn('ManualSaidaService: Erro ao ler ManualEntradaProdutos — ' + e.message); }
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (String(r.CODIGO_PRODUTO || '').trim() !== cod) continue;
+
+      var status = String(r.STATUS || '').trim().toLowerCase();
+      if (status && status !== 'recebido') continue;
+
+      var ncm = String(r.NCM || '').trim();
+      var vUnit = parseFloat(r.VALOR_UNITARIO) || 0;
+      var vUnitLiq = parseFloat(r.VALOR_UNITARIO_LIQUIDO);
+      if (isNaN(vUnitLiq)) vUnitLiq = vUnit;
+      var vOutros = parseFloat(r.VALOR_OUTROS_ITEM) || 0;
+
+      if (ncm) info.ncm = ncm;
+      if (vUnitLiq > 0) info.valorUnitarioLiquido = vUnitLiq;
+      if (vOutros > 0) info.valorOutrosItem = vOutros;
+      if (r.TIPO_OUTROS) info.tipoOutros = String(r.TIPO_OUTROS);
+      if (r.EMITENTE_NOME) info.emitenteNome = String(r.EMITENTE_NOME);
+      if (r.DATA_COMPRA) info.dataCompra = _fmtDataBR_(r.DATA_COMPRA);
+    }
+
+    return info;
+  }
+
   function _getEstoqueDisponivel(sheetId, codigoProduto) {
     var entradaNF = 0;
     try {
@@ -333,6 +413,7 @@ var ManualSaidaService = (function () {
     listExits: listExits,
     validateExit: validateExit,
     getAvailableProducts: getAvailableProducts,
-    getClienteHistory: getClienteHistory
+    getClienteHistory: getClienteHistory,
+    fmtDateBR: _fmtDataBR_
   };
 })();

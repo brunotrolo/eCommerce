@@ -88,7 +88,7 @@ function apiDispatch(action, params) {
         params: params || {},
         result: result,
         durationMs: durationMs,
-        ts: new Date().toISOString()
+        ts: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss')
       });
     } catch (e) { /* ignore */ }
   }

@@ -32,6 +32,8 @@ function onOpen() {
           .addItem('Catalog', 'runCatalogSmokeTests_')
           .addItem('Calculator', 'runCalculatorSmokeTests_')
           .addItem('Push Notification', 'runPushSmokeTests_')
+          .addItem('Saída Manual', 'runManualSaidaSmokeTests_')
+          .addItem('Carteira Shopee', 'runCarteiraShopeeSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -198,17 +200,29 @@ function runNfeSmokeTests_() {
   if (deduped[0]._duplicate !== false) failures.push('XML deveria ser mantido');
   if (deduped[1]._duplicate !== true) failures.push('PDF duplicado deveria ser marcado');
 
-  // sanitizeForClient_: Date deve virar ISO string para google.script.run
+  // sanitizeForClient_: Date deve virar string no padrão brasileiro (dd/MM/yyyy HH:mm:ss)
   var sanitized = ServiceRegistry.sanitizeForClient({
     data_emissao: new Date('2026-05-05T12:00:00-03:00'),
     valor_total: 123.45,
     extra: undefined
   });
-  if (sanitized.data_emissao !== '2026-05-05T15:00:00.000Z') failures.push('sanitizeForClient: Date deveria virar ISO string, obtido ' + sanitized.data_emissao);
+  if (!/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(sanitized.data_emissao)) failures.push('sanitizeForClient: Date deveria virar formato BR dd/MM/yyyy HH:mm:ss, obtido ' + sanitized.data_emissao);
   if (!('extra' in sanitized)) failures.push('sanitizeForClient: undefined perdeu o campo?');
   if (sanitized.extra !== '') failures.push('sanitizeForClient: undefined deveria virar string vazia');
   if (sanitized.valor_total !== 123.45) failures.push('sanitizeForClient: número deveria passar intacto');
   if (!Array.isArray(ServiceRegistry.sanitizeForClient([1, new Date(0)]))) failures.push('sanitizeForClient: array deveria virar array');
+
+  // LoggingRepository.parseStoredDate: deve manter datas BR (dd/MM/yyyy[ HH:mm:ss]) e ISO legado
+  var brParsed = LoggingRepository.parseStoredDate('05/08/2026 14:30:00');
+  if (!(brParsed instanceof Date) || isNaN(brParsed.getTime())) failures.push('parseStoredDate BR: esperado Date válido, obtido ' + brParsed);
+  if (brParsed && brParsed.getMonth() !== 7) failures.push('parseStoredDate BR: mês deveria ser agosto (7), obtido ' + (brParsed ? brParsed.getMonth() : 'n/a'));
+  var brDateOnly = LoggingRepository.parseStoredDate('05/08/2026');
+  if (!(brDateOnly instanceof Date) || isNaN(brDateOnly.getTime())) failures.push('parseStoredDate BR date-only: esperado Date válido');
+  if (brDateOnly && brDateOnly.getDate() !== 5) failures.push('parseStoredDate BR date-only: dia deveria ser 5');
+  var isoParsed = LoggingRepository.parseStoredDate('2026-08-05T14:30:00Z');
+  if (!(isoParsed instanceof Date) || isNaN(isoParsed.getTime())) failures.push('parseStoredDate ISO: esperado Date válido');
+  if (LoggingRepository.parseStoredDate('') !== null) failures.push('parseStoredDate empty: esperado null');
+  if (LoggingRepository.parseStoredDate(null) !== null) failures.push('parseStoredDate null: esperado null');
 
   if (failures.length) {
     Logger.log('FALHOU NFE:\n' + failures.join('\n'));
@@ -246,6 +260,122 @@ function runNfeProdutosSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de NFe Entrada Produtos passaram.');
+}
+
+function runManualSaidaSmokeTests_() {
+  var failures = [];
+
+  // fmtDateBR: string ISO (formato antigo/entrada) deve virar dd/MM/yyyy HH:mm:ss
+  var iso = ManualSaidaService.fmtDateBR('2026-08-05T05:05:25.403Z');
+  if (!/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(iso)) {
+    failures.push('fmtDateBR ISO: esperado dd/MM/yyyy HH:mm:ss, obtido ' + iso);
+  }
+
+  // fmtDateBR: string já em formato BR deve passar intacta
+  var br = ManualSaidaService.fmtDateBR('05/08/2026 02:30:28');
+  if (br !== '05/08/2026 02:30:28') {
+    failures.push('fmtDateBR BR: deveria manter intacto, obtido ' + br);
+  }
+
+  // fmtDateBR: empty/null devem retornar string vazia
+  if (ManualSaidaService.fmtDateBR(null) !== '') failures.push('fmtDateBR null deveria ser vazio');
+  if (ManualSaidaService.fmtDateBR('') !== '') failures.push('fmtDateBR vazio deveria ser vazio');
+
+  // fmtDateBR: data apenas (sem hora) permanece como string curta
+  var dia = ManualSaidaService.fmtDateBR('05/08/2026');
+  if (dia !== '05/08/2026') failures.push('fmtDateBR data curta deveria manter, obtido ' + dia);
+
+  if (failures.length) {
+    Logger.log('FALHOU SAIDA MANUAL:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Saida Manual smoke test(s) falharam.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Saída Manual passaram.');
+}
+
+function runCarteiraShopeeSmokeTests_() {
+  var failures = [];
+
+  function expectEqual(label, actual, expected) {
+    if (actual !== expected) {
+      failures.push(label + ': esperado "' + expected + '", obtido "' + actual + '"');
+    }
+  }
+
+  function expectClose(label, actual, expected, tolerance) {
+    tolerance = tolerance || 0.01;
+    if (Math.abs(actual - expected) > tolerance) {
+      failures.push(label + ': esperado ~' + expected + ', obtido ' + actual);
+    }
+  }
+
+  // Cenário 1: describe() registrado com ações corretas
+  var desc = CarteiraShopeeService.describe();
+  expectEqual('describe.name', desc.name, 'carteiraShopee');
+  if (!desc.actions.syncWallet) failures.push('ação syncWallet não encontrada');
+  if (!desc.actions.getWalletSnapshot) failures.push('ação getWalletSnapshot não encontrada');
+  if (!desc.actions.getTransacoes) failures.push('ação getTransacoes não encontrada');
+  if (!desc.actions.getPayoutHistory) failures.push('ação getPayoutHistory não encontrada');
+
+  // Cenário 2: round2 arredonda 2 casas
+  expectEqual('round2(10.5551)', CarteiraShopeeService.round2(10.5551), 10.56);
+  expectEqual('round2(10.5549)', CarteiraShopeeService.round2(10.5549), 10.55);
+  expectEqual('round2(null)', CarteiraShopeeService.round2(null), 0);
+
+  // Cenário 3: classificação de tipo de transação
+  expectEqual('tipo venda', CarteiraShopeeService.classifyTipo({ description: 'Venda pedido 123' }), 'Venda');
+  expectEqual('tipo payout', CarteiraShopeeService.classifyTipo({ description: 'Payout liberado' }), 'Payout');
+  expectEqual('tipo reembolso', CarteiraShopeeService.classifyTipo({ description: 'Refund pedido' }), 'Reembolso');
+  expectEqual('tipo taxa', CarteiraShopeeService.classifyTipo({ description: 'Service fee' }), 'Taxa Plataforma');
+  expectEqual('tipo MONEY_OUT', CarteiraShopeeService.classifyTipo({ description: '', money_flow: 'MONEY_OUT' }), 'Taxa Plataforma');
+  expectEqual('tipo fallback venda', CarteiraShopeeService.classifyTipo({ description: '' }), 'Venda');
+
+  // Cenário 4: mapeamento de status
+  expectEqual('status success', CarteiraShopeeService.mapStatus('SUCCESS'), 'Concluído');
+  expectEqual('status pending', CarteiraShopeeService.mapStatus('PENDING'), 'Pendente');
+  expectEqual('status cancelled', CarteiraShopeeService.mapStatus('CANCELLED'), 'Cancelado');
+  expectEqual('status vazio', CarteiraShopeeService.mapStatus(''), 'Concluído');
+
+  // Cenário 5: formatação de data epoch (seconds e millis)
+  var dSec = CarteiraShopeeService.fmtDataBR(1754323200); // 2026-08-05 00:00:00 UTC
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dSec)) failures.push('fmtDataBR epoch seconds: ' + dSec);
+  var dMs = CarteiraShopeeService.fmtDataBR(1754323200000);
+  if (dMs !== dSec) failures.push('fmtDataBR millis deveria igualar seconds: ' + dMs + ' vs ' + dSec);
+  expectEqual('fmtDataBR vazio', CarteiraShopeeService.fmtDataBR(null), '');
+
+  // Cenário 6: buildResumoRow com dados de exemplo (regras da spec)
+  var resumo = CarteiraShopeeService.buildResumoRow(
+    {
+      saldoDisponivel: 1250.5,
+      saldoEscrow: 500,
+      saldoTotal: 1750.5,
+      proximoPayout: { data: '10/08/2026', valor: 500, metodo: 'PIX' },
+      ultimoPayout: { data: '27/07/2026', valor: 3200 },
+      rendaPeriodo: { periodo: '08/2026', total: 5000, comissoes: -1000, tarifas: 0, liquido: 4000 }
+    },
+    '2026-08-05T14:30:00Z',
+    'OK'
+  );
+  expectEqual('resumo.saldoDisponivel', resumo.saldoDisponivel, 1250.5);
+  expectEqual('resumo.proximoPayoutData', resumo.proximoPayoutData, '10/08/2026');
+  expectEqual('resumo.metodoPayout', resumo.metodoPayout, 'PIX');
+  expectEqual('resumo.comissaoShopee', resumo.comissaoShopee, -1000);
+  expectEqual('resumo.liquidoPeriodo', resumo.liquidoPeriodo, 4000);
+  expectEqual('resumo.statusSincronizacao', resumo.statusSincronizacao, 'OK');
+
+  // Cenário 7: endOfMonthEpoch retorna epoch do fim do mês corrente
+  var eom = CarteiraShopeeService.endOfMonthEpoch(new Date(2026, 7, 5)); // ago/2026
+  if (eom <= 0) failures.push('endOfMonthEpoch: esperado > 0, obtido ' + eom);
+  if (eom !== CarteiraShopeeService.endOfMonthEpoch(new Date(2026, 7, 31))) {
+    failures.push('endOfMonthEpoch: deveria ser estável dentro do mesmo mês');
+  }
+
+  if (failures.length) {
+    Logger.log('FALHOU CARTEIRA SHOPEE:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Carteira Shopee smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Carteira Shopee passaram.');
 }
 
 function initLogging_() {
@@ -459,6 +589,20 @@ function runCatalogSmokeTests_() {
   // Cenário 6: Margem alvo inválida
   var r6 = CatalogService.getProducts({ targetMarginShopee: 1.5 });
   expectTrue('getProducts invalid margin returns error', !!r6.error);
+
+  // Cenário 7: parseDataBR converte dd/MM/yyyy e ISO corretamente (sem inverter dia/mês)
+  var brDate = CatalogService.parseDataBR('05/08/2026'); // 5 de agosto
+  var isoDate = CatalogService.parseDataBR('2026-08-05T00:00:00Z');
+  var brTS = CatalogService.parseDataBR('05/08/2026 14:30:00');
+  expectTrue('parseDataBR BR date > 0', brDate > 0);
+  expectTrue('parseDataBR ISO date > 0', isoDate > 0);
+  expectTrue('parseDataBR BR datetime > 0', brTS > 0);
+  // BR "05/08" deve ser maio NÃO — deve ser agosto (ts > 0 já garante parse, mas reforçamos: dia 5 mês 8 → agosto)
+  var augCheck = new Date(brDate);
+  expectTrue('parseDataBR BR date dia=5', augCheck.getDate() === 5);
+  expectTrue('parseDataBR BR date mês=agosto', augCheck.getMonth() === 7); // 0-indexed
+  // "15/08/2026" tem dia=15 (>12) que em new Date() direto seria Invalid Date; parser BR deve funcionar
+  expectTrue('parseDataBR dia>12 funciona', CatalogService.parseDataBR('15/08/2026') > 0);
 
   if (failures.length) {
     Logger.log('FALHOU CATALOG:\n' + failures.join('\n'));

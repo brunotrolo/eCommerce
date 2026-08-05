@@ -310,11 +310,13 @@ extraída de `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
   3. `npx @google/clasp push --force`
 - `clasp push` para enviar o código ao projeto Apps Script
   (`1zU9zBb8QeqWr-m2YORwyKx-6ypK4JrQhqZ29M3FJs8BmWhkO1VErKy3w`).
-- `clasp deploy --description "..."` para criar uma versão de deploy do Web App.
-- O deploy para produção é automático: todo push na branch `main` dispara
-  `.github/workflows/deploy.yml`, que roda `clasp push` + `clasp deploy` no
-  GitHub Actions. `clasp login` é interativo (OAuth) e só pode ser feito uma
-  vez, manualmente, pelo usuário — nunca por um agente.
+- **NUNCA rode `clasp deploy`.** O deploy para produção é automático: todo
+  push na branch `main` dispara `.github/workflows/deploy.yml`, que roda
+  `clasp push` + `clasp deploy` no GitHub Actions. Agentes devem fazer
+  apenas `clasp push` — criar versões de deploy manualmente enche o GAS
+  de versões desnecessárias e o usuário usa apenas o `/dev` (HEAD).
+- `clasp login` é interativo (OAuth) e só pode ser feito uma vez,
+  manualmente, pelo usuário — nunca por um agente.
 
 ## Chamadas à Tiops
 
