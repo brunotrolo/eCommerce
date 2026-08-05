@@ -189,14 +189,17 @@ DATA_PAYOUT | VALOR | METODO | STATUS | REFERENCIA | DIAS_PARA_RECEBER | DATA_RE
    - SALDO_ESCROW: bloqueado em garantia (liberado 15 dias pós-entrega)
    - SALDO_TOTAL: soma dos dois (informativo)
 
-4. **Payout sempre PIX:**
-   - Shopee no Brasil usa PIX como principal
-   - Se METODO_PAYOUT != "PIX", logar warning (pode ter mudado configuração)
+4. **Método de payout não exposto pela API (loja local BR):**
+   - `payout_info`/`payout_detail` são Cross Border-only → **não há fonte** do método de
+     pagamento para loja local. `METODO_PAYOUT` = `"PIX"` fixo (padrão Shopee BR),
+     com nota na spec de que é valor de exibição, não dado da API.
+   - Não logar warning de método (não há dado para comparar).
 
-5. **Período de sincronização:**
+5. **Período de sincronização (fonte real = `shopee_get_escrow_list`):**
    - Sempre sincronizar o MÊS CORRENTE (08/2026, etc)
-   - Histórico de transações: últimos 50-100 registros
-   - Histórico de payouts: últimos 12 meses
+   - Histórico de transações: últimos 50-100 registros (via `wallet_transactions`)
+   - Histórico de payouts: liberações de escrow **passadas** (~últimos 90 dias, janela
+     `release_time_from/to` em epoch seconds)
 
 6. **Invalidação de cache:**
    - Após cada `syncWallet()`, invalidar CacheService
@@ -295,13 +298,12 @@ Then:
 - `CacheService` — cache com TTL 1h
 - `CronTrigger` ou `ScriptApp.newTrigger()` — sync automático diário
 
-### Ações TIOPS
-- `shopee_get_payout_info` — próximo payout
-- `shopee_get_payout_detail` — histórico de payouts
-- `shopee_get_income_overview` — renda do período
-- `shopee_get_wallet_transactions` — histórico de transações
-- `shopee_get_escrow_list` — saldo em escrow
-- Parâmetro obrigatório: `shopId`
+### Ações TIOPS (contrato confirmado em 2026-08-05 — ver CONTRATOS_CONFIRMADOS.md)
+- `shopee_get_escrow_list` — liberações de escrow (`release_time_from/to` em **epoch seconds** + `page_size`) → próximo payout + histórico de pagamentos + saldo em escrow
+- `shopee_get_income_overview` — renda líquida do mês (`timestamp` epoch fim do mês + `shop_id`) → `released_amount`
+- `shopee_get_wallet_transactions` — histórico de transações + saldo da carteira (`page_size` + `shopId`) → `current_balance` da transação mais recente
+- **Não usar** `shopee_get_payout_info`/`shopee_get_payout_detail`: exclusivas de sellers **Cross Border (CB)** — loja é local BR, chamada sempre falha
+- Parâmetro obrigatório: `shopId` (`ConfigService.getAccountId('shopee')`), exceto `shopee_get_income_overview` que usa `shop_id`
 
 ---
 
@@ -370,6 +372,25 @@ function getWalletSnapshot(fromCache) {
   return data.dados;
 }
 ```
+
+### Mapeamento de dados (contrato Tiops confirmado — usar exatamente estes campos)
+
+| Campo do serviço | Fonte Tiops | Transformação |
+|---|---|---|
+| `saldoDisponivel` | `shopee_get_wallet_transactions.transaction_list[]` | `current_balance` da transação **mais recente** (maior `create_time`) |
+| `saldoEscrow` | `shopee_get_escrow_list.escrow_list[]` | Soma de `payout_amount` onde `escrow_release_time` é **futuro** |
+| `saldoTotal` | — | `saldoDisponivel + saldoEscrow` |
+| `proximoPayout.data` | `shopee_get_escrow_list.escrow_list[]` | Menor `escrow_release_time` **futuro** (converter epoch→data) |
+| `proximoPayout.valor` | `shopee_get_escrow_list.escrow_list[]` | Soma dos `payout_amount` com liberações futuras |
+| `proximoPayout.metodo` | — | `"PIX"` fixo (ver Regra 4; API não expõe para local BR) |
+| `rendaPeriodo.liquido` | `shopee_get_income_overview` | `response.total_income.released_amount` (valor real já líquido de taxas) |
+| `rendaPeriodo.total` | — | `liquido / 0.80` (bruto estimado pela regra 20% flat; ver Regra 2) |
+| `rendaPeriodo.comissoes` | — | `total × -0.20` (regra 20% flat Shopee em AGENTS.md) |
+| `rendaPeriodo.tarifas` | — | `0` (não exposto pela API; sem valor granular) |
+| Histórico de payouts | `escrow_list` | Liberações **passadas**: `escrow_release_time` → `DATA_PAYOUT`, `payout_amount` → `VALOR`, `order_sn` → `REFERENCIA` |
+| Histórico de transações | `wallet_transactions` | `transaction_id` (REFERENCIA), `create_time`→data, `description`, `amount`, `status`, `money_flow` |
+
+**Filtro escrow:** `release_time_from`/`release_time_to` em **epoch seconds** (ms são rejeitados). Janela padrão: `from = now - 90d`, `to = now + 30d` para capturar futuro próximo.
 
 ### Trigger automático diário
 ```javascript

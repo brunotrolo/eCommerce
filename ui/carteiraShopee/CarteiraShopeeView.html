@@ -1,0 +1,250 @@
+<template id="carteira-shopee-template">
+  <div class="widget-grid">
+    <div class="card">
+      <h1>Carteira Shopee</h1>
+      <p class="page-subtitle">Saldo, próximo payout e renda da loja Shopee.</p>
+      <button class="btn" id="btn-sync">Sincronizar Carteira</button>
+      <div class="alert alert-error" id="error-box" hidden></div>
+    </div>
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="card">
+      <h3>Próximo payout</h3>
+      <div id="payout-box" class="result-card"></div>
+    </div>
+    <div class="card">
+      <h3>Renda do período</h3>
+      <div id="renda-box" class="result-card"></div>
+    </div>
+    <div class="card table-container">
+      <h3>Histórico de transações</h3>
+      <table class="table" id="tx-table">
+        <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th>Status</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="card table-container">
+      <h3>Histórico de payouts</h3>
+      <table class="table" id="payout-table">
+        <thead><tr><th>Data</th><th>Valor</th><th>Método</th><th>Status</th><th>Referência</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+<script>
+  (function () {
+    if (customElements.get('carteira-shopee-widget')) return;
+
+    class CarteiraShopeeWidget extends HTMLElement {
+      connectedCallback() {
+        var template = document.getElementById('carteira-shopee-template');
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        shadow.appendChild(template.content.cloneNode(true));
+
+        var self = this;
+        shadow.getElementById('btn-sync').addEventListener('click', function () {
+          self._sync(shadow, true);
+        });
+
+        var cached = window.__DataStore && window.__DataStore.get('carteiraShopee.snapshot');
+        if (cached) render(shadow, cached);
+
+        this._load(shadow, false);
+      }
+
+      _load(shadow, force) {
+        var ds = window.__DataStore;
+        if (ds && !force) {
+          ds.getOrFetch('carteiraShopee.snapshot', 'carteiraShopee.getWalletSnapshot', {})
+            .then(function (data) {
+              if (data && data.saldo) render(shadow, data);
+            })
+            .catch(function () {});
+          return;
+        }
+        this._sync(shadow, force);
+      }
+
+      _sync(shadow, force) {
+        var self = this;
+        if (force && window.__DataStore) window.__DataStore.invalidate('carteiraShopee.snapshot');
+        withLoading(
+          shadow.getElementById('btn-sync'),
+          (success, failure) =>
+            google.script.run
+              .withSuccessHandler(success)
+              .withFailureHandler(failure)
+              .apiDispatch('carteiraShopee.syncWallet', { forceFresh: !!force }),
+          (data) => {
+            if (!data || data.error) {
+              shadow.getElementById('error-box').textContent = data && data.error ? data.error : 'Erro ao sincronizar.';
+              shadow.getElementById('error-box').hidden = false;
+              return;
+            }
+            if (window.__DataStore) {
+              window.__DataStore.set('carteiraShopee.snapshot', snapshotFromDados(data.dados || {}));
+            }
+            if (data.dados) renderSnapshot(shadow, data.dados);
+            this._loadTransacoes(shadow);
+            this._loadPayouts(shadow);
+          },
+          (data) => (data && data.fromCache ? 'Usando dados em cache (até 1h).' : 'Carteira sincronizada agora.')
+        );
+      }
+
+      _loadTransacoes(shadow) {
+        google.script.run
+          .withSuccessHandler(function (rows) {
+            renderTransacoes(shadow, rows || []);
+          })
+          .withFailureHandler(function () {})
+          .apiDispatch('carteiraShopee.getTransacoes', { limit: 10 });
+      }
+
+      _loadPayouts(shadow) {
+        google.script.run
+          .withSuccessHandler(function (rows) {
+            renderPayouts(shadow, rows || []);
+          })
+          .withFailureHandler(function () {})
+          .apiDispatch('carteiraShopee.getPayoutHistory', { limit: 12 });
+      }
+    }
+
+    function formatBRL(value) {
+      if (value == null || isNaN(value)) return '-';
+      return FormatterService.formatCurrency(value);
+    }
+
+    function render(shadow, data) {
+      renderStats(shadow, data);
+      renderPayout(shadow, data.payout);
+      renderRenda(shadow, data.renda);
+    }
+
+    function snapshotFromDados(dados) {
+      return {
+        saldo: {
+          disponivel: dados.saldoDisponivel,
+          escrow: dados.saldoEscrow,
+          total: dados.saldoTotal
+        },
+        payout: {
+          proximaData: dados.proximoPayout ? dados.proximoPayout.data : null,
+          proximoValor: dados.proximoPayout ? dados.proximoPayout.valor : 0,
+          metodo: dados.proximoPayout ? dados.proximoPayout.metodo : 'PIX',
+          ultimoPagamento: dados.ultimoPayout && dados.ultimoPayout.data
+            ? { data: dados.ultimoPayout.data, valor: dados.ultimoPayout.valor }
+            : null
+        },
+        renda: dados.rendaPeriodo
+      };
+    }
+
+    function renderSnapshot(shadow, dados) {
+      var snapshot = {
+        saldo: {
+          disponivel: dados.saldoDisponivel,
+          escrow: dados.saldoEscrow,
+          total: dados.saldoTotal
+        },
+        payout: {
+          proximaData: dados.proximoPayout ? dados.proximoPayout.data : null,
+          proximoValor: dados.proximoPayout ? dados.proximoPayout.valor : 0,
+          metodo: dados.proximoPayout ? dados.proximoPayout.metodo : 'PIX',
+          ultimoPagamento: dados.ultimoPayout && dados.ultimoPayout.data
+            ? { data: dados.ultimoPayout.data, valor: dados.ultimoPayout.valor }
+            : null
+        },
+        renda: dados.rendaPeriodo
+      };
+      renderStats(shadow, snapshot);
+      renderPayout(shadow, snapshot.payout);
+      renderRenda(shadow, snapshot.renda);
+    }
+
+    function renderStats(shadow, data) {
+      var saldo = data.saldo || {};
+      shadow.getElementById('stat-grid').innerHTML =
+        '<div class="stat-card stat-card--featured">' +
+        '<span class="stat-label">Saldo disponível</span>' +
+        '<span class="stat-value">' + formatBRL(saldo.disponivel) + '</span>' +
+        '<span class="stat-meta">pronto para saque</span>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<span class="stat-label">Em escrow</span>' +
+        '<span class="stat-value stat-value--primary">' + formatBRL(saldo.escrow) + '</span>' +
+        '<span class="stat-meta">em garantia</span>' +
+        '</div>' +
+        '<div class="stat-card">' +
+        '<span class="stat-label">Saldo total</span>' +
+        '<span class="stat-value">' + formatBRL(saldo.total) + '</span>' +
+        '<span class="stat-meta">disponível + escrow</span>' +
+        '</div>';
+    }
+
+    function renderPayout(shadow, payout) {
+      payout = payout || {};
+      var html = '';
+      if (payout.proximaData) {
+        html +=
+          '<p class="stat-meta">Próximo payout</p>' +
+          '<p class="stat-value stat-value--primary">' + formatBRL(payout.proximoValor) + '</p>' +
+          '<p class="stat-meta">' + payout.proximaData + ' • ' + (payout.metodo || 'PIX') + '</p>';
+      } else {
+        html += '<p class="stat-meta">Nenhum payout futuro agendado.</p>';
+      }
+      if (payout.ultimoPagamento && payout.ultimoPagamento.data) {
+        html +=
+          '<p class="stat-meta">Último pagamento</p>' +
+          '<p class="stat-meta">' + payout.ultimoPagamento.data + ' • ' +
+          formatBRL(payout.ultimoPagamento.valor) + '</p>';
+      }
+      shadow.getElementById('payout-box').innerHTML = html || '<p class="stat-meta">Sem dados.</p>';
+    }
+
+    function renderRenda(shadow, renda) {
+      renda = renda || {};
+      shadow.getElementById('renda-box').innerHTML =
+        '<p class="stat-meta">Período: ' + (renda.periodo || '-') + '</p>' +
+        '<p class="stat-value stat-value--success">' + formatBRL(renda.liquido) + '</p>' +
+        '<p class="stat-meta">líquido do período</p>' +
+        '<p class="stat-meta">Vendas (bruto): ' + formatBRL(renda.vendas) + '</p>' +
+        '<p class="stat-meta">Comissão (20%): ' + formatBRL(renda.comissao) + '</p>' +
+        '<p class="stat-meta">Taxas: ' + formatBRL(renda.taxasPlataforma) + '</p>';
+    }
+
+    function renderTransacoes(shadow, rows) {
+      var body = shadow.querySelector('#tx-table tbody');
+      var html = rows
+        .slice(0, 10)
+        .map(function (r) {
+          return (
+            '<tr><td>' + (r.DATA_TRANSACAO || '-') + '</td><td>' + (r.TIPO_TRANSACAO || '-') +
+            '</td><td>' + (r.DESCRICAO || '-') + '</td><td>' + formatBRL(r.VALOR) +
+            '</td><td>' + (r.STATUS || '-') + '</td></tr>'
+          );
+        })
+        .join('');
+      body.innerHTML = html || '<tr><td colspan="5">Sem transações ainda. Sincronize a carteira.</td></tr>';
+    }
+
+    function renderPayouts(shadow, rows) {
+      var body = shadow.querySelector('#payout-table tbody');
+      var html = rows
+        .slice(0, 12)
+        .map(function (r) {
+          return (
+            '<tr><td>' + (r.DATA_PAYOUT || '-') + '</td><td>' + formatBRL(r.VALOR) +
+            '</td><td>' + (r.METODO || '-') + '</td><td>' + (r.STATUS || '-') +
+            '</td><td>' + (r.REFERENCIA || '-') + '</td></tr>'
+          );
+        })
+        .join('');
+      body.innerHTML = html || '<tr><td colspan="5">Sem pagamentos ainda. Sincronize a carteira.</td></tr>';
+    }
+
+    customElements.define('carteira-shopee-widget', CarteiraShopeeWidget);
+  })();
+</script>

@@ -33,6 +33,7 @@ function onOpen() {
           .addItem('Calculator', 'runCalculatorSmokeTests_')
           .addItem('Push Notification', 'runPushSmokeTests_')
           .addItem('Saída Manual', 'runManualSaidaSmokeTests_')
+          .addItem('Carteira Shopee', 'runCarteiraShopeeSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -278,6 +279,91 @@ function runManualSaidaSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de Saída Manual passaram.');
+}
+
+function runCarteiraShopeeSmokeTests_() {
+  var failures = [];
+
+  function expectEqual(label, actual, expected) {
+    if (actual !== expected) {
+      failures.push(label + ': esperado "' + expected + '", obtido "' + actual + '"');
+    }
+  }
+
+  function expectClose(label, actual, expected, tolerance) {
+    tolerance = tolerance || 0.01;
+    if (Math.abs(actual - expected) > tolerance) {
+      failures.push(label + ': esperado ~' + expected + ', obtido ' + actual);
+    }
+  }
+
+  // Cenário 1: describe() registrado com ações corretas
+  var desc = CarteiraShopeeService.describe();
+  expectEqual('describe.name', desc.name, 'carteiraShopee');
+  if (!desc.actions.syncWallet) failures.push('ação syncWallet não encontrada');
+  if (!desc.actions.getWalletSnapshot) failures.push('ação getWalletSnapshot não encontrada');
+  if (!desc.actions.getTransacoes) failures.push('ação getTransacoes não encontrada');
+  if (!desc.actions.getPayoutHistory) failures.push('ação getPayoutHistory não encontrada');
+
+  // Cenário 2: round2 arredonda 2 casas
+  expectEqual('round2(10.5551)', CarteiraShopeeService.round2(10.5551), 10.56);
+  expectEqual('round2(10.5549)', CarteiraShopeeService.round2(10.5549), 10.55);
+  expectEqual('round2(null)', CarteiraShopeeService.round2(null), 0);
+
+  // Cenário 3: classificação de tipo de transação
+  expectEqual('tipo venda', CarteiraShopeeService.classifyTipo({ description: 'Venda pedido 123' }), 'Venda');
+  expectEqual('tipo payout', CarteiraShopeeService.classifyTipo({ description: 'Payout liberado' }), 'Payout');
+  expectEqual('tipo reembolso', CarteiraShopeeService.classifyTipo({ description: 'Refund pedido' }), 'Reembolso');
+  expectEqual('tipo taxa', CarteiraShopeeService.classifyTipo({ description: 'Service fee' }), 'Taxa Plataforma');
+  expectEqual('tipo MONEY_OUT', CarteiraShopeeService.classifyTipo({ description: '', money_flow: 'MONEY_OUT' }), 'Taxa Plataforma');
+  expectEqual('tipo fallback venda', CarteiraShopeeService.classifyTipo({ description: '' }), 'Venda');
+
+  // Cenário 4: mapeamento de status
+  expectEqual('status success', CarteiraShopeeService.mapStatus('SUCCESS'), 'Concluído');
+  expectEqual('status pending', CarteiraShopeeService.mapStatus('PENDING'), 'Pendente');
+  expectEqual('status cancelled', CarteiraShopeeService.mapStatus('CANCELLED'), 'Cancelado');
+  expectEqual('status vazio', CarteiraShopeeService.mapStatus(''), 'Concluído');
+
+  // Cenário 5: formatação de data epoch (seconds e millis)
+  var dSec = CarteiraShopeeService.fmtDataBR(1754323200); // 2026-08-05 00:00:00 UTC
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dSec)) failures.push('fmtDataBR epoch seconds: ' + dSec);
+  var dMs = CarteiraShopeeService.fmtDataBR(1754323200000);
+  if (dMs !== dSec) failures.push('fmtDataBR millis deveria igualar seconds: ' + dMs + ' vs ' + dSec);
+  expectEqual('fmtDataBR vazio', CarteiraShopeeService.fmtDataBR(null), '');
+
+  // Cenário 6: buildResumoRow com dados de exemplo (regras da spec)
+  var resumo = CarteiraShopeeService.buildResumoRow(
+    {
+      saldoDisponivel: 1250.5,
+      saldoEscrow: 500,
+      saldoTotal: 1750.5,
+      proximoPayout: { data: '10/08/2026', valor: 500, metodo: 'PIX' },
+      ultimoPayout: { data: '27/07/2026', valor: 3200 },
+      rendaPeriodo: { periodo: '08/2026', total: 5000, comissoes: -1000, tarifas: 0, liquido: 4000 }
+    },
+    '2026-08-05T14:30:00Z',
+    'OK'
+  );
+  expectEqual('resumo.saldoDisponivel', resumo.saldoDisponivel, 1250.5);
+  expectEqual('resumo.proximoPayoutData', resumo.proximoPayoutData, '10/08/2026');
+  expectEqual('resumo.metodoPayout', resumo.metodoPayout, 'PIX');
+  expectEqual('resumo.comissaoShopee', resumo.comissaoShopee, -1000);
+  expectEqual('resumo.liquidoPeriodo', resumo.liquidoPeriodo, 4000);
+  expectEqual('resumo.statusSincronizacao', resumo.statusSincronizacao, 'OK');
+
+  // Cenário 7: endOfMonthEpoch retorna epoch do fim do mês corrente
+  var eom = CarteiraShopeeService.endOfMonthEpoch(new Date(2026, 7, 5)); // ago/2026
+  if (eom <= 0) failures.push('endOfMonthEpoch: esperado > 0, obtido ' + eom);
+  if (eom !== CarteiraShopeeService.endOfMonthEpoch(new Date(2026, 7, 31))) {
+    failures.push('endOfMonthEpoch: deveria ser estável dentro do mesmo mês');
+  }
+
+  if (failures.length) {
+    Logger.log('FALHOU CARTEIRA SHOPEE:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Carteira Shopee smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Carteira Shopee passaram.');
 }
 
 function initLogging_() {
