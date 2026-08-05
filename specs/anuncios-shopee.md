@@ -1,7 +1,7 @@
 # Spec: Anúncios Shopee (ANUNCIOS_SHOPEE)
 
 ## Status
-Approved
+Implemented
 
 ## Objetivo
 
@@ -388,6 +388,7 @@ Then:
 - `TiopsClient` — chamar ações shopee_*
 - `ConfigService` — shopId, sheet ID, timezone
 - `FormatterService` — formatar datas, valores, percentuais
+- `LoggingService` — logar falhas de `fetchSales` (nunca zero 'fantasma' silencioso)
 
 ### Repositories
 - `AnunciosShopeeRepository` (novo) — ler/escrever abas ANUNCIOS_*

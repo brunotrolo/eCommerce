@@ -237,7 +237,24 @@ var AnunciosShopeeService = (function () {
         total_revenue: num_(resp.total_revenue)
       };
     } catch (e) {
+      logSalesFailure_(itemId, e);
       return { total_orders: 0, total_quantity: 0, total_revenue: 0 };
+    }
+  }
+
+  /** Loga falha no sales_by_item (evita zero 'fantasma' sem rastro). */
+  function logSalesFailure_(itemId, error) {
+    try {
+      LoggingService.log({
+        service: 'anunciosShopee',
+        action: 'fetchSales',
+        status: 'ERROR',
+        caller: 'AnunciosShopeeService.fetchSales_',
+        summary: 'shopee_sales_by_item falhou para o item ' + itemId,
+        errorMessage: (error && error.message) ? error.message : String(error)
+      });
+    } catch (logErr) {
+      console.error('[AnunciosShopee] Falha ao logar erro de vendas: ' + (logErr.message || logErr));
     }
   }
 
