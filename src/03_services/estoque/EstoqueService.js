@@ -195,6 +195,7 @@ var EstoqueService = (function () {
         rowsToInsert.push({
           estoqueId: estoqueId,
           codigoProduto: r.CODIGO_PRODUTO || '',
+          sku: r.SKU || '',
           descricaoProduto: r.DESCRICAO_PRODUTO || '',
           dataEntrada: r.DATA_ENTRADA || now,
           referenciaOrigem: 'NF#' + numeroNf,
@@ -274,6 +275,7 @@ var EstoqueService = (function () {
         rowsToInsert.push({
           estoqueId: estoqueId,
           codigoProduto: r.CODIGO_PRODUTO || '',
+          sku: r.SKU || '',
           descricaoProduto: r.DESCRICAO_PRODUTO || '',
           dataEntrada: r.DATA_ENTRADA || now,
           referenciaOrigem: 'MAN#' + (r.LOG_ID || ''),

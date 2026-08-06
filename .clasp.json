@@ -25,6 +25,7 @@
     "src/03_services/manualSaida/ManualSaidaProdutosRepository.js",
     "src/03_services/manualSaida/ManualSaidaService.js",
     "src/03_services/pricing/PricingService.js",
+    "src/03_services/sku/SkuService.js",
     "src/03_services/catalog/CatalogService.js",
     "src/03_services/system/StatusService.js",
     "src/03_services/calculator/CalculatorService.js",

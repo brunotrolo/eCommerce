@@ -44,7 +44,8 @@ var ServiceRegistry = (function () {
     ordersImport: safeRef_('ordersImport', function () { return typeof OrdersImportService !== 'undefined' ? OrdersImportService : undefined; }),
     pushNotification: safeRef_('pushNotification', function () { return typeof PushNotificationService !== 'undefined' ? PushNotificationService : undefined; }),
     carteiraShopee: safeRef_('carteiraShopee', function () { return typeof CarteiraShopeeService !== 'undefined' ? CarteiraShopeeService : undefined; }),
-    anunciosShopee: safeRef_('anunciosShopee', function () { return typeof AnunciosShopeeService !== 'undefined' ? AnunciosShopeeService : undefined; })
+    anunciosShopee: safeRef_('anunciosShopee', function () { return typeof AnunciosShopeeService !== 'undefined' ? AnunciosShopeeService : undefined; }),
+    sku: safeRef_('sku', function () { return typeof SkuService !== 'undefined' ? SkuService : undefined; })
   };
 
   function listActions() {

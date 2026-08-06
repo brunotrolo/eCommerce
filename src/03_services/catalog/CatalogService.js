@@ -136,6 +136,7 @@ var CatalogService = (function () {
       if (!existing) {
         grouped[cod] = {
           codigoProduto: cod,
+          sku: row.SKU || '',
           descricaoProduto: row.DESCRICAO_PRODUTO || '',
           valorUnitarioLiquido: parseFloat(row.VALOR_UNITARIO_LIQUIDO),
           dataEmissaoMaisRecente: dataEmissao,
@@ -160,6 +161,7 @@ var CatalogService = (function () {
           }
           existing.dataEmissaoMaisRecente = dataEmissao;
           existing.emitenteMaisRecente = row.EMITENTE_NOME || '';
+          if (row.SKU) existing.sku = row.SKU;
         }
       }
     }
@@ -199,6 +201,7 @@ var CatalogService = (function () {
       delete p._rows;
       products.push({
         codigoProduto: p.codigoProduto,
+        sku: p.sku || '',
         descricaoProduto: p.descricaoProduto,
         estoqueDisponivel: p.estoqueDisponivel,
         totalEntradas: p.totalEntradas,
@@ -214,6 +217,7 @@ var CatalogService = (function () {
 
     var sortField = {
       code: 'codigoProduto',
+      sku: 'sku',
       description: 'descricaoProduto',
       unitCost: 'valorUnitarioLiquido',
       suggestedShopee: 'precoShopee'

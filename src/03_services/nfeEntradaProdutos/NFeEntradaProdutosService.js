@@ -309,6 +309,11 @@ var NFeEntradaProdutosService = (function () {
       somaDesconto += rateio.valorDescontoItem;
       somaOutros += rateio.valorOutrosItem;
 
+      var skuResult = SkuService.generate({
+        descricaoProduto: prod.xProd || cod,
+        ncm: prod.NCM || ''
+      });
+
       insertedRows.push({
         numeroNf: numeroNf,
         chaveNf: nfe.CHAVE_NF || chaveNf,
@@ -316,6 +321,7 @@ var NFeEntradaProdutosService = (function () {
         emitenteCnpj: emitenteCnpj,
         emitenteNome: emitenteNome,
         codigoProduto: cod,
+        sku: skuResult.sku,
         descricaoProduto: prod.xProd || '',
         ncm: prod.NCM || '',
         cfop: prod.CFOP || '',

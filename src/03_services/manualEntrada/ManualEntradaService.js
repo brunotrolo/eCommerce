@@ -79,10 +79,16 @@ var ManualEntradaService = (function () {
     var nonce = Utilities.getUuid().substring(0, 6);
     var logId = timestamp + '-' + nonce;
 
+    var skuResult = SkuService.generate({
+      descricaoProduto: params.descricaoProduto || params.codigoProduto,
+      ncm: params.ncm || ''
+    });
+
     var dataCompra = params.dataCompra || Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy');
 
     var rowData = {
       codigoProduto: params.codigoProduto,
+      sku: skuResult.sku,
       descricaoProduto: params.descricaoProduto,
       ncm: params.ncm || '',
       quantidade: quantidade,

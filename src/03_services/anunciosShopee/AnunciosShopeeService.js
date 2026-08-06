@@ -319,8 +319,10 @@ var AnunciosShopeeService = (function () {
   function buildItemRow_(item) {
     var price = getPriceInfo_(item);
     var hasModel = !!(item.has_model);
+    var sku = getSellerSku_(item);
     return {
       ITEM_ID: String(item.item_id),
+      SKU: sku,
       NOME: item.item_name || '',
       CATEGORIA: item.category_id !== undefined && item.category_id !== null ? String(item.category_id) : '',
       PRECO: price.current_price,
@@ -340,6 +342,26 @@ var AnunciosShopeeService = (function () {
       DADOS_JSON: JSON.stringify(item),
       DATA_SINCRONIZACAO: nowBR_()
     };
+  }
+
+  function getSellerSku_(item) {
+    try {
+      if (item.tier_variations && item.tier_variations.length > 0) {
+        var firstTier = item.tier_variations[0];
+        if (firstTier.options && firstTier.options.length > 0) {
+          return firstTier.options[0];
+        }
+      }
+      if (item.model) {
+        return item.model.seller_sku || '';
+      }
+      if (item.seller_sku) {
+        return item.seller_sku;
+      }
+      return '';
+    } catch (e) {
+      return '';
+    }
   }
 
   function buildResumo_(rows) {
