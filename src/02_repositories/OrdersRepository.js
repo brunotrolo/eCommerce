@@ -258,7 +258,7 @@ var OrdersRepository = (function () {
     return true;
   }
 
-  function upsertOrders(orders) {
+  function upsertOrders(orders, updateAll) {
     if (!orders || orders.length === 0) return { inserted: 0, updated: 0 };
 
     var startTime = Date.now();
@@ -279,21 +279,33 @@ var OrdersRepository = (function () {
 
       var existing = existingMap[orderId];
       if (existing) {
-        var fieldsToUpdate = {};
-        var hasChanges = false;
-        if (existing.status && order.STATUS && existing.status !== order.STATUS) {
-          fieldsToUpdate.STATUS = order.STATUS;
-          hasChanges = true;
-        }
-        if (hasChanges) {
-          updateOrderRow(existing.rowNumber, fieldsToUpdate);
+        if (updateAll) {
+          updateOrderRow(existing.rowNumber, order);
           updated++;
           updateDetails.push({
             orderId: orderId,
             from: existing.status,
             to: order.STATUS,
-            row: existing.rowNumber
+            row: existing.rowNumber,
+            allFields: true
           });
+        } else {
+          var fieldsToUpdate = {};
+          var hasChanges = false;
+          if (existing.status && order.STATUS && existing.status !== order.STATUS) {
+            fieldsToUpdate.STATUS = order.STATUS;
+            hasChanges = true;
+          }
+          if (hasChanges) {
+            updateOrderRow(existing.rowNumber, fieldsToUpdate);
+            updated++;
+            updateDetails.push({
+              orderId: orderId,
+              from: existing.status,
+              to: order.STATUS,
+              row: existing.rowNumber
+            });
+          }
         }
       } else {
         toInsert.push(order);

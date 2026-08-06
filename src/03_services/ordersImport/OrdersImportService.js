@@ -254,18 +254,14 @@ var OrdersImportService = (function () {
       return { success: errors.length === 0, imported: 0, updated: 0, errors: errors, message: 'Nenhum pedido encontrado.' };
     }
 
-    var existingMap = OrdersRepository.getAllOrdersMap();
-    var toFetchDetail = [];
-    for (var k = 0; k < uniqueSns.length; k++) {
-      if (!existingMap[uniqueSns[k]]) toFetchDetail.push(uniqueSns[k]);
-    }
+    var toFetchDetail = uniqueSns.slice();
 
     LoggingService.log({
       service: 'OrdersImport', action: 'planFetches', status: 'OK',
       caller: 'OrdersImportService',
-      summary: uniqueSns.length + ' pedidos: ' + toFetchDetail.length + ' precisam detail, ' + (uniqueSns.length - toFetchDetail.length) + ' já existem',
+      summary: uniqueSns.length + ' pedidos: ' + toFetchDetail.length + ' para buscar detail (todos)',
       durationMs: Date.now() - importStart,
-      context: { needDetail: toFetchDetail.length, alreadyExist: uniqueSns.length - toFetchDetail.length }
+      context: { needDetail: toFetchDetail.length }
     });
 
     var details = {};
@@ -316,7 +312,7 @@ var OrdersImportService = (function () {
 
     var upsertResult = { inserted: 0, updated: 0 };
     if (toUpsert.length > 0) {
-      upsertResult = OrdersRepository.upsertOrders(toUpsert);
+      upsertResult = OrdersRepository.upsertOrders(toUpsert, true);
     }
 
     var imported = upsertResult.inserted || 0;
