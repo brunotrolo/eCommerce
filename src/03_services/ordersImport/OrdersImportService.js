@@ -168,36 +168,24 @@ var OrdersImportService = (function () {
 
     var items = detail.item_list || [];
     var itemNames = [];
-    var totalWeightGram = 0;
     for (var i = 0; i < items.length; i++) {
       if (items[i].item_name) itemNames.push(items[i].item_name);
-      totalWeightGram += (items[i].weight || 0) * 1000;
     }
-
-    var addr = detail.recipient_address || {};
 
     var order = {
       ORDER_ID: detail.order_sn || '',
       STATUS: detail.order_status || '',
       TOTAL_AMOUNT: Number(detail.total_amount) || 0,
       PAYMENT_METHOD: detail.payment_method || '',
-      ACTUAL_SHIPPING_FEE: Number(detail.actual_shipping_fee) || 0,
-      ESTIMATED_SHIPPING_FEE: Number(detail.estimated_shipping_fee) || 0,
       CURRENCY: detail.currency || 'BRL',
       DAYS_TO_SHIP: detail.days_to_ship || 0,
       PAY_TIME: formatDateTime_(detail.pay_time),
       PICKUP_TIME: formatDateTime_(detail.pickup_done_time),
       UPDATE_TIME: formatDateTime_(detail.update_time),
       BUYER_USERNAME: detail.buyer_username || '',
-      RECIPIENT_NAME: addr.name || '',
-      RECIPIENT_CITY: addr.city || '',
-      RECIPIENT_STATE: addr.state || '',
-      RECIPIENT_ZIPCODE: addr.zipcode || '',
-      RECIPIENT_FULL_ADDRESS: addr.full_address || '',
       ITEMS_DETAIL: formatItemsDetail_(items),
       ITEM_SKUS: formatItemSkus_(items),
       ITEM_COUNT: items.length,
-      TOTAL_WEIGHT_GRAM: Math.round(totalWeightGram),
       MESSAGE_TO_SELLER: detail.message_to_seller || '',
       CREATE_TIME: formatDateTime_(detail.create_time),
       MARKETPLACE: 'shopee'

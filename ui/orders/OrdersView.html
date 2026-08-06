@@ -356,20 +356,8 @@
         '<div class="detail-line"><span>Taxa serviço (líq.)</span><strong>' + fmtDeduction_(o.netServiceFee) + '</strong></div>' +
         '<div class="detail-line"><span>Desconto PIX</span><strong>' + fmtDeduction_(o.pixDiscount) + '</strong></div>' +
         '<div class="detail-line"><span>Rebate</span><strong>' + fmtMoney_(o.sellerRebate) + '</strong></div>' +
-        '<div class="detail-line"><span>Frete pago</span><strong>' + fmtMoney_(o.actualShippingFee) + '</strong></div>' +
         '<div class="detail-line"><span><b>Líquido</b></span><strong class="' + liquidClass_(o.liquid) + '">' + fmtMoney_(o.liquid) + '</strong></div>' +
         '<div class="detail-sub"><span>Escrow (verificação)</span><strong>' + fmtMoney_(o.escrowAmount) + '</strong></div></section>';
-
-      var shipping =
-        '<section><h4>Envio</h4>' +
-        '<ul>' +
-        (o.recipientName ? '<li>' + escapeHtml_(o.recipientName) + '</li>' : '') +
-        (o.recipientFullAddress ? '<li>' + escapeHtml_(o.recipientFullAddress) + '</li>' : '') +
-        ((o.recipientCity || o.recipientState) ? '<li>' + escapeHtml_([o.recipientCity, o.recipientState].filter(Boolean).join(' - ')) + '</li>' : '') +
-        (o.recipientZipcode ? '<li>CEP: ' + escapeHtml_(o.recipientZipcode) + '</li>' : '') +
-        '<li>Itens: ' + (o.itemCount != null ? o.itemCount : '-') + '</li>' +
-        (o.totalWeightGram ? '<li>Peso: ' + String(o.totalWeightGram).replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' g</li>' : '') +
-        '</ul></section>';
 
       var items =
         '<section><h4>Produtos</h4>' +
@@ -386,7 +374,7 @@
         (o.messageToSeller ? '<div class="detail-line"><span>Mensagem</span><strong>' + escapeHtml_(o.messageToSeller) + '</strong></div>' : '') +
         '</section>';
 
-      return '<div class="detail-grid">' + financial + items + shipping + times + '</div>';
+      return '<div class="detail-grid">' + financial + items + times + '</div>';
     }
 
     function renderStats_(shadow, orders) {
@@ -451,7 +439,7 @@
       var filtered = orders.filter(function (o) {
         if (status !== 'all' && String(o.status || '').toUpperCase() !== status) return false;
         if (!search) return true;
-        var haystack = [o.id, o.buyerName, o.itemNames, o.itemSkus, o.paymentMethod, o.statusLabel, o.recipientName, o.recipientCity].filter(Boolean).join(' ').toLowerCase();
+        var haystack = [o.id, o.buyerName, o.itemNames, o.itemSkus, o.paymentMethod, o.statusLabel].filter(Boolean).join(' ').toLowerCase();
         return haystack.indexOf(search) !== -1;
       });
 
