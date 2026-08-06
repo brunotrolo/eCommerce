@@ -116,6 +116,7 @@
     </div>
     <div class="filter-bar">
       <input type="text" id="filter-codigo" placeholder="Filtrar por codigo..." />
+      <input type="text" id="filter-nome" placeholder="Filtrar por nome do produto..." />
       <input type="text" id="filter-categoria" placeholder="Filtrar por categoria..." />
       <select id="filter-status">
         <option value="">Todos</option>
@@ -222,6 +223,7 @@
           shadow.getElementById('sync-overlay').classList.remove('open');
         });
         shadow.getElementById('filter-codigo').addEventListener('input', function () { self._applyFilters(); });
+        shadow.getElementById('filter-nome').addEventListener('input', function () { self._applyFilters(); });
         shadow.getElementById('filter-categoria').addEventListener('input', function () { self._applyFilters(); });
         shadow.getElementById('filter-status').addEventListener('change', function () { self._applyFilters(); });
 
@@ -444,6 +446,7 @@
 
       _applyFilters() {
         var codigo = (this._el('filter-codigo').value || '').toLowerCase().trim();
+        var nome = (this._el('filter-nome').value || '').toLowerCase().trim();
         var categoria = (this._el('filter-categoria').value || '').toLowerCase().trim();
         var status = this._el('filter-status').value;
 
@@ -457,7 +460,12 @@
         }
         if (codigo) {
           items = items.filter(function (it) {
-            return ((it.CODIGO_PRODUTO || '') + ' ' + (it.DESCRICAO_PRODUTO || '')).toLowerCase().indexOf(codigo) !== -1;
+            return (it.CODIGO_PRODUTO || '').toLowerCase().indexOf(codigo) !== -1;
+          });
+        }
+        if (nome) {
+          items = items.filter(function (it) {
+            return (it.DESCRICAO_PRODUTO || '').toLowerCase().indexOf(nome) !== -1;
           });
         }
         if (categoria) {
