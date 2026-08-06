@@ -133,7 +133,8 @@
           <tr>
             <th data-sort="estoque_id">ESTOQUE_ID <span class="sort-arrow"></span></th>
             <th data-sort="categoria">Categoria <span class="sort-arrow"></span></th>
-            <th data-sort="produto">Produto <span class="sort-arrow"></span></th>
+            <th data-sort="codigo">Código <span class="sort-arrow"></span></th>
+            <th data-sort="descricao">Descrição <span class="sort-arrow"></span></th>
             <th data-sort="data_entrada">Data Entrada <span class="sort-arrow"></span></th>
             <th data-sort="preco_custo">Custo <span class="sort-arrow"></span></th>
             <th>Preco Shopee</th>
@@ -507,7 +508,8 @@
         var sortMap = {
           'estoque_id': 'ESTOQUE_ID',
           'categoria': 'CATEGORIA',
-          'produto': 'DESCRICAO_PRODUTO',
+          'codigo': 'CODIGO_PRODUTO',
+          'descricao': 'DESCRICAO_PRODUTO',
           'data_entrada': 'DATA_ENTRADA',
           'preco_custo': 'PRECO_CUSTO_ORIGINAL',
           'margem': 'MARGEM_SHOPEE'
@@ -575,7 +577,6 @@
           var precoShopeeVal = it.PRECO_VENDA_SHOPEE != null && it.PRECO_VENDA_SHOPEE !== '' ? it.PRECO_VENDA_SHOPEE : '';
           var precoMLVal = it.PRECO_VENDA_MERCADO_LIVRE != null && it.PRECO_VENDA_MERCADO_LIVRE !== '' ? it.PRECO_VENDA_MERCADO_LIVRE : '';
           var dataEntrada = it.DATA_ENTRADA ? this._fmtDate(it.DATA_ENTRADA) : '-';
-          var produto = '<div>' + (it.CODIGO_PRODUTO || '') + '</div><div style="color:var(--color-text-secondary);font-size:var(--font-size-xs)">' + (it.DESCRICAO_PRODUTO || '') + '</div>';
 
           var statusOptionsHtml = '';
           for (var s = 0; s < STATUS_OPTIONS.length; s++) {
@@ -587,7 +588,8 @@
           html += '<tr data-id="' + id + '" class="estoque-row' + (isOpen ? ' row-open' : '') + (isSaving ? ' row-edited' : '') + '">';
           html += '<td>' + id + '</td>';
           html += '<td>' + (it.CATEGORIA || '') + '</td>';
-          html += '<td>' + produto + '</td>';
+          html += '<td>' + (it.CODIGO_PRODUTO || '') + '</td>';
+          html += '<td>' + (it.DESCRICAO_PRODUTO || '') + '</td>';
           html += '<td>' + dataEntrada + '</td>';
           html += '<td>' + custo + '</td>';
 
