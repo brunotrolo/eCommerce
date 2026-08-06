@@ -122,7 +122,7 @@ var FormatterService = (function () {
       d = new Date(date);
     } else if (typeof date === 'string') {
       var str = date.trim();
-      var brParts = str.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      var brParts = str.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+\d{2}:\d{2}:\d{2})?$/);
       if (brParts) {
         var day = parseInt(brParts[1], 10);
         var month = parseInt(brParts[2], 10) - 1;
