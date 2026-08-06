@@ -119,18 +119,11 @@ var SkuService = (function () {
     var generated = 0;
     var skipped = 0;
 
-    var sheetIds = {
-      NFE: ConfigService.getNfeEntradaProdutosSheetId ? ConfigService.getNfeEntradaProdutosSheetId() : null,
-      MANUAL_ENTRADA: ConfigService.getManualEntradaProdutosSheetId ? ConfigService.getManualEntradaProdutosSheetId() : null,
-      MANUAL_SAIDA: ConfigService.getManualSaidaProdutosSheetId ? ConfigService.getManualSaidaProdutosSheetId() : null,
-      ESTOQUE: ConfigService.getEstoqueSheetId ? ConfigService.getEstoqueSheetId() : null
-    };
-
     var sheetsToProcess = [
-      { name: SHEETS.NFE, sheetId: sheetIds.NFE, repo: NFeEntradaProdutosRepository },
-      { name: SHEETS.MANUAL_ENTRADA, sheetId: sheetIds.MANUAL_ENTRADA, repo: ManualEntradaProdutosRepository },
-      { name: SHEETS.MANUAL_SAIDA, sheetId: sheetIds.MANUAL_SAIDA, repo: ManualSaidaProdutosRepository },
-      { name: SHEETS.ESTOQUE, sheetId: sheetIds.ESTOQUE, repo: EstoqueRepository }
+      { name: SHEETS.NFE, sheetId: ConfigService.getNfeEntradaProdutosSheetId ? ConfigService.getNfeEntradaProdutosSheetId() : null },
+      { name: SHEETS.MANUAL_ENTRADA, sheetId: ConfigService.getManualEntradaProdutosSheetId ? ConfigService.getManualEntradaProdutosSheetId() : null },
+      { name: SHEETS.MANUAL_SAIDA, sheetId: ConfigService.getManualSaidaProdutosSheetId ? ConfigService.getManualSaidaProdutosSheetId() : null },
+      { name: SHEETS.ESTOQUE, sheetId: ConfigService.getEstoqueSheetId ? ConfigService.getEstoqueSheetId() : null }
     ];
 
     for (var s = 0; s < sheetsToProcess.length; s++) {
@@ -138,7 +131,7 @@ var SkuService = (function () {
       if (!sheet.sheetId) continue;
 
       try {
-        var rows = sheet.repo.getRows ? sheet.repo.getRows(sheet.sheetId) : [];
+        var rows = SheetsRepository.getRows(sheet.name);
         var updates = [];
 
         for (var i = 0; i < rows.length; i++) {
@@ -187,9 +180,9 @@ var SkuService = (function () {
           }
         }
 
-        if (!dryRun && updates.length > 0 && sheet.repo.updateCell) {
+        if (!dryRun && updates.length > 0) {
           for (var u = 0; u < updates.length; u++) {
-            sheet.repo.updateCell(sheet.sheetId, updates[u].rowIndex, 'SKU', updates[u].sku);
+            SheetsRepository.updateCell(sheet.name, updates[u].rowIndex, 'SKU', updates[u].sku);
           }
         }
       } catch (e) {
@@ -266,23 +259,16 @@ var SkuService = (function () {
   function getAllExistingSkus_() {
     var allSkus = [];
 
-    var sheetIds = [];
-    try { sheetIds.push(ConfigService.getNfeEntradaProdutosSheetId()); } catch (e) {}
-    try { sheetIds.push(ConfigService.getManualEntradaProdutosSheetId()); } catch (e) {}
-    try { sheetIds.push(ConfigService.getManualSaidaProdutosSheetId()); } catch (e) {}
-    try { sheetIds.push(ConfigService.getEstoqueSheetId()); } catch (e) {}
-
-    var repos = [
-      NFeEntradaProdutosRepository,
-      ManualEntradaProdutosRepository,
-      ManualSaidaProdutosRepository,
-      EstoqueRepository
+    var sheets = [
+      SHEETS.NFE,
+      SHEETS.MANUAL_ENTRADA,
+      SHEETS.MANUAL_SAIDA,
+      SHEETS.ESTOQUE
     ];
 
-    for (var s = 0; s < sheetIds.length; s++) {
-      if (!sheetIds[s]) continue;
+    for (var s = 0; s < sheets.length; s++) {
       try {
-        var rows = repos[s].getRows ? repos[s].getRows(sheetIds[s]) : [];
+        var rows = SheetsRepository.getRows(sheets[s]);
         for (var i = 0; i < rows.length; i++) {
           var sku = rows[i].SKU || '';
           if (sku && allSkus.indexOf(sku) === -1) {

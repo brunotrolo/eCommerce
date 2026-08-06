@@ -67,6 +67,30 @@ var SheetsRepository = (function () {
     }
   }
 
+  function updateCell(sheetName, rowIndex, columnName, value) {
+    var ss = getSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) return false;
+
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var colIndex = -1;
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i] === columnName) {
+        colIndex = i + 1;
+        break;
+      }
+    }
+
+    if (colIndex === -1) {
+      colIndex = headers.length + 1;
+      sheet.getRange(1, colIndex).setValue(columnName);
+    }
+
+    sheet.getRange(rowIndex, colIndex).setValue(value);
+    invalidateRowsCache(sheetName);
+    return true;
+  }
+
   /**
    * Audit de operações de escrita. Não lança exceção — falha vira console.warn.
    * Regras completas em specs/write-audit.md.
@@ -140,6 +164,7 @@ var SheetsRepository = (function () {
     appendRow: appendRow,
     getRows: getRows,
     invalidateRowsCache: invalidateRowsCache,
-    logWriteAudit: logWriteAudit
+    logWriteAudit: logWriteAudit,
+    updateCell: updateCell
   };
 })();
