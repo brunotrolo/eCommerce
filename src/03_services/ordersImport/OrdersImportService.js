@@ -72,6 +72,17 @@ var OrdersImportService = (function () {
     return parts.join(' | ');
   }
 
+  function formatItemSkus_(items) {
+    if (!items || items.length === 0) return '';
+    var parts = [];
+    for (var i = 0; i < items.length; i++) {
+      var sku = items[i].item_sku || '';
+      var qty = items[i].model_quantity_purchased || 1;
+      if (sku) parts.push(sku + ':' + qty);
+    }
+    return parts.join(', ');
+  }
+
   function listOrderSnsByStatus_(orderStatus) {
     var startTime = Date.now();
     var result = callTiops_('shopee_list_orders', { limit: 100, order_status: orderStatus });
@@ -184,6 +195,7 @@ var OrdersImportService = (function () {
       RECIPIENT_ZIPCODE: addr.zipcode || '',
       RECIPIENT_FULL_ADDRESS: addr.full_address || '',
       ITEMS_DETAIL: formatItemsDetail_(items),
+      ITEM_SKUS: formatItemSkus_(items),
       ITEM_COUNT: items.length,
       TOTAL_WEIGHT_GRAM: Math.round(totalWeightGram),
       MESSAGE_TO_SELLER: detail.message_to_seller || '',

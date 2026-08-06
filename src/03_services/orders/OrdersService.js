@@ -99,7 +99,8 @@ var OrdersService = (function () {
     var total = num_(row.TOTAL_AMOUNT || row.total_amount || row.total || 0);
     var buyerName = row.BUYER_USERNAME || row.buyer_username || row.buyerName || row.buyer_name || '';
     var paymentMethod = row.PAYMENT_METHOD || row.payment_method || row.paymentMethod || '';
-    var itemNames = row.ITEM_NAMES || row.item_names || row.itemNames || row.ITEMS_DETAIL || row.items_detail || row.itemsDetail || '';
+    var itemNames = row.ITEMS_DETAIL || row.items_detail || row.itemsDetail || '';
+    var itemSkus = row.ITEM_SKUS || row.item_skus || row.itemSkus || '';
 
     var escrowAmount = num_(row.ESCROW_AMOUNT || row.escrow_amount || 0);
     var netCommissionFee = num_(row.NET_COMMISSION_FEE || row.net_commission_fee || 0);
@@ -123,6 +124,7 @@ var OrdersService = (function () {
       createdAt: brDateTime_(row.CREATE_TIME || row.create_time || row.createdAt || row.created_at || ''),
       paymentMethod: paymentMethod,
       itemNames: itemNames,
+      itemSkus: itemSkus,
       liquid: netAmount,
       escrowAmount: escrowAmount,
       commissionFee: num_(row.COMMISSION_FEE || row.commission_fee || 0),

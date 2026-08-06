@@ -374,6 +374,7 @@
       var items =
         '<section><h4>Produtos</h4>' +
         (o.itemNames ? '<ul><li>' + escapeHtml_(o.itemNames) + '</li></ul>' : '<span>Sem detalhe de itens</span>') +
+        (o.itemSkus ? '<div class="detail-line"><span>SKUs</span><strong>' + escapeHtml_(o.itemSkus) + '</strong></div>' : '') +
         '</section>';
 
       var times =
@@ -450,7 +451,7 @@
       var filtered = orders.filter(function (o) {
         if (status !== 'all' && String(o.status || '').toUpperCase() !== status) return false;
         if (!search) return true;
-        var haystack = [o.id, o.buyerName, o.itemNames, o.paymentMethod, o.statusLabel, o.recipientName, o.recipientCity].filter(Boolean).join(' ').toLowerCase();
+        var haystack = [o.id, o.buyerName, o.itemNames, o.itemSkus, o.paymentMethod, o.statusLabel, o.recipientName, o.recipientCity].filter(Boolean).join(' ').toLowerCase();
         return haystack.indexOf(search) !== -1;
       });
 
