@@ -1,9 +1,56 @@
 <template id="dashboard-template">
+  <style>
+    .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg); }
+    .header-row h1 { margin: 0; }
+    .header-actions { display: flex; gap: var(--space-sm); }
+    .btn-sync-all {
+      padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
+      cursor: pointer; border: 1px solid var(--color-primary);
+      background: var(--color-primary); color: var(--color-on-primary);
+      transition: background var(--transition-fast);
+    }
+    .btn-sync-all:hover { background: var(--color-primary-hover); }
+    .btn-sync-all:disabled { opacity: 0.5; cursor: not-allowed; }
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg); width: 95vw; max-width: 480px;
+      padding: var(--space-xl); box-shadow: var(--shadow-lg);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg); }
+    .modal-header h2 { margin: 0; font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); color: var(--color-text); }
+    .btn-close {
+      background: none; border: none; cursor: pointer;
+      font-size: var(--font-size-lg); color: var(--color-text-secondary);
+      padding: var(--space-xs); border-radius: var(--radius-xs);
+    }
+    .btn-close:hover { background: var(--color-surface-hover); }
+    .btn-close:disabled { cursor: default; opacity: 0.4; }
+    .sync-status { font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text); margin-bottom: var(--space-xs); }
+    .sync-stage { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-sm); min-height: 1.2em; }
+    .progress-track { height: 8px; border-radius: var(--radius-full); background: var(--color-surface-alt); overflow: hidden; margin-bottom: var(--space-md); }
+    .progress-fill { height: 100%; width: 0%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.25s ease; }
+    .sync-summary { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+  </style>
   <div class="widget-grid">
     <div class="card">
-      <h1>Dashboard</h1>
-      <p class="page-subtitle">Visão unificada de vendas, pedidos e estoque das duas lojas.</p>
-      <button class="btn" id="btn-refresh">Atualizar</button>
+      <div class="header-row">
+        <div>
+          <h1>Dashboard</h1>
+          <p class="page-subtitle">Visao unificada de vendas, pedidos e estoque das duas lojas.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn" id="btn-refresh">Atualizar</button>
+          <button class="btn-sync-all" id="btn-sync-all">Sincronizar Tudo</button>
+        </div>
+      </div>
       <div class="alert alert-error" id="error-box" hidden></div>
       <div id="result-box" hidden></div>
     </div>
@@ -16,17 +63,39 @@
       </table>
     </div>
     <div class="card table-container">
-      <h3>Estoque baixo (≤ 3 un.)</h3>
+      <h3>Estoque baixo (<= 3 un.)</h3>
       <table class="table" id="lowstock-table">
         <thead><tr><th>Produto</th><th>Canal</th><th>Estoque</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
   </div>
+
+  <div class="modal-overlay" id="sync-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Sincronizando Dados</h2>
+        <button class="btn-close" id="btn-sync-close" title="Fechar">&times;</button>
+      </div>
+      <div class="sync-status" id="sync-status">Preparando...</div>
+      <div class="sync-stage" id="sync-stage"></div>
+      <div class="progress-track"><div class="progress-fill" id="sync-progress"></div></div>
+      <div class="sync-summary" id="sync-summary"></div>
+    </div>
+  </div>
 </template>
 <script>
   (function () {
     if (customElements.get('dashboard-widget')) return;
+
+    var STEP_LABELS = {
+      'nfeEntrada.syncAndUpdateSheets': 'NF-e do Drive',
+      'estoque.sincronizar': 'Estoque (NFs + Entradas)',
+      'estoque.sincronizarPrecosCatalogo': 'Precos do Catalogo',
+      'anunciosShopee.syncListings': 'Anuncios Shopee',
+      'ordersImport.importShopeeOrders': 'Pedidos Shopee',
+      'carteiraShopee.syncWallet': 'Carteira Shopee'
+    };
 
     class DashboardWidget extends HTMLElement {
       connectedCallback() {
@@ -35,6 +104,10 @@
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
         shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow, true));
+        shadow.getElementById('btn-sync-all').addEventListener('click', () => this._syncAll(shadow));
+        shadow.getElementById('btn-sync-close').addEventListener('click', function () {
+          shadow.getElementById('sync-overlay').classList.remove('open');
+        });
 
         var cached = window.__DataStore && window.__DataStore.get('dashboard.summary');
         if (cached) {
@@ -66,8 +139,100 @@
             if (ds) ds.set('dashboard.summary', data);
             render(shadow, data);
           },
-          (data) => (data.fromCache ? 'Dados em cache (até 5 min).' : 'Dados atualizados agora.')
+          (data) => (data.fromCache ? 'Dados em cache (ate 5 min).' : 'Dados atualizados agora.')
         );
+      }
+
+      _syncAll(shadow) {
+        var self = this;
+        var overlay = shadow.getElementById('sync-overlay');
+        var closeBtn = shadow.getElementById('btn-sync-close');
+        var statusEl = shadow.getElementById('sync-status');
+        var stageEl = shadow.getElementById('sync-stage');
+        var summaryEl = shadow.getElementById('sync-summary');
+        var fill = shadow.getElementById('sync-progress');
+        var btnSync = shadow.getElementById('btn-sync-all');
+
+        var steps = [];
+        var current = 0;
+        var results = [];
+        var encerrado = false;
+
+        function setStatus(t) { statusEl.textContent = t; }
+        function setStage(t) { stageEl.textContent = t; }
+        function setSummary(t) { summaryEl.textContent = t; }
+        function setProgress(p) { fill.style.width = p + '%'; }
+
+        function concluir(msg, erro) {
+          if (encerrado) return;
+          encerrado = true;
+          closeBtn.disabled = false;
+          btnSync.disabled = false;
+          if (!erro) setProgress(100);
+          setSummary(msg);
+          var ds = window.__DataStore;
+          if (ds) {
+            ds.invalidate('dashboard.summary');
+            ds.invalidate('estoque.Items.DISPONIVEL');
+            ds.invalidate('anunciosShopee.listings');
+            ds.invalidate('carteiraShopee.summary');
+          }
+          self._load(shadow, true);
+        }
+
+        function executarPasso() {
+          if (encerrado) return;
+          if (current >= steps.length) {
+            setStatus('Sincronizacao concluida');
+            var ok = results.filter(function (r) { return r.ok; }).length;
+            var falha = results.filter(function (r) { return !r.ok; }).length;
+            concluir(ok + ' etapa(s) OK' + (falha > 0 ? ', ' + falha + ' falha(s).' : '.'));
+            return;
+          }
+
+          var action = steps[current];
+          var label = STEP_LABELS[action] || action;
+          var pct = Math.round((current / steps.length) * 100);
+          setProgress(pct);
+          setStatus(label);
+          setStage('Etapa ' + (current + 1) + ' de ' + steps.length);
+
+          google.script.run
+            .withSuccessHandler(function (resp) {
+              results.push({ action: action, ok: true });
+              current++;
+              executarPasso();
+            })
+            .withFailureHandler(function (err) {
+              results.push({ action: action, ok: false, error: err.message || String(err) });
+              current++;
+              executarPasso();
+            })
+            .apiDispatch(action, {});
+        }
+
+        closeBtn.disabled = true;
+        btnSync.disabled = true;
+        overlay.classList.add('open');
+        setProgress(0);
+        setStage('');
+        setSummary('');
+        setStatus('Lendo configuracao...');
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            var data = (resp && resp.data) ? resp.data : resp;
+            steps = (data && data.steps) ? data.steps : [];
+            if (steps.length === 0) {
+              concluir('Nenhuma etapa configurada. Verifique a aba CONFIG (chave sincronizar).', true);
+              return;
+            }
+            executarPasso();
+          })
+          .withFailureHandler(function (err) {
+            concluir('Erro ao ler config: ' + (err.message || err), true);
+          })
+          .apiDispatch('dashboard.getSyncOrder', {});
       }
     }
 
@@ -105,7 +270,7 @@
         '<div class="stat-card stat-card--warning">' +
         '<span class="stat-label">Alertas estoque</span>' +
         '<span class="stat-value stat-value--warning">' + lowStock.length + '</span>' +
-        '<span class="stat-meta">itens com ≤ 3 un.</span>' +
+        '<span class="stat-meta">itens com <= 3 un.</span>' +
         '</div>';
     }
 

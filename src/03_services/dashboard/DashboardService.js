@@ -20,6 +20,13 @@ var DashboardService = (function () {
             lowStock: 'array',
             fromCache: 'boolean'
           }
+        },
+        getSyncOrder: {
+          description: 'Retorna a lista de acoes de sincronizacao na ordem configurada na aba CONFIG (chave sincronizar).',
+          params: {},
+          returns: {
+            steps: 'array'
+          }
         }
       }
     };
@@ -63,5 +70,18 @@ var DashboardService = (function () {
     };
   }
 
-  return { describe: describe, getSummary: getSummary };
+  function getSyncOrder() {
+    var raw = ConfigService.get('sincronizar');
+    if (!raw) {
+      return { steps: [] };
+    }
+    try {
+      var steps = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return { steps: Array.isArray(steps) ? steps : [] };
+    } catch (e) {
+      return { steps: [] };
+    }
+  }
+
+  return { describe: describe, getSummary: getSummary, getSyncOrder: getSyncOrder };
 })();

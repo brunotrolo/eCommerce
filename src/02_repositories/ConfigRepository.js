@@ -15,7 +15,15 @@ var ConfigRepository = (function () {
     ml_fee_fixed: 6,
     default_margin_pct: 0.25,
     shopee_account_id: '1880105398',
-    ml_account_id: '3520412809'
+    ml_account_id: '3520412809',
+    sincronizar: JSON.stringify([
+      'nfeEntrada.syncAndUpdateSheets',
+      'estoque.sincronizar',
+      'estoque.sincronizarPrecosCatalogo',
+      'anunciosShopee.syncListings',
+      'ordersImport.importShopeeOrders',
+      'carteiraShopee.syncWallet'
+    ])
   };
 
   function getOrCreateSheet(sheetId) {
@@ -34,8 +42,9 @@ var ConfigRepository = (function () {
         var desc = '';
         if (keys[i].indexOf('fee_pct') !== -1) desc = 'Taxa percentual (ex.: 0.20 = 20%)';
         else if (keys[i].indexOf('fee_fixed') !== -1) desc = 'Taxa fixa em R$';
-        else if (keys[i].indexOf('margin') !== -1) desc = 'Margem padrão (ex.: 0.25 = 25%)';
+        else if (keys[i].indexOf('margin') !== -1) desc = 'Margem padrao (ex.: 0.25 = 25%)';
         else if (keys[i].indexOf('account_id') !== -1) desc = 'ID da conta no marketplace';
+        else if (keys[i] === 'sincronizar') desc = 'JSON com ordem das acoes de sincronizacao';
         sheet.appendRow([keys[i], DEFAULTS[keys[i]], desc]);
       }
       return sheet;
@@ -89,8 +98,9 @@ var ConfigRepository = (function () {
     var desc = '';
     if (chave.indexOf('fee_pct') !== -1) desc = 'Taxa percentual';
     else if (chave.indexOf('fee_fixed') !== -1) desc = 'Taxa fixa em R$';
-    else if (chave.indexOf('margin') !== -1) desc = 'Margem padrão';
+    else if (chave.indexOf('margin') !== -1) desc = 'Margem padrao';
     else if (chave.indexOf('account_id') !== -1) desc = 'ID da conta';
+    else if (chave === 'sincronizar') desc = 'JSON com ordem das acoes de sincronizacao';
     sheet.appendRow([chave, valor, desc]);
     return { success: true };
   }
