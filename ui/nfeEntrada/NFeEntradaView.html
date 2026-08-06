@@ -361,6 +361,10 @@
 
           for (var i = 0; i < rows.length; i++) {
             var r = rows[i];
+            console.log('[NFeEntradaView] NF=' + r.NUMERO_NF +
+              ' DATA_EMISSAO=' + JSON.stringify(r.DATA_EMISSAO) +
+              ' type=' + typeof r.DATA_EMISSAO +
+              ' formatted=' + FormatterService.formatDate(r.DATA_EMISSAO));
             var statusClass = r.STATUS_NFE === 'Autorizado' ? 'badge-success' : 'badge-warning';
             var vProdutos = parseFloat(r.VALOR_PRODUTOS);
             if (isNaN(vProdutos)) vProdutos = parseFloat(r.VALOR_TOTAL) || 0;
