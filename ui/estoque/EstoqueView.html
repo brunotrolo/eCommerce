@@ -239,6 +239,15 @@
         return this._shadow.getElementById(id);
       }
 
+      _invalidateCache() {
+        var ds = window.__DataStore;
+        if (!ds) return;
+        var statuses = ['DISPONIVEL', 'VENDIDO', 'DEVOLVIDO', 'QUEBRADO', 'COM_DEFEITO'];
+        for (var i = 0; i < statuses.length; i++) {
+          ds.invalidate('estoque.Items.' + statuses[i]);
+        }
+      }
+
       _load() {
         var self = this;
         var loadingEl = this._el('loading-state');
@@ -249,29 +258,32 @@
         var cacheKey = 'estoque.Items.' + statusVal;
         var ds = window.__DataStore;
 
-        var cached = ds && ds.get(cacheKey);
-        if (cached) {
-          if (loadingEl) loadingEl.style.display = 'none';
-          var data = self._unwrap(cached);
-          self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
-          self._applyFilters();
-        }
-
-        google.script.run
-          .withSuccessHandler(function (resp) {
-            if (loadingEl) loadingEl.style.display = 'none';
-            if (ds) ds.set(cacheKey, resp);
-            var data = self._unwrap(resp);
-            self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
-            self._applyFilters();
-          })
-          .withFailureHandler(function (err) {
-            if (loadingEl) loadingEl.style.display = 'none';
-            if (!cached) {
+        if (ds) {
+          ds.getOrFetch(cacheKey, 'estoque.getItems', params)
+            .then(function (resp) {
+              if (loadingEl) loadingEl.style.display = 'none';
+              var data = self._unwrap(resp);
+              self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+              self._applyFilters();
+            })
+            .catch(function (err) {
+              if (loadingEl) loadingEl.style.display = 'none';
               showError(self._shadow, 'Erro ao carregar estoque: ' + (err.message || err));
-            }
-          })
-          .apiDispatch('estoque.getItems', params);
+            });
+        } else {
+          google.script.run
+            .withSuccessHandler(function (resp) {
+              if (loadingEl) loadingEl.style.display = 'none';
+              var data = self._unwrap(resp);
+              self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+              self._applyFilters();
+            })
+            .withFailureHandler(function (err) {
+              if (loadingEl) loadingEl.style.display = 'none';
+              showError(self._shadow, 'Erro ao carregar estoque: ' + (err.message || err));
+            })
+            .apiDispatch('estoque.getItems', params);
+        }
       }
 
       _unwrap(resp) {
@@ -319,6 +331,7 @@
           btn.disabled = false;
           if (!erro) setProgress(100);
           setSummary(mensagem);
+          self._invalidateCache();
           self._load();
         }
 
@@ -417,6 +430,7 @@
                 msg += ' ' + data.semPrecoCatalogo + ' sem preço no catálogo.';
               }
               showSuccess(self._shadow, msg);
+              self._invalidateCache();
               self._load();
             }
           })
@@ -697,9 +711,11 @@
               if (data.updated > 1) {
                 showSuccess(self._shadow, 'Preco atualizado em ' + data.updated + ' itens do mesmo produto.');
               }
+              self._invalidateCache();
               self._load();
             } else {
               showError(self._shadow, 'Erro: ' + (data ? data.error : 'desconhecido'));
+              self._invalidateCache();
               self._load();
             }
           })
@@ -707,6 +723,7 @@
             input.classList.remove('saving');
             delete self._saving[estoqueId];
             showError(self._shadow, 'Erro ao salvar: ' + (err.message || err));
+            self._invalidateCache();
             self._load();
           })
           .apiDispatch('estoque.updateItem', params);
@@ -727,9 +744,11 @@
             var data = self._unwrap(resp);
             if (data && data.success) {
               showSuccess(self._shadow, 'Status alterado para ' + novoStatus + '.');
+              self._invalidateCache();
               self._load();
             } else {
               showError(self._shadow, 'Erro: ' + (data ? data.error : 'desconhecido'));
+              self._invalidateCache();
               self._load();
             }
           })
@@ -737,6 +756,7 @@
             select.disabled = false;
             delete self._saving[estoqueId];
             showError(self._shadow, 'Erro ao alterar status: ' + (err.message || err));
+            self._invalidateCache();
             self._load();
           })
           .apiDispatch('estoque.updateItem', { estoqueId: estoqueId, status: novoStatus });
@@ -780,15 +800,18 @@
                 var data2 = self._unwrap(resp2);
                 if (data2 && data2.success) {
                   showSuccess(self._shadow, 'Precos preenchidos do catalogo. ' + (data2.updated > 1 ? data2.updated + ' itens atualizados.' : ''));
+                  self._invalidateCache();
                   self._load();
                 } else {
                   showError(self._shadow, 'Erro ao salvar: ' + (data2 ? data2.error : 'desconhecido'));
+                  self._invalidateCache();
                   self._load();
                 }
               })
               .withFailureHandler(function (err) {
                 delete self._saving[estoqueId];
                 showError(self._shadow, 'Erro ao salvar precos: ' + (err.message || err));
+                self._invalidateCache();
                 self._load();
               })
               .apiDispatch('estoque.updateItem', params);
