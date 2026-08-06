@@ -1,4 +1,31 @@
 <template id="anuncios-shopee-template">
+  <style>
+    th[data-sort] {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 24px !important;
+    }
+    th[data-sort]:hover { background: var(--color-bg-secondary, #f7f8fa); }
+    th[data-sort]::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--color-text-tertiary, #b0b7c3);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    th[data-sort].sort-asc::after,
+    th[data-sort].sort-desc::after { opacity: 1; }
+    th[data-sort].sort-desc::after {
+      border-top: none;
+      border-bottom: 5px solid var(--color-text-tertiary, #b0b7c3);
+    }
+  </style>
   <div class="widget-grid">
     <div class="card">
       <h1>Anúncios Shopee</h1>
@@ -14,13 +41,13 @@
       <table class="table" id="items-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Nome</th>
-            <th>Preço</th>
-            <th>Estoque</th>
-            <th>Status</th>
-            <th>Vendas 30d</th>
-            <th>Avaliação</th>
+            <th data-sort="ITEM_ID">ID</th>
+            <th data-sort="NOME">Nome</th>
+            <th data-sort="PRECO">Preço</th>
+            <th data-sort="ESTOQUE">Estoque</th>
+            <th data-sort="STATUS">Status</th>
+            <th data-sort="VENDAS_30D">Vendas 30d</th>
+            <th data-sort="AVALIACAO">Avaliação</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -244,7 +271,8 @@
 
     function renderTable(shadow, rows) {
       var body = shadow.querySelector('#items-table tbody');
-      var html = rows
+      var sorted = sortRows(rows);
+      var html = sorted
         .map(function (r) {
           var status = r.STATUS || 'ativo';
           var acoes = '';
@@ -276,6 +304,22 @@
         })
         .join('');
       body.innerHTML = html || '<tr><td colspan="8">Nenhum anúncio ainda. Clique em "Sincronizar Anúncios".</td></tr>';
+
+      var tableEl = shadow.querySelector('#items-table');
+      updateSortArrows(tableEl);
+      var ths = tableEl.querySelectorAll('th[data-sort]');
+      for (var t = 0; t < ths.length; t++) {
+        ths[t].addEventListener('click', function () {
+          var field = this.getAttribute('data-sort');
+          if (_sortState.field === field) {
+            _sortState.asc = !_sortState.asc;
+          } else {
+            _sortState.field = field;
+            _sortState.asc = true;
+          }
+          renderTable(shadow, rows);
+        });
+      }
 
       body.querySelectorAll('button[data-act]').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -312,6 +356,51 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    }
+
+    var _sortState = { field: null, asc: true };
+
+    function sortIcon(field) {
+      if (_sortState.field !== field) return ' <span class="sort-arrow"></span>';
+      return _sortState.asc
+        ? ' <span class="sort-arrow sort-asc"></span>'
+        : ' <span class="sort-arrow sort-desc"></span>';
+    }
+
+    function sortRows(rows) {
+      if (!_sortState.field) return rows;
+      var sorted = rows.slice();
+      sorted.sort(function (a, b) {
+        var va = a[_sortState.field];
+        var vb = b[_sortState.field];
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (typeof va === 'string') {
+          va = va.toLowerCase();
+          vb = (vb || '').toLowerCase();
+        }
+        return va < vb ? -1 : va > vb ? 1 : 0;
+      });
+      return _sortState.asc ? sorted : sorted.reverse();
+    }
+
+    function updateSortArrows(tableEl) {
+      var ths = tableEl.querySelectorAll('th[data-sort]');
+      for (var i = 0; i < ths.length; i++) {
+        var th = ths[i];
+        var field = th.getAttribute('data-sort');
+        th.classList.remove('sort-asc', 'sort-desc');
+        var arrow = th.querySelector('.sort-arrow');
+        if (!arrow) {
+          arrow = document.createElement('span');
+          arrow.className = 'sort-arrow';
+          th.appendChild(arrow);
+        }
+        arrow.classList.remove('sort-asc', 'sort-desc');
+        if (_sortState.field === field) {
+          arrow.classList.add(_sortState.asc ? 'sort-asc' : 'sort-desc');
+        }
+      }
     }
 
     class AnunciosShopeeWidgetActions {
