@@ -45,7 +45,24 @@ var ServiceRegistry = (function () {
     pushNotification: safeRef_('pushNotification', function () { return typeof PushNotificationService !== 'undefined' ? PushNotificationService : undefined; }),
     carteiraShopee: safeRef_('carteiraShopee', function () { return typeof CarteiraShopeeService !== 'undefined' ? CarteiraShopeeService : undefined; }),
     anunciosShopee: safeRef_('anunciosShopee', function () { return typeof AnunciosShopeeService !== 'undefined' ? AnunciosShopeeService : undefined; }),
-    sku: safeRef_('sku', function () { return typeof SkuService !== 'undefined' ? SkuService : undefined; })
+    sku: safeRef_('sku', function () { return typeof SkuService !== 'undefined' ? SkuService : undefined; }),
+    debug: safeRef_('debug', function () {
+      return {
+        describe: function () {
+          return {
+            name: 'debug',
+            actions: {
+              getSheetHeaders: {
+                description: 'TEMP: Retorna headers de todas as abas',
+                params: {},
+                returns: { headers: 'object' }
+              }
+            }
+          };
+        },
+        getSheetHeaders: function () { return debugGetSheetHeaders(); }
+      };
+    })
   };
 
   function listActions() {
