@@ -93,9 +93,9 @@ var FormatterService = (function () {
     if (isNaN(d.getTime())) return '';
 
     format = format || LOCALE_CONFIG.date.format;
-    var day = d.getUTCDate();
-    var month = d.getUTCMonth() + 1;
-    var year = d.getUTCFullYear();
+    var day = d.getDate();
+    var month = d.getMonth() + 1;
+    var year = d.getFullYear();
 
     return format.replace('DD', padZero(day)).replace('MM', padZero(month)).replace('YYYY', String(year)).replace('YY', String(year).slice(-2));
   }
@@ -110,7 +110,7 @@ var FormatterService = (function () {
     if (isNaN(d.getTime())) return '';
 
     format = format || LOCALE_CONFIG.time.format;
-    return format.replace('HH', padZero(d.getUTCHours())).replace('MM', padZero(d.getUTCMinutes())).replace('SS', padZero(d.getUTCSeconds()));
+    return format.replace('HH', padZero(d.getHours())).replace('MM', padZero(d.getMinutes())).replace('SS', padZero(d.getSeconds()));
   }
 
   function formatDateTime(date, format) {
@@ -202,8 +202,8 @@ var FormatterService = (function () {
       if (parts.length !== 3) return null;
       var day = parseInt(parts[0], 10), month = parseInt(parts[1], 10) - 1, year = parseInt(parts[2], 10);
       if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
-      var d = new Date(Date.UTC(year, month, day));
-      if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month || d.getUTCDate() !== day) return null;
+      var d = new Date(year, month, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) return null;
       return d;
     }
 
@@ -212,8 +212,8 @@ var FormatterService = (function () {
       if (p.length !== 3) return null;
       var y = parseInt(p[0], 10), m = parseInt(p[1], 10) - 1, dd = parseInt(p[2], 10);
       if (isNaN(y) || isNaN(m) || isNaN(dd)) return null;
-      var d2 = new Date(Date.UTC(y, m, dd));
-      if (d2.getUTCFullYear() !== y || d2.getUTCMonth() !== m || d2.getUTCDate() !== dd) return null;
+      var d2 = new Date(y, m, dd);
+      if (d2.getFullYear() !== y || d2.getMonth() !== m || d2.getDate() !== dd) return null;
       return d2;
     }
 
@@ -242,7 +242,7 @@ var FormatterService = (function () {
     if (!d) return null;
     var t = parseTime(str.substring(spaceIdx + 1));
     if (!t) return null;
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), t.hours, t.minutes, t.seconds));
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.hours, t.minutes, t.seconds);
   }
 
   function parsePercent(value) {

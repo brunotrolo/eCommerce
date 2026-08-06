@@ -221,6 +221,26 @@ Medição é 100% client-side. O StatusService (`src/03_services/system/`) só
 retorna `{isOnline, timestamp, lastUpdate}` — os timers são calculados no
 browser.
 
+## Timezone Strategy (datas no ecossistema GAS ↔ UI)
+
+**Regra:** o backend (GAS) é a fonte de verdade para formatação de datas.
+O frontend (HTML/JS) exibe strings já formatadas, sem reprocessar com
+`new Date(string)`.
+
+- **Backend:** toda data que sai do GAS deve ser formatada como string BR
+  (`dd/MM/yyyy` ou `dd/MM/yyyy HH:mm:ss`) usando
+  `Session.getScriptTimeZone()` antes de retornar ao cliente.
+- **Frontend:** receba a string BR e exiba direto. Nunca faça
+  `new Date(r.DATA_TRANSACAO)` — isso interpreta como UTC e desloca o dia.
+  Use `fmtDate_()` ou `FormatterService.formatDate()` para exibir.
+- **Exceção:** dados numéricos (timestamps ISO) devem ser convertidos pelo
+  backend antes de chegar ao frontend. Se o frontend receber ISO, use
+  `FormatterService.parseDate()` + métodos locais (`getDate()`, não
+  `getUTCDate()`).
+- **Padrão `Formatter.html`:** todos os métodos (`formatDate`,
+  `formatDateTime`, `formatTime`, `parseDate`, `parseDateTime`) usam
+  tempo **local**, nunca UTC.
+
 ## Segurança de Arquitetura: Prevenção de Regressões
 
 ### Arquivos compartilhados (NÃO alterar sem aprovação explícita)

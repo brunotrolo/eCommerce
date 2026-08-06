@@ -138,6 +138,15 @@ var ServiceRegistry = (function () {
       if (rule.enum && rule.enum.indexOf(value) === -1) {
         return 'Parâmetro ' + key + ' deve ser um de: ' + rule.enum.join(', ');
       }
+      if (rule.min !== undefined && typeof value === 'number' && value < rule.min) {
+        return 'Parâmetro ' + key + ' deve ser >= ' + rule.min + '.';
+      }
+      if (rule.max !== undefined && typeof value === 'number' && value > rule.max) {
+        return 'Parâmetro ' + key + ' deve ser <= ' + rule.max + '.';
+      }
+      if (rule.pattern && typeof value === 'string' && !(new RegExp(rule.pattern)).test(value)) {
+        return 'Parâmetro ' + key + ' não atende ao padrão: ' + rule.pattern;
+      }
     }
     return null;
   }

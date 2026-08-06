@@ -21,6 +21,7 @@
         <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th>Status</th></tr></thead>
         <tbody></tbody>
       </table>
+      <div id="tx-pager" style="text-align:center;margin-top:8px;"></div>
     </div>
     <div class="card table-container">
       <h3>Histórico de payouts</h3>
@@ -103,7 +104,7 @@
           .withFailureHandler(function (err) {
             showError(shadow, 'Erro ao carregar transações: ' + ((err && err.message) || 'desconhecido'));
           })
-          .apiDispatch('carteiraShopee.getTransacoes', { limit: 10 });
+          .apiDispatch('carteiraShopee.getTransacoes', { limit: 100 });
       }
 
       _loadPayouts(shadow) {
@@ -121,6 +122,17 @@
     function formatBRL(value) {
       if (value == null || isNaN(value)) return '-';
       return FormatterService.formatCurrency(value);
+    }
+
+    function fmtDate_(value) {
+      if (!value || typeof value !== 'string') return '-';
+      var isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        return isoMatch[3] + '/' + isoMatch[2] + '/' + isoMatch[1];
+      }
+      var brMatch = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (brMatch) return value;
+      return value;
     }
 
     function render(shadow, data) {
@@ -197,14 +209,14 @@
         html +=
           '<p class="stat-meta">Próximo payout</p>' +
           '<p class="stat-value stat-value--primary">' + formatBRL(payout.proximoValor) + '</p>' +
-          '<p class="stat-meta">' + payout.proximaData + ' • ' + (payout.metodo || 'PIX') + '</p>';
+          '<p class="stat-meta">' + fmtDate_(payout.proximaData) + ' • ' + (payout.metodo || 'PIX') + '</p>';
       } else {
-        html += '<p class="stat-meta">Nenhum payout futuro agendado.</p>';
+        html += '<p class="stat-meta">Sem agendamento.</p>';
       }
       if (payout.ultimoPagamento && payout.ultimoPagamento.data) {
         html +=
           '<p class="stat-meta">Último pagamento</p>' +
-          '<p class="stat-meta">' + payout.ultimoPagamento.data + ' • ' +
+          '<p class="stat-meta">' + fmtDate_(payout.ultimoPagamento.data) + ' • ' +
           formatBRL(payout.ultimoPagamento.valor) + '</p>';
       }
       shadow.getElementById('payout-box').innerHTML = html || '<p class="stat-meta">Sem dados.</p>';
@@ -221,19 +233,44 @@
         '<p class="stat-meta">Taxas: ' + formatBRL(renda.taxasPlataforma) + '</p>';
     }
 
+    var _txAllRows = [];
+    var _txPage = 1;
+    var _txPageSize = 10;
+
     function renderTransacoes(shadow, rows) {
+      _txAllRows = rows || [];
+      _txPage = 1;
+      _renderTxPage(shadow);
+    }
+
+    function _renderTxPage(shadow) {
       var body = shadow.querySelector('#tx-table tbody');
-      var html = rows
-        .slice(0, 10)
+      var end = _txPage * _txPageSize;
+      var visible = _txAllRows.slice(0, end);
+      var html = visible
         .map(function (r) {
           return (
-            '<tr><td>' + (r.DATA_TRANSACAO || '-') + '</td><td>' + (r.TIPO_TRANSACAO || '-') +
+            '<tr><td>' + fmtDate_(r.DATA_TRANSACAO) + '</td><td>' + (r.TIPO_TRANSACAO || '-') +
             '</td><td>' + (r.DESCRICAO || '-') + '</td><td>' + formatBRL(r.VALOR) +
             '</td><td>' + (r.STATUS || '-') + '</td></tr>'
           );
         })
         .join('');
+      var hasMore = _txAllRows.length > end;
+      var pager = shadow.querySelector('#tx-pager');
+      if (pager) {
+        pager.innerHTML = hasMore
+          ? '<button id="btn-tx-more" class="btn btn-sm">Ver mais (' + _txAllRows.length - end + ' restantes)</button>'
+          : '';
+      }
       body.innerHTML = html || '<tr><td colspan="5">Sem transações ainda. Sincronize a carteira.</td></tr>';
+      var btnMore = shadow.querySelector('#btn-tx-more');
+      if (btnMore) {
+        btnMore.addEventListener('click', function () {
+          _txPage++;
+          _renderTxPage(shadow);
+        });
+      }
     }
 
     function renderPayouts(shadow, rows) {
@@ -242,7 +279,7 @@
         .slice(0, 12)
         .map(function (r) {
           return (
-            '<tr><td>' + (r.DATA_PAYOUT || '-') + '</td><td>' + formatBRL(r.VALOR) +
+            '<tr><td>' + fmtDate_(r.DATA_PAYOUT) + '</td><td>' + formatBRL(r.VALOR) +
             '</td><td>' + (r.METODO || '-') + '</td><td>' + (r.STATUS || '-') +
             '</td><td>' + (r.REFERENCIA || '-') + '</td></tr>'
           );
