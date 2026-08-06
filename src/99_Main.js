@@ -887,3 +887,11 @@ function syncAnunciosShopeeDaily() {
     ' novos=' + (result.synced ? result.synced.novosCriados : 0) +
     ' erros=' + result.errors.length);
 }
+
+function backfillSkus() {
+  Logger.log('Iniciando backfill de SKUs...');
+  var result = SkuService.backfill({ dryRun: false });
+  Logger.log('Backfill concluído: processados=' + result.processed +
+    ' gerados=' + result.generated + ' ignorados=' + result.skipped);
+  return result;
+}
