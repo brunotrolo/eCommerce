@@ -895,3 +895,20 @@ function backfillSkus() {
     ' gerados=' + result.generated + ' ignorados=' + result.skipped);
   return result;
 }
+
+/** TEMP: lê headers de todas as abas para debug */
+function debugGetSheetHeaders() {
+  var ss = SpreadsheetApp.openById(ConfigService.getSheetId());
+  var sheetNames = ['PEDIDOS', 'ESTOQUE', 'NFE_ENTRADA_PRODUTOS', 'MANUAL_ENTRADA_PRODUTOS', 'MANUAL_SAIDA_PRODUTOS', 'ANUNCIOS_SHOPEE'];
+  var result = {};
+  for (var i = 0; i < sheetNames.length; i++) {
+    var sheet = ss.getSheetByName(sheetNames[i]);
+    if (sheet) {
+      var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      result[sheetNames[i]] = headers;
+    } else {
+      result[sheetNames[i]] = 'SHEET NOT FOUND';
+    }
+  }
+  return result;
+}
