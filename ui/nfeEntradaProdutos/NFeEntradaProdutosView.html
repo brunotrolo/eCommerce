@@ -222,6 +222,31 @@
     .toggle-switch input:checked + .toggle-slider:before {
       transform: translateX(18px);
     }
+    th[data-sort] {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 24px !important;
+    }
+    th[data-sort]:hover { background: var(--color-bg-secondary, #f7f8fa); }
+    th[data-sort]::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--color-text-tertiary, #b0b7c3);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    th[data-sort].sort-asc::after,
+    th[data-sort].sort-desc::after { opacity: 1; }
+    th[data-sort].sort-desc::after {
+      border-top: none;
+      border-bottom: 5px solid var(--color-text-tertiary, #b0b7c3);
+    }
   </style>
 
   <div class="widget-grid">
@@ -282,6 +307,53 @@
           }
           this._allItems = [];
           this._filterTags = [];
+          this._sortState = { field: null, asc: true };
+        }
+
+        _sortIcon(field) {
+          var s = this._sortState;
+          if (s.field !== field) return ' <span class="sort-arrow"></span>';
+          return s.asc
+            ? ' <span class="sort-arrow sort-asc"></span>'
+            : ' <span class="sort-arrow sort-desc"></span>';
+        }
+
+        _sortItems(items) {
+          var s = this._sortState;
+          if (!s.field) return items;
+          var sorted = items.slice();
+          sorted.sort(function (a, b) {
+            var va = a[s.field];
+            var vb = b[s.field];
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (typeof va === 'string') {
+              va = va.toLowerCase();
+              vb = (vb || '').toLowerCase();
+            }
+            return va < vb ? -1 : va > vb ? 1 : 0;
+          });
+          return s.asc ? sorted : sorted.reverse();
+        }
+
+        _updateSortArrows(tableEl) {
+          var self = this;
+          var ths = tableEl.querySelectorAll('th[data-sort]');
+          for (var i = 0; i < ths.length; i++) {
+            var th = ths[i];
+            var field = th.getAttribute('data-sort');
+            th.classList.remove('sort-asc', 'sort-desc');
+            var arrow = th.querySelector('.sort-arrow');
+            if (!arrow) {
+              arrow = document.createElement('span');
+              arrow.className = 'sort-arrow';
+              th.appendChild(arrow);
+            }
+            arrow.classList.remove('sort-asc', 'sort-desc');
+            if (self._sortState.field === field) {
+              arrow.classList.add(self._sortState.asc ? 'sort-asc' : 'sort-desc');
+            }
+          }
         }
 
         connectedCallback() {
@@ -441,6 +513,7 @@ self._showResult(html);
             '<div class="stat"><div class="stat-value">' + items.length + '</div><div class="stat-label">Itens</div></div>';
 
           var table = this.shadowRoot.getElementById('estoque-table');
+          items = this._sortItems(items);
           this._renderTable(table, items);
 
           var toggles = table.querySelectorAll('.toggle-switch input');
@@ -531,9 +604,16 @@ self._showResult(html);
 
         _renderTable(table, items) {
           var self = this;
-          var html = '<div class="table-container"><table class="table">' +
+          var html = '<div class="table-container"><table class="table" id="prod-table">' +
             '<thead><tr>' +
-            '<th>NF</th><th>Código</th><th>Descrição</th><th>NCM</th><th>Qtd</th><th>Vl Unit. Líquido</th><th>Vl Líquido Item</th><th>Status</th>' +
+            '<th data-sort="NUMERO_NF">NF' + this._sortIcon('NUMERO_NF') + '</th>' +
+            '<th data-sort="CODIGO_PRODUTO">Código' + this._sortIcon('CODIGO_PRODUTO') + '</th>' +
+            '<th data-sort="DESCRICAO_PRODUTO">Descrição' + this._sortIcon('DESCRICAO_PRODUTO') + '</th>' +
+            '<th data-sort="NCM">NCM' + this._sortIcon('NCM') + '</th>' +
+            '<th data-sort="QUANTIDADE">Qtd' + this._sortIcon('QUANTIDADE') + '</th>' +
+            '<th data-sort="vUnitLiq">Vl Unit. Líquido' + this._sortIcon('vUnitLiq') + '</th>' +
+            '<th data-sort="vLiq">Vl Líquido Item' + this._sortIcon('vLiq') + '</th>' +
+            '<th data-sort="STATUS">Status' + this._sortIcon('STATUS') + '</th>' +
             '</tr></thead><tbody>';
 
           for (var j = 0; j < items.length; j++) {
@@ -545,6 +625,7 @@ self._showResult(html);
             if (isNaN(vUnitLiq)) vUnitLiq = parseFloat(item.VALOR_UNITARIO) || 0;
             var vLiq = parseFloat(item.VALOR_LIQUIDO_ITEM);
             if (isNaN(vLiq)) vLiq = parseFloat(item.VALOR_TOTAL) || (vUnitLiq * (parseFloat(item.QUANTIDADE) || 0));
+            var enriched = Object.assign({}, item, { vUnitLiq: vUnitLiq, vLiq: vLiq });
             html += '<tr data-index="' + j + '" class="prod-row">' +
               '<td>' + nf + '</td>' +
               '<td>' + codProd + '</td>' +
@@ -559,6 +640,22 @@ self._showResult(html);
 
           html += '</tbody></table></div>';
           table.innerHTML = html;
+
+          var tableEl = table.querySelector('#prod-table');
+          self._updateSortArrows(tableEl);
+          var ths = tableEl.querySelectorAll('th[data-sort]');
+          for (var t = 0; t < ths.length; t++) {
+            ths[t].addEventListener('click', function () {
+              var field = this.getAttribute('data-sort');
+              if (self._sortState.field === field) {
+                self._sortState.asc = !self._sortState.asc;
+              } else {
+                self._sortState.field = field;
+                self._sortState.asc = true;
+              }
+              self._applyFilter();
+            });
+          }
 
           var allItems = items;
           var prodRows = table.querySelectorAll('.prod-row');

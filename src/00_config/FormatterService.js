@@ -121,22 +121,32 @@ var FormatterService = (function () {
     } else if (typeof date === 'number') {
       d = new Date(date);
     } else if (typeof date === 'string') {
-      d = new Date(date);
+      var str = date.trim();
+      var brParts = str.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+\d{2}:\d{2}:\d{2})?$/);
+      if (brParts) {
+        var day = parseInt(brParts[1], 10);
+        var month = parseInt(brParts[2], 10) - 1;
+        var year = parseInt(brParts[3], 10);
+        d = new Date(year, month, day);
+        if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) return '';
+      } else {
+        d = new Date(str);
+      }
     } else {
       return '';
     }
     if (isNaN(d.getTime())) return '';
 
     format = format || LOCALE_CONFIG.date.format;
-    var day = d.getUTCDate();
-    var month = d.getUTCMonth() + 1;
-    var year = d.getUTCFullYear();
+    var outDay = d.getDate();
+    var outMonth = d.getMonth() + 1;
+    var outYear = d.getFullYear();
 
     return format
-      .replace('DD', padZero(day))
-      .replace('MM', padZero(month))
-      .replace('YYYY', String(year))
-      .replace('YY', String(year).slice(-2));
+      .replace('DD', padZero(outDay))
+      .replace('MM', padZero(outMonth))
+      .replace('YYYY', String(outYear))
+      .replace('YY', String(outYear).slice(-2));
   }
 
   // ─── Formatação: Hora ─────────────────────────────────────────────
@@ -156,9 +166,9 @@ var FormatterService = (function () {
     if (isNaN(d.getTime())) return '';
 
     format = format || LOCALE_CONFIG.time.format;
-    var hours = d.getUTCHours();
-    var minutes = d.getUTCMinutes();
-    var seconds = d.getUTCSeconds();
+    var hours = d.getHours();
+    var minutes = d.getMinutes();
+    var seconds = d.getSeconds();
 
     return format
       .replace('HH', padZero(hours))
@@ -319,8 +329,8 @@ var FormatterService = (function () {
       var month = parseInt(parts[1], 10) - 1;
       var year = parseInt(parts[2], 10);
       if (isNaN(day) || isNaN(month) || isNaN(year)) return null;
-      var d = new Date(Date.UTC(year, month, day));
-      if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month || d.getUTCDate() !== day) return null;
+      var d = new Date(year, month, day);
+      if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) return null;
       return d;
     }
 
@@ -331,8 +341,8 @@ var FormatterService = (function () {
       var m = parseInt(parts[1], 10) - 1;
       var dd = parseInt(parts[2], 10);
       if (isNaN(y) || isNaN(m) || isNaN(dd)) return null;
-      var d2 = new Date(Date.UTC(y, m, dd));
-      if (d2.getUTCFullYear() !== y || d2.getUTCMonth() !== m || d2.getUTCDate() !== dd) return null;
+      var d2 = new Date(y, m, dd);
+      if (d2.getFullYear() !== y || d2.getMonth() !== m || d2.getDate() !== dd) return null;
       return d2;
     }
 
@@ -383,10 +393,10 @@ var FormatterService = (function () {
     var t = parseTime(timeStr, timeFormat);
     if (!t) return null;
 
-    return new Date(Date.UTC(
-      d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
+    return new Date(
+      d.getFullYear(), d.getMonth(), d.getDate(),
       t.hours, t.minutes, t.seconds
-    ));
+    );
   }
 
   // ─── Parsing: Percentual ──────────────────────────────────────────

@@ -154,6 +154,31 @@
     }
     .sidebar-panel { display: none; }
     .sidebar-panel.active { display: block; }
+    th[data-sort] {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 24px !important;
+    }
+    th[data-sort]:hover { background: var(--color-bg-secondary, #f7f8fa); }
+    th[data-sort]::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--color-text-tertiary, #b0b7c3);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    th[data-sort].sort-asc::after,
+    th[data-sort].sort-desc::after { opacity: 1; }
+    th[data-sort].sort-desc::after {
+      border-top: none;
+      border-bottom: 5px solid var(--color-text-tertiary, #b0b7c3);
+    }
   </style>
 
   <div class="widget-grid">
@@ -203,6 +228,54 @@
           this.shadowRoot.appendChild(template.content.cloneNode(true));
           if (window.__DESIGN_SHEET__) {
             this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+          }
+          this._sortState = { field: null, asc: true };
+          this._rawRows = [];
+        }
+
+        _sortIcon(field) {
+          var s = this._sortState;
+          if (s.field !== field) return ' <span class="sort-arrow"></span>';
+          return s.asc
+            ? ' <span class="sort-arrow sort-asc"></span>'
+            : ' <span class="sort-arrow sort-desc"></span>';
+        }
+
+        _sortRows(rows) {
+          var s = this._sortState;
+          if (!s.field) return rows;
+          var sorted = rows.slice();
+          sorted.sort(function (a, b) {
+            var va = a[s.field];
+            var vb = b[s.field];
+            if (va == null) return 1;
+            if (vb == null) return -1;
+            if (typeof va === 'string') {
+              va = va.toLowerCase();
+              vb = (vb || '').toLowerCase();
+            }
+            return va < vb ? -1 : va > vb ? 1 : 0;
+          });
+          return s.asc ? sorted : sorted.reverse();
+        }
+
+        _updateSortArrows(tableEl) {
+          var self = this;
+          var ths = tableEl.querySelectorAll('th[data-sort]');
+          for (var i = 0; i < ths.length; i++) {
+            var th = ths[i];
+            var field = th.getAttribute('data-sort');
+            th.classList.remove('sort-asc', 'sort-desc');
+            var arrow = th.querySelector('.sort-arrow');
+            if (!arrow) {
+              arrow = document.createElement('span');
+              arrow.className = 'sort-arrow';
+              th.appendChild(arrow);
+            }
+            arrow.classList.remove('sort-asc', 'sort-desc');
+            if (self._sortState.field === field) {
+              arrow.classList.add(self._sortState.asc ? 'sort-asc' : 'sort-desc');
+            }
           }
         }
 
@@ -302,6 +375,7 @@
             var rows = cached.data || cached;
             if (Array.isArray(rows) && rows.length > 0) {
               self.shadowRoot.getElementById('recent-card').hidden = false;
+              self._rawRows = rows;
               self._renderTable(rows);
             }
             return;
@@ -338,6 +412,7 @@
               }
 
               recentCard.hidden = false;
+              self._rawRows = rows;
               self._renderTable(rows);
             })
             .withFailureHandler(function (err) {
@@ -354,18 +429,28 @@
         _renderTable(rows) {
           var self = this;
           var container = this.shadowRoot.getElementById('nfe-table-container');
-          var html = '<div class="table-container"><table class="table">' +
+          var sorted = this._sortRows(rows);
+          var html = '<div class="table-container"><table class="table" id="nfe-main-table">' +
             '<thead><tr>' +
-            '<th>Nº NF</th><th>Emitente</th><th>Data</th><th>Produtos</th><th>Frete</th><th>Outros</th><th>Desconto</th><th>Total</th><th>Status</th>' +
+            '<th data-sort="NUMERO_NF">Nº NF' + this._sortIcon('NUMERO_NF') + '</th>' +
+            '<th data-sort="EMITENTE_NOME">Emitente' + this._sortIcon('EMITENTE_NOME') + '</th>' +
+            '<th data-sort="DATA_EMISSAO">Data' + this._sortIcon('DATA_EMISSAO') + '</th>' +
+            '<th data-sort="vProdutos">Produtos' + this._sortIcon('vProdutos') + '</th>' +
+            '<th data-sort="VALOR_FRETE">Frete' + this._sortIcon('VALOR_FRETE') + '</th>' +
+            '<th data-sort="vOutros">Outros' + this._sortIcon('vOutros') + '</th>' +
+            '<th data-sort="VALOR_DESCONTO">Desconto' + this._sortIcon('VALOR_DESCONTO') + '</th>' +
+            '<th data-sort="VALOR_TOTAL">Total' + this._sortIcon('VALOR_TOTAL') + '</th>' +
+            '<th data-sort="STATUS_NFE">Status' + this._sortIcon('STATUS_NFE') + '</th>' +
             '</tr></thead><tbody>';
 
-          for (var i = 0; i < rows.length; i++) {
-            var r = rows[i];
+          for (var i = 0; i < sorted.length; i++) {
+            var r = sorted[i];
             var statusClass = r.STATUS_NFE === 'Autorizado' ? 'badge-success' : 'badge-warning';
             var vProdutos = parseFloat(r.VALOR_PRODUTOS);
             if (isNaN(vProdutos)) vProdutos = parseFloat(r.VALOR_TOTAL) || 0;
             var vOutros = parseFloat(r.VALOR_OUTROS);
             if (isNaN(vOutros)) vOutros = 0;
+            var row = Object.assign({}, r, { vProdutos: vProdutos, vOutros: vOutros });
             html += '<tr data-numero-nf="' + (r.NUMERO_NF || '') + '" data-chave-nf="' + (r.CHAVE_NF || '') + '" class="nfe-row">' +
               '<td>' + (r.NUMERO_NF || '') + '</td>' +
               '<td>' + (r.EMITENTE_NOME || '') + '</td>' +
@@ -382,11 +467,27 @@
           html += '</tbody></table></div>';
           container.innerHTML = html;
 
+          var tableEl = container.querySelector('#nfe-main-table');
+          self._updateSortArrows(tableEl);
+          var ths = tableEl.querySelectorAll('th[data-sort]');
+          for (var t = 0; t < ths.length; t++) {
+            ths[t].addEventListener('click', function () {
+              var field = this.getAttribute('data-sort');
+              if (self._sortState.field === field) {
+                self._sortState.asc = !self._sortState.asc;
+              } else {
+                self._sortState.field = field;
+                self._sortState.asc = true;
+              }
+              self._renderTable(self._rawRows);
+            });
+          }
+
           var nfRows = container.querySelectorAll('.nfe-row');
           for (var j = 0; j < nfRows.length; j++) {
             nfRows[j].addEventListener('click', function () {
               var numeroNf = this.getAttribute('data-numero-nf');
-              self._openSidebar(numeroNf, rows);
+              self._openSidebar(numeroNf, self._rawRows);
             });
           }
         }

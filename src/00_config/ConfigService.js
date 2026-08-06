@@ -101,6 +101,11 @@ var ConfigService = (function () {
     return config.default_margin_pct || 0.25;
   }
 
+  function get(chave) {
+    var config = _loadConfig();
+    return config[chave] !== undefined ? config[chave] : null;
+  }
+
   function getAllConfig() {
     var config = _loadConfig();
     return {
@@ -143,6 +148,7 @@ var ConfigService = (function () {
     describe: describe,
     getConfig: getConfig,
     reloadConfig: reloadConfigAction,
+    get: get,
     getAccountId: getAccountId,
     getSheetId: getSheetId,
     getMarketplaceFee: getMarketplaceFee,

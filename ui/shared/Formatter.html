@@ -86,10 +86,25 @@ var FormatterService = (function () {
   function formatDate(date, format) {
     if (date === null || date === undefined) return '';
     var d;
-    if (date instanceof Date) d = date;
-    else if (typeof date === 'number') d = new Date(date);
-    else if (typeof date === 'string') d = new Date(date);
-    else return '';
+    if (date instanceof Date) {
+      d = date;
+    } else if (typeof date === 'number') {
+      d = new Date(date);
+    } else if (typeof date === 'string') {
+      var str = date.trim();
+      var brParts = str.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+\d{2}:\d{2}:\d{2})?$/);
+      if (brParts) {
+        var day = parseInt(brParts[1], 10);
+        var month = parseInt(brParts[2], 10) - 1;
+        var year = parseInt(brParts[3], 10);
+        d = new Date(year, month, day);
+        if (d.getFullYear() !== year || d.getMonth() !== month || d.getDate() !== day) return '';
+      } else {
+        d = new Date(str);
+      }
+    } else {
+      return '';
+    }
     if (isNaN(d.getTime())) return '';
 
     format = format || LOCALE_CONFIG.date.format;

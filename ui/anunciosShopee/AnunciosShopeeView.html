@@ -1,4 +1,55 @@
 <template id="anuncios-shopee-template">
+  <style>
+    th[data-sort] {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 24px !important;
+    }
+    th[data-sort]:hover { background: var(--color-bg-secondary, #f7f8fa); }
+    th[data-sort]::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--color-text-tertiary, #b0b7c3);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    th[data-sort].sort-asc::after,
+    th[data-sort].sort-desc::after { opacity: 1; }
+    th[data-sort].sort-desc::after {
+      border-top: none;
+      border-bottom: 5px solid var(--color-text-tertiary, #b0b7c3);
+    }
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+    .pagination button {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      cursor: pointer;
+      font-size: var(--font-size-sm);
+    }
+    .pagination button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .pagination button:not(:disabled):hover {
+      background: var(--color-bg-secondary, #f7f8fa);
+    }
+  </style>
   <div class="widget-grid">
     <div class="card">
       <h1>Anúncios Shopee</h1>
@@ -14,18 +65,19 @@
       <table class="table" id="items-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Nome</th>
-            <th>Preço</th>
-            <th>Estoque</th>
-            <th>Status</th>
-            <th>Vendas 30d</th>
-            <th>Avaliação</th>
+            <th data-sort="ITEM_ID">ID</th>
+            <th data-sort="NOME">Nome</th>
+            <th data-sort="PRECO">Preço</th>
+            <th data-sort="ESTOQUE">Estoque</th>
+            <th data-sort="STATUS">Status</th>
+            <th data-sort="VENDAS_30D">Vendas 30d</th>
+            <th data-sort="AVALIACAO">Avaliação</th>
             <th>Ações</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
+      <div class="pagination" id="pagination"></div>
     </div>
   </div>
 </template>
@@ -33,63 +85,191 @@
   (function () {
     if (customElements.get('anuncios-shopee-widget')) return;
 
+    var PAGE_SIZE = 50;
+    var _sortState = { field: null, asc: true };
+    var _currentPage = 0;
+    var _allRows = [];
+    var _listenersAttached = false;
+
+    function esc(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtBRL(v) {
+      if (v === '' || v == null || isNaN(v)) return '-';
+      return typeof FormatterService !== 'undefined'
+        ? FormatterService.formatCurrency(v)
+        : 'R$ ' + Number(v).toFixed(2);
+    }
+
+    function statusLabel(s) {
+      return { ativo: 'Ativo', pausado: 'Pausado', deletado: 'Deletado' }[s] || s || '-';
+    }
+
+    function statsHtml(r) {
+      return '<div class="stat-card stat-card--featured"><span class="stat-label">Anúncios ativos</span><span class="stat-value">' + (r.totalAtivos || 0) + '</span><span class="stat-meta">publicados e vendendo</span></div>' +
+        '<div class="stat-card"><span class="stat-label">Pausados</span><span class="stat-value stat-value--primary">' + (r.totalPausados || 0) + '</span><span class="stat-meta">fora da busca</span></div>' +
+        '<div class="stat-card"><span class="stat-label">Estoque total</span><span class="stat-value">' + (r.estoqueTotal || 0) + '</span><span class="stat-meta">soma de todos os itens</span></div>' +
+        '<div class="stat-card"><span class="stat-label">Vendas 30d</span><span class="stat-value stat-value--success">' + (r.vendasPeriodo || 0) + '</span><span class="stat-meta">unidades no período</span></div>' +
+        '<div class="stat-card"><span class="stat-label">Avaliação média</span><span class="stat-value">' + (r.avaliacaoMedia || '-') + '</span><span class="stat-meta">de 0 a 5</span></div>';
+    }
+
+    function sortRows(rows) {
+      if (!_sortState.field) return rows;
+      var f = _sortState.field;
+      var sorted = rows.slice();
+      sorted.sort(function (a, b) {
+        var va = a[f], vb = b[f];
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
+        return va < vb ? -1 : va > vb ? 1 : 0;
+      });
+      return _sortState.asc ? sorted : sorted.reverse();
+    }
+
+    function updateArrows(tableEl) {
+      var ths = tableEl.querySelectorAll('th[data-sort]');
+      for (var i = 0; i < ths.length; i++) {
+        var th = ths[i];
+        var f = th.getAttribute('data-sort');
+        th.classList.remove('sort-asc', 'sort-desc');
+        var arrow = th.querySelector('.sort-arrow');
+        if (!arrow) { arrow = document.createElement('span'); arrow.className = 'sort-arrow'; th.appendChild(arrow); }
+        arrow.classList.remove('sort-asc', 'sort-desc');
+        if (_sortState.field === f) arrow.classList.add(_sortState.asc ? 'sort-asc' : 'sort-desc');
+      }
+    }
+
+    function buildRow(r) {
+      var status = r.STATUS || 'ativo';
+      var acoes = '';
+      if (status === 'ativo') acoes += '<button class="btn btn-secondary" data-act="pause" data-id="' + esc(r.ITEM_ID) + '">Pausar</button> ';
+      else if (status === 'pausado') acoes += '<button class="btn btn-secondary" data-act="activate" data-id="' + esc(r.ITEM_ID) + '">Ativar</button> ';
+      acoes += '<button class="btn btn--ghost" data-act="price" data-id="' + esc(r.ITEM_ID) + '" data-nome="' + esc(r.NOME) + '" data-valor="' + r.PRECO + '">Preço</button> ' +
+        '<button class="btn btn--ghost" data-act="stock" data-id="' + esc(r.ITEM_ID) + '" data-nome="' + esc(r.NOME) + '" data-valor="' + r.ESTOQUE + '">Estoque</button> ';
+      if (status !== 'deletado') acoes += '<button class="btn btn-secondary" data-act="delete" data-id="' + esc(r.ITEM_ID) + '">Deletar</button>';
+      return '<tr><td>' + esc(r.ITEM_ID) + '</td><td>' + esc(r.NOME) + '</td><td>' + fmtBRL(r.PRECO) + '</td><td>' +
+        (r.ESTOQUE === '' ? '-' : r.ESTOQUE) + '</td><td>' + statusLabel(status) + '</td><td>' +
+        (r.VENDAS_30D === '' ? '-' : r.VENDAS_30D) + '</td><td>' + (r.AVALIACAO || '-') + '</td><td>' + acoes + '</td></tr>';
+    }
+
+    function renderPage(shadow) {
+      var tbody = shadow.querySelector('#items-table tbody');
+      var sorted = sortRows(_allRows);
+      var totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+      if (_currentPage >= totalPages) _currentPage = totalPages - 1;
+      if (_currentPage < 0) _currentPage = 0;
+      var start = _currentPage * PAGE_SIZE;
+      var page = sorted.slice(start, start + PAGE_SIZE);
+
+      var html = '';
+      for (var i = 0; i < page.length; i++) html += buildRow(page[i]);
+      tbody.innerHTML = html || '<tr><td colspan="8">Nenhum anúncio ainda. Clique em "Sincronizar Anúncios".</td></tr>';
+
+      var pag = shadow.getElementById('pagination');
+      if (sorted.length <= PAGE_SIZE) { pag.innerHTML = ''; return; }
+      pag.innerHTML = '<button id="pag-prev" ' + (_currentPage === 0 ? 'disabled' : '') + '>&laquo; Anterior</button>' +
+        '<span>Página ' + (_currentPage + 1) + ' de ' + totalPages + ' (' + sorted.length + ' itens)</span>' +
+        '<button id="pag-next" ' + (_currentPage >= totalPages - 1 ? 'disabled' : '') + '>Próxima &raquo;</button>';
+      var prevBtn = pag.querySelector('#pag-prev');
+      var nextBtn = pag.querySelector('#pag-next');
+      if (prevBtn) prevBtn.addEventListener('click', function () { _currentPage--; renderPage(shadow); });
+      if (nextBtn) nextBtn.addEventListener('click', function () { _currentPage++; renderPage(shadow); });
+    }
+
+    function renderAll(shadow, data) {
+      _allRows = data.lista || [];
+      _currentPage = 0;
+      shadow.getElementById('stat-grid').innerHTML = statsHtml(data.resumo || {});
+      updateArrows(shadow.querySelector('#items-table'));
+      renderPage(shadow);
+    }
+
+    function attachListeners(shadow) {
+      if (_listenersAttached) return;
+      _listenersAttached = true;
+
+      shadow.querySelector('#items-table thead').addEventListener('click', function (e) {
+        var th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        var field = th.getAttribute('data-sort');
+        if (_sortState.field === field) _sortState.asc = !_sortState.asc;
+        else { _sortState.field = field; _sortState.asc = true; }
+        updateArrows(shadow.querySelector('#items-table'));
+        renderPage(shadow);
+      });
+
+      shadow.querySelector('#items-table tbody').addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        var widget = document.querySelector('anuncios-shopee-widget');
+        if (!widget) return;
+        var itemId = btn.getAttribute('data-id');
+        var act = btn.getAttribute('data-act');
+        if (act === 'price') widget._updatePrice(widget.shadowRoot, itemId, btn.getAttribute('data-nome'), btn.getAttribute('data-valor'));
+        else if (act === 'stock') widget._updateStock(widget.shadowRoot, itemId, btn.getAttribute('data-nome'), btn.getAttribute('data-valor'));
+        else if (act === 'pause' || act === 'activate') widget._setStatus(widget.shadowRoot, itemId, act);
+        else if (act === 'delete') widget._deleteItem(widget.shadowRoot, itemId);
+      });
+    }
+
+    function showCacheBadge(shadow, data) {
+      var badge = shadow.getElementById('cache-badge');
+      if (!badge || !data || !data.atualizadoEm) return;
+      badge.hidden = false;
+      badge.textContent = 'Usando dados em cache (atualizado em ' + data.atualizadoEm + ')';
+    }
+
+    function showError(shadow, msg) {
+      var el = shadow.getElementById('error-box');
+      el.textContent = msg;
+      el.hidden = false;
+    }
+
     class AnunciosShopeeWidget extends HTMLElement {
       connectedCallback() {
         var template = document.getElementById('anuncios-shopee-template');
         var shadow = this.attachShadow({ mode: 'open' });
         shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         shadow.appendChild(template.content.cloneNode(true));
+        attachListeners(shadow);
 
         var self = this;
-        shadow.getElementById('btn-sync').addEventListener('click', function () {
-          self._sync(shadow);
-        });
+        shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(shadow); });
 
         var cached = window.__DataStore && window.__DataStore.get('anunciosShopee.listings');
-        if (cached) {
-          renderAll(shadow, cached);
-          self._showCacheBadge(shadow, cached);
-        }
-
+        if (cached) { renderAll(shadow, cached); showCacheBadge(shadow, cached); }
         this._load(shadow);
       }
 
       _load(shadow) {
+        var self = this;
         var ds = window.__DataStore;
-        if (!ds) {
-          this._fetch(shadow, false);
-          return;
-        }
+        if (!ds) { this._fetch(shadow, false); return; }
         ds.getOrFetch('anunciosShopee.listings', 'anunciosShopee.getListings', {})
           .then(function (data) {
-            if (data && data.error) {
-              if (window.__DataStore) window.__DataStore.invalidate('anunciosShopee.listings');
-              showError(shadow, String(data.error));
-              return;
-            }
+            if (data && data.error) { window.__DataStore && window.__DataStore.invalidate('anunciosShopee.listings'); showError(shadow, String(data.error)); return; }
             if (!data || !data.lista) return;
             renderAll(shadow, data);
-            if (data.fromCache) selfShowCache(shadow, data);
+            if (data.fromCache) showCacheBadge(shadow, data);
           })
           .catch(function (err) {
-            if (window.__DataStore) window.__DataStore.invalidate('anunciosShopee.listings');
+            window.__DataStore && window.__DataStore.invalidate('anunciosShopee.listings');
             showError(shadow, (err && err.message) || 'Erro ao carregar os anúncios.');
           });
       }
 
       _fetch(shadow, force) {
-        var self = this;
         google.script.run
           .withSuccessHandler(function (data) {
             if (!data || !data.lista) return;
             renderAll(shadow, data);
-            if (window.__DataStore && force) {
-              window.__DataStore.set('anunciosShopee.listings', data);
-            }
+            if (window.__DataStore && force) window.__DataStore.set('anunciosShopee.listings', data);
           })
-          .withFailureHandler(function (err) {
-            showError(shadow, (err && err.message) || 'Erro ao carregar os anúncios.');
-          })
+          .withFailureHandler(function (err) { showError(shadow, (err && err.message) || 'Erro ao carregar os anúncios.'); })
           .apiDispatch('anunciosShopee.getListings', { fromCache: !force });
       }
 
@@ -98,24 +278,9 @@
         if (window.__DataStore) window.__DataStore.invalidate('anunciosShopee.listings');
         withLoading(
           shadow.getElementById('btn-sync'),
-          (success, failure) =>
-            google.script.run
-              .withSuccessHandler(success)
-              .withFailureHandler(failure)
-              .apiDispatch('anunciosShopee.syncListings', { forceFresh: true }),
-          (data) => {
-            if (!data || !data.success) return;
-            self._load(shadow);
-            if (data.resumo) {
-              shadow.getElementById('stat-grid').innerHTML =
-                statsHtml(data.resumo);
-            }
-          },
-          (data) =>
-            data && data.synced
-              ? 'Sincronizados ' + data.synced.itemsAtualizados + ' anúncios • Estoque total: ' +
-                (data.resumo ? data.resumo.estoqueTotal : 0)
-              : 'Sincronizados'
+          (success, failure) => google.script.run.withSuccessHandler(success).withFailureHandler(failure).apiDispatch('anunciosShopee.syncListings', { forceFresh: true }),
+          function (data) { if (data && data.success) self._load(shadow); if (data && data.resumo) shadow.getElementById('stat-grid').innerHTML = statsHtml(data.resumo); },
+          function (data) { return data && data.synced ? 'Sincronizados ' + data.synced.itemsAtualizados + ' anúncios • Estoque total: ' + (data.resumo ? data.resumo.estoqueTotal : 0) : 'Sincronizados'; }
         );
       }
 
@@ -124,222 +289,41 @@
         if (novo === null || novo === '') return;
         novo = String(novo).replace(',', '.');
         var valor = parseFloat(novo);
-        if (isNaN(valor) || valor <= 0) {
-          showError(shadow, 'Preço inválido.');
-          return;
-        }
-        this._runAction(
-          shadow,
-          'anunciosShopee.updatePrice',
-          { itemIds: [itemId], priceList: [{ itemId: itemId, preco: valor }] },
-          function (data) {
-            if (data && data.falhas && data.falhas.length > 0) {
-              showError(shadow, data.falhas[0].motivo || 'Falha ao confirmar mudança. Tente novamente.');
-            }
-          },
-          'Preço atualizado para R$ ' + valor.toFixed(2).replace('.', ',')
-        );
+        if (isNaN(valor) || valor <= 0) { showError(shadow, 'Preço inválido.'); return; }
+        this._runAction(shadow, 'anunciosShopee.updatePrice', { itemIds: [itemId], priceList: [{ itemId: itemId, preco: valor }] },
+          function (data) { if (data && data.falhas && data.falhas.length > 0) showError(shadow, data.falhas[0].motivo || 'Falha ao confirmar mudança.'); },
+          'Preço atualizado para R$ ' + valor.toFixed(2).replace('.', ','));
       }
 
       _updateStock(shadow, itemId, nome, estoqueAtual) {
         var novo = prompt('Novo estoque para "' + nome + '" (atual: ' + estoqueAtual + '):', estoqueAtual);
         if (novo === null || novo === '') return;
         var valor = parseInt(novo, 10);
-        if (isNaN(valor) || valor < 0) {
-          showError(shadow, 'Estoque inválido.');
-          return;
-        }
-        this._runAction(
-          shadow,
-          'anunciosShopee.updateStock',
-          { itemIds: [itemId], stockList: [{ itemId: itemId, quantidade: valor }] },
-          function (data) {
-            if (data && data.falhas && data.falhas.length > 0) {
-              showError(shadow, data.falhas[0].motivo || 'Falha ao confirmar mudança. Tente novamente.');
-            }
-          },
-          'Estoque atualizado para ' + valor
-        );
+        if (isNaN(valor) || valor < 0) { showError(shadow, 'Estoque inválido.'); return; }
+        this._runAction(shadow, 'anunciosShopee.updateStock', { itemIds: [itemId], stockList: [{ itemId: itemId, quantidade: valor }] },
+          function (data) { if (data && data.falhas && data.falhas.length > 0) showError(shadow, data.falhas[0].motivo || 'Falha ao confirmar mudança.'); },
+          'Estoque atualizado para ' + valor);
       }
 
       _runAction(shadow, action, params, onSuccess, successMessage) {
-        var btn = shadow.getElementById('btn-sync');
+        var self = this;
         withLoading(
-          btn,
-          (success, failure) =>
-            google.script.run
-              .withSuccessHandler(success)
-              .withFailureHandler(failure)
-              .apiDispatch(action, params),
-          (data) => {
-            if (onSuccess) onSuccess(data);
-            this._load(shadow);
-          },
+          shadow.getElementById('btn-sync'),
+          (success, failure) => google.script.run.withSuccessHandler(success).withFailureHandler(failure).apiDispatch(action, params),
+          function (data) { if (onSuccess) onSuccess(data); self._load(shadow); },
           successMessage
         );
       }
 
-      _showCacheBadge(shadow, data) {
-        var badge = shadow.getElementById('cache-badge');
-        if (!badge || !data || !data.atualizadoEm) return;
-        badge.hidden = false;
-        badge.textContent = 'Usando dados em cache (atualizado em ' + data.atualizadoEm + ')';
-      }
-    }
-
-    function selfShowCache(shadow, data) {
-      var badge = shadow.getElementById('cache-badge');
-      if (!badge || !data || !data.atualizadoEm) return;
-      badge.hidden = false;
-      badge.textContent = 'Usando dados em cache (atualizado em ' + data.atualizadoEm + ')';
-    }
-
-    function formatBRL(value) {
-      if (value === '' || value === null || value === undefined || isNaN(value)) return '-';
-      return typeof FormatterService !== 'undefined'
-        ? FormatterService.formatCurrency(value)
-        : 'R$ ' + Number(value).toFixed(2);
-    }
-
-    function statusLabel(status) {
-      var map = { ativo: 'Ativo', pausado: 'Pausado', deletado: 'Deletado' };
-      return map[status] || status || '-';
-    }
-
-    function statsHtml(resumo) {
-      return (
-        '<div class="stat-card stat-card--featured">' +
-        '<span class="stat-label">Anúncios ativos</span>' +
-        '<span class="stat-value">' + (resumo.totalAtivos || 0) + '</span>' +
-        '<span class="stat-meta">publicados e vendendo</span>' +
-        '</div>' +
-        '<div class="stat-card">' +
-        '<span class="stat-label">Pausados</span>' +
-        '<span class="stat-value stat-value--primary">' + (resumo.totalPausados || 0) + '</span>' +
-        '<span class="stat-meta">fora da busca</span>' +
-        '</div>' +
-        '<div class="stat-card">' +
-        '<span class="stat-label">Estoque total</span>' +
-        '<span class="stat-value">' + (resumo.estoqueTotal || 0) + '</span>' +
-        '<span class="stat-meta">soma de todos os itens</span>' +
-        '</div>' +
-        '<div class="stat-card">' +
-        '<span class="stat-label">Vendas 30d</span>' +
-        '<span class="stat-value stat-value--success">' + (resumo.vendasPeriodo || 0) + '</span>' +
-        '<span class="stat-meta">unidades no período</span>' +
-        '</div>' +
-        '<div class="stat-card">' +
-        '<span class="stat-label">Avaliação média</span>' +
-        '<span class="stat-value">' + (resumo.avaliacaoMedia || '-') + '</span>' +
-        '<span class="stat-meta">de 0 a 5</span>' +
-        '</div>'
-      );
-    }
-
-    function renderAll(shadow, data) {
-      var resumo = data.resumo || {};
-      shadow.getElementById('stat-grid').innerHTML = statsHtml(resumo);
-      renderTable(shadow, data.lista || []);
-    }
-
-    function renderTable(shadow, rows) {
-      var body = shadow.querySelector('#items-table tbody');
-      var html = rows
-        .map(function (r) {
-          var status = r.STATUS || 'ativo';
-          var acoes = '';
-          if (status === 'ativo') {
-            acoes += '<button class="btn btn-secondary" data-act="pause" data-id="' + esc(r.ITEM_ID) + '">Pausar</button> ';
-          } else if (status === 'pausado') {
-            acoes += '<button class="btn btn-secondary" data-act="activate" data-id="' + esc(r.ITEM_ID) + '">Ativar</button> ';
-          }
-          acoes +=
-            '<button class="btn btn--ghost" data-act="price" data-id="' + esc(r.ITEM_ID) +
-            '" data-nome="' + esc(r.NOME) + '" data-valor="' + r.PRECO + '">Preço</button> ' +
-            '<button class="btn btn--ghost" data-act="stock" data-id="' + esc(r.ITEM_ID) +
-            '" data-nome="' + esc(r.NOME) + '" data-valor="' + r.ESTOQUE + '">Estoque</button> ';
-          if (status !== 'deletado') {
-            acoes += '<button class="btn btn-secondary" data-act="delete" data-id="' + esc(r.ITEM_ID) + '">Deletar</button>';
-          }
-          return (
-            '<tr>' +
-            '<td>' + esc(r.ITEM_ID) + '</td>' +
-            '<td>' + esc(r.NOME) + '</td>' +
-            '<td>' + formatBRL(r.PRECO) + '</td>' +
-            '<td>' + (r.ESTOQUE === '' ? '-' : r.ESTOQUE) + '</td>' +
-            '<td>' + statusLabel(status) + '</td>' +
-            '<td>' + (r.VENDAS_30D === '' ? '-' : r.VENDAS_30D) + '</td>' +
-            '<td>' + (r.AVALIACAO ? r.AVALIACAO : '-') + '</td>' +
-            '<td>' + acoes + '</td>' +
-            '</tr>'
-          );
-        })
-        .join('');
-      body.innerHTML = html || '<tr><td colspan="8">Nenhum anúncio ainda. Clique em "Sincronizar Anúncios".</td></tr>';
-
-      body.querySelectorAll('button[data-act]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var itemId = btn.getAttribute('data-id');
-          var act = btn.getAttribute('data-act');
-          var widget = document.querySelector('anuncios-shopee-widget');
-          if (!widget) return;
-          if (act === 'price') {
-            widget._updatePrice(
-              widget.shadowRoot,
-              itemId,
-              btn.getAttribute('data-nome'),
-              btn.getAttribute('data-valor')
-            );
-          } else if (act === 'stock') {
-            widget._updateStock(
-              widget.shadowRoot,
-              itemId,
-              btn.getAttribute('data-nome'),
-              btn.getAttribute('data-valor')
-            );
-          } else if (act === 'pause' || act === 'activate') {
-            widget._setStatus(widget.shadowRoot, itemId, act);
-          } else if (act === 'delete') {
-            widget._deleteItem(widget.shadowRoot, itemId);
-          }
-        });
-      });
-    }
-
-    function esc(value) {
-      return String(value === null || value === undefined ? '' : value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-    }
-
-    class AnunciosShopeeWidgetActions {
       _setStatus(shadow, itemId, act) {
-        var action = act === 'pause' ? 'anunciosShopee.pauseItem' : 'anunciosShopee.activateItem';
-        this._runAction(
-          shadow,
-          action,
-          { itemId: itemId },
-          null,
-          act === 'pause' ? 'Anúncio pausado.' : 'Anúncio ativado.'
-        );
+        this._runAction(shadow, act === 'pause' ? 'anunciosShopee.pauseItem' : 'anunciosShopee.activateItem', { itemId: itemId }, null, act === 'pause' ? 'Anúncio pausado.' : 'Anúncio ativado.');
       }
 
       _deleteItem(shadow, itemId) {
         if (!confirm('Deletar anúncio ' + itemId + ' na Shopee? Esta ação é IRREVERSÍVEL.')) return;
-        this._runAction(
-          shadow,
-          'anunciosShopee.deleteItem',
-          { itemId: itemId },
-          null,
-          'Anúncio deletado.'
-        );
+        this._runAction(shadow, 'anunciosShopee.deleteItem', { itemId: itemId }, null, 'Anúncio deletado.');
       }
     }
-
-    // mixin das ações de status/delete na classe principal
-    Object.assign(AnunciosShopeeWidget.prototype, AnunciosShopeeWidgetActions.prototype);
 
     customElements.define('anuncios-shopee-widget', AnunciosShopeeWidget);
   })();

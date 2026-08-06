@@ -589,6 +589,13 @@ var NFeEntradaService = (function () {
 
     try {
       var rows = NFeEntradaRepository.getRecentNfes(sheetId, limit);
+      for (var di = 0; di < rows.length; di++) {
+        var dr = rows[di];
+        console.log('[NFeEntrada DEBUG] NF=' + dr.NUMERO_NF +
+          ' DATA_EMISSAO=' + JSON.stringify(dr.DATA_EMISSAO) +
+          ' type=' + typeof dr.DATA_EMISSAO +
+          ' isDate=' + (dr.DATA_EMISSAO instanceof Date));
+      }
       trace_('getRecent:ok', 'getRecent retornou ' + rows.length + ' linha(s)', {
         sheetId: String(sheetId),
         limit: limit,

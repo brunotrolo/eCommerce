@@ -53,6 +53,31 @@
     .catalog-table tbody tr:hover {
       background: var(--color-surface-hover);
     }
+    th[data-sort] {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 24px !important;
+    }
+    th[data-sort]:hover { background: var(--color-bg-secondary, #f7f8fa); }
+    th[data-sort]::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--color-text-tertiary, #b0b7c3);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    th[data-sort].sort-asc::after,
+    th[data-sort].sort-desc::after { opacity: 1; }
+    th[data-sort].sort-desc::after {
+      border-top: none;
+      border-bottom: 5px solid var(--color-text-tertiary, #b0b7c3);
+    }
     .catalog-table .col-codigo {
       font-weight: var(--font-weight-semibold);
       white-space: nowrap;
@@ -360,6 +385,7 @@
 
         this._shadow = shadow;
         this._sortOrder = 'asc';
+        this._sortField = null;
         this._products = [];
         this._filteredProducts = [];
         this._margin = 0.25;
@@ -523,7 +549,6 @@
       _renderProducts(shadow) {
         var container = shadow.getElementById('catalog-content');
         var products = this._filteredProducts;
-        var sortBy = shadow.getElementById('sortBy').value;
         var sortOrder = this._sortOrder;
 
         if (!products || products.length === 0) {
@@ -531,8 +556,19 @@
           return;
         }
 
+        var sortMap = {
+          'codigo': 'codigoProduto',
+          'descricao': 'descricaoProduto',
+          'unitCost': 'valorUnitarioLiquido',
+          'shopee': 'precoShopee',
+          'ml': 'precoMercadoLivre',
+          'margin': 'margemCalculadaShopee'
+        };
+        var sortField = this._sortField
+          ? (sortMap[this._sortField] || 'codigoProduto')
+          : (sortMap[shadow.getElementById('sortBy').value] || 'codigoProduto');
+
         var sorted = products.slice();
-        var sortField = { code: 'codigoProduto', description: 'descricaoProduto', unitCost: 'valorUnitarioLiquido', suggestedShopee: 'precoShopee' }[sortBy] || 'codigoProduto';
         sorted.sort(function (a, b) {
           var valA = a[sortField];
           var valB = b[sortField];
@@ -542,13 +578,13 @@
           return 0;
         });
 
-        var html = '<table class="catalog-table"><thead><tr>';
-        html += '<th>Código</th>';
-        html += '<th>Descrição</th>';
-        html += '<th>Custo Unit.</th>';
-        html += '<th>Preço Shopee</th>';
-        html += '<th>Preço ML</th>';
-        html += '<th>Margem</th>';
+        var html = '<table class="catalog-table" id="catalog-main-table"><thead><tr>';
+        html += '<th data-sort="codigo">Código</th>';
+        html += '<th data-sort="descricao">Descrição</th>';
+        html += '<th data-sort="unitCost">Custo Unit.</th>';
+        html += '<th data-sort="shopee">Preço Shopee</th>';
+        html += '<th data-sort="ml">Preço ML</th>';
+        html += '<th data-sort="margin">Margem</th>';
         html += '<th></th>';
         html += '</tr></thead><tbody>';
 
@@ -578,6 +614,30 @@
         container.innerHTML = html;
 
         var self = this;
+        var tableEl = container.querySelector('#catalog-main-table');
+        if (tableEl) {
+          var ths = tableEl.querySelectorAll('th[data-sort]');
+          for (var t = 0; t < ths.length; t++) {
+            ths[t].classList.remove('sort-asc', 'sort-desc');
+            if (this._sortField && ths[t].getAttribute('data-sort') === this._sortField) {
+              ths[t].classList.add(sortOrder === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+          }
+          for (var h = 0; h < ths.length; h++) {
+            ths[h].addEventListener('click', function () {
+              var field = this.getAttribute('data-sort');
+              if (self._sortField === field) {
+                self._sortOrder = self._sortOrder === 'asc' ? 'desc' : 'asc';
+              } else {
+                self._sortField = field;
+                self._sortOrder = 'asc';
+              }
+              shadow.getElementById('btn-sort-order').textContent = self._sortOrder === 'asc' ? '▲ ASC' : '▼ DESC';
+              self._renderProducts(shadow);
+            });
+          }
+        }
+
         container.querySelectorAll('.catalog-price-btn').forEach(function (btn) {
           btn.addEventListener('click', function () {
             self._openCalcSidebar(shadow, btn.dataset.cod, btn.dataset.mp);

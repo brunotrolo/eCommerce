@@ -195,6 +195,44 @@ var AnunciosShopeeRepository = (function () {
     return rowsToObjects_(sheet);
   }
 
+  /** Versão enxuta: lê só colunas essenciais para a tabela (sem DADOS_JSON). */
+  var SLIM_HEADERS = ['ITEM_ID', 'NOME', 'PRECO', 'ESTOQUE', 'STATUS', 'VENDAS_30D', 'AVALIACAO'];
+
+  function getAllSlim(sheetId) {
+    var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2 || lastCol === 0) return [];
+
+    var headerOrder = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headerIdx = {};
+    for (var h = 0; h < headerOrder.length; h++) {
+      headerIdx[String(headerOrder[h]).trim()] = h;
+    }
+
+    var colIndexes = [];
+    var colKeys = [];
+    for (var s = 0; s < SLIM_HEADERS.length; s++) {
+      var idx = headerIdx[SLIM_HEADERS[s]];
+      if (idx !== undefined) {
+        colIndexes.push(idx);
+        colKeys.push(SLIM_HEADERS[s]);
+      }
+    }
+    if (colIndexes.length === 0) return [];
+
+    var allValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var rows = [];
+    for (var i = 0; i < allValues.length; i++) {
+      var obj = {};
+      for (var c = 0; c < colIndexes.length; c++) {
+        obj[colKeys[c]] = allValues[i][colIndexes[c]];
+      }
+      rows.push(obj);
+    }
+    return rows;
+  }
+
   /** Linha do item (objeto) ou null. */
   function getItem(sheetId, itemId) {
     var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
@@ -345,6 +383,7 @@ var AnunciosShopeeRepository = (function () {
     PERFORMANCE_SHEET: PERFORMANCE_SHEET,
     syncMain: syncMain,
     getAll: getAll,
+    getAllSlim: getAllSlim,
     getItem: getItem,
     patchMain: patchMain,
     logPrecoChange: logPrecoChange,

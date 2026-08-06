@@ -48,6 +48,20 @@
     .row-edited td { background: var(--color-info-light) !important; }
     .header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); }
     .header-actions { display: flex; align-items: center; gap: var(--space-sm); }
+    .view-toggle {
+      display: inline-flex; border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;
+    }
+    .view-toggle button {
+      padding: var(--space-xs) var(--space-md); border: none; background: var(--color-surface);
+      color: var(--color-text-secondary); font-size: var(--font-size-sm); cursor: pointer;
+      transition: background var(--transition-fast), color var(--transition-fast);
+    }
+    .view-toggle button + button { border-left: 1px solid var(--color-border); }
+    .view-toggle button.active {
+      background: var(--color-primary); color: var(--color-on-primary); font-weight: var(--font-weight-medium);
+    }
+    .view-toggle button:hover:not(.active) { background: var(--color-surface-hover); }
+    .consolidado-th { text-align: right; }
 
     .modal-overlay {
       position: fixed; inset: 0; z-index: 1000;
@@ -104,6 +118,10 @@
     <div class="header">
       <h1>Controle de Estoque</h1>
       <div class="header-actions">
+        <div class="view-toggle" id="view-toggle">
+          <button class="active" data-view="completo">Completo</button>
+          <button data-view="consolidado">Consolidado</button>
+        </div>
         <button class="btn" id="btn-sync-prices" title="Preenche/atualiza preços Shopee e ML de TODOS os itens a partir do catálogo">Sincronizar Preços Catálogo</button>
         <button class="btn btn-primary" id="btn-sync">Sincronizar</button>
       </div>
@@ -116,6 +134,7 @@
     </div>
     <div class="filter-bar">
       <input type="text" id="filter-codigo" placeholder="Filtrar por codigo..." />
+      <input type="text" id="filter-nome" placeholder="Filtrar por nome do produto..." />
       <input type="text" id="filter-categoria" placeholder="Filtrar por categoria..." />
       <select id="filter-status">
         <option value="">Todos</option>
@@ -132,7 +151,8 @@
           <tr>
             <th data-sort="estoque_id">ESTOQUE_ID <span class="sort-arrow"></span></th>
             <th data-sort="categoria">Categoria <span class="sort-arrow"></span></th>
-            <th>Produto</th>
+            <th data-sort="codigo">Código <span class="sort-arrow"></span></th>
+            <th data-sort="descricao">Descrição <span class="sort-arrow"></span></th>
             <th data-sort="data_entrada">Data Entrada <span class="sort-arrow"></span></th>
             <th data-sort="preco_custo">Custo <span class="sort-arrow"></span></th>
             <th>Preco Shopee</th>
@@ -143,6 +163,24 @@
           </tr>
         </thead>
         <tbody id="estoque-tbody"></tbody>
+      </table>
+    </div>
+    <div class="table-wrapper" id="consolidado-wrapper" style="display:none;">
+      <table id="consolidado-table">
+        <thead>
+          <tr>
+            <th data-sort="categoria">Categoria <span class="sort-arrow"></span></th>
+            <th data-sort="codigo">Código <span class="sort-arrow"></span></th>
+            <th data-sort="descricao">Descrição <span class="sort-arrow"></span></th>
+            <th data-sort="qtd" class="consolidado-th">Qtd <span class="sort-arrow"></span></th>
+            <th data-sort="preco_custo" class="consolidado-th">Custo Médio <span class="sort-arrow"></span></th>
+            <th class="consolidado-th">Preco Shopee</th>
+            <th class="consolidado-th">Preco ML</th>
+            <th data-sort="margem" class="consolidado-th">Margem% <span class="sort-arrow"></span></th>
+            <th data-sort="alerta">Alerta <span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="consolidado-tbody"></tbody>
       </table>
     </div>
     <div class="loading" id="loading-state">Carregando estoque...</div>
@@ -214,6 +252,9 @@
         this._sortOrder = 'asc';
         this._openRows = {};
         this._saving = {};
+        this._viewMode = 'completo';
+        this._consolidatedSortField = 'qtd';
+        this._consolidatedSortOrder = 'desc';
 
         var self = this;
         shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(); });
@@ -222,8 +263,33 @@
           shadow.getElementById('sync-overlay').classList.remove('open');
         });
         shadow.getElementById('filter-codigo').addEventListener('input', function () { self._applyFilters(); });
+        shadow.getElementById('filter-nome').addEventListener('input', function () { self._applyFilters(); });
         shadow.getElementById('filter-categoria').addEventListener('input', function () { self._applyFilters(); });
         shadow.getElementById('filter-status').addEventListener('change', function () { self._applyFilters(); });
+
+        var toggleBtns = shadow.querySelectorAll('#view-toggle button');
+        for (var t = 0; t < toggleBtns.length; t++) {
+          (function (btn) {
+            btn.addEventListener('click', function () {
+              self._viewMode = btn.getAttribute('data-view');
+              for (var j = 0; j < toggleBtns.length; j++) toggleBtns[j].classList.remove('active');
+              btn.classList.add('active');
+              self._render();
+            });
+          })(toggleBtns[t]);
+        }
+
+        var cThs = shadow.querySelectorAll('#consolidado-table th[data-sort]');
+        for (var ct = 0; ct < cThs.length; ct++) {
+          (function (th) {
+            th.addEventListener('click', function () {
+              var field = th.getAttribute('data-sort');
+              if (self._consolidatedSortField === field) self._consolidatedSortOrder = self._consolidatedSortOrder === 'asc' ? 'desc' : 'asc';
+              else { self._consolidatedSortField = field; self._consolidatedSortOrder = 'desc'; }
+              self._render();
+            });
+          })(cThs[ct]);
+        }
 
         var ths = shadow.querySelectorAll('th[data-sort]');
         for (var i = 0; i < ths.length; i++) {
@@ -239,6 +305,15 @@
         return this._shadow.getElementById(id);
       }
 
+      _invalidateCache() {
+        var ds = window.__DataStore;
+        if (!ds) return;
+        var statuses = ['DISPONIVEL', 'VENDIDO', 'DEVOLVIDO', 'QUEBRADO', 'COM_DEFEITO'];
+        for (var i = 0; i < statuses.length; i++) {
+          ds.invalidate('estoque.Items.' + statuses[i]);
+        }
+      }
+
       _load() {
         var self = this;
         var loadingEl = this._el('loading-state');
@@ -249,29 +324,32 @@
         var cacheKey = 'estoque.Items.' + statusVal;
         var ds = window.__DataStore;
 
-        var cached = ds && ds.get(cacheKey);
-        if (cached) {
-          if (loadingEl) loadingEl.style.display = 'none';
-          var data = self._unwrap(cached);
-          self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
-          self._applyFilters();
-        }
-
-        google.script.run
-          .withSuccessHandler(function (resp) {
-            if (loadingEl) loadingEl.style.display = 'none';
-            if (ds) ds.set(cacheKey, resp);
-            var data = self._unwrap(resp);
-            self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
-            self._applyFilters();
-          })
-          .withFailureHandler(function (err) {
-            if (loadingEl) loadingEl.style.display = 'none';
-            if (!cached) {
+        if (ds) {
+          ds.getOrFetch(cacheKey, 'estoque.getItems', params)
+            .then(function (resp) {
+              if (loadingEl) loadingEl.style.display = 'none';
+              var data = self._unwrap(resp);
+              self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+              self._applyFilters();
+            })
+            .catch(function (err) {
+              if (loadingEl) loadingEl.style.display = 'none';
               showError(self._shadow, 'Erro ao carregar estoque: ' + (err.message || err));
-            }
-          })
-          .apiDispatch('estoque.getItems', params);
+            });
+        } else {
+          google.script.run
+            .withSuccessHandler(function (resp) {
+              if (loadingEl) loadingEl.style.display = 'none';
+              var data = self._unwrap(resp);
+              self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+              self._applyFilters();
+            })
+            .withFailureHandler(function (err) {
+              if (loadingEl) loadingEl.style.display = 'none';
+              showError(self._shadow, 'Erro ao carregar estoque: ' + (err.message || err));
+            })
+            .apiDispatch('estoque.getItems', params);
+        }
       }
 
       _unwrap(resp) {
@@ -319,6 +397,7 @@
           btn.disabled = false;
           if (!erro) setProgress(100);
           setSummary(mensagem);
+          self._invalidateCache();
           self._load();
         }
 
@@ -417,6 +496,7 @@
                 msg += ' ' + data.semPrecoCatalogo + ' sem preço no catálogo.';
               }
               showSuccess(self._shadow, msg);
+              self._invalidateCache();
               self._load();
             }
           })
@@ -430,6 +510,7 @@
 
       _applyFilters() {
         var codigo = (this._el('filter-codigo').value || '').toLowerCase().trim();
+        var nome = (this._el('filter-nome').value || '').toLowerCase().trim();
         var categoria = (this._el('filter-categoria').value || '').toLowerCase().trim();
         var status = this._el('filter-status').value;
 
@@ -443,7 +524,12 @@
         }
         if (codigo) {
           items = items.filter(function (it) {
-            return ((it.CODIGO_PRODUTO || '') + ' ' + (it.DESCRICAO_PRODUTO || '')).toLowerCase().indexOf(codigo) !== -1;
+            return (it.CODIGO_PRODUTO || '').toLowerCase().indexOf(codigo) !== -1;
+          });
+        }
+        if (nome) {
+          items = items.filter(function (it) {
+            return (it.DESCRICAO_PRODUTO || '').toLowerCase().indexOf(nome) !== -1;
           });
         }
         if (categoria) {
@@ -485,6 +571,8 @@
         var sortMap = {
           'estoque_id': 'ESTOQUE_ID',
           'categoria': 'CATEGORIA',
+          'codigo': 'CODIGO_PRODUTO',
+          'descricao': 'DESCRICAO_PRODUTO',
           'data_entrada': 'DATA_ENTRADA',
           'preco_custo': 'PRECO_CUSTO_ORIGINAL',
           'margem': 'MARGEM_SHOPEE'
@@ -499,7 +587,7 @@
             valB = _parseBrDate_(valB);
             return order === 'asc' ? valA - valB : valB - valA;
           }
-          if (key === 'CATEGORIA' || key === 'ESTOQUE_ID') {
+          if (key === 'CATEGORIA' || key === 'ESTOQUE_ID' || key === 'CODIGO_PRODUTO' || key === 'DESCRICAO_PRODUTO') {
             valA = String(valA || '').toLowerCase();
             valB = String(valB || '').toLowerCase();
             return order === 'asc' ? (valA < valB ? -1 : valA > valB ? 1 : 0) : (valA < valB ? 1 : valA > valB ? -1 : 0);
@@ -511,6 +599,156 @@
       }
 
       _render() {
+        var completoWrapper = this._el('estoque-table').closest('.table-wrapper');
+        var consolidadoWrapper = this._el('consolidado-wrapper');
+        if (this._viewMode === 'consolidado') {
+          completoWrapper.style.display = 'none';
+          consolidadoWrapper.style.display = '';
+          this._renderConsolidated();
+        } else {
+          completoWrapper.style.display = '';
+          consolidadoWrapper.style.display = 'none';
+          this._renderCompleto();
+        }
+      }
+
+      _consolidate() {
+        var groups = {};
+        for (var i = 0; i < this._filtered.length; i++) {
+          var it = this._filtered[i];
+          var code = it.CODIGO_PRODUTO || '';
+          if (!groups[code]) {
+            groups[code] = {
+              CODIGO_PRODUTO: code,
+              DESCRICAO_PRODUTO: it.DESCRICAO_PRODUTO || '',
+              CATEGORIA: it.CATEGORIA || '',
+              itens: [],
+              qtd: 0,
+              custoTotal: 0,
+              custoCount: 0,
+              PRECO_VENDA_SHOPEE: it.PRECO_VENDA_SHOPEE,
+              PRECO_VENDA_MERCADO_LIVRE: it.PRECO_VENDA_MERCADO_LIVRE,
+              MARGEM_SHOPEE: it.MARGEM_SHOPEE,
+              MARGEM_MERCADO_LIVRE: it.MARGEM_MERCADO_LIVRE,
+              hasAlerta: false
+            };
+          }
+          var g = groups[code];
+          g.itens.push(it);
+          g.qtd++;
+          var custo = parseFloat(it.PRECO_CUSTO_ORIGINAL);
+          if (!isNaN(custo) && custo > 0) { g.custoTotal += custo; g.custoCount++; }
+          if (it.ALERTA_ESTOQUE_BAIXO === true || it.ALERTA_ESTOQUE_BAIXO === 'true') g.hasAlerta = true;
+          if (it.PRECO_VENDA_SHOPEE != null && it.PRECO_VENDA_SHOPEE !== '') g.PRECO_VENDA_SHOPEE = it.PRECO_VENDA_SHOPEE;
+          if (it.PRECO_VENDA_MERCADO_LIVRE != null && it.PRECO_VENDA_MERCADO_LIVRE !== '') g.PRECO_VENDA_MERCADO_LIVRE = it.PRECO_VENDA_MERCADO_LIVRE;
+        }
+        var result = [];
+        var keys = Object.keys(groups);
+        for (var k = 0; k < keys.length; k++) {
+          var g = groups[keys[k]];
+          g.custoMedio = g.custoCount > 0 ? g.custoTotal / g.custoCount : 0;
+          result.push(g);
+        }
+        return result;
+      }
+
+      _sortConsolidated(items) {
+        var field = this._consolidatedSortField;
+        var order = this._consolidatedSortOrder;
+        var sortMap = {
+          'categoria': 'CATEGORIA', 'codigo': 'CODIGO_PRODUTO', 'descricao': 'DESCRICAO_PRODUTO',
+          'qtd': '__qtd', 'preco_custo': '__custoMedio', 'margem': '__margem', 'alerta': '__alerta'
+        };
+        var key = sortMap[field] || '__qtd';
+        return items.slice().sort(function (a, b) {
+          var va, vb;
+          if (key === '__qtd') { va = a.qtd; vb = b.qtd; return order === 'asc' ? va - vb : vb - va; }
+          if (key === '__custoMedio') { va = a.custoMedio; vb = b.custoMedio; return order === 'asc' ? va - vb : vb - va; }
+          if (key === '__margem') {
+            va = parseFloat(a.MARGEM_SHOPEE) || 0; vb = parseFloat(b.MARGEM_SHOPEE) || 0;
+            return order === 'asc' ? va - vb : vb - va;
+          }
+          if (key === '__alerta') {
+            va = a.hasAlerta ? 1 : 0; vb = b.hasAlerta ? 1 : 0;
+            return order === 'asc' ? va - vb : vb - va;
+          }
+          va = String(a[key] || '').toLowerCase(); vb = String(b[key] || '').toLowerCase();
+          return order === 'asc' ? (va < vb ? -1 : va > vb ? 1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
+        });
+      }
+
+      _renderConsolidated() {
+        var groups = this._consolidate();
+        var sorted = this._sortConsolidated(groups);
+        var tbody = this._el('consolidado-tbody');
+        var loadingEl = this._el('loading-state');
+        if (loadingEl) loadingEl.style.display = 'none';
+
+        var totalItens = 0;
+        for (var i = 0; i < sorted.length; i++) totalItens += sorted[i].qtd;
+        this._el('stat-total').textContent = totalItens;
+        this._el('stat-disponivel').textContent = this._items.length;
+        this._el('stat-vendido').textContent = '—';
+        this._el('stat-alertas').textContent = '—';
+
+        if (!sorted.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Nenhum item encontrado.</td></tr>';
+          return;
+        }
+
+        var html = '';
+        for (var i = 0; i < sorted.length; i++) {
+          var g = sorted[i];
+          var custoFmt = g.custoMedio > 0 ? this._fmtCurrency(g.custoMedio) : '-';
+          var precoShopee = g.PRECO_VENDA_SHOPEE != null && g.PRECO_VENDA_SHOPEE !== '' ? this._fmtCurrency(g.PRECO_VENDA_SHOPEE) : '-';
+          var precoML = g.PRECO_VENDA_MERCADO_LIVRE != null && g.PRECO_VENDA_MERCADO_LIVRE !== '' ? this._fmtCurrency(g.PRECO_VENDA_MERCADO_LIVRE) : '-';
+
+          var margem = g.MARGEM_SHOPEE;
+          var margemClass = '';
+          var margemText = '-';
+          if (margem !== '' && margem != null) {
+            var m = parseFloat(margem);
+            margemText = m.toFixed(1) + '%';
+            if (m > 30) margemClass = 'margem-positive';
+            else if (m >= 10) margemClass = 'margem-warning';
+            else margemClass = 'margem-negative';
+          }
+
+          var alertIcon = g.hasAlerta ? '<span class="alert-icon" title="Estoque baixo em 1+ unidades deste grupo">\u26A0</span>' : '';
+
+          html += '<tr data-codigo="' + (g.CODIGO_PRODUTO || '') + '" class="estoque-row consolidado-row">';
+          html += '<td>' + (g.CATEGORIA || '') + '</td>';
+          html += '<td>' + (g.CODIGO_PRODUTO || '') + '</td>';
+          html += '<td>' + (g.DESCRICAO_PRODUTO || '') + '</td>';
+          html += '<td class="consolidado-th">' + g.qtd + '</td>';
+          html += '<td class="consolidado-th">' + custoFmt + '</td>';
+          html += '<td class="consolidado-th">' + precoShopee + '</td>';
+          html += '<td class="consolidado-th">' + precoML + '</td>';
+          html += '<td class="consolidado-th ' + margemClass + '">' + margemText + '</td>';
+          html += '<td>' + alertIcon + '</td>';
+          html += '</tr>';
+        }
+        tbody.innerHTML = html;
+
+        var self = this;
+        var rows = tbody.querySelectorAll('.consolidado-row');
+        for (var r = 0; r < rows.length; r++) {
+          (function (row) {
+            row.addEventListener('click', function () {
+              var codigo = row.getAttribute('data-codigo');
+              self._viewMode = 'completo';
+              var toggleBtns = self._shadow.querySelectorAll('#view-toggle button');
+              for (var j = 0; j < toggleBtns.length; j++) {
+                toggleBtns[j].classList.toggle('active', toggleBtns[j].getAttribute('data-view') === 'completo');
+              }
+              self._el('filter-codigo').value = codigo;
+              self._applyFilters();
+            });
+          })(rows[r]);
+        }
+      }
+
+      _renderCompleto() {
         var items = this._sortItems(this._filtered);
         var tbody = this._el('estoque-tbody');
         var loadingEl = this._el('loading-state');
@@ -552,7 +790,6 @@
           var precoShopeeVal = it.PRECO_VENDA_SHOPEE != null && it.PRECO_VENDA_SHOPEE !== '' ? it.PRECO_VENDA_SHOPEE : '';
           var precoMLVal = it.PRECO_VENDA_MERCADO_LIVRE != null && it.PRECO_VENDA_MERCADO_LIVRE !== '' ? it.PRECO_VENDA_MERCADO_LIVRE : '';
           var dataEntrada = it.DATA_ENTRADA ? this._fmtDate(it.DATA_ENTRADA) : '-';
-          var produto = '<div>' + (it.CODIGO_PRODUTO || '') + '</div><div style="color:var(--color-text-secondary);font-size:var(--font-size-xs)">' + (it.DESCRICAO_PRODUTO || '') + '</div>';
 
           var statusOptionsHtml = '';
           for (var s = 0; s < STATUS_OPTIONS.length; s++) {
@@ -564,7 +801,8 @@
           html += '<tr data-id="' + id + '" class="estoque-row' + (isOpen ? ' row-open' : '') + (isSaving ? ' row-edited' : '') + '">';
           html += '<td>' + id + '</td>';
           html += '<td>' + (it.CATEGORIA || '') + '</td>';
-          html += '<td>' + produto + '</td>';
+          html += '<td>' + (it.CODIGO_PRODUTO || '') + '</td>';
+          html += '<td>' + (it.DESCRICAO_PRODUTO || '') + '</td>';
           html += '<td>' + dataEntrada + '</td>';
           html += '<td>' + custo + '</td>';
 
@@ -697,9 +935,11 @@
               if (data.updated > 1) {
                 showSuccess(self._shadow, 'Preco atualizado em ' + data.updated + ' itens do mesmo produto.');
               }
+              self._invalidateCache();
               self._load();
             } else {
               showError(self._shadow, 'Erro: ' + (data ? data.error : 'desconhecido'));
+              self._invalidateCache();
               self._load();
             }
           })
@@ -707,6 +947,7 @@
             input.classList.remove('saving');
             delete self._saving[estoqueId];
             showError(self._shadow, 'Erro ao salvar: ' + (err.message || err));
+            self._invalidateCache();
             self._load();
           })
           .apiDispatch('estoque.updateItem', params);
@@ -727,9 +968,11 @@
             var data = self._unwrap(resp);
             if (data && data.success) {
               showSuccess(self._shadow, 'Status alterado para ' + novoStatus + '.');
+              self._invalidateCache();
               self._load();
             } else {
               showError(self._shadow, 'Erro: ' + (data ? data.error : 'desconhecido'));
+              self._invalidateCache();
               self._load();
             }
           })
@@ -737,6 +980,7 @@
             select.disabled = false;
             delete self._saving[estoqueId];
             showError(self._shadow, 'Erro ao alterar status: ' + (err.message || err));
+            self._invalidateCache();
             self._load();
           })
           .apiDispatch('estoque.updateItem', { estoqueId: estoqueId, status: novoStatus });
@@ -780,15 +1024,18 @@
                 var data2 = self._unwrap(resp2);
                 if (data2 && data2.success) {
                   showSuccess(self._shadow, 'Precos preenchidos do catalogo. ' + (data2.updated > 1 ? data2.updated + ' itens atualizados.' : ''));
+                  self._invalidateCache();
                   self._load();
                 } else {
                   showError(self._shadow, 'Erro ao salvar: ' + (data2 ? data2.error : 'desconhecido'));
+                  self._invalidateCache();
                   self._load();
                 }
               })
               .withFailureHandler(function (err) {
                 delete self._saving[estoqueId];
                 showError(self._shadow, 'Erro ao salvar precos: ' + (err.message || err));
+                self._invalidateCache();
                 self._load();
               })
               .apiDispatch('estoque.updateItem', params);
