@@ -260,7 +260,7 @@
       var pager = shadow.querySelector('#tx-pager');
       if (pager) {
         pager.innerHTML = hasMore
-          ? '<button id="btn-tx-more" class="btn btn-sm">Ver mais (' + _txAllRows.length - end + ' restantes)</button>'
+          ? '<button id="btn-tx-more" class="btn btn-sm">Ver mais (' + (_txAllRows.length - end) + ' restantes)</button>'
           : '';
       }
       body.innerHTML = html || '<tr><td colspan="5">Sem transações ainda. Sincronize a carteira.</td></tr>';
