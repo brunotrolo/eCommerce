@@ -1,42 +1,34 @@
-# Spec: Mapeamento Anúncio Shopee ↔ Produto de Estoque (MAPA_PRODUTO_ANUNCIO)
+# Spec: Ferramenta de Pareamento Inicial de SKU (Anúncio Shopee ↔ Produto de Estoque)
 
 ## Status
 Draft
 
 ## Objetivo
 
-Resolver o elo que **não é automatizável** na cadeia "pedido Shopee → unidade de
-estoque": ligar o `ITEM_ID` de um anúncio (`ANUNCIOS_SHOPEE`) ao `CODIGO_PRODUTO`
-correspondente em `ESTOQUE`/`NFE_ENTRADA_PRODUTOS`.
+Acelerar o pareamento único entre os anúncios da Shopee (`ANUNCIOS_SHOPEE`) e os
+produtos do estoque (`ESTOQUE`), usando o campo nativo `item_sku` da Shopee como
+chave (ver amendment em `specs/anuncios-shopee.md`) — em vez de manter uma tabela de
+mapeamento interna paralela, que exigiria lógica própria de sincronização e poderia
+divergir do dado real na Shopee.
 
-Investigação nos dados reais do usuário confirmou que essa ligação não pode ser
-inferida automaticamente:
-- `ANUNCIOS_SHOPEE.item_sku` está **vazio em todos os 41 anúncios reais** da loja
-  (campo `item_sku` do payload Shopee, `""` em 100% da amostra verificada) — não há
-  SKU cadastrado no lado Shopee para casar com `CODIGO_PRODUTO`.
-- Os nomes não batem literalmente: título de anúncio (marketing) ex. `"Perfume
-  Árabe Delilah Maison Alhambra Feminino 100ml Eau de Parfum EDP Original"` vs.
-  descrição de estoque (nome de ERP/nota fiscal) ex. `"MAISON DELILAH"` — palavras
-  presentes mas fora de ordem e cercadas de texto de marketing.
-- `CODIGO_PRODUTO` (ex. `6231`) e `ITEM_ID` (ex. `58265432428`) são dois sistemas
-  de identificação numérica completamente diferentes, sem relação estrutural.
-- A loja vende produtos mistos — perfumes (com entrada via NFe/estoque) e itens de
-  casa/cozinha (marcas "Art House"/"Casita") que hoje não têm correspondência em
-  `NFE_ENTRADA_PRODUTOS`. Nem todo anúncio deve necessariamente ter um
-  `CODIGO_PRODUTO` — é preciso um jeito explícito de dizer "este anúncio não tem
-  controle de estoque unitário".
+Como o `item_sku` está vazio em todos os anúncios reais da loja hoje (41 itens),
+alguém precisa decidir, uma vez, qual `CODIGO_PRODUTO` cada anúncio representa (ou
+declarar que o anúncio não tem controle de estoque unitário — ex. os itens de
+casa/cozinha "Art House"/"Casita" sem NFe correspondente). Esta spec cobre **só a
+ferramenta de apoio a essa decisão** (sugestão por similaridade de texto + tela de
+confirmação) — a escrita em si do SKU na Shopee é `anunciosShopee.updateSku`
+(já especificada no amendment de `specs/anuncios-shopee.md`); esta spec não
+reimplementa isso.
 
-A solução é uma tabela de mapeamento mantida por humano (41 anúncios hoje é
-gerenciável), com sugestão automática por similaridade de texto para acelerar o
-cadastro inicial e o cadastro de novos anúncios no futuro.
+Depois do pareamento inicial, o fluxo deixa de precisar desta ferramenta para os
+mesmos itens — só reaparece quando um anúncio novo é criado sem `item_sku` definido.
 
 ## Contrato da API Interna
 
-### `produtoAnuncioMap.getSugestoes`
-- **Descrição:** para cada `ITEM_ID` de `ANUNCIOS_SHOPEE` que ainda não tem entrada
-  `CONFIRMADO` ou `IGNORADO` em `MAPA_PRODUTO_ANUNCIO`, calcula até 3 candidatos de
-  `CODIGO_PRODUTO` por similaridade de texto contra a lista de produtos do catálogo
-  (`CatalogService.getProducts()` ou leitura direta de `ESTOQUE` — ver Notas).
+### `produtoSkuMap.getSugestoes`
+- **Descrição:** lista os anúncios de `ANUNCIOS_SHOPEE` com `ITEM_SKU` vazio (ainda
+  não pareados) e, para cada um, sugere até 3 candidatos de `CODIGO_PRODUTO` por
+  similaridade de texto contra os produtos conhecidos em `ESTOQUE`.
 - **Params:** nenhum.
 - **Retorno:**
   ```javascript
@@ -44,218 +36,150 @@ cadastro inicial e o cadastro de novos anúncios no futuro.
     pendentes: [
       {
         itemId: string,
-        modelId: string,        // '' se o anúncio não tem variação
         nomeAnuncio: string,
         candidatos: [
-          { codigoProduto: string, descricaoProduto: string, score: number } // score 0-100
+          { codigoProduto: string, descricaoProduto: string, score: number } // 0-100
         ]
       }
     ],
     total: number
   }
   ```
+- **Erros esperados:** nenhum — lista vazia se `ANUNCIOS_SHOPEE` estiver vazia ou
+  se não houver pendências.
 
-### `produtoAnuncioMap.confirmar`
-- **Descrição:** grava a decisão humana de que um `ITEM_ID` (+ `MODEL_ID`
-  opcional) corresponde a um `CODIGO_PRODUTO`.
-- **Params:**
-  | Nome | Tipo | Obrigatório | Descrição |
-  |------|------|-------------|-----------|
-  | `itemId` | string | sim | ID do anúncio na Shopee |
-  | `modelId` | string | não | ID da variação, se houver (default `''`) |
-  | `codigoProduto` | string | sim | Código do produto em `ESTOQUE`/catálogo |
-- **Retorno:** `{ success: boolean }`.
-- **Erros esperados:** `codigoProduto` que não existe em nenhum produto conhecido
-  do catálogo → aviso não-bloqueante (permite mapear mesmo assim; produto pode
-  ainda não ter entrada de NFe registrada).
-
-### `produtoAnuncioMap.ignorar`
-- **Descrição:** marca um `ITEM_ID` como sem controle de estoque unitário (ex.
-  produtos "Art House"/"Casita" sem NFe correspondente).
-- **Params:** `{ itemId: string, modelId?: string }`
-- **Retorno:** `{ success: boolean }`.
-
-### `produtoAnuncioMap.getMap`
-- **Descrição:** retorna o dicionário `item_id(+model_id) → codigoProduto` pronto
-  para consumo por `EstoqueBaixaService`/`estoque-baixa-shopee`. Cacheado (ver
-  Regras de Negócio).
-- **Params:** nenhum.
-- **Retorno:** `{ map: { "<itemId>" : { codigoProduto: string } , "<itemId>:<modelId>": {...} }, atualizadoEm: string }`.
-
-### `produtoAnuncioMap.listMapeados`
-- **Descrição:** lista todos os mapeamentos já confirmados ou ignorados, para
-  auditoria/edição na UI.
-- **Params:** `{ status?: 'CONFIRMADO' | 'IGNORADO' | 'PENDENTE' }`
-- **Retorno:** `{ items: array }` — todas as colunas de `MAPA_PRODUTO_ANUNCIO`.
-
-## Formato da Aba MAPA_PRODUTO_ANUNCIO
-
-```
-ITEM_ID | MODEL_ID | NOME_ANUNCIO_SHOPEE | CODIGO_PRODUTO | DESCRICAO_PRODUTO_ESTOQUE | SUGESTAO_SIMILARIDADE | STATUS | CONFIRMADO_POR | CONFIRMADO_EM | LOG_ID
-```
-
-| Campo | Formato | Descrição |
-|-------|---------|-----------|
-| ITEM_ID | string | ID do anúncio Shopee (chave, junto com MODEL_ID) |
-| MODEL_ID | string | ID da variação, `''` se o anúncio não tem variação |
-| NOME_ANUNCIO_SHOPEE | string | Snapshot do título no momento do mapeamento (auditoria — título pode mudar depois) |
-| CODIGO_PRODUTO | string | Código em `ESTOQUE`/catálogo — vazio se `STATUS='IGNORADO'` |
-| DESCRICAO_PRODUTO_ESTOQUE | string | Snapshot da descrição do produto mapeado |
-| SUGESTAO_SIMILARIDADE | number | Score (0-100) da sugestão que originou a confirmação, `''` se mapeado manualmente sem sugestão |
-| STATUS | string | `'CONFIRMADO'` \| `'IGNORADO'` |
-| CONFIRMADO_POR | string | `'Manual'` (v1 não distingue usuários — projeto é single-user) |
-| CONFIRMADO_EM | dd/MM/yyyy HH:mm:ss | Timestamp BR |
-| LOG_ID | string | `YYYYMMDDHHMMSS-<nonce8>` |
-
-**Nota:** não existe linha `STATUS='PENDENTE'` persistida — pendência é a
-*ausência* de linha para aquele `ITEM_ID(+MODEL_ID)`. `getSugestoes` calcula
-pendentes comparando `ANUNCIOS_SHOPEE` contra o que já existe na aba.
+Não há ações de escrita nesta spec. Confirmar um candidato ou marcar "sem estoque"
+é uma chamada direta a `anunciosShopee.updateSku({itemId, sku})` — a UI desta spec
+chama essa ação existente com `sku = codigoProduto` (pareamento) ou `sku =
+'SEM_ESTOQUE'` (item sem controle de estoque unitário), sem ação intermediária
+própria.
 
 ## Regras de Negócio
 
-1. **Chave é `ITEM_ID` + `MODEL_ID`.** Anúncio sem variação usa `MODEL_ID=''`. Um
-   mapeamento é 1:1 — um `ITEM_ID(+MODEL_ID)` mapeia para exatamente um
-   `CODIGO_PRODUTO` (ver Fora de Escopo para o caso de kit/combo).
-2. **Sugestão nunca grava sozinha.** `getSugestoes` só calcula e retorna
-   candidatos; toda linha em `MAPA_PRODUTO_ANUNCIO` exige `confirmar`/`ignorar`
-   explícito.
-3. **Algoritmo de similaridade (v1, sem dependência externa):**
+1. **Sem tabela de mapeamento própria.** Toda a informação de vínculo mora em
+   `ANUNCIOS_SHOPEE.ITEM_SKU` (Shopee é a fonte única de verdade). Esta spec só lê
+   `ANUNCIOS_SHOPEE` e `ESTOQUE` para calcular sugestões — não persiste nada.
+2. **Convenção do SKU sentinela:** `ITEM_SKU = 'SEM_ESTOQUE'` (literal, definida no
+   amendment de `specs/anuncios-shopee.md`) marca um anúncio como intencionalmente
+   sem controle de estoque unitário. Uma vez marcado assim, o item some da lista de
+   `getSugestoes()` (deixa de ter `ITEM_SKU` vazio) e a baixa automática
+   (`specs/estoque-baixa-shopee.md`) ignora silenciosamente pedidos desse item —
+   sem gerar pendência, porque a ausência de estoque ali é deliberada, não um
+   esquecimento.
+3. **Algoritmo de similaridade (mesmo da versão anterior desta spec, reaproveitado
+   sem mudança):**
    - Normalizar ambos os textos: lowercase, remover acentuação, remover palavras
      genéricas de baixo sinal (`"perfume"`, `"original"`, `"eau"`, `"de"`,
      `"parfum"`, `"toilette"`, `"ml"`, números isolados de volume como `"100ml"`).
-   - Tokenizar em palavras, calcular sobreposição (quantos tokens do nome do
-     produto de estoque aparecem no título do anúncio, e vice-versa).
+   - Tokenizar em palavras, calcular sobreposição de tokens entre o nome do produto
+     de estoque e o título do anúncio.
    - Score = percentual de tokens do lado mais curto (tipicamente a descrição de
-     estoque, mais enxuta) encontrados no lado mais longo (título de marketing).
+     estoque) encontrados no lado mais longo (título de marketing da Shopee).
    - Ordenar candidatos por score decrescente, retornar top-3.
-4. **`STATUS='IGNORADO'` é permanente até o usuário reverter manualmente** (não há
-   ação de "designorar" nesta v1 — se precisar, editar a linha direto na planilha;
-   ação de reversão fica fora de escopo v1 dado o baixo volume de dados).
-5. **Cache do `getMap`:** via `CacheRepository`, TTL curto (5 min, mesmo padrão de
-   `DashboardService`), invalidado explicitamente (`CacheRepository.
-  invalidateByPattern('produtoAnuncioMap.')`) sempre que `confirmar`/`ignorar`
-   grava uma linha nova — o motor de baixa (`estoque-baixa-shopee`) não pode operar
-   com mapeamento desatualizado depois de o usuário acabar de confirmar algo.
-6. **Reprocessamento de pendências:** ao confirmar um mapeamento que tinha itens de
-   pedido esperando (`ESTOQUE_BAIXAS.STATUS='PENDENTE_MAPEAMENTO'`, ver
-   `specs/estoque-baixa.md`), a UI de confirmação deve, na sequência, chamar
-   `estoqueBaixa.reprocessarPendentes()` — não é responsabilidade deste serviço
-   disparar isso sozinho (evita acoplar `produtoAnuncioMap` a `estoqueBaixa`), mas a
-   spec de `estoque-baixa-shopee.md` deve amarrar esse fluxo na UI.
+4. **`getSugestoes()` é sempre recalculado, nunca cacheado de forma persistente** —
+   como só roda sob demanda (tela de pareamento, uso esporádico), não há TTL de
+   cache aqui; cada chamada lê `ANUNCIOS_SHOPEE`/`ESTOQUE` frescos.
+5. **Fonte de candidatos é `ESTOQUE`, não o cálculo agregado do Catálogo** — mesmo
+   motivo já documentado no projeto: `CatalogService` calcula estoque num modelo
+   paralelo e desconectado de `ESTOQUE`; esta ferramenta sugere produtos que
+   realmente existem na fonte que a baixa automática vai consultar.
 
 ## Casos de Borda
 
-- **Anúncio sem nenhum candidato de similaridade razoável** (score muito baixo em
-  todos, ex. produtos "Art House"/"Casita" sem NFe correspondente) → `candidatos`
-  vem vazio ou com scores baixos; UI deixa claro que a melhor ação provável é
-  "Ignorar".
-- **Mesmo `CODIGO_PRODUTO` sugerido para dois `ITEM_ID` diferentes** (ex. o mesmo
-  perfume anunciado em dois anúncios distintos, situação plausível) → permitido,
-  não é erro. Um `codigoProduto` pode ser destino de múltiplos `item_id`.
-- **Anúncio novo criado depois da primeira rodada de mapeamento** → aparece
-  automaticamente em `getSugestoes` na próxima chamada (é sempre "o que não tem
-  linha ainda em `MAPA_PRODUTO_ANUNCIO`", não uma lista fixa).
-- **`ANUNCIOS_SHOPEE` vazia (nunca sincronizada)** → `getSugestoes` retorna
+- **Anúncio sem nenhum candidato de similaridade razoável** (score baixo em todos —
+  típico dos itens "Art House"/"Casita" sem NFe) → `candidatos` vem vazio ou com
+  scores baixos; a UI deixa claro que a ação provável é "Marcar sem estoque".
+- **Mesmo `CODIGO_PRODUTO` sugerido para dois anúncios diferentes** (o mesmo
+  perfume anunciado em dois `item_id` distintos, situação plausível) → permitido,
+  não é erro — vários anúncios podem apontar para o mesmo produto físico.
+- **`ANUNCIOS_SHOPEE` vazia (nunca sincronizada)** → `getSugestoes()` retorna
   `{ pendentes: [], total: 0 }`, não erro.
-- **Confirmar um `codigoProduto` que não existe em `ESTOQUE` nem no catálogo** →
-  aceito com aviso (não bloqueia — o produto pode ter uma NFe pendente de
-  sincronização; a spec de `estoque-baixa-shopee.md` trata a ausência de estoque
-  real como `faltantes > 0`, não como erro de mapeamento).
+- **Usuário reverte um `'SEM_ESTOQUE'` para pareamento real depois** — chama
+  `anunciosShopee.updateSku({itemId, sku: codigoProduto})` diretamente (a UI desta
+  ferramenta pode oferecer isso mostrando também os já marcados `'SEM_ESTOQUE'` com
+  opção de re-parear, mas o essencial já está coberto pela ação existente, sem
+  necessidade de ação nova).
+- **`anunciosShopee.updateSku` falha na releitura** (ver `specs/anuncios-shopee.md`)
+  → a UI exibe o erro (`withLoading`/`showError`, padrão único do projeto) e o item
+  continua aparecendo em `getSugestoes()` na próxima chamada, sem meio-termo
+  (SKU só muda de fato se a releitura confirmar).
 
 ## Critérios de Aceite (Given/When/Then)
 
-1. **Sugestão por similaridade acerta caso óbvio**
+1. **Sugestão por similaridade acerta caso real**
    - Given anúncio `ITEM_ID=58264575830`, `NOME="Perfume Árabe Delilah Maison
-     Alhambra Feminino 100ml Eau de Parfum EDP Original"`, e produto de estoque
-     `CODIGO_PRODUTO=6231`, `DESCRICAO="MAISON DELILAH"`
+     Alhambra Feminino 100ml Eau de Parfum EDP Original"`, `ITEM_SKU=''`, e produto
+     de estoque `CODIGO_PRODUTO=6231`, `DESCRICAO="MAISON DELILAH"`
    - When `getSugestoes()` é chamado
    - Then `6231` aparece entre os candidatos desse `ITEM_ID` com score alto
-     (validar com os dados reais do usuário, não sintéticos).
+     (validado com os dados reais do usuário).
 
-2. **Confirmação grava e sai da lista de pendentes**
-   - Given um `ITEM_ID` pendente
-   - When `confirmar({itemId, codigoProduto})`
-   - Then uma linha `STATUS='CONFIRMADO'` é gravada em `MAPA_PRODUTO_ANUNCIO`, e uma
-     chamada seguinte a `getSugestoes()` não inclui mais esse `ITEM_ID`.
+2. **Confirmar grava o SKU na Shopee e sai da lista de pendentes**
+   - Given um anúncio pendente com candidato `6231`
+   - When a UI chama `anunciosShopee.updateSku({itemId, sku:'6231'})` e a releitura
+     confirma
+   - Then `ANUNCIOS_SHOPEE.ITEM_SKU='6231'`, e uma chamada seguinte a
+     `getSugestoes()` não inclui mais esse `itemId`.
 
-3. **Ignorar remove da lista de pendentes sem CODIGO_PRODUTO**
-   - Given um `ITEM_ID` de um produto sem controle de estoque (ex. "Art House")
-   - When `ignorar({itemId})`
-   - Then uma linha `STATUS='IGNORADO'` é gravada com `CODIGO_PRODUTO=''`, e não
-     aparece mais em `getSugestoes()`.
+3. **Marcar sem estoque sai da lista sem exigir candidato**
+   - Given um anúncio sem candidato razoável (ex. item "Art House")
+   - When a UI chama `anunciosShopee.updateSku({itemId, sku:'SEM_ESTOQUE'})`
+   - Then `ANUNCIOS_SHOPEE.ITEM_SKU='SEM_ESTOQUE'`, e o item não aparece mais em
+     `getSugestoes()`.
 
-4. **getMap retorna só confirmados**
-   - Given 2 `ITEM_ID` confirmados e 1 ignorado
-   - When `getMap()`
-   - Then o dict retornado tem exatamente 2 entradas (o ignorado não aparece).
-
-5. **Cache invalidado após confirmação**
-   - Given `getMap()` chamado e cacheado
-   - When `confirmar(...)` é chamado logo em seguida
-   - Then a próxima chamada a `getMap()` já reflete o novo mapeamento (não serve
-     cache stale).
-
-6. **41 anúncios reais mapeáveis de ponta a ponta**
-   - Given a base real de anúncios do usuário (41 itens)
-   - When o usuário percorre a tela de mapeamento confirmando/ignorando todos
-   - Then `listMapeados({status:'PENDENTE'})` (calculado via diferença, não
-     armazenado) fica vazio — nenhum anúncio sem decisão.
+4. **41 anúncios reais pareáveis de ponta a ponta**
+   - Given a base real de anúncios do usuário
+   - When o usuário percorre a tela confirmando ou marcando "sem estoque" todos
+   - Then `getSugestoes()` retorna `{ pendentes: [], total: 0 }` ao final.
 
 ## Fora de Escopo (v1)
 
-- Kit/combo (1 `ITEM_ID` mapeando para N `CODIGO_PRODUTO` com quantidades
-  diferentes) — sem evidência disso nos 41 anúncios reais hoje; se aparecer no
-  futuro, precisa de spec própria (mapa deixa de ser 1:1).
-- Reversão de `STATUS='IGNORADO'` de volta para pendente via API (editar direto na
-  planilha por enquanto).
-- Reconciliação automática quando um `ITEM_ID` muda de produto ao longo do tempo
-  (SKU reciclado) — documentado como risco conhecido, não tratado.
-- Importação/exportação em lote (CSV) do mapeamento.
+- Reversão em massa (desfazer vários pareamentos de uma vez).
+- Kit/combo (1 anúncio representando N produtos com quantidades diferentes) — o SKU
+  é 1:1 com `CODIGO_PRODUTO`; se aparecer esse caso, precisa de spec própria.
+- Variações/modelos (`model_sku` por variação) — todos os anúncios reais hoje são
+  `TIPO_VARIACAO='sem_variacao'`; SKU por variação fica para quando o caso aparecer.
+- Importação/exportação em lote (CSV) do pareamento.
 
 ## Dependências
 
 - **Services:**
-  - `CatalogService.getProducts()` ou leitura direta de `ESTOQUE`/
-    `NFeEntradaProdutosRepository` para a lista de candidatos (decisão de
-    implementação: preferir `ESTOQUE` como fonte, já que é o alvo real da baixa —
-    ver Notas de Implementação).
-  - `CacheRepository` (cache do `getMap`, TTL 5 min).
-- **Repositories:**
-  - `ProdutoAnuncioMapRepository` (novo) — I/O da aba `MAPA_PRODUTO_ANUNCIO`.
-  - Leitura de `ANUNCIOS_SHOPEE` via `AnunciosShopeeRepository.getAll()` (já
-    existe).
-- **Nenhuma chamada Tiops** — este serviço opera inteiramente sobre dados já
-  sincronizados em Sheets.
+  - `anunciosShopee.updateSku` (amendment em `specs/anuncios-shopee.md`) — única
+    ação de escrita usada por esta ferramenta.
+  - `AnunciosShopeeRepository.getAll()` (já existe) — fonte dos anúncios pendentes.
+  - `EstoqueRepository.getRows()` (já existe) — fonte dos candidatos por
+    similaridade.
+- **Nenhuma chamada Tiops direta nesta spec** — toda escrita passa por
+  `anunciosShopee.updateSku`, que já encapsula a chamada e a releitura.
 
 ## Notas de Implementação
 
 1. **Estrutura de arquivos:**
    ```
-   src/03_services/produtoAnuncioMap/ProdutoAnuncioMapService.js
-   src/03_services/produtoAnuncioMap/ProdutoAnuncioMapRepository.js
-   ui/produtoAnuncioMap/ProdutoAnuncioMapView.html
+   src/03_services/produtoSkuMap/ProdutoSkuMapService.js
+   ui/produtoSkuMap/ProdutoSkuMapView.html
    ```
-2. **`filePushOrder`:** `ProdutoAnuncioMapRepository.js` no bloco de repositories
-   (depende só de `SheetsRepository`/`ConfigService`); `ProdutoAnuncioMapService.js`
-   em `03_services`, depois de `AnunciosShopeeRepository.js` (lê anúncios) e antes
-   de `ServiceRegistry.js`.
+   Sem repository próprio — `ProdutoSkuMapService` só lê via
+   `AnunciosShopeeRepository`/`EstoqueRepository` já existentes, e escreve
+   chamando `AnunciosShopeeService.updateSku` diretamente (mesma camada de
+   serviço, chamada direta é aceitável dado que ambos vivem em `03_services` — não
+   é uma dependência de repository cruzando camada).
+2. **`filePushOrder`:** `ProdutoSkuMapService.js` entra depois de
+   `AnunciosShopeeService.js`/`AnunciosShopeeRepository.js` e depois de
+   `EstoqueRepository.js` (ambos dos quais depende), antes de `ServiceRegistry.js`.
 3. **Registro em `ServiceRegistry.js`:** padrão defensivo
-   `produtoAnuncioMap: safeRef_('produtoAnuncioMap', function () { return typeof
-   ProdutoAnuncioMapService !== 'undefined' ? ProdutoAnuncioMapService : undefined;
-   })`.
-4. **Fonte de candidatos para similaridade:** usar `EstoqueRepository.getRows()`
-   agregado por `CODIGO_PRODUTO` único (não `CatalogService`, que hoje calcula um
-   agregado paralelo e desconectado de `ESTOQUE` — ver achado de arquitetura em
-   `PLANO.md`/análise do projeto; não vale a pena acoplar esta spec nova a um
-   cálculo que já está sinalizado para ser substituído).
-5. **UI (`ProdutoAnuncioMapView.html`):** Web Component com Shadow DOM, padrão do
-   projeto. Lista cada `ITEM_ID` pendente com: imagem/nome do anúncio, candidatos
-   sugeridos como botões rápidos (score visível), e um campo de busca/picklist
-   manual (reaproveitar o padrão de picklist com filtro já usado em
-   `ManualSaidaListView.html` para "produtos disponíveis") para os casos sem boa
-   sugestão. Botão "Ignorar" sempre visível. Usa `withLoading`/`showError` de
-   `UiHelpers.html` (padrão único de erro do projeto, `specs/error-handling-ui.md`).
-6. **Rota em `Shell.html`:** adicionar `data-route="produtoAnuncioMap"` no grupo
-   "Produtos" do dropdown de navegação (mesmo grupo de "Preço e Estoque" e
-   "Catálogo" — é uma tela de configuração/manutenção de produto, não de
+   `produtoSkuMap: safeRef_('produtoSkuMap', function () { return typeof
+   ProdutoSkuMapService !== 'undefined' ? ProdutoSkuMapService : undefined; })`.
+4. **UI (`ProdutoSkuMapView.html`):** Web Component com Shadow DOM, padrão do
+   projeto. Lista cada anúncio pendente com imagem/nome, candidatos sugeridos como
+   botões rápidos (score visível) que chamam `anunciosShopee.updateSku` direto, um
+   campo de busca/picklist manual para os casos sem boa sugestão (reaproveitar o
+   padrão de picklist com filtro já usado em `ManualSaidaListView.html`), e um
+   botão "Marcar sem estoque" sempre visível. Usa `withLoading`/`showError` de
+   `UiHelpers.html` (padrão único de erro do projeto).
+5. **Rota em `Shell.html`:** grupo "Produtos" do dropdown de navegação (mesmo grupo
+   de "Preço e Estoque" e "Catálogo" — é tela de configuração/manutenção, não de
    operação diária).
+6. **Depende do amendment de `specs/anuncios-shopee.md` estar implementado
+   primeiro** (`ITEM_SKU` na aba + ação `updateSku`) — sem isso, não há nada para
+   esta ferramenta ler nem escrever.

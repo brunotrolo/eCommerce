@@ -369,6 +369,67 @@ Then:
 
 ---
 
+## Amendment: Campo ITEM_SKU e ação `updateSku` (vínculo com estoque)
+
+**Status do amendment: Draft.** Motivado pela Fase 9 do plano do projeto (motor de
+controle de estoque automatizado): o `item_sku` da Shopee é a chave escolhida para
+ligar um anúncio ao `CODIGO_PRODUTO` do estoque (`ESTOQUE`/`NFE_ENTRADA_PRODUTOS`),
+substituindo uma abordagem anterior baseada em tabela de mapeamento paralela por
+similaridade de nome (descartada — usar o campo nativo da própria Shopee evita
+manter um segundo dado que pode divergir). Ver `specs/produto-anuncio-map.md` para a
+ferramenta de apoio ao pareamento inicial, e `specs/estoque-baixa-shopee.md` para o
+consumo deste campo na baixa automática.
+
+### Campo novo em ANUNCIOS_SHOPEE
+
+| Campo | Formato | Descrição |
+|-------|---------|-----------|
+| `ITEM_SKU` | string | Valor de `item.item_sku` do payload Shopee. Convenção deste projeto: `ITEM_SKU = CODIGO_PRODUTO` do estoque para itens rastreados; `ITEM_SKU = 'SEM_ESTOQUE'` (literal) para itens que existem só na Shopee, sem controle de estoque unitário (ex. produtos "Art House"/"Casita" sem NFe correspondente); `ITEM_SKU` vazio = ainda não pareado. |
+
+`buildItemRow_()` passa a capturar `item.item_sku` (já presente no payload de
+`shopee_get_item`/`shopee_get_items_batch`, hoje ignorado) e gravar em `ITEM_SKU` a
+cada `syncListings`.
+
+### `anunciosShopee.updateSku` (ação nova)
+- **Descrição:** grava `item_sku` na Shopee para um item e confirma por releitura
+  (mesmo padrão de `updatePrice`/`updateStock` já implementados — nunca confia na
+  resposta do update sozinha). É o único caminho de escrita de SKU do projeto —
+  tanto para vincular um produto quanto para marcar `'SEM_ESTOQUE'` passam por aqui.
+- **Params:**
+  | Nome | Tipo | Obrigatório | Descrição |
+  |------|------|-------------|-----------|
+  | `itemId` | string | sim | ID do item na Shopee |
+  | `sku` | string | sim | Novo valor de `item_sku` — `CODIGO_PRODUTO` ou `'SEM_ESTOQUE'` |
+- **Retorno:** `{ success: boolean, itemId: string, sku: string }`.
+- **Erros esperados:** `ITEM_NOT_FOUND`; falha de confirmação por releitura →
+  `'Falha ao confirmar mudança. Tente novamente.'` (mesma mensagem já usada em
+  `updateSinglePrice_`/`updateSingleStock_`, por consistência).
+
+### ⚠️ Premissa não confirmada — precisa de validação antes de codar
+
+**Este amendment assume que é possível escrever `item_sku` via `shopee_update_item`
+(ou ação equivalente) pela Tiops** — não confirmado contra o catálogo real (sessão
+de escrita desta spec estava com a API key da Tiops inválida/revogada). Antes de
+implementar (skill `tiops-contract`):
+1. Confirmar via `describe_action('shopee_update_item')` se `item_sku` é um campo
+   aceito no payload de atualização (alguns marketplaces só permitem definir SKU na
+   criação do item, não em edição posterior — precisa confirmar, não assumir).
+2. **Se não for possível editar via API:** documentar aqui a limitação e avaliar
+   alternativa (ex. usuário edita o SKU manualmente no app/site da Shopee para os
+   41 itens existentes, um de cada vez, guiado pela lista de sugestões que
+   `specs/produto-anuncio-map.md` já gera — a ferramenta de sugestão continua útil
+   mesmo sem escrita automática, só muda de "grava sozinho" para "mostra o que
+   copiar/colar").
+
+### Critério de Aceite adicional
+
+- Given um item sem `item_sku` na Shopee
+- When `anunciosShopee.updateSku({itemId, sku:'6231'})` é chamado
+- Then a releitura confirma `item_sku='6231'`, e `ANUNCIOS_SHOPEE.ITEM_SKU` reflete
+  o novo valor.
+
+---
+
 ## Fora de Escopo (v1)
 
 - Criar novos anúncios via interface (apenas leitura + edição básica de preço/estoque)
