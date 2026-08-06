@@ -29,6 +29,7 @@
         <thead><tr><th>Data</th><th>Valor</th><th>Método</th><th>Status</th><th>Referência</th></tr></thead>
         <tbody></tbody>
       </table>
+      <div id="payout-pager" style="text-align:center;margin-top:8px;"></div>
     </div>
   </div>
 </template>
@@ -74,11 +75,15 @@
         if (force && window.__DataStore) window.__DataStore.invalidate('carteiraShopee.snapshot');
         withLoading(
           shadow.getElementById('btn-sync'),
-          (success, failure) =>
-            google.script.run
-              .withSuccessHandler(success)
-              .withFailureHandler(failure)
-              .apiDispatch('carteiraShopee.syncWallet', { forceFresh: !!force }),
+          (success, failure) => {
+            var promise = new Promise(function (resolve, reject) {
+              google.script.run
+                .withSuccessHandler(resolve)
+                .withFailureHandler(reject)
+                .apiDispatch('carteiraShopee.syncWallet', { forceFresh: !!force });
+            });
+            return withTimeout(promise, 30000).then(success).catch(failure);
+          },
           (data) => {
             if (!data || data.error) {
               shadow.getElementById('error-box').textContent = data && data.error ? data.error : 'Erro ao sincronizar.';
@@ -273,10 +278,21 @@
       }
     }
 
+    var _payoutAllRows = [];
+    var _payoutPage = 1;
+    var _payoutPageSize = 10;
+
     function renderPayouts(shadow, rows) {
+      _payoutAllRows = rows || [];
+      _payoutPage = 1;
+      _renderPayoutPage(shadow);
+    }
+
+    function _renderPayoutPage(shadow) {
       var body = shadow.querySelector('#payout-table tbody');
-      var html = rows
-        .slice(0, 12)
+      var end = _payoutPage * _payoutPageSize;
+      var visible = _payoutAllRows.slice(0, end);
+      var html = visible
         .map(function (r) {
           return (
             '<tr><td>' + fmtDate_(r.DATA_PAYOUT) + '</td><td>' + formatBRL(r.VALOR) +
@@ -285,7 +301,21 @@
           );
         })
         .join('');
+      var hasMore = _payoutAllRows.length > end;
+      var pager = shadow.querySelector('#payout-pager');
+      if (pager) {
+        pager.innerHTML = hasMore
+          ? '<button id="btn-payout-more" class="btn btn-sm">Ver mais (' + (_payoutAllRows.length - end) + ' restantes)</button>'
+          : '';
+      }
       body.innerHTML = html || '<tr><td colspan="5">Sem pagamentos ainda. Sincronize a carteira.</td></tr>';
+      var btnMore = shadow.querySelector('#btn-payout-more');
+      if (btnMore) {
+        btnMore.addEventListener('click', function () {
+          _payoutPage++;
+          _renderPayoutPage(shadow);
+        });
+      }
     }
 
     customElements.define('carteira-shopee-widget', CarteiraShopeeWidget);
