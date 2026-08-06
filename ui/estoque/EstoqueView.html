@@ -524,7 +524,7 @@
             valB = _parseBrDate_(valB);
             return order === 'asc' ? valA - valB : valB - valA;
           }
-          if (key === 'CATEGORIA' || key === 'ESTOQUE_ID') {
+          if (key === 'CATEGORIA' || key === 'ESTOQUE_ID' || key === 'CODIGO_PRODUTO' || key === 'DESCRICAO_PRODUTO') {
             valA = String(valA || '').toLowerCase();
             valB = String(valB || '').toLowerCase();
             return order === 'asc' ? (valA < valB ? -1 : valA > valB ? 1 : 0) : (valA < valB ? 1 : valA > valB ? -1 : 0);
