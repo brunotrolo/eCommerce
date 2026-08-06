@@ -69,7 +69,7 @@ var OrdersImportService = (function () {
       var price = it.model_discounted_price || 0;
       parts.push(name + ' (SKU:' + sku + ' x' + qty + ' R$' + price + ')');
     }
-    return parts.join(' | ');
+    return parts.join('; ');
   }
 
   function formatItemSkus_(items) {
@@ -80,7 +80,7 @@ var OrdersImportService = (function () {
       var qty = items[i].model_quantity_purchased || 1;
       if (sku) parts.push(sku + ':' + qty);
     }
-    return parts.join(', ');
+    return parts.join('; ');
   }
 
   function listOrderSnsByStatus_(orderStatus) {
