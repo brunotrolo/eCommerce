@@ -25,6 +25,11 @@ var OrdersService = (function () {
             orderId: { type: 'string', required: true }
           },
           returns: { order: 'object' }
+        },
+        debugHeaders: {
+          description: 'Debug: retorna headers da aba PEDIDOS e valor da primeira linha.',
+          params: {},
+          returns: { headers: 'array' }
         }
       }
     };
