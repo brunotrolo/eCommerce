@@ -40,6 +40,12 @@ var OrdersImportService = (function () {
           params: {
             orderSn: { type: 'string', required: false, default: '260711CAQ9KK03' }
           }
+        },
+        testForceWriteCost: {
+          description: 'Teste: fetch order detail + normalizeOrder_ + updateOrderRow com TOTAL_COST.',
+          params: {
+            orderSn: { type: 'string', required: false, default: '260711CAQ9KK03' }
+          }
         }
       }
     };
@@ -677,5 +683,57 @@ var OrdersImportService = (function () {
       }
     }
     return { error: 'Order not found: ' + orderSn };
+  }, testForceWriteCost: function (params) {
+    var orderSn = params.orderSn || '260711CAQ9KK03';
+    var costMap = {};
+    try {
+      costMap = getCostMap_(ConfigService.getSheetId());
+    } catch (e) {
+      return { error: 'getCostMap failed: ' + e.message };
+    }
+
+    var detail = null;
+    try {
+      detail = callTiops_('shopee_get_order_detail', { order_sn: orderSn });
+    } catch (e) {
+      return { error: 'shopee_get_order_detail failed: ' + e.message };
+    }
+    if (!detail) return { error: 'detail is null for ' + orderSn };
+
+    var escrow = null;
+    try {
+      escrow = callTiops_('shopee_get_escrow_detail', { order_sn: orderSn });
+    } catch (e) { /* ok */ }
+
+    var skuMap = {};
+    try { skuMap = AnunciosShopeeRepository.getItemSkuMap(); } catch (e) { /* ok */ }
+
+    var order = normalizeOrder_(detail, escrow, skuMap, costMap);
+    if (!order) return { error: 'normalizeOrder_ returned null' };
+
+    var debugInfo = {
+      orderSn: order.ORDER_ID,
+      itemSkus: order.ITEM_SKUS,
+      totalCost: order.TOTAL_COST,
+      orderKeys: Object.keys(order),
+      hasTotalCostInOrder: 'TOTAL_COST' in order
+    };
+
+    var existingMap = OrdersRepository.getAllOrdersMap();
+    var existing = existingMap[orderSn];
+    if (!existing) return { error: 'Order not in sheet', debug: debugInfo };
+
+    var writeResult = OrdersRepository.updateOrderRow(existing.rowNumber, order);
+
+    var sheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
+    var lastCol2 = sheet.getLastColumn();
+    var hdrs = sheet.getRange(1, 1, 1, lastCol2).getValues()[0];
+    var tcCol = -1;
+    for (var i = 0; i < hdrs.length; i++) {
+      if (hdrs[i] === 'TOTAL_COST') tcCol = i + 1;
+    }
+    var cellAfter = tcCol > 0 ? sheet.getRange(existing.rowNumber, tcCol).getValue() : 'col not found';
+
+    return { debug: debugInfo, writeResult: writeResult, cellAfter: cellAfter, rowNumber: existing.rowNumber };
   } };
 })();
