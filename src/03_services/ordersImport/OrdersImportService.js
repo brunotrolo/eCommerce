@@ -517,6 +517,20 @@ var OrdersImportService = (function () {
       if (normalized) toUpsert.push(normalized);
     }
 
+    if (toUpsert.length > 0) {
+      var debugOrder = toUpsert[0];
+      LoggingService.log({
+        service: 'OrdersImport', action: 'debugFirstOrder', status: 'OK',
+        caller: 'OrdersImportService',
+        summary: 'First order: OID=' + debugOrder.ORDER_ID + ' SKUs=' + debugOrder.ITEM_SKUS + ' COST=' + debugOrder.TOTAL_COST,
+        durationMs: 0, context: {
+          ORDER_ID: debugOrder.ORDER_ID, ITEM_SKUS: debugOrder.ITEM_SKUS,
+          TOTAL_COST: debugOrder.TOTAL_COST, ITEMS_DETAIL: (debugOrder.ITEMS_DETAIL || '').substring(0, 200),
+          keys: Object.keys(debugOrder)
+        }
+      });
+    }
+
     var upsertResult = { inserted: 0, updated: 0 };
     if (toUpsert.length > 0) {
       upsertResult = OrdersRepository.upsertOrders(toUpsert, true);
