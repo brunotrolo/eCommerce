@@ -157,6 +157,7 @@ var AnunciosShopeeRepository = (function () {
   function writeMainRow_(sheet, rowIdx, colMap, item, now) {
     var fieldToHeader = {
       ITEM_ID: 'ITEM_ID',
+      SKU: 'SKU',
       NOME: 'NOME',
       CATEGORIA: 'CATEGORIA',
       PRECO: 'PRECO',

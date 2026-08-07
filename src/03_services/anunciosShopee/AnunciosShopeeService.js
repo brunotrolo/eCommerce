@@ -230,7 +230,12 @@ var AnunciosShopeeService = (function () {
   function fetchSales_(shopId, itemId) {
     try {
       var result = callTiops_('shopee_sales_by_item', { item_id: itemId, period: PERIODO_PADRAO, shopId: shopId });
-      var resp = result && result.response ? result.response : result;
+      var resp = result;
+      if (resp && resp.response) resp = resp.response;
+      if (resp && resp.data) resp = resp.data;
+      if (!resp || typeof resp !== 'object') {
+        return { total_orders: 0, total_quantity: 0, total_revenue: 0 };
+      }
       return {
         total_orders: num_(resp.total_orders),
         total_quantity: num_(resp.total_quantity),
