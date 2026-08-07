@@ -355,6 +355,9 @@ var AnunciosShopeeService = (function () {
       if (item.model) {
         return item.model.seller_sku || '';
       }
+      if (item.item_sku) {
+        return item.item_sku;
+      }
       if (item.seller_sku) {
         return item.seller_sku;
       }
