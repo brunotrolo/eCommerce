@@ -36,6 +36,7 @@ function onOpen() {
           .addItem('Saída Manual', 'runManualSaidaSmokeTests_')
           .addItem('Carteira Shopee', 'runCarteiraShopeeSmokeTests_')
           .addItem('Anúncios Shopee', 'runAnunciosShopeeSmokeTests_')
+          .addItem('Estoque Baixa', 'runEstoqueBaixaSmokeTests_')
           .addItem('Write Audit', 'runWriteAuditSmokeTests_')
       )
       .addToUi();
@@ -886,6 +887,63 @@ function syncAnunciosShopeeDaily() {
     ' atualizados=' + (result.synced ? result.synced.itemsAtualizados : 0) +
     ' novos=' + (result.synced ? result.synced.novosCriados : 0) +
     ' erros=' + result.errors.length);
+}
+
+function runEstoqueBaixaSmokeTests_() {
+  var failures = [];
+
+  function expectTrue(label, condition) {
+    if (!condition) failures.push(label + ': esperado true, obtido false');
+  }
+
+  function expectEqual(label, actual, expected) {
+    if (actual !== expected) failures.push(label + ': esperado "' + expected + '", obtido "' + actual + '"');
+  }
+
+  // Cenário 1: Repositories e Services existem
+  expectTrue('EstoqueRepository existe', typeof EstoqueRepository !== 'undefined');
+  expectTrue('EstoqueBaixaService existe', typeof EstoqueBaixaService !== 'undefined');
+  expectTrue('EstoqueBaixasRepository existe', typeof EstoqueBaixasRepository !== 'undefined');
+
+  // Cenário 2: describe() retorna ações corretas
+  var desc = EstoqueBaixaService.describe();
+  expectEqual('describe.name', desc.name, 'estoqueBaixa');
+  expectTrue('ação baixarPorProduto', !!desc.actions.baixarPorProduto);
+  expectTrue('ação reverterBaixa', !!desc.actions.reverterBaixa);
+  expectTrue('ação backfillExistingOrders', !!desc.actions.backfillExistingOrders);
+
+  // Cenário 3: getItemsDisponivelPorProduto retorna array (precisa sheetId real)
+  var sheetId = ConfigService.getSheetId();
+  if (sheetId) {
+    var items = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, 'TEST_SKU_NONEXISTENT');
+    expectTrue('getItemsDisponivelPorProduto retorna array', Array.isArray(items));
+
+    // Cenário 4: Itens retornados têm campo BAIXADO
+    if (items.length > 0) {
+      var first = items[0];
+      expectTrue('item tem ESTOQUE_ID', typeof first.ESTOQUE_ID !== 'undefined');
+      expectTrue('item tem SKU', typeof first.SKU !== 'undefined');
+      expectTrue('item tem BAIXADO', typeof first.BAIXADO !== 'undefined');
+      expectTrue('item BAIXADO é S ou N', first.BAIXADO === 'S' || first.BAIXADO === 'N' || first.BAIXADO === '');
+    }
+  } else {
+    failures.push('ConfigService.getSheetId() retornou vazio — não pode testar I/O');
+  }
+
+  // Cenário 5: baixarPorProduto sem params retorna erro
+  var r5 = EstoqueBaixaService.baixarPorProduto({});
+  expectTrue('baixarPorProduto sem sheetId retorna erro', !!r5.error);
+
+  // Cenário 6: reverterBaixa sem params retorna erro
+  var r6 = EstoqueBaixaService.reverterBaixa({});
+  expectTrue('reverterBaixa sem params retorna erro', !!r6.error);
+
+  if (failures.length) {
+    Logger.log('FALHOU ESTOQUE BAIXA:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Estoque Baixa smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Estoque Baixa passaram.');
 }
 
 function backfillSkus() {
