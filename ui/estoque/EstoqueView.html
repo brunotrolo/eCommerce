@@ -122,6 +122,7 @@
           <button class="active" data-view="completo">Completo</button>
           <button data-view="consolidado">Consolidado</button>
         </div>
+        <button class="btn" id="btn-reprocess" title="Reprocessa baixas PENDENTE_MAPEAMENTO usando mapeamento atual">Reprocessar Pendentes</button>
         <button class="btn" id="btn-sync-prices" title="Preenche/atualiza preços Shopee e ML de TODOS os itens a partir do catálogo">Sincronizar Preços Catálogo</button>
         <button class="btn btn-primary" id="btn-sync">Sincronizar</button>
       </div>
@@ -159,6 +160,7 @@
             <th>Preco ML</th>
             <th data-sort="margem">Margem% <span class="sort-arrow"></span></th>
             <th>Status</th>
+            <th>Baixado</th>
             <th></th>
           </tr>
         </thead>
@@ -178,6 +180,8 @@
             <th class="consolidado-th">Preco ML</th>
             <th data-sort="margem" class="consolidado-th">Margem% <span class="sort-arrow"></span></th>
             <th data-sort="alerta">Alerta <span class="sort-arrow"></span></th>
+            <th>Baixado</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody id="consolidado-tbody"></tbody>
@@ -198,6 +202,28 @@
       <div class="sync-stage" id="sync-stage"></div>
       <div class="progress-track"><div class="progress-fill" id="sync-progress"></div></div>
       <div class="sync-summary" id="sync-summary"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="baixa-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Dar Baixa - Estoque</h2>
+        <button class="btn-close" id="btn-baixa-close" title="Fechar">&times;</button>
+      </div>
+      <div style="margin-bottom: var(--space-md);">
+        <label style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Produto</label>
+        <div id="baixa-produto" style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-top: 4px;"></div>
+      </div>
+      <div style="margin-bottom: var(--space-md);">
+        <label style="font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);">Quantidade</label>
+        <input type="number" id="baixa-qty" min="1" value="1" style="width: 80px; padding: 4px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: var(--font-size-sm); margin-top: 4px;" />
+      </div>
+      <div id="baixa-status" style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-sm); min-height: 1.2em;"></div>
+      <div style="display: flex; gap: var(--space-sm); justify-content: flex-end;">
+        <button class="btn" id="btn-baixa-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="btn-baixa-confirm">Confirmar Baixa</button>
+      </div>
     </div>
   </div>
 </template>
@@ -259,6 +285,14 @@
         var self = this;
         shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(); });
         shadow.getElementById('btn-sync-prices').addEventListener('click', function () { self._syncPrecos(); });
+        shadow.getElementById('btn-reprocess').addEventListener('click', function () { self._reprocessar(); });
+        shadow.getElementById('btn-baixa-close').addEventListener('click', function () {
+          shadow.getElementById('baixa-overlay').classList.remove('open');
+        });
+        shadow.getElementById('btn-baixa-cancel').addEventListener('click', function () {
+          shadow.getElementById('baixa-overlay').classList.remove('open');
+        });
+        shadow.getElementById('btn-baixa-confirm').addEventListener('click', function () { self._confirmarBaixa(); });
         shadow.getElementById('btn-sync-close').addEventListener('click', function () {
           shadow.getElementById('sync-overlay').classList.remove('open');
         });
@@ -692,7 +726,7 @@
         this._el('stat-alertas').textContent = '—';
 
         if (!sorted.length) {
-          tbody.innerHTML = '<tr><td colspan="9" class="empty-state">Nenhum item encontrado.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Nenhum item encontrado.</td></tr>';
           return;
         }
 
@@ -726,6 +760,13 @@
           html += '<td class="consolidado-th">' + precoML + '</td>';
           html += '<td class="consolidado-th ' + margemClass + '">' + margemText + '</td>';
           html += '<td>' + alertIcon + '</td>';
+          var anyBaixado = false;
+          for (var bi = 0; bi < g.itens.length; bi++) {
+            if (g.itens[bi].BAIXADO === 'S') { anyBaixado = true; break; }
+          }
+          var baixadoBadge = anyBaixado ? '<span class="badge badge-info">SIM</span>' : '<span class="badge badge-secondary">NÃO</span>';
+          html += '<td>' + baixadoBadge + '</td>';
+          html += '<td><button class="btn btn-sm btn-primary" data-action="dar-baixa" data-codigo="' + (g.CODIGO_PRODUTO || '') + '" data-qty="' + g.qtd + '" title="Dar baixa manual (FIFO)">Dar Baixa</button></td>';
           html += '</tr>';
         }
         tbody.innerHTML = html;
@@ -734,7 +775,8 @@
         var rows = tbody.querySelectorAll('.consolidado-row');
         for (var r = 0; r < rows.length; r++) {
           (function (row) {
-            row.addEventListener('click', function () {
+            row.addEventListener('click', function (e) {
+              if (e.target.tagName === 'BUTTON') return;
               var codigo = row.getAttribute('data-codigo');
               self._viewMode = 'completo';
               var toggleBtns = self._shadow.querySelectorAll('#view-toggle button');
@@ -745,6 +787,16 @@
               self._applyFilters();
             });
           })(rows[r]);
+        }
+
+        var baixaBtns = tbody.querySelectorAll('[data-action="dar-baixa"]');
+        for (var bb = 0; bb < baixaBtns.length; bb++) {
+          (function (btn) {
+            btn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              self._darBaixa(btn.getAttribute('data-codigo'));
+            });
+          })(baixaBtns[bb]);
         }
       }
 
@@ -757,7 +809,7 @@
         this._updateStats(items);
 
         if (!items.length) {
-          tbody.innerHTML = '<tr><td colspan="10" class="empty-state">Nenhum item encontrado.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Nenhum item encontrado.</td></tr>';
           return;
         }
 
@@ -818,11 +870,13 @@
           html += '<td class="' + margemClass + '">' + margemText + '</td>';
 
           html += '<td><select class="inline-select" data-field="status" data-id="' + id + '">' + statusOptionsHtml + '</select></td>';
+          var baixadoBadge = it.BAIXADO === 'S' ? '<span class="badge badge-info">SIM</span>' : '<span class="badge badge-secondary">NÃO</span>';
+          html += '<td>' + baixadoBadge + '</td>';
           html += '<td>' + alertIcon + '</td>';
           html += '</tr>';
 
           html += '<tr class="detail-row' + (isOpen ? ' open' : '') + '" data-detail="' + id + '">';
-          html += '<td class="detail-cell" colspan="10">';
+          html += '<td class="detail-cell" colspan="11">';
           html += '<strong>Referencia origem:</strong> ' + (it.REFERENCIA_ORIGEM || '-') + ' &nbsp;|&nbsp; ';
           html += '<strong>Sincronizado:</strong> ' + (it.DATA_SINCRONIZACAO ? this._fmtDate(it.DATA_SINCRONIZACAO) : '-') + ' &nbsp;|&nbsp; ';
           html += '<strong>Log ID:</strong> ' + (it.LOG_ID || '-');
@@ -1045,6 +1099,96 @@
             showError(self._shadow, 'Erro ao buscar catalogo: ' + (err.message || err));
           })
           .apiDispatch('estoque.getPrecosCatalogo', { codigoProduto: codigoProduto });
+      }
+
+      _reprocessar() {
+        var self = this;
+        var btn = this._el('btn-reprocess');
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Reprocessando...';
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            var data = self._unwrap(resp);
+            if (data && data.error) {
+              showError(self._shadow, data.error);
+            } else if (data) {
+              var msg = 'Reprocessados: ' + (data.baixados || 0) + ' baixados, ' + (data.aindaPendentes || 0) + ' ainda pendentes.';
+              showSuccess(self._shadow, msg);
+              self._invalidateCache();
+              self._load();
+            }
+          })
+          .withFailureHandler(function (err) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            showError(self._shadow, 'Erro ao reprocessar: ' + (err.message || err));
+          })
+          .apiDispatch('estoqueBaixa.reprocessarPendentes', {});
+      }
+
+      _darBaixa(codigoProduto) {
+        if (!codigoProduto) return;
+        var overlay = this._el('baixa-overlay');
+        this._baixaCodigo = codigoProduto;
+        this._el('baixa-produto').textContent = codigoProduto;
+        this._el('baixa-qty').value = 1;
+        this._el('baixa-status').textContent = '';
+        overlay.classList.add('open');
+      }
+
+      _confirmarBaixa() {
+        var self = this;
+        var codigoProduto = this._baixaCodigo;
+        var qty = parseInt(this._el('baixa-qty').value, 10) || 1;
+        var statusEl = this._el('baixa-status');
+        var confirmBtn = this._el('btn-baixa-confirm');
+        var cancelBtn = this._el('btn-baixa-cancel');
+
+        if (!codigoProduto) return;
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        statusEl.textContent = 'Processando baixa...';
+
+        var idempKey = 'MANUAL_' + codigoProduto + '_' + Date.now();
+        var refOrigem = 'MANUAL#' + codigoProduto + '#' + Date.now();
+
+        google.script.run
+          .withSuccessHandler(function (resp) {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            var data = self._unwrap(resp);
+            if (data && data.success) {
+              var msg = 'Baixado(s): ' + (data.baixados || 0) + ' un.';
+              if (data.faltantes > 0) msg += ' (' + data.faltantes + ' faltante(s))';
+              statusEl.textContent = msg;
+              showSuccess(self._shadow, msg);
+              setTimeout(function () {
+                self._el('baixa-overlay').classList.remove('open');
+                self._invalidateCache();
+                self._load();
+              }, 1000);
+            } else {
+              statusEl.textContent = 'Erro: ' + (data ? data.error : 'desconhecido');
+              showError(self._shadow, 'Erro: ' + (data ? data.error : 'desconhecido'));
+            }
+          })
+          .withFailureHandler(function (err) {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            statusEl.textContent = 'Erro: ' + (err.message || err);
+            showError(self._shadow, 'Erro ao baixar: ' + (err.message || err));
+          })
+          .apiDispatch('estoqueBaixa.baixarPorProduto', {
+            codigoProduto: codigoProduto,
+            quantidade: qty,
+            origem: 'SAIDA_MANUAL',
+            referenciaOrigem: refOrigem,
+            idempotencyKey: idempKey
+          });
       }
 
       _updateStats(items) {

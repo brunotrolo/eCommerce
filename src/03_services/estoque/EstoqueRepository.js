@@ -9,7 +9,7 @@ var EstoqueRepository = (function () {
     'ESTOQUE_ID', 'CODIGO_PRODUTO', 'SKU', 'DESCRICAO_PRODUTO', 'DATA_ENTRADA',
     'REFERENCIA_ORIGEM', 'PRECO_CUSTO_ORIGINAL', 'PRECO_VENDA_SHOPEE',
     'PRECO_VENDA_MERCADO_LIVRE', 'MARGEM_SHOPEE', 'MARGEM_MERCADO_LIVRE',
-    'STATUS', 'ALERTA_ESTOQUE_BAIXO', 'DATA_SINCRONIZACAO', 'LOG_ID',
+    'STATUS', 'BAIXADO', 'ALERTA_ESTOQUE_BAIXO', 'DATA_SINCRONIZACAO', 'LOG_ID',
     'CATEGORIA'
   ];
 
@@ -140,6 +140,7 @@ var EstoqueRepository = (function () {
       margemShopee: 'MARGEM_SHOPEE',
       margemMercadoLivre: 'MARGEM_MERCADO_LIVRE',
       status: 'STATUS',
+      baixado: 'BAIXADO',
       alertaEstoqueBaixo: 'ALERTA_ESTOQUE_BAIXO',
       dataSincronizacao: 'DATA_SINCRONIZACAO',
       logId: 'LOG_ID'
@@ -195,6 +196,7 @@ var EstoqueRepository = (function () {
       margemShopee: 'MARGEM_SHOPEE',
       margemMercadoLivre: 'MARGEM_MERCADO_LIVRE',
       status: 'STATUS',
+      baixado: 'BAIXADO',
       alertaEstoqueBaixo: 'ALERTA_ESTOQUE_BAIXO',
       dataSincronizacao: 'DATA_SINCRONIZACAO',
       logId: 'LOG_ID'
@@ -301,6 +303,7 @@ var EstoqueRepository = (function () {
       margemShopee: 'MARGEM_SHOPEE',
       margemMercadoLivre: 'MARGEM_MERCADO_LIVRE',
       status: 'STATUS',
+      baixado: 'BAIXADO',
       alertaEstoqueBaixo: 'ALERTA_ESTOQUE_BAIXO',
       dataSincronizacao: 'DATA_SINCRONIZACAO',
       logId: 'LOG_ID'
@@ -347,6 +350,7 @@ var EstoqueRepository = (function () {
 
     var fieldToHeader = {
       status: 'STATUS',
+      baixado: 'BAIXADO',
       alertaEstoqueBaixo: 'ALERTA_ESTOQUE_BAIXO',
       precoVendaShopee: 'PRECO_VENDA_SHOPEE',
       precoVendaMercadoLivre: 'PRECO_VENDA_MERCADO_LIVRE',

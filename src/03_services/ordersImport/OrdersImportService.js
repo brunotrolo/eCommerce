@@ -723,6 +723,31 @@ var OrdersImportService = (function () {
       }
     }
 
+    // Update BAIXADO on PEDIDOS sheet
+    if (baixas > 0 || reverts > 0) {
+      try {
+        var pedSheet = SpreadsheetApp.openById(ConfigService.getSheetId()).getSheetByName('PEDIDOS');
+        if (pedSheet) {
+          var pedHeaders = pedSheet.getRange(1, 1, 1, pedSheet.getLastColumn()).getValues()[0];
+          var pedOrderIdCol = -1, pedBaixadoCol = -1;
+          for (var ph = 0; ph < pedHeaders.length; ph++) {
+            var h = String(pedHeaders[ph]).trim();
+            if (h === 'ORDER_ID') pedOrderIdCol = ph + 1;
+            if (h === 'BAIXADO') pedBaixadoCol = ph + 1;
+          }
+          if (pedOrderIdCol > 0 && pedBaixadoCol > 0) {
+            var pedData = pedSheet.getRange(2, pedOrderIdCol, pedSheet.getLastRow() - 1, 1).getValues();
+            for (var pr = 0; pr < pedData.length; pr++) {
+              if (String(pedData[pr][0]).trim() === String(orderSn).trim()) {
+                pedSheet.getRange(pr + 2, pedBaixadoCol).setValue(baixas > 0 ? 'S' : 'N');
+                break;
+              }
+            }
+          }
+        }
+      } catch (e) { /* non-critical */ }
+    }
+
     return { baixas: baixas, pendentes: pendentes, faltantes: faltantes, reverts: reverts };
   }
 

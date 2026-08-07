@@ -133,6 +133,7 @@ var OrdersService = (function () {
       itemSkus: itemSkus,
       liquid: netAmount,
       totalCost: totalCost,
+      baixado: row.BAIXADO || row.baixado || '',
       escrowAmount: escrowAmount,
       commissionFee: num_(row.COMMISSION_FEE || row.commission_fee || 0),
       netCommissionFee: netCommissionFee,

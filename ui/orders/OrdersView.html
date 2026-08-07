@@ -167,12 +167,13 @@
             <th data-sort="total">Total <span class="sort-arrow"></span></th>
             <th data-sort="liquid">Líquido <span class="sort-arrow"></span></th>
             <th data-sort="totalCost">Custo <span class="sort-arrow"></span></th>
+            <th>Baixado</th>
           </tr>
         </thead>
         <tbody id="orders-tbody"></tbody>
         <tfoot>
           <tr>
-            <td colspan="6" class="tfoot-label">Total ({count})</td>
+            <td colspan="7" class="tfoot-label">Total ({count})</td>
             <td class="tfoot-total" id="foot-total">R$ 0,00</td>
             <td class="tfoot-total" id="foot-liquid">R$ 0,00</td>
             <td class="tfoot-total" id="foot-cost">R$ 0,00</td>
@@ -509,11 +510,12 @@
           '<td>' + fmtMoney_(o.total) + '</td>' +
           '<td>' + fmtMoney_(liquid) + '</td>' +
           '<td class="' + (totalCost > liquid && totalCost > 0 ? 'cost-warning' : '') + '">' + (totalCost > 0 ? fmtMoney_(totalCost) : '-') + '</td>' +
+          '<td>' + (o.baixado === 'S' ? '<span class="badge badge-info">SIM</span>' : '<span class="badge badge-secondary">NÃO</span>') + '</td>' +
           '</tr>' +
-          '<tr class="detail-row" hidden data-id="' + escapeHtml_(o.id) + '"><td colspan="9">' + detailHtml_(o) + '</td></tr>';
+          '<tr class="detail-row" hidden data-id="' + escapeHtml_(o.id) + '"><td colspan="10">' + detailHtml_(o) + '</td></tr>';
       }
 
-      tbody.innerHTML = rowsHtml || '<tr><td colspan="9">Nenhum pedido encontrado.</td></tr>';
+      tbody.innerHTML = rowsHtml || '<tr><td colspan="10">Nenhum pedido encontrado.</td></tr>';
 
       shadow.getElementById('foot-total').textContent = FormatterService.formatCurrency(sumTotal);
       shadow.getElementById('foot-liquid').textContent = FormatterService.formatCurrency(sumLiquid);

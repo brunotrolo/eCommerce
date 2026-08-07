@@ -128,7 +128,7 @@ var EstoqueBaixaService = (function () {
       var estoqueIds = [];
       for (var i = 0; i < toBaixar.length; i++) {
         estoqueIds.push(toBaixar[i].ESTOQUE_ID);
-        EstoqueRepository.updateRow(sheetId, toBaixar[i].ESTOQUE_ID, { status: 'VENDIDO' });
+        EstoqueRepository.updateRow(sheetId, toBaixar[i].ESTOQUE_ID, { status: 'VENDIDO', baixado: 'S' });
       }
 
       // 4. Insert ESTOQUE_BAIXAS row
@@ -209,7 +209,7 @@ var EstoqueBaixaService = (function () {
       // Update ESTOQUE rows
       var estoqueIds = (existing.ESTOQUE_IDS || '').split(',').filter(Boolean);
       for (var i = 0; i < estoqueIds.length; i++) {
-        EstoqueRepository.updateRow(sheetId, estoqueIds[i], { status: targetStatus });
+        EstoqueRepository.updateRow(sheetId, estoqueIds[i], { status: targetStatus, baixado: 'N' });
       }
 
       // Update ESTOQUE_BAIXAS row
