@@ -37,6 +37,7 @@ function onOpen() {
           .addItem('Carteira Shopee', 'runCarteiraShopeeSmokeTests_')
           .addItem('Anúncios Shopee', 'runAnunciosShopeeSmokeTests_')
           .addItem('Estoque Baixa', 'runEstoqueBaixaSmokeTests_')
+          .addItem('Backfill Estoque IDs+Cost', 'runBackfillEstoqueIdsAndCosts_')
           .addItem('Write Audit', 'runWriteAuditSmokeTests_')
       )
       .addToUi();
@@ -951,5 +952,12 @@ function backfillSkus() {
   var result = SkuService.backfill({ dryRun: false });
   Logger.log('Backfill concluído: processados=' + result.processed +
     ' gerados=' + result.generated + ' ignorados=' + result.skipped);
+  return result;
+}
+
+function runBackfillEstoqueIdsAndCosts_() {
+  Logger.log('Iniciando backfill de BAIXA_ESTOQUE_IDS + TOTAL_COST...');
+  var result = OrdersImportService.backfillEstoqueIdsAndCosts();
+  Logger.log('Backfill concluído: ' + JSON.stringify(result));
   return result;
 }

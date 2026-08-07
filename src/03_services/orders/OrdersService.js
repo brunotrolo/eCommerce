@@ -107,6 +107,7 @@ var OrdersService = (function () {
     var itemNames = row.ITEMS_DETAIL || row.items_detail || row.itemsDetail || '';
     var itemSkus = row.ITEM_SKUS || row.item_skus || row.itemSkus || '';
     var totalCost = num_(row.TOTAL_COST || row.total_cost || 0);
+    var baixaEstoqueIds = row.BAIXA_ESTOQUE_IDS || row.baixa_estoque_ids || row.baixaEstoqueIds || '';
 
     var escrowAmount = num_(row.ESCROW_AMOUNT || row.escrow_amount || 0);
     var netCommissionFee = num_(row.NET_COMMISSION_FEE || row.net_commission_fee || 0);
@@ -134,6 +135,7 @@ var OrdersService = (function () {
       liquid: netAmount,
       totalCost: totalCost,
       baixado: row.BAIXADO || row.baixado || '',
+      baixaEstoqueIds: baixaEstoqueIds,
       escrowAmount: escrowAmount,
       commissionFee: num_(row.COMMISSION_FEE || row.commission_fee || 0),
       netCommissionFee: netCommissionFee,

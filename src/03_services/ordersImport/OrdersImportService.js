@@ -28,6 +28,14 @@ var OrdersImportService = (function () {
         recalcAllCosts: {
           description: 'Recalcula TOTAL_COST de todas as linhas existentes no PEDIDOS a partir de ITEM_SKUS + costMap.',
           params: {}
+        },
+        restoreEmptySkus: {
+          description: 'Restaura ITEM_SKUS vazios re-buscando pedidos no Shopee e aplicando skuMap de ANUNCIOS_SHOPEE.',
+          params: {}
+        },
+        backfillEstoqueIdsAndCosts: {
+          description: 'Preenche BAIXA_ESTOQUE_IDS e TOTAL_COST em pedidos existentes a partir de ESTOQUE_BAIXAS + PRECO_CUSTO_ORIGINAL.',
+          params: {}
         }
       }
     };
@@ -597,6 +605,20 @@ var OrdersImportService = (function () {
     var isNew = !map[orderSn];
 
     if (map[orderSn]) {
+      // Protege ITEM_SKUS existente: se o novo valor é vazio, preserva o antigo
+      if (!order.ITEM_SKUS && map[orderSn].itemSkus) {
+        LoggingService.log({
+          service: 'OrdersImport', action: 'syncOrderBySn', status: 'WARN',
+          caller: 'OrdersImportService',
+          summary: 'ITEM_SKUS vazio preservado para ' + orderSn + ': ' + map[orderSn].itemSkus,
+          durationMs: 0, context: { orderSn: orderSn, preservedSkus: map[orderSn].itemSkus }
+        });
+        order.ITEM_SKUS = map[orderSn].itemSkus;
+      }
+      // Protege BAIXA_ESTOQUE_IDS existente (mesmo raciocínio do ITEM_SKUS)
+      if (!order.BAIXA_ESTOQUE_IDS && map[orderSn].baixaEstoqueIds) {
+        order.BAIXA_ESTOQUE_IDS = map[orderSn].baixaEstoqueIds;
+      }
       OrdersRepository.updateOrderRow(map[orderSn].rowNumber, order);
       updated = 1;
     } else {
@@ -656,11 +678,13 @@ var OrdersImportService = (function () {
    */
   function processBaixaForOrder_(order, isNew, oldStatus) {
     var itemSkus = order.ITEM_SKUS || '';
-    if (!itemSkus) return { baixas: 0, pendentes: 0, faltantes: 0, reverts: 0 };
+    if (!itemSkus) return { baixas: 0, pendentes: 0, faltantes: 0, reverts: 0, custoTotal: 0, estoqueIds: '' };
 
     var baixas = 0, pendentes = 0, faltantes = 0, reverts = 0;
     var totalSkusNoPedido = 0;
     var orderSn = order.ORDER_ID;
+    var custoTotal = 0;
+    var allEstoqueIds = [];
 
     // Parse ITEM_SKUS: "SKU:qty; SKU:qty"
     var parts = itemSkus.split(';');
@@ -686,9 +710,14 @@ var OrdersImportService = (function () {
             referenciaOrigem: refOrigem,
             idempotencyKey: idempKey
           });
-          if (result.baixados > 0) baixas++;
+          if (result.baixados > 0 || result.jaExistia) {
+            baixas++;
+            custoTotal += Number(result.custoTotal) || 0;
+            if (result.estoque_ids && result.estoque_ids.length > 0) {
+              allEstoqueIds = allEstoqueIds.concat(result.estoque_ids);
+            }
+          }
           if (result.faltantes > 0) faltantes++;
-          if (result.jaExistia) baixas++; // already counted
           if (result.baixados === 0 && result.faltantes === qty && !result.jaExistia) pendentes++;
         } catch (e) {
           LoggingService.log({
@@ -712,7 +741,22 @@ var OrdersImportService = (function () {
               referenciaOrigem: refOrigem,
               motivo: motivo
             });
-            if (revResult.revertidos > 0) reverts++;
+            if (revResult.revertidos > 0) {
+              reverts++;
+              // Remove reverted estoqueIds from accumulated list
+              var revIds = (revResult.estoque_ids || []).length > 0 ? revResult.estoque_ids : [];
+              // Lookup the existing baixa to get the IDs that were reverted
+              var existingBaixa = EstoqueBaixasRepository.findByReferenciaOrigem(
+                ConfigService.getSheetId(), refOrigem
+              );
+              if (existingBaixa && existingBaixa.ESTOQUE_IDS) {
+                var revertedIds = existingBaixa.ESTOQUE_IDS.split(',').filter(Boolean);
+                for (var ri = 0; ri < revertedIds.length; ri++) {
+                  var idx = allEstoqueIds.indexOf(revertedIds[ri]);
+                  if (idx !== -1) allEstoqueIds.splice(idx, 1);
+                }
+              }
+            }
           } catch (e) {
             LoggingService.log({
               service: 'OrdersImport', action: 'reverterBaixa', status: 'WARN',
@@ -725,29 +769,42 @@ var OrdersImportService = (function () {
       }
     }
 
-    // Update BAIXADO on PEDIDOS sheet
+    // Update BAIXADO, BAIXA_ESTOQUE_IDS and TOTAL_COST on PEDIDOS sheet
     if (baixas > 0 || reverts > 0 || faltantes > 0) {
+      custoTotal = Math.round(custoTotal * 100) / 100;
+      var estoqueIdsStr = allEstoqueIds.join(',');
       try {
         var pedSheet = SpreadsheetApp.openById(ConfigService.getSheetId()).getSheetByName('PEDIDOS');
         if (pedSheet) {
           var pedHeaders = pedSheet.getRange(1, 1, 1, pedSheet.getLastColumn()).getValues()[0];
-          var pedOrderIdCol = -1, pedBaixadoCol = -1;
+          var pedOrderIdCol = -1, pedBaixadoCol = -1, pedEstoqueIdsCol = -1, pedCostCol = -1;
           for (var ph = 0; ph < pedHeaders.length; ph++) {
             var h = String(pedHeaders[ph]).trim();
             if (h === 'ORDER_ID') pedOrderIdCol = ph + 1;
             if (h === 'BAIXADO') pedBaixadoCol = ph + 1;
+            if (h === 'BAIXA_ESTOQUE_IDS') pedEstoqueIdsCol = ph + 1;
+            if (h === 'TOTAL_COST') pedCostCol = ph + 1;
           }
-          if (pedOrderIdCol > 0 && pedBaixadoCol > 0) {
+          if (pedOrderIdCol > 0) {
             var pedData = pedSheet.getRange(2, pedOrderIdCol, pedSheet.getLastRow() - 1, 1).getValues();
             for (var pr = 0; pr < pedData.length; pr++) {
               if (String(pedData[pr][0]).trim() === String(orderSn).trim()) {
-                var novoBaixado = 'PENDENTE';
-                if (totalSkusNoPedido > 0 && baixas >= totalSkusNoPedido) {
-                  novoBaixado = 'BAIXADO';
-                } else if (baixas > 0) {
-                  novoBaixado = 'PARCIAL';
+                var row = pr + 2;
+                if (pedBaixadoCol > 0) {
+                  var novoBaixado = 'PENDENTE';
+                  if (totalSkusNoPedido > 0 && baixas >= totalSkusNoPedido) {
+                    novoBaixado = 'BAIXADO';
+                  } else if (baixas > 0) {
+                    novoBaixado = 'PARCIAL';
+                  }
+                  pedSheet.getRange(row, pedBaixadoCol).setValue(novoBaixado);
                 }
-                pedSheet.getRange(pr + 2, pedBaixadoCol).setValue(novoBaixado);
+                if (pedEstoqueIdsCol > 0) {
+                  pedSheet.getRange(row, pedEstoqueIdsCol).setValue(estoqueIdsStr);
+                }
+                if (pedCostCol > 0 && (custoTotal > 0 || reverts > 0)) {
+                  pedSheet.getRange(row, pedCostCol).setValue(custoTotal);
+                }
                 break;
               }
             }
@@ -756,7 +813,7 @@ var OrdersImportService = (function () {
       } catch (e) { /* non-critical */ }
     }
 
-    return { baixas: baixas, pendentes: pendentes, faltantes: faltantes, reverts: reverts };
+    return { baixas: baixas, pendentes: pendentes, faltantes: faltantes, reverts: reverts, custoTotal: custoTotal, estoqueIds: allEstoqueIds.join(',') };
   }
 
   function recalcAllCosts_() {
@@ -790,5 +847,216 @@ var OrdersImportService = (function () {
     return { totalRows: lastRow - 1, updated: updated, costMapSize: Object.keys(costMap).length };
   }
 
-  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, recalcAllCosts: function () { return recalcAllCosts_(); } };
+  function restoreEmptySkus_() {
+    var startTime = Date.now();
+    var sheetId = ConfigService.getSheetId();
+
+    var skuMap = {};
+    try {
+      skuMap = AnunciosShopeeRepository.getItemSkuMap(sheetId);
+    } catch (e) {
+      return { error: 'skuMap load failed: ' + e.message };
+    }
+    if (Object.keys(skuMap).length === 0) {
+      return { error: 'skuMap is empty — cannot restore SKUs' };
+    }
+
+    var sheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2) return { totalRows: 0, restored: 0, errors: 0 };
+
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headerMap = {};
+    for (var i = 0; i < headers.length; i++) headerMap[headers[i]] = i + 1;
+
+    var orderIdCol = headerMap['ORDER_ID'];
+    var itemSkusCol = headerMap['ITEM_SKUS'];
+    var itemsDetailCol = headerMap['ITEMS_DETAIL'];
+    if (!orderIdCol || !itemSkusCol) return { error: 'missing columns' };
+
+    var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    var emptySkus = [];
+    for (var r = 0; r < allData.length; r++) {
+      var oid = String(allData[r][orderIdCol - 1] || '').trim();
+      var skus = String(allData[r][itemSkusCol - 1] || '').trim();
+      if (oid && !skus) {
+        emptySkus.push({ orderId: oid, row: r + 2, detail: itemsDetailCol ? String(allData[r][itemsDetailCol - 1] || '') : '' });
+      }
+    }
+
+    if (emptySkus.length === 0) {
+      return { totalRows: lastRow - 1, restored: 0, errors: 0, message: 'Nenhum ITEM_SKUS vazio encontrado' };
+    }
+
+    var restored = 0;
+    var errors = 0;
+    var costMap = {};
+    try { costMap = getCostMap_(sheetId); } catch (e) { /* non-critical */ }
+
+    for (var i = 0; i < emptySkus.length; i++) {
+      var target = emptySkus[i];
+      try {
+        var result = callTiops_('shopee_get_order', { order_sn: target.orderId });
+        var response = result.response || result;
+        var detail = response || {};
+
+        var items = detail.item_list || [];
+        if (items.length === 0 && detail.items) items = detail.items;
+        if (items.length === 0) {
+          errors++;
+          continue;
+        }
+
+        var newSkus = formatItemSkus_(items, skuMap);
+        if (!newSkus) {
+          errors++;
+          continue;
+        }
+
+        var skusColIdx = itemSkusCol;
+        sheet.getRange(target.row, skusColIdx).setValue(newSkus);
+
+        if (costMap && Object.keys(costMap).length > 0) {
+          var costColIdx = headerMap['TOTAL_COST'];
+          if (costColIdx) {
+            var newCost = calculateTotalCost_(newSkus, costMap);
+            sheet.getRange(target.row, costColIdx).setValue(newCost);
+          }
+        }
+
+        restored++;
+        Utilities.sleep(200);
+      } catch (e) {
+        errors++;
+        LoggingService.log({
+          service: 'OrdersImport', action: 'restoreEmptySkus', status: 'WARN',
+          caller: 'OrdersImportService',
+          summary: 'Falha ao restaurar SKU para ' + target.orderId + ': ' + e.message,
+          durationMs: 0, context: { orderId: target.orderId, error: e.message }
+        });
+      }
+    }
+
+    var totalMs = Date.now() - startTime;
+    LoggingService.log({
+      service: 'OrdersImport', action: 'restoreEmptySkus',
+      status: errors > 0 && restored === 0 ? 'ERROR' : 'OK',
+      caller: 'OrdersImportService',
+      summary: 'Restaurados ' + restored + '/' + emptySkus.length + ' SKUs (' + totalMs + 'ms)',
+      durationMs: totalMs, context: { totalEmpty: emptySkus.length, restored: restored, errors: errors }
+    });
+
+    return { totalRows: lastRow - 1, totalEmpty: emptySkus.length, restored: restored, errors: errors };
+  }
+
+  /**
+   * Backfill BAIXA_ESTOQUE_IDS e TOTAL_COST para pedidos existentes.
+   * Consulta ESTOQUE_BAIXAS por REFERENCIA_ORIGEM = 'SHOPEE#<ORDER_ID>:*',
+   * lê PRECO_CUSTO_ORIGINAL dos itens de ESTOQUE e grava no PEDIDOS.
+   */
+  function backfillEstoqueIdsAndCosts_() {
+    var startTime = Date.now();
+    var sheetId = ConfigService.getSheetId();
+
+    var pedSheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
+    var lastRow = pedSheet.getLastRow();
+    var lastCol = pedSheet.getLastColumn();
+    if (lastRow < 2) return { totalRows: 0, updated: 0, errors: 0 };
+
+    var headers = pedSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headerMap = {};
+    for (var i = 0; i < headers.length; i++) headerMap[headers[i]] = i + 1;
+
+    var orderIdCol = headerMap['ORDER_ID'];
+    var baixadoCol = headerMap['BAIXADO'];
+    var estoqueIdsCol = headerMap['BAIXA_ESTOQUE_IDS'];
+    var costCol = headerMap['TOTAL_COST'];
+    if (!orderIdCol) return { error: 'missing ORDER_ID column' };
+
+    // Ensure new columns exist
+    if (!estoqueIdsCol) {
+      estoqueIdsCol = lastCol + 1;
+      pedSheet.getRange(1, estoqueIdsCol).setValue('BAIXA_ESTOQUE_IDS');
+    }
+    if (!costCol) {
+      costCol = pedSheet.getLastColumn() + 1;
+      pedSheet.getRange(1, costCol).setValue('TOTAL_COST');
+    }
+
+    var allData = pedSheet.getRange(2, 1, lastRow - 1, pedSheet.getLastColumn()).getValues();
+
+    // Load ESTOQUE for cost lookup
+    var estoqueRows = EstoqueRepository.getRows(sheetId);
+    var estoqueMap = {};
+    for (var es = 0; es < estoqueRows.length; es++) {
+      estoqueMap[estoqueRows[es].ESTOQUE_ID] = estoqueRows[es];
+    }
+
+    // Load all ESTOQUE_BAIXAS
+    var baixasRows = EstoqueBaixasRepository.getRows(sheetId);
+    // Index by REFERENCIA_ORIGEM prefix 'SHOPEE#<orderId>'
+    var baixasByOrder = {};
+    for (var bx = 0; bx < baixasRows.length; bx++) {
+      var ref = String(baixasRows[bx].REFERENCIA_ORIGEM || '');
+      var match = ref.match(/^SHOPEE#(\d+):/);
+      if (match) {
+        var oid = match[1];
+        if (!baixasByOrder[oid]) baixasByOrder[oid] = [];
+        baixasByOrder[oid].push(baixasRows[bx]);
+      }
+    }
+
+    var updated = 0;
+    var errors = 0;
+
+    for (var r = 0; r < allData.length; r++) {
+      var oid = String(allData[r][orderIdCol - 1] || '').trim();
+      if (!oid) continue;
+
+      var baixado = baixadoCol ? String(allData[r][baixadoCol - 1] || '').trim().toUpperCase() : '';
+      // Skip if already BAIXADO or legacy S (fully processed)
+      if (baixado === 'BAIXADO' || baixado === 'S') continue;
+
+      var orderBaixas = baixasByOrder[oid] || [];
+      if (orderBaixas.length === 0) continue;
+
+      // Collect unique estoqueIds and sum costs
+      var allIds = [];
+      var custoTotal = 0;
+      for (var ob = 0; ob < orderBaixas.length; ob++) {
+        if (String(orderBaixas[ob].STATUS).trim() !== 'BAIXADO') continue;
+        var ids = (orderBaixas[ob].ESTOQUE_IDS || '').split(',').filter(Boolean);
+        for (var id = 0; id < ids.length; id++) {
+          if (allIds.indexOf(ids[id]) === -1) allIds.push(ids[id]);
+          var item = estoqueMap[ids[id]];
+          if (item) custoTotal += Number(item.PRECO_CUSTO_ORIGINAL) || 0;
+        }
+      }
+
+      custoTotal = Math.round(custoTotal * 100) / 100;
+      var row = r + 2;
+
+      if (estoqueIdsCol > 0) {
+        pedSheet.getRange(row, estoqueIdsCol).setValue(allIds.join(','));
+      }
+      if (costCol > 0) {
+        pedSheet.getRange(row, costCol).setValue(custoTotal);
+      }
+      updated++;
+    }
+
+    var totalMs = Date.now() - startTime;
+    LoggingService.log({
+      service: 'OrdersImport', action: 'backfillEstoqueIdsAndCosts',
+      status: 'OK', caller: 'OrdersImportService',
+      summary: 'Backfill concluído: ' + updated + ' pedidos atualizados (' + totalMs + 'ms)',
+      durationMs: totalMs, context: { totalRows: lastRow - 1, updated: updated }
+    });
+
+    return { totalRows: lastRow - 1, updated: updated, errors: errors };
+  }
+
+  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, recalcAllCosts: function () { return recalcAllCosts_(); }, restoreEmptySkus: function () { return restoreEmptySkus_(); }, backfillEstoqueIdsAndCosts: function () { return backfillEstoqueIdsAndCosts_(); } };
 })();

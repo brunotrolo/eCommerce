@@ -373,6 +373,7 @@
         '<div class="detail-line"><span>Rebate</span><strong>' + fmtMoney_(o.sellerRebate) + '</strong></div>' +
         '<div class="detail-line"><span><b>Líquido</b></span><strong>' + fmtMoney_(o.liquid) + '</strong></div>' +
         (o.totalCost > 0 ? '<div class="detail-line"><span>Custo (estoque)</span><strong class="' + (Number(o.totalCost) > Number(o.liquid) ? 'cost-warning' : '') + '">' + fmtMoney_(o.totalCost) + '</strong></div>' : '') +
+        (o.baixaEstoqueIds ? '<div class="detail-line"><span>Estoque baixado</span><strong style="font-size: var(--font-size-xs); word-break: break-all;">' + escapeHtml_(o.baixaEstoqueIds) + '</strong></div>' : '') +
         '<div class="detail-sub"><span>Escrow (verificação)</span><strong>' + fmtMoney_(o.escrowAmount) + '</strong></div></section>';
 
       var items =

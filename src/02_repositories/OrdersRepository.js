@@ -16,7 +16,7 @@ var OrdersRepository = (function () {
     'ESCROW_AMOUNT', 'COMMISSION_FEE', 'NET_COMMISSION_FEE',
     'SERVICE_FEE', 'NET_SERVICE_FEE', 'PIX_DISCOUNT',
     'SELLER_REBATE', 'SELLER_REBATE_COMMISSION_OFFSET',
-    'SELLER_REBATE_SERVICE_OFFSET', 'TOTAL_COST', 'BAIXADO'
+    'SELLER_REBATE_SERVICE_OFFSET', 'TOTAL_COST', 'BAIXADO', 'BAIXA_ESTOQUE_IDS'
   ];
   var _sheetCache = null;
   var _sheetCacheTs = 0;
@@ -180,10 +180,14 @@ var OrdersRepository = (function () {
     var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
     var orderIdCol = -1;
     var statusCol = -1;
+    var itemSkusCol = -1;
+    var baixaEstoqueIdsCol = -1;
     for (var i = 0; i < headers.length; i++) {
       var h = String(headers[i]).trim();
       if (h === 'ORDER_ID') orderIdCol = i + 1;
       if (h === 'STATUS') statusCol = i + 1;
+      if (h === 'ITEM_SKUS') itemSkusCol = i + 1;
+      if (h === 'BAIXA_ESTOQUE_IDS') baixaEstoqueIdsCol = i + 1;
     }
     if (orderIdCol === -1) return {};
 
@@ -194,7 +198,9 @@ var OrdersRepository = (function () {
       if (!oid) continue;
       var rowNumber = r + 2;
       var status = statusCol !== -1 ? String(allValues[r][statusCol - 1]).trim() : '';
-      map[oid] = { rowNumber: rowNumber, status: status };
+      var itemSkus = itemSkusCol !== -1 ? String(allValues[r][itemSkusCol - 1] || '').trim() : '';
+      var baixaEstoqueIds = baixaEstoqueIdsCol !== -1 ? String(allValues[r][baixaEstoqueIdsCol - 1] || '').trim() : '';
+      map[oid] = { rowNumber: rowNumber, status: status, itemSkus: itemSkus, baixaEstoqueIds: baixaEstoqueIds };
     }
 
     var totalMs = Date.now() - startTime;
@@ -287,6 +293,21 @@ var OrdersRepository = (function () {
       var existing = existingMap[orderId];
       if (existing) {
         if (updateAll) {
+          // Protege ITEM_SKUS existente: se o novo valor é vazio, preserva o antigo
+          // Evita que reimportações/syncs apaguem SKUs quando skuMap falha ou Shopee não retorna item_sku
+          if (!order.ITEM_SKUS && existing.itemSkus) {
+            LoggingService.log({
+              service: 'OrdersRepo', action: 'upsertOrders', status: 'WARN',
+              caller: 'OrdersRepository',
+              summary: 'ITEM_SKUS vazio preservado para ' + orderId + ': ' + existing.itemSkus,
+              durationMs: 0, context: { orderId: orderId, preservedSkus: existing.itemSkus }
+            });
+            order.ITEM_SKUS = existing.itemSkus;
+          }
+          // Protege BAIXA_ESTOQUE_IDS existente: mesmo raciocínio do ITEM_SKUS
+          if (!order.BAIXA_ESTOQUE_IDS && existing.baixaEstoqueIds) {
+            order.BAIXA_ESTOQUE_IDS = existing.baixaEstoqueIds;
+          }
           updateOrderRow(existing.rowNumber, order);
           updated++;
           updateDetails.push({

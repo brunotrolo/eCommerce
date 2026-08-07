@@ -84,10 +84,25 @@ var EstoqueBaixaService = (function () {
       // 1. Check idempotency
       var existing = EstoqueBaixasRepository.findByIdempotencyKey(sheetId, params.idempotencyKey);
       if (existing && String(existing.STATUS).trim() === 'BAIXADO') {
+        // Lookup custoTotal from existing estoque items
+        var custoTotalExistente = 0;
+        var existingIds = (existing.ESTOQUE_IDS || '').split(',').filter(Boolean);
+        if (existingIds.length > 0) {
+          var allEstoque = EstoqueRepository.getRows(sheetId);
+          var estoqueMap = {};
+          for (var ei = 0; ei < allEstoque.length; ei++) {
+            estoqueMap[allEstoque[ei].ESTOQUE_ID] = allEstoque[ei];
+          }
+          for (var ej = 0; ej < existingIds.length; ej++) {
+            var item = estoqueMap[existingIds[ej]];
+            if (item) custoTotalExistente += Number(item.PRECO_CUSTO_ORIGINAL) || 0;
+          }
+        }
         return {
           success: true,
           baixados: 0,
-          estoque_ids: (existing.ESTOQUE_IDS || '').split(',').filter(Boolean),
+          estoque_ids: existingIds,
+          custoTotal: Math.round(custoTotalExistente * 100) / 100,
           faltantes: 0,
           jaExistia: true
         };
@@ -126,10 +141,13 @@ var EstoqueBaixaService = (function () {
 
       // 3. Update ESTOQUE status → VENDIDO
       var estoqueIds = [];
+      var custoTotal = 0;
       for (var i = 0; i < toBaixar.length; i++) {
         estoqueIds.push(toBaixar[i].ESTOQUE_ID);
+        custoTotal += Number(toBaixar[i].PRECO_CUSTO_ORIGINAL) || 0;
         EstoqueRepository.updateRow(sheetId, toBaixar[i].ESTOQUE_ID, { status: 'VENDIDO', baixado: 'S' });
       }
+      custoTotal = Math.round(custoTotal * 100) / 100;
 
       // 4. Insert ESTOQUE_BAIXAS row
       var baixaId = generateBaixaId_();
@@ -166,6 +184,7 @@ var EstoqueBaixaService = (function () {
         success: true,
         baixados: toBaixar.length,
         estoque_ids: estoqueIds,
+        custoTotal: custoTotal,
         faltantes: faltantes,
         jaExistia: false
       };
@@ -226,7 +245,7 @@ var EstoqueBaixaService = (function () {
         context: { referenciaOrigem: params.referenciaOrigem, motivo: motivo, revertidos: estoqueIds.length }
       });
 
-      return { success: true, revertidos: estoqueIds.length, motivo: motivo };
+      return { success: true, revertidos: estoqueIds.length, custoTotal: 0, motivo: motivo };
 
     } finally {
       lock.releaseLock();
