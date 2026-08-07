@@ -254,6 +254,7 @@ var EstoqueBaixaService = (function () {
   }
 
   function backfillExistingOrders() {
+    var t0 = new Date().getTime();
     var sheetId = ConfigService.getSheetId();
     var pedSheet = SpreadsheetApp.openById(sheetId).getSheetByName('PEDIDOS');
     if (!pedSheet) return { error: 'PEDIDOS sheet not found' };
@@ -285,6 +286,16 @@ var EstoqueBaixaService = (function () {
     var RETURN_STATUSES = ['TO_RETURN', 'RETURNED', 'DEVOLVIDO'];
 
     var processados = 0, baixados = 0, erros = 0, jaProcessados = 0;
+    var totalSkusBaixados = 0;
+    var totalSkusPulados = 0;
+
+    LoggingService.log({
+      service: 'EstoqueBaixa', action: 'backfill.start', status: 'OK',
+      caller: 'EstoqueBaixaService',
+      summary: 'Iniciando backfill — ' + (lastRow - 1) + ' pedidos na aba PEDIDOS',
+      durationMs: 0,
+      context: { totalRows: lastRow - 1 }
+    });
 
     for (var r = 0; r < allData.length; r++) {
       var row = allData[r];
@@ -299,12 +310,42 @@ var EstoqueBaixaService = (function () {
       var isCancelled = CANCELLED_STATUSES.indexOf(status) !== -1;
       var isReturned = RETURN_STATUSES.indexOf(status) !== -1;
 
+      if (isCancelled) {
+        LoggingService.log({
+          service: 'EstoqueBaixa', action: 'backfill.skip', status: 'SKIP',
+          caller: 'EstoqueBaixaService',
+          summary: 'Pedido ' + orderSn + ' pulado — CANCELLED',
+          durationMs: 0,
+          context: { orderSn: orderSn, status: status }
+        });
+        continue;
+      }
+
+      if (isReturned) {
+        LoggingService.log({
+          service: 'EstoqueBaixa', action: 'backfill.skip', status: 'SKIP',
+          caller: 'EstoqueBaixaService',
+          summary: 'Pedido ' + orderSn + ' pulado — ' + status,
+          durationMs: 0,
+          context: { orderSn: orderSn, status: status }
+        });
+        continue;
+      }
+
       processados++;
       var totalBaixas = 0;
+      var itensPedido = itemSkus.split(';');
 
-      var parts = itemSkus.split(';');
-      for (var i = 0; i < parts.length; i++) {
-        var p = parts[i].trim();
+      LoggingService.log({
+        service: 'EstoqueBaixa', action: 'backfill.order.start', status: 'OK',
+        caller: 'EstoqueBaixaService',
+        summary: 'Pedido ' + orderSn + ' (' + status + ') — ' + itensPedido.length + ' SKU(s) para processar',
+        durationMs: 0,
+        context: { orderSn: orderSn, status: status, itemSkus: itemSkus }
+      });
+
+      for (var i = 0; i < itensPedido.length; i++) {
+        var p = itensPedido[i].trim();
         var colonIdx = p.indexOf(':');
         if (colonIdx === -1) continue;
         var sku = p.substring(0, colonIdx).trim();
@@ -312,13 +353,17 @@ var EstoqueBaixaService = (function () {
         if (!sku) continue;
 
         var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
+        var idempKey = refOrigem + ':backfill';
 
-        if (isCancelled || isReturned) {
-          continue;
-        }
+        LoggingService.log({
+          service: 'EstoqueBaixa', action: 'backfill.item.try', status: 'OK',
+          caller: 'EstoqueBaixaService',
+          summary: 'Tentando baixa: ' + orderSn + ' → SKU ' + sku + ' x' + qty,
+          durationMs: 0,
+          context: { orderSn: orderSn, sku: sku, quantidade: qty, refOrigem: refOrigem }
+        });
 
         try {
-          var idempKey = refOrigem + ':backfill';
           var result = baixarPorProduto({
             codigoProduto: sku,
             quantidade: qty,
@@ -326,21 +371,72 @@ var EstoqueBaixaService = (function () {
             referenciaOrigem: refOrigem,
             idempotencyKey: idempKey
           });
-          if (result.baixados > 0) totalBaixas += result.baixados;
+
+          if (result.jaExistia) {
+            totalBaixas += qty;
+            totalSkusBaixados += qty;
+            LoggingService.log({
+              service: 'EstoqueBaixa', action: 'backfill.item.done', status: 'OK',
+              caller: 'EstoqueBaixaService',
+              summary: 'Baixa já existente: ' + orderSn + ' → SKU ' + sku + ' (estoque_ids: ' + (result.estoque_ids || []).join(',') + ')',
+              durationMs: 0,
+              context: { orderSn: orderSn, sku: sku, estoque_ids: result.estoque_ids, jaExistia: true }
+            });
+          } else if (result.baixados > 0) {
+            totalBaixas += result.baixados;
+            totalSkusBaixados += result.baixados;
+            LoggingService.log({
+              service: 'EstoqueBaixa', action: 'backfill.item.done', status: 'OK',
+              caller: 'EstoqueBaixaService',
+              summary: 'Baixa OK: ' + orderSn + ' → SKU ' + sku + ' x' + result.baixados + ' (estoque_ids: ' + (result.estoque_ids || []).join(',') + ')',
+              durationMs: 0,
+              context: { orderSn: orderSn, sku: sku, baixados: result.baixados, estoque_ids: result.estoque_ids, faltantes: result.faltantes }
+            });
+          } else {
+            totalSkusPulados++;
+            LoggingService.log({
+              service: 'EstoqueBaixa', action: 'backfill.item.done', status: 'WARN',
+              caller: 'EstoqueBaixaService',
+              summary: 'Sem estoque: ' + orderSn + ' → SKU ' + sku + ' (faltantes: ' + result.faltantes + ')',
+              durationMs: 0,
+              context: { orderSn: orderSn, sku: sku, faltantes: result.faltantes, estoque_ids: [] }
+            });
+          }
         } catch (e) {
           erros++;
           LoggingService.log({
-            service: 'EstoqueBaixa', action: 'backfill', status: 'WARN',
+            service: 'EstoqueBaixa', action: 'backfill.item.error', status: 'WARN',
             caller: 'EstoqueBaixaService',
-            summary: 'Backfill falhou para ' + sku + ': ' + e.message,
-            durationMs: 0, context: { orderSn: orderSn, sku: sku, error: e.message }
+            summary: 'Erro: ' + orderSn + ' → SKU ' + sku + ': ' + e.message,
+            durationMs: 0,
+            context: { orderSn: orderSn, sku: sku, error: e.message }
           });
         }
       }
 
+      var novoBaixado = totalBaixas > 0 ? 'S' : 'N';
+      pedSheet.getRange(r + 2, baixadoCol + 1).setValue(novoBaixado);
       if (totalBaixas > 0) baixados++;
-      pedSheet.getRange(r + 2, baixadoCol + 1).setValue(totalBaixas > 0 ? 'S' : 'N');
+
+      LoggingService.log({
+        service: 'EstoqueBaixa', action: 'backfill.order.end', status: 'OK',
+        caller: 'EstoqueBaixaService',
+        summary: 'Pedido ' + orderSn + ' finalizado — BAIXADO=' + novoBaixado + ' (baixas=' + totalBaixas + ')',
+        durationMs: 0,
+        context: { orderSn: orderSn, baixado: novoBaixado, totalBaixas: totalBaixas }
+      });
     }
+
+    var durationMs = new Date().getTime() - t0;
+    var summary = 'Backfill concluído — processados: ' + processados + ', baixados: ' + baixados + ', erros: ' + erros + ', já processados: ' + jaProcessados + ', SKUs baixados: ' + totalSkusBaixados + ', SKUs sem estoque: ' + totalSkusPulados;
+
+    LoggingService.log({
+      service: 'EstoqueBaixa', action: 'backfill.end', status: 'OK',
+      caller: 'EstoqueBaixaService',
+      summary: summary,
+      durationMs: durationMs,
+      context: { processados: processados, baixados: baixados, erros: erros, jaProcessados: jaProcessados, totalSkusBaixados: totalSkusBaixados, totalSkusPulados: totalSkusPulados }
+    });
 
     return { processados: processados, baixados: baixados, erros: erros, jaProcessados: jaProcessados };
   }
