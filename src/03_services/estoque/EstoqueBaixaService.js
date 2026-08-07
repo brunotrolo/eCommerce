@@ -38,9 +38,9 @@ var EstoqueBaixaService = (function () {
           returns: { jaBaixado: 'boolean', estoque_ids: 'array', status: 'string', baixadoEm: 'string' }
         },
         reprocessarPendentes: {
-          description: 'Reprocessa baixas PENDENTE_MAPEAMENTO usando mapeamento atual.',
+          description: 'Lê TODOS os pedidos da aba PEDIDOS e aplica baixa FIFO para os que ainda não foram baixados (BAIXADO ≠ S). Ignora pedidos cancelados/devolvidos.',
           params: {},
-          returns: { processados: 'number', baixados: 'number', aindaPendentes: 'number' }
+          returns: { processados: 'number', baixados: 'number', erros: 'number', jaProcessados: 'number' }
         }
       }
     };
@@ -250,58 +250,7 @@ var EstoqueBaixaService = (function () {
   }
 
   function reprocessarPendentes() {
-    var pending = EstoqueBaixasRepository.getPendingReprocess();
-    var sheetId = ConfigService.getSheetId();
-    var skuMap = {};
-    try {
-      skuMap = AnunciosShopeeRepository.getItemSkuMap(sheetId);
-    } catch (e) { /* fallback */ }
-
-    var processados = 0;
-    var baixados = 0;
-    var aindaPendentes = 0;
-
-    for (var i = 0; i < pending.length; i++) {
-      var row = pending[i];
-      processados++;
-
-      // Try to resolve SKU from codigoProduto already in the row
-      var codigoProduto = String(row.CODIGO_PRODUTO || '').trim();
-      if (!codigoProduto) {
-        aindaPendentes++;
-        continue;
-      }
-
-      // Check if there's stock now
-      var available = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto);
-      if (available.length === 0) {
-        aindaPendentes++;
-        continue;
-      }
-
-      var quantidade = parseInt(row.QUANTIDADE, 10) || 1;
-      var result = baixarPorProduto({
-        codigoProduto: codigoProduto,
-        quantidade: quantidade,
-        origem: row.ORIGEM || 'PEDIDO_SHOPEE',
-        referenciaOrigem: row.REFERENCIA_ORIGEM,
-        idempotencyKey: row.IDEMPOTENCY_KEY || (row.REFERENCIA_ORIGEM + ':reprocess')
-      });
-
-      if (result.baixados > 0) {
-        baixados += result.baixados;
-        // Update original PENDENTE row to BAIXADO
-        EstoqueBaixasRepository.updateRowByBaixaId(sheetId, row.BAIXA_ID, {
-          status: 'BAIXADO',
-          quantidade: result.baixados,
-          estoqueIds: (result.estoque_ids || []).join(',')
-        });
-      } else {
-        aindaPendentes++;
-      }
-    }
-
-    return { processados: processados, baixados: baixados, aindaPendentes: aindaPendentes };
+    return backfillExistingOrders();
   }
 
   function backfillExistingOrders() {
