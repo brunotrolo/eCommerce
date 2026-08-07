@@ -30,6 +30,10 @@ var OrdersImportService = (function () {
           params: {
             orderSn: { type: 'string', required: true, description: 'Order SN para diagnosticar' }
           }
+        },
+        testWriteCost: {
+          description: 'Teste direto de escrita na coluna TOTAL_COST.',
+          params: {}
         }
       }
     };
@@ -613,5 +617,26 @@ var OrdersImportService = (function () {
     };
   }
 
-  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, diagnoseCost: function (params) { return diagnoseCost_(params.orderSn); } };
+  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, diagnoseCost: function (params) { return diagnoseCost_(params.orderSn); }, testWriteCost: function (params) {
+    var sheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
+    var lastCol = sheet.getLastColumn();
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var costCol = -1;
+    var oidCol = -1;
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i] === 'TOTAL_COST') costCol = i + 1;
+      if (headers[i] === 'ORDER_ID') oidCol = i + 1;
+    }
+    if (costCol === -1) return { error: 'TOTAL_COST col not found' };
+    var lastRow = sheet.getLastRow();
+    var results = [];
+    for (var r = 2; r <= Math.min(lastRow, 5); r++) {
+      var oid = sheet.getRange(r, oidCol).getValue();
+      var cellBefore = sheet.getRange(r, costCol).getValue();
+      sheet.getRange(r, costCol).setValue(999.99);
+      var cellAfter = sheet.getRange(r, costCol).getValue();
+      results.push({ oid: oid, before: cellBefore, after: cellAfter });
+    }
+    return { costCol: costCol, results: results };
+  } };
 })();
