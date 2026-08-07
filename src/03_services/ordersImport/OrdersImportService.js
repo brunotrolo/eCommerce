@@ -694,15 +694,18 @@ var OrdersImportService = (function () {
 
     var detail = null;
     try {
-      detail = callTiops_('shopee_get_order_detail', { order_sn: orderSn });
+      detail = getOrderDetail_(orderSn);
     } catch (e) {
-      return { error: 'shopee_get_order_detail failed: ' + e.message };
+      return { error: 'getOrderDetail_ failed: ' + e.message };
     }
     if (!detail) return { error: 'detail is null for ' + orderSn };
 
     var escrow = null;
     try {
-      escrow = callTiops_('shopee_get_escrow_detail', { order_sn: orderSn });
+      var escrowResult = callTiops_('shopee_get_escrow_detail', { order_sn: orderSn });
+      var escrowResp = escrowResult.response || escrowResult;
+      escrow = escrowResp.escrow_detail || null;
+      if (escrow && escrow.order_income) escrow = escrow.order_income;
     } catch (e) { /* ok */ }
 
     var skuMap = {};
