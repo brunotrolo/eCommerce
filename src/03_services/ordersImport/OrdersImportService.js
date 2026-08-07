@@ -46,6 +46,12 @@ var OrdersImportService = (function () {
           params: {
             orderSn: { type: 'string', required: false, default: '260711CAQ9KK03' }
           }
+        },
+        testRawDetail: {
+          description: 'Retorna resposta bruta do Tiops para shopee_get_order_detail.',
+          params: {
+            orderSn: { type: 'string', required: false, default: '260711CAQ9KK03' }
+          }
         }
       }
     };
