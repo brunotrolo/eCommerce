@@ -197,9 +197,20 @@ var OrdersService = (function () {
     var sheet = SheetsRepository.getOrCreateSheet(SHEET_NAME);
     var lastCol = sheet.getLastColumn();
     var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-    var firstRow = lastCol > 0 ? sheet.getRange(2, 1, 1, lastCol).getValues()[0] : [];
-    var h = {};
-    for (var i = 0; i < headers.length; i++) { h[headers[i]] = firstRow[i]; }
-    return { headers: headers.map(String), totalCostValue: h['TOTAL_COST'], firstOrderId: h['ORDER_ID'] };
+    var firstRows = [];
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      var data = sheet.getRange(2, 1, Math.min(3, lastRow - 1), lastCol).getValues();
+      for (var r = 0; r < data.length; r++) {
+        var obj = {};
+        for (var c = 0; c < headers.length; c++) {
+          if (headers[c] === 'TOTAL_COST' || headers[c] === 'ITEM_SKUS') {
+            obj[headers[c]] = data[r][c];
+          }
+        }
+        firstRows.push(obj);
+      }
+    }
+    return { headers: headers.map(String), totalColIndex: headers.indexOf('TOTAL_COST') + 1, firstRows: firstRows };
   } };
 })();
