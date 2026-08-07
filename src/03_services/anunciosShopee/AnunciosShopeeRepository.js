@@ -234,6 +234,39 @@ var AnunciosShopeeRepository = (function () {
     return rows;
   }
 
+  /**
+   * Retorna mapa item_id → SKU a partir da aba ANUNCIOS_SHOPEE.
+   * Usado por OrdersImportService para preencher SKUs em pedidos onde
+   * a Shopee não retorna item_sku (caso da maioria dos pedidos antigos).
+   */
+  function getItemSkuMap(sheetId) {
+    var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2 || lastCol === 0) return {};
+
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var itemIdCol = -1;
+    var skuCol = -1;
+    for (var i = 0; i < headers.length; i++) {
+      var h = String(headers[i]).trim();
+      if (h === 'ITEM_ID') itemIdCol = i + 1;
+      if (h === 'SKU') skuCol = i + 1;
+    }
+    if (itemIdCol === -1 || skuCol === -1) return {};
+
+    var allValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var map = {};
+    for (var r = 0; r < allValues.length; r++) {
+      var itemId = String(allValues[r][itemIdCol - 1]).trim();
+      var sku = String(allValues[r][skuCol - 1]).trim();
+      if (itemId && sku) {
+        map[itemId] = sku;
+      }
+    }
+    return map;
+  }
+
   /** Linha do item (objeto) ou null. */
   function getItem(sheetId, itemId) {
     var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
@@ -386,6 +419,7 @@ var AnunciosShopeeRepository = (function () {
     getAll: getAll,
     getAllSlim: getAllSlim,
     getItem: getItem,
+    getItemSkuMap: getItemSkuMap,
     patchMain: patchMain,
     logPrecoChange: logPrecoChange,
     logEstoqueChange: logEstoqueChange,

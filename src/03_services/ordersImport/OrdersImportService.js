@@ -58,12 +58,16 @@ var OrdersImportService = (function () {
     return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
   }
 
-  function formatItemsDetail_(items) {
+  function formatItemsDetail_(items, skuMap) {
     if (!items || items.length === 0) return '';
+    skuMap = skuMap || {};
     var parts = [];
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
       var sku = it.item_sku || '';
+      if (!sku && it.item_id && skuMap[it.item_id]) {
+        sku = skuMap[it.item_id];
+      }
       var name = it.item_name || '';
       var qty = it.model_quantity_purchased || 1;
       var price = it.model_discounted_price || 0;
@@ -72,11 +76,15 @@ var OrdersImportService = (function () {
     return parts.join('; ');
   }
 
-  function formatItemSkus_(items) {
+  function formatItemSkus_(items, skuMap) {
     if (!items || items.length === 0) return '';
+    skuMap = skuMap || {};
     var parts = [];
     for (var i = 0; i < items.length; i++) {
       var sku = items[i].item_sku || '';
+      if (!sku && items[i].item_id && skuMap[items[i].item_id]) {
+        sku = skuMap[items[i].item_id];
+      }
       var qty = items[i].model_quantity_purchased || 1;
       if (sku) parts.push(sku + ':' + qty);
     }
@@ -163,7 +171,7 @@ var OrdersImportService = (function () {
     return escrowMap;
   }
 
-  function normalizeOrder_(detail, escrow) {
+  function normalizeOrder_(detail, escrow, skuMap) {
     if (!detail) return null;
 
     var items = detail.item_list || [];
@@ -183,8 +191,8 @@ var OrdersImportService = (function () {
       PICKUP_TIME: formatDateTime_(detail.pickup_done_time),
       UPDATE_TIME: formatDateTime_(detail.update_time),
       BUYER_USERNAME: detail.buyer_username || '',
-      ITEMS_DETAIL: formatItemsDetail_(items),
-      ITEM_SKUS: formatItemSkus_(items),
+      ITEMS_DETAIL: formatItemsDetail_(items, skuMap),
+      ITEM_SKUS: formatItemSkus_(items, skuMap),
       ITEM_COUNT: items.length,
       MESSAGE_TO_SELLER: detail.message_to_seller || '',
       CREATE_TIME: formatDateTime_(detail.create_time),
@@ -212,6 +220,18 @@ var OrdersImportService = (function () {
     var mode = params.mode || 'all';
     var forceOrderSns = params.forceOrderSns || [];
     var statuses = mode === 'operational' ? OPERATIONAL_STATUSES : ALL_STATUSES;
+
+    var skuMap = {};
+    try {
+      skuMap = AnunciosShopeeRepository.getItemSkuMap(ConfigService.getSheetId());
+    } catch (e) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'skuMapLoad', status: 'WARN',
+        caller: 'OrdersImportService',
+        summary: 'Fallback: skuMap vazio (' + e.message + ')',
+        durationMs: 0, context: { error: e.message }
+      });
+    }
 
     LoggingService.log({
       service: 'OrdersImport', action: 'importShopeeOrders', status: 'OK',
@@ -306,7 +326,7 @@ var OrdersImportService = (function () {
     var toUpsert = [];
     for (var u = 0; u < allDetailSns.length; u++) {
       var orderSn = allDetailSns[u];
-      var normalized = normalizeOrder_(details[orderSn], escrowMap[orderSn]);
+      var normalized = normalizeOrder_(details[orderSn], escrowMap[orderSn], skuMap);
       if (normalized) toUpsert.push(normalized);
     }
 
@@ -377,7 +397,14 @@ var OrdersImportService = (function () {
       });
     }
 
-    var order = normalizeOrder_(detail, escrow);
+    var skuMap = {};
+    try {
+      skuMap = AnunciosShopeeRepository.getItemSkuMap(ConfigService.getSheetId());
+    } catch (e) {
+      // fallback silencioso: sem skuMap, usa item_sku da Shopee
+    }
+
+    var order = normalizeOrder_(detail, escrow, skuMap);
     if (!order) return { success: false, error: 'normalize failed' };
 
     var map = OrdersRepository.getAllOrdersMap();
