@@ -733,7 +733,9 @@ var OrdersImportService = (function () {
       itemSkus: order.ITEM_SKUS,
       totalCost: order.TOTAL_COST,
       orderKeys: Object.keys(order),
-      hasTotalCostInOrder: 'TOTAL_COST' in order
+      hasTotalCostInOrder: 'TOTAL_COST' in order,
+      detailKeys: Object.keys(detail),
+      detailOrderSn: detail.order_sn || 'EMPTY'
     };
 
     var existingMap = OrdersRepository.getAllOrdersMap();
@@ -752,5 +754,26 @@ var OrdersImportService = (function () {
     var cellAfter = tcCol > 0 ? sheet.getRange(existing.rowNumber, tcCol).getValue() : 'col not found';
 
     return { debug: debugInfo, writeResult: writeResult, cellAfter: cellAfter, rowNumber: existing.rowNumber };
+  }, testRawDetail: function (params) {
+    var orderSn = params.orderSn || '260711CAQ9KK03';
+    var result = callTiops_('shopee_get_order_detail', { order_sn: orderSn });
+    if (!result) return { error: 'null result' };
+    var response = result.response || result;
+    var orderList = response.order_list || [];
+    var detail = orderList.length > 0 ? orderList[0] : null;
+    return {
+      orderSn: orderSn,
+      hasResponse: !!result.response,
+      responseKeys: Object.keys(response),
+      orderListLength: orderList.length,
+      detailKeys: detail ? Object.keys(detail) : [],
+      detailOrderSn: detail ? detail.order_sn : 'N/A',
+      item_list: detail ? detail.item_list : 'N/A',
+      firstItem: detail && detail.item_list && detail.item_list.length > 0 ? {
+        item_name: detail.item_list[0].item_name,
+        item_sku: detail.item_list[0].item_sku,
+        item_id: detail.item_list[0].item_id
+      } : 'N/A'
+    };
   } };
 })();
