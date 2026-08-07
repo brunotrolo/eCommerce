@@ -304,11 +304,104 @@ var EstoqueBaixaService = (function () {
     return { processados: processados, baixados: baixados, aindaPendentes: aindaPendentes };
   }
 
+  function backfillExistingOrders() {
+    var sheetId = ConfigService.getSheetId();
+    var pedSheet = SpreadsheetApp.openById(sheetId).getSheetByName('PEDIDOS');
+    if (!pedSheet) return { error: 'PEDIDOS sheet not found' };
+
+    var lastRow = pedSheet.getLastRow();
+    var lastCol = pedSheet.getLastColumn();
+    if (lastRow < 2) return { processados: 0, baixados: 0, erros: 0 };
+
+    var headers = pedSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var hIdx = {};
+    for (var h = 0; h < headers.length; h++) {
+      hIdx[String(headers[h]).trim()] = h;
+    }
+
+    var orderIdCol = hIdx['ORDER_ID'];
+    var statusCol = hIdx['STATUS'];
+    var itemSkusCol = hIdx['ITEM_SKUS'];
+    var baixadoCol = hIdx['BAIXADO'];
+    if (orderIdCol === undefined || statusCol === undefined || itemSkusCol === undefined) {
+      return { error: 'Missing columns in PEDIDOS' };
+    }
+    if (baixadoCol === undefined) {
+      pedSheet.getRange(1, lastCol + 1).setValue('BAIXADO');
+      baixadoCol = lastCol;
+    }
+
+    var allData = pedSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var CANCELLED_STATUSES = ['CANCELLED', 'CANCELADO'];
+    var RETURN_STATUSES = ['TO_RETURN', 'RETURNED', 'DEVOLVIDO'];
+
+    var processados = 0, baixados = 0, erros = 0, jaProcessados = 0;
+
+    for (var r = 0; r < allData.length; r++) {
+      var row = allData[r];
+      var orderSn = String(row[orderIdCol] || '').trim();
+      var status = String(row[statusCol] || '').trim().toUpperCase();
+      var itemSkus = String(row[itemSkusCol] || '').trim();
+      var currentBaixado = String(row[baixadoCol] || '').trim();
+
+      if (!orderSn || !itemSkus) continue;
+      if (currentBaixado === 'S') { jaProcessados++; continue; }
+
+      var isCancelled = CANCELLED_STATUSES.indexOf(status) !== -1;
+      var isReturned = RETURN_STATUSES.indexOf(status) !== -1;
+
+      processados++;
+      var totalBaixas = 0;
+
+      var parts = itemSkus.split(';');
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i].trim();
+        var colonIdx = p.indexOf(':');
+        if (colonIdx === -1) continue;
+        var sku = p.substring(0, colonIdx).trim();
+        var qty = parseInt(p.substring(colonIdx + 1), 10) || 1;
+        if (!sku) continue;
+
+        var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
+
+        if (isCancelled || isReturned) {
+          continue;
+        }
+
+        try {
+          var idempKey = refOrigem + ':backfill';
+          var result = baixarPorProduto({
+            codigoProduto: sku,
+            quantidade: qty,
+            origem: 'PEDIDO_SHOPEE',
+            referenciaOrigem: refOrigem,
+            idempotencyKey: idempKey
+          });
+          if (result.baixados > 0) totalBaixas += result.baixados;
+        } catch (e) {
+          erros++;
+          LoggingService.log({
+            service: 'EstoqueBaixa', action: 'backfill', status: 'WARN',
+            caller: 'EstoqueBaixaService',
+            summary: 'Backfill falhou para ' + sku + ': ' + e.message,
+            durationMs: 0, context: { orderSn: orderSn, sku: sku, error: e.message }
+          });
+        }
+      }
+
+      if (totalBaixas > 0) baixados++;
+      pedSheet.getRange(r + 2, baixadoCol + 1).setValue(totalBaixas > 0 ? 'S' : 'N');
+    }
+
+    return { processados: processados, baixados: baixados, erros: erros, jaProcessados: jaProcessados };
+  }
+
   return {
     describe: describe,
     baixarPorProduto: baixarPorProduto,
     reverterBaixa: reverterBaixa,
     getBaixaStatus: getBaixaStatus,
-    reprocessarPendentes: reprocessarPendentes
+    reprocessarPendentes: reprocessarPendentes,
+    backfillExistingOrders: backfillExistingOrders
   };
 })();
