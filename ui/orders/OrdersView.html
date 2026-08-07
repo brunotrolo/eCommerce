@@ -82,12 +82,9 @@
       text-align: right;
       color: var(--color-text-secondary);
     }
-    #orders-table th:nth-child(6),
-    #orders-table td:nth-child(6) {
-      max-width: 220px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .cost-warning {
+      color: var(--color-error-text);
+      font-weight: var(--font-weight-semibold);
     }
   </style>
   <div class="widget-grid">
@@ -361,7 +358,7 @@
         '<div class="detail-line"><span>Desconto PIX</span><strong>' + fmtDeduction_(o.pixDiscount) + '</strong></div>' +
         '<div class="detail-line"><span>Rebate</span><strong>' + fmtMoney_(o.sellerRebate) + '</strong></div>' +
         '<div class="detail-line"><span><b>Líquido</b></span><strong class="' + liquidClass_(o.liquid) + '">' + fmtMoney_(o.liquid) + '</strong></div>' +
-        (o.totalCost > 0 ? '<div class="detail-line"><span>Custo (estoque)</span><strong>' + fmtMoney_(o.totalCost) + '</strong></div>' : '') +
+        (o.totalCost > 0 ? '<div class="detail-line"><span>Custo (estoque)</span><strong class="' + (Number(o.totalCost) > Number(o.liquid) ? 'cost-warning' : '') + '">' + fmtMoney_(o.totalCost) + '</strong></div>' : '') +
         '<div class="detail-sub"><span>Escrow (verificação)</span><strong>' + fmtMoney_(o.escrowAmount) + '</strong></div></section>';
 
       var items =
@@ -498,7 +495,7 @@
           '<td>' + itens + '</td>' +
           '<td>' + fmtMoney_(o.total) + '</td>' +
           '<td class="' + liquidClass_(liquid) + '">' + fmtMoney_(liquid) + '</td>' +
-          '<td>' + (totalCost > 0 ? fmtMoney_(totalCost) : '-') + '</td>' +
+          '<td class="' + (totalCost > liquid && totalCost > 0 ? 'cost-warning' : '') + '">' + (totalCost > 0 ? fmtMoney_(totalCost) : '-') + '</td>' +
           '</tr>' +
           '<tr class="detail-row" hidden data-id="' + escapeHtml_(o.id) + '"><td colspan="9">' + detailHtml_(o) + '</td></tr>';
       }
