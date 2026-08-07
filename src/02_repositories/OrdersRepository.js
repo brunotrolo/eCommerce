@@ -227,13 +227,26 @@ var OrdersRepository = (function () {
       headerMap[String(headers[i]).trim()] = i + 1;
     }
 
-    var updatedFields = [];
     var keys = Object.keys(order);
+    var missingHeaders = [];
     for (var k = 0; k < keys.length; k++) {
-      var col = headerMap[keys[k]];
+      if (!headerMap[keys[k]]) missingHeaders.push(keys[k]);
+    }
+    if (missingHeaders.length > 0) {
+      var startCol = lastCol + 1;
+      sheet.getRange(1, startCol, 1, missingHeaders.length).setValues([missingHeaders]);
+      for (var m = 0; m < missingHeaders.length; m++) {
+        headerMap[missingHeaders[m]] = startCol + m;
+      }
+      lastCol = sheet.getLastColumn();
+    }
+
+    var updatedFields = [];
+    for (var k2 = 0; k2 < keys.length; k2++) {
+      var col = headerMap[keys[k2]];
       if (col) {
-        sheet.getRange(rowNumber, col).setValue(order[keys[k]]);
-        updatedFields.push(keys[k]);
+        sheet.getRange(rowNumber, col).setValue(order[keys[k2]]);
+        updatedFields.push(keys[k2]);
       }
     }
 
