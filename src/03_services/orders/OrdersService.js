@@ -193,24 +193,5 @@ var OrdersService = (function () {
     return { order: withoutSortKey_(found) };
   }
 
-  return { describe: describe, listUnified: listUnified, getDetail: getDetail, calculateNet: calculateNet, debugHeaders: function () {
-    var sheet = SheetsRepository.getOrCreateSheet(SHEET_NAME);
-    var lastCol = sheet.getLastColumn();
-    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-    var firstRows = [];
-    var lastRow = sheet.getLastRow();
-    if (lastRow >= 2) {
-      var data = sheet.getRange(2, 1, Math.min(3, lastRow - 1), lastCol).getValues();
-      for (var r = 0; r < data.length; r++) {
-        var obj = {};
-        for (var c = 0; c < headers.length; c++) {
-          if (headers[c] === 'TOTAL_COST' || headers[c] === 'ITEM_SKUS') {
-            obj[headers[c]] = data[r][c];
-          }
-        }
-        firstRows.push(obj);
-      }
-    }
-    return { headers: headers.map(String), totalColIndex: headers.indexOf('TOTAL_COST') + 1, firstRows: firstRows };
-  } };
+  return { describe: describe, listUnified: listUnified, getDetail: getDetail, calculateNet: calculateNet };
 })();

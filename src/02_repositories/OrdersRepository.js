@@ -241,13 +241,10 @@ var OrdersRepository = (function () {
       lastCol = sheet.getLastColumn();
     }
 
-    var updatedFields = [];
-    var costDebug = { hasTotalCost: 'TOTAL_COST' in order, totalCostValue: order.TOTAL_COST, type: typeof order.TOTAL_COST };
     for (var k2 = 0; k2 < keys.length; k2++) {
       var col = headerMap[keys[k2]];
       if (col) {
         sheet.getRange(rowNumber, col).setValue(order[keys[k2]]);
-        updatedFields.push(keys[k2] + '=' + order[keys[k2]]);
       }
     }
 
@@ -257,12 +254,10 @@ var OrdersRepository = (function () {
       action: 'updateOrderRow',
       status: 'OK',
       caller: 'OrdersRepository',
-      summary: 'Linha ' + rowNumber + ' atualizada: ' + updatedFields.join(', '),
+      summary: 'Linha ' + rowNumber + ' atualizada',
       durationMs: totalMs,
       context: {
         rowNumber: rowNumber,
-        updatedFields: updatedFields,
-        costDebug: costDebug,
         newValues: order
       }
     });
