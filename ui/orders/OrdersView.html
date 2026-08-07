@@ -376,7 +376,7 @@
 
       var items =
         '<section><h4>Produtos</h4>' +
-        (o.itemNames ? '<ul><li>' + escapeHtml_(o.itemNames.length > 60 ? o.itemNames.substring(0, 60) + '...' : o.itemNames) + '</li></ul>' : '<span>Sem detalhe de itens</span>') +
+        (o.itemNames ? '<ul><li>' + escapeHtml_(o.itemNames.length > 70 ? o.itemNames.substring(0, 70) + '...' : o.itemNames) + '</li></ul>' : '<span>Sem detalhe de itens</span>') +
         (o.itemSkus ? '<div class="detail-line"><span>SKUs</span><strong>' + escapeHtml_(o.itemSkus) + '</strong></div>' : '') +
         '</section>';
 
