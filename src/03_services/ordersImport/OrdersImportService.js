@@ -31,6 +31,10 @@ var OrdersImportService = (function () {
             orderSn: { type: 'string', required: true, description: 'Order SN para diagnosticar' }
           }
         },
+        recalcAllCosts: {
+          description: 'Recalcula TOTAL_COST de todas as linhas existentes no PEDIDOS a partir de ITEM_SKUS + costMap.',
+          params: {}
+        },
         testWriteCost: {
           description: 'Teste direto de escrita na coluna TOTAL_COST.',
           params: {}
@@ -655,7 +659,38 @@ var OrdersImportService = (function () {
     };
   }
 
-  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, debugSkuMap: function () {
+  function recalcAllCosts_() {
+    var sheetId = ConfigService.getSheetId();
+    var costMap = {};
+    try { costMap = getCostMap_(sheetId); } catch (e) { return { error: 'getCostMap failed: ' + e.message }; }
+    var sheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2) return { error: 'empty sheet' };
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headerMap = {};
+    for (var i = 0; i < headers.length; i++) headerMap[headers[i]] = i + 1;
+    var skusCol = headerMap['ITEM_SKUS'];
+    var costCol = headerMap['TOTAL_COST'];
+    if (!skusCol || !costCol) return { error: 'missing columns', hasSkus: !!skusCol, hasCost: !!costCol };
+    var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var updated = 0;
+    for (var r = 0; r < allData.length; r++) {
+      var itemSkus = String(allData[r][skusCol - 1] || '').trim();
+      var newCost = calculateTotalCost_(itemSkus, costMap);
+      var oldCost = allData[r][costCol - 1];
+      if (newCost > 0 && newCost !== oldCost) {
+        sheet.getRange(r + 2, costCol).setValue(newCost);
+        updated++;
+      } else if (itemSkus && newCost === 0 && oldCost !== 0) {
+        sheet.getRange(r + 2, costCol).setValue(0);
+        updated++;
+      }
+    }
+    return { totalRows: lastRow - 1, updated: updated, costMapSize: Object.keys(costMap).length };
+  }
+
+  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, recalcAllCosts: function () { return recalcAllCosts_(); }, debugSkuMap: function () {
     var map = {};
     try { map = AnunciosShopeeRepository.getItemSkuMap(ConfigService.getSheetId()); } catch (e) { return { error: e.message }; }
     return { size: Object.keys(map).length, keys: Object.keys(map) };
