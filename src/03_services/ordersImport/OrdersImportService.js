@@ -64,9 +64,11 @@ var OrdersImportService = (function () {
     var parts = [];
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
-      var sku = it.item_sku || '';
-      if (!sku && it.item_id && skuMap[it.item_id]) {
+      var sku = '';
+      if (it.item_id && skuMap[it.item_id]) {
         sku = skuMap[it.item_id];
+      } else {
+        sku = it.item_sku || '';
       }
       var name = it.item_name || '';
       var qty = it.model_quantity_purchased || 1;
