@@ -242,6 +242,7 @@ var OrdersRepository = (function () {
     }
 
     var updatedFields = [];
+    var costDebug = { hasTotalCost: 'TOTAL_COST' in order, totalCostValue: order.TOTAL_COST, type: typeof order.TOTAL_COST };
     for (var k2 = 0; k2 < keys.length; k2++) {
       var col = headerMap[keys[k2]];
       if (col) {
@@ -261,6 +262,7 @@ var OrdersRepository = (function () {
       context: {
         rowNumber: rowNumber,
         updatedFields: updatedFields,
+        costDebug: costDebug,
         newValues: order
       }
     });

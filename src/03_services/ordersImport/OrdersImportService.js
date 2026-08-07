@@ -34,6 +34,12 @@ var OrdersImportService = (function () {
         testWriteCost: {
           description: 'Teste direto de escrita na coluna TOTAL_COST.',
           params: {}
+        },
+        testUpdateOrderRow: {
+          description: 'Teste direto de updateOrderRow com TOTAL_COST.',
+          params: {
+            orderSn: { type: 'string', required: false, default: '260711CAQ9KK03' }
+          }
         }
       }
     };
@@ -638,5 +644,38 @@ var OrdersImportService = (function () {
       results.push({ oid: oid, before: cellBefore, after: cellAfter });
     }
     return { costCol: costCol, results: results };
+  }, testUpdateOrderRow: function (params) {
+    var orderSn = params.orderSn || '260711CAQ9KK03';
+    var sheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
+    var lastCol = sheet.getLastColumn();
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var oidCol = -1;
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i] === 'ORDER_ID') oidCol = i + 1;
+    }
+    if (oidCol === -1) return { error: 'ORDER_ID col not found' };
+    var lastRow = sheet.getLastRow();
+    for (var r = 2; r <= lastRow; r++) {
+      if (String(sheet.getRange(r, oidCol).getValue()).trim() === orderSn) {
+        var testOrder = { ORDER_ID: orderSn, TOTAL_COST: 42.5 };
+        var keys = Object.keys(testOrder);
+        var costDebug = { keys: keys, hasTotalCost: 'TOTAL_COST' in testOrder };
+        var headerMap = {};
+        for (var h = 0; h < headers.length; h++) {
+          headerMap[String(headers[h]).trim()] = h + 1;
+        }
+        var results = [];
+        for (var k = 0; k < keys.length; k++) {
+          var col = headerMap[keys[k]];
+          results.push({ key: keys[k], col: col, value: testOrder[keys[k]], willWrite: !!col });
+          if (col) {
+            sheet.getRange(r, col).setValue(testOrder[keys[k]]);
+          }
+        }
+        var cellAfter = sheet.getRange(r, headerMap['TOTAL_COST']).getValue();
+        return { orderSn: orderSn, row: r, costDebug: costDebug, results: results, cellAfter: cellAfter };
+      }
+    }
+    return { error: 'Order not found: ' + orderSn };
   } };
 })();
