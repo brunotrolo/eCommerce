@@ -24,6 +24,12 @@ var OrdersImportService = (function () {
             forceOrderSns: { type: 'array', required: false, default: [], description: 'Order SNs específicos para buscar (ignora filtro de status/list)' }
           },
           returns: { success: 'boolean', imported: 'number', updated: 'number', errors: 'array', message: 'string' }
+        },
+        diagnoseCost: {
+          description: 'Diagnóstico de cálculo de custo para um pedido específico.',
+          params: {
+            orderSn: { type: 'string', required: true, description: 'Order SN para diagnosticar' }
+          }
         }
       }
     };
@@ -121,6 +127,54 @@ var OrdersImportService = (function () {
     });
 
     return costMap;
+  }
+
+  /**
+   * Diagnóstico: mostra custo de um pedido específico + costMap completo.
+   */
+  function diagnoseCost_(orderSn, sheetId) {
+    var costMap = {};
+    try { costMap = getCostMap_(sheetId || ConfigService.getSheetId()); } catch (e) { return { error: 'getCostMap failed: ' + e.message }; }
+    var allOrders = OrdersRepository.getAllOrdersMap();
+    var orderIdToRow = {};
+    var sheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
+    var lastCol = sheet.getLastColumn();
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var skusCol = -1;
+    for (var i = 0; i < headers.length; i++) {
+      if (headers[i] === 'ITEM_SKUS') skusCol = i + 1;
+    }
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2 && skusCol > 0) {
+      var skuData = sheet.getRange(2, skusCol, lastRow - 1, 1).getValues();
+      var oidData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var r = 0; r < skuData.length; r++) {
+        var oid = String(oidData[r][0]).trim();
+        if (oid === orderSn) {
+          var itemSkus = String(skuData[r][0] || '');
+          var parts = itemSkus.split(';');
+          var detail = [];
+          for (var p = 0; p < parts.length; p++) {
+            var pt = parts[p].trim();
+            var ci = pt.indexOf(':');
+            var sku = ci > -1 ? pt.substring(0, ci).trim() : pt;
+            var qty = ci > -1 ? (parseInt(pt.substring(ci + 1), 10) || 1) : 1;
+            detail.push({ sku: sku, qty: qty, unitCost: costMap[sku] || 0, total: (costMap[sku] || 0) * qty });
+          }
+          var totalCost = 0;
+          for (var d = 0; d < detail.length; d++) totalCost += detail[d].total;
+          return {
+            orderSn: orderSn,
+            itemSkus: itemSkus,
+            detail: detail,
+            totalCost: Math.round(totalCost * 100) / 100,
+            costMapKeys: Object.keys(costMap),
+            costMapSize: Object.keys(costMap).length
+          };
+        }
+      }
+    }
+    return { orderSn: orderSn, error: 'Order not found or no ITEM_SKUS column', costMapKeys: Object.keys(costMap), costMapSize: Object.keys(costMap).length };
   }
 
   /**
@@ -559,5 +613,5 @@ var OrdersImportService = (function () {
     };
   }
 
-  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn };
+  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, diagnoseCost: function (params) { return diagnoseCost_(params.orderSn); } };
 })();
