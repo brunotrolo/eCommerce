@@ -467,6 +467,16 @@ var OrdersImportService = (function () {
       });
     }
 
+    // Read existing statuses before upsert (for revert detection)
+    var oldStatuses = {};
+    try {
+      var existingMap = OrdersRepository.getAllOrdersMap();
+      var existingKeys = Object.keys(existingMap);
+      for (var e = 0; e < existingKeys.length; e++) {
+        oldStatuses[existingKeys[e]] = existingMap[existingKeys[e]].STATUS || '';
+      }
+    } catch (e) { /* fallback: no oldStatuses, baixa still works for new orders */ }
+
     var upsertResult = { inserted: 0, updated: 0 };
     if (toUpsert.length > 0) {
       upsertResult = OrdersRepository.upsertOrders(toUpsert, true);
@@ -474,6 +484,29 @@ var OrdersImportService = (function () {
 
     var imported = upsertResult.inserted || 0;
     var updated = upsertResult.updated || 0;
+
+    // Process stock baixa for new orders and status changes
+    var baixasRealizadas = 0, pendentesMapeamento = 0, faltantesEstoque = 0, revertsRealizadas = 0;
+    for (var b = 0; b < toUpsert.length; b++) {
+      var o = toUpsert[b];
+      var isNew = !oldStatuses[o.ORDER_ID];
+      var oldSt = oldStatuses[o.ORDER_ID] || null;
+      try {
+        var bx = processBaixaForOrder_(o, isNew, oldSt);
+        baixasRealizadas += bx.baixas;
+        pendentesMapeamento += bx.pendentes;
+        faltantesEstoque += bx.faltantes;
+        revertsRealizadas += bx.reverts;
+      } catch (e) {
+        LoggingService.log({
+          service: 'OrdersImport', action: 'processBaixa', status: 'WARN',
+          caller: 'OrdersImportService',
+          summary: 'Baixa falhou para order ' + o.ORDER_ID + ': ' + e.message,
+          durationMs: 0, context: { orderSn: o.ORDER_ID, error: e.message }
+        });
+      }
+    }
+
     var totalMs = Date.now() - importStart;
     var totalErrors = errors.length;
 
@@ -483,9 +516,13 @@ var OrdersImportService = (function () {
     LoggingService.log({
       service: 'OrdersImport', action: 'importShopeeOrders',
       status: totalErrors > 0 && imported === 0 && updated === 0 ? 'ERROR' : 'OK',
-      caller: 'UI', summary: 'Importação concluída: ' + message + ' (' + totalMs + 'ms)',
+      caller: 'UI', summary: 'Importação concluída: ' + message + ' (' + totalMs + 'ms)' +
+        (baixasRealizadas > 0 ? ' baixas=' + baixasRealizadas : '') +
+        (revertsRealizadas > 0 ? ' reverts=' + revertsRealizadas : ''),
       durationMs: totalMs, context: {
         mode: mode, imported: imported, updated: updated, totalErrors: totalErrors,
+        baixasRealizadas: baixasRealizadas, pendentesMapeamento: pendentesMapeamento,
+        faltantesEstoque: faltantesEstoque, revertsRealizadas: revertsRealizadas,
         escrowBatchCalls: Math.ceil(allDetailSns.length / ESCROW_BATCH_SIZE),
         errors: errors.slice(0, 10)
       }
@@ -493,7 +530,9 @@ var OrdersImportService = (function () {
 
     return {
       success: totalErrors === 0 || imported > 0 || updated > 0,
-      imported: imported, updated: updated, errors: errors, message: message
+      imported: imported, updated: updated, errors: errors, message: message,
+      baixasRealizadas: baixasRealizadas, pendentesMapeamento: pendentesMapeamento,
+      faltantesEstoque: faltantesEstoque, revertsRealizadas: revertsRealizadas
     };
   }
 
@@ -554,6 +593,8 @@ var OrdersImportService = (function () {
     var map = OrdersRepository.getAllOrdersMap();
     var inserted = 0;
     var updated = 0;
+    var oldStatus = map[orderSn] ? (map[orderSn].STATUS || '') : null;
+    var isNew = !map[orderSn];
 
     if (map[orderSn]) {
       OrdersRepository.updateOrderRow(map[orderSn].rowNumber, order);
@@ -563,11 +604,32 @@ var OrdersImportService = (function () {
       inserted = ins.inserted || 1;
     }
 
+    // Process stock baixa
+    var baixasRealizadas = 0, pendentesMapeamento = 0, faltantesEstoque = 0, revertsRealizadas = 0;
+    try {
+      var bx = processBaixaForOrder_(order, isNew, oldStatus);
+      baixasRealizadas = bx.baixas;
+      pendentesMapeamento = bx.pendentes;
+      faltantesEstoque = bx.faltantes;
+      revertsRealizadas = bx.reverts;
+    } catch (e) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'processBaixa', status: 'WARN',
+        caller: 'OrdersImportService',
+        summary: 'Baixa falhou para ' + orderSn + ': ' + e.message,
+        durationMs: 0, context: { orderSn: orderSn, error: e.message }
+      });
+    }
+
     LoggingService.log({
       service: 'OrdersImport', action: 'syncOrderBySn', status: 'OK',
-      caller: 'PushNotification', summary: orderSn + ' => ' + order.STATUS + ' (ins ' + inserted + ', upd ' + updated + ')',
+      caller: 'PushNotification', summary: orderSn + ' => ' + order.STATUS + ' (ins ' + inserted + ', upd ' + updated + ')' +
+        (baixasRealizadas > 0 ? ' baixas=' + baixasRealizadas : '') +
+        (revertsRealizadas > 0 ? ' reverts=' + revertsRealizadas : ''),
       durationMs: Date.now() - startTime,
-      context: { orderSn: orderSn, status: order.STATUS, inserted: inserted, updated: updated, escrowAvailable: !!escrow }
+      context: { orderSn: orderSn, status: order.STATUS, inserted: inserted, updated: updated, escrowAvailable: !!escrow,
+        baixasRealizadas: baixasRealizadas, pendentesMapeamento: pendentesMapeamento,
+        faltantesEstoque: faltantesEstoque, revertsRealizadas: revertsRealizadas }
     });
 
     return {
@@ -575,8 +637,93 @@ var OrdersImportService = (function () {
       orderSn: orderSn,
       status: order.STATUS,
       inserted: inserted,
-      updated: updated
+      updated: updated,
+      baixasRealizadas: baixasRealizadas,
+      pendentesMapeamento: pendentesMapeamento,
+      faltantesEstoque: faltantesEstoque,
+      revertsRealizadas: revertsRealizadas
     };
+  }
+
+  var CANCELLED_STATUSES = ['CANCELLED', 'IN_CANCEL'];
+  var RETURN_STATUSES = ['TO_RETURN', 'RETURNED'];
+
+  /**
+   * Processa baixa de estoque para um pedido recém-inserido ou revertido.
+   * @param {object} order - Pedido normalizado (ORDER_ID, ITEM_SKUS, STATUS)
+   * @param {boolean} isNew - true se pedido é novo (inserted)
+   * @param {string|null} oldStatus - status anterior (null se novo)
+   */
+  function processBaixaForOrder_(order, isNew, oldStatus) {
+    var itemSkus = order.ITEM_SKUS || '';
+    if (!itemSkus) return { baixas: 0, pendentes: 0, faltantes: 0, reverts: 0 };
+
+    var baixas = 0, pendentes = 0, faltantes = 0, reverts = 0;
+    var orderSn = order.ORDER_ID;
+
+    // Parse ITEM_SKUS: "SKU:qty; SKU:qty"
+    var parts = itemSkus.split(';');
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].trim();
+      var colonIdx = p.indexOf(':');
+      if (colonIdx === -1) continue;
+      var sku = p.substring(0, colonIdx).trim();
+      var qty = parseInt(p.substring(colonIdx + 1), 10) || 1;
+      if (!sku) continue;
+
+      var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
+      var idempKey = refOrigem;
+
+      if (isNew) {
+        // New order → baixar
+        try {
+          var result = EstoqueBaixaService.baixarPorProduto({
+            codigoProduto: sku,
+            quantidade: qty,
+            origem: 'PEDIDO_SHOPEE',
+            referenciaOrigem: refOrigem,
+            idempotencyKey: idempKey
+          });
+          if (result.baixados > 0) baixas++;
+          if (result.faltantes > 0) faltantes++;
+          if (result.jaExistia) baixas++; // already counted
+          if (result.baixados === 0 && result.faltantes === qty && !result.jaExistia) pendentes++;
+        } catch (e) {
+          LoggingService.log({
+            service: 'OrdersImport', action: 'baixa', status: 'WARN',
+            caller: 'OrdersImportService',
+            summary: 'Baixa falhou para ' + sku + ': ' + e.message,
+            durationMs: 0, context: { orderSn: orderSn, sku: sku, error: e.message }
+          });
+        }
+      } else if (oldStatus && !isNew) {
+        // Status change → check revert
+        var newStatus = String(order.STATUS || '').trim().toUpperCase();
+        var oldS = String(oldStatus).trim().toUpperCase();
+        var shouldRevertCancel = CANCELLED_STATUSES.indexOf(newStatus) !== -1 && CANCELLED_STATUSES.indexOf(oldS) === -1;
+        var shouldRevertReturn = RETURN_STATUSES.indexOf(newStatus) !== -1 && RETURN_STATUSES.indexOf(oldS) === -1;
+
+        if (shouldRevertCancel || shouldRevertReturn) {
+          var motivo = shouldRevertCancel ? 'CANCELADO' : 'DEVOLVIDO';
+          try {
+            var revResult = EstoqueBaixaService.reverterBaixa({
+              referenciaOrigem: refOrigem,
+              motivo: motivo
+            });
+            if (revResult.revertidos > 0) reverts++;
+          } catch (e) {
+            LoggingService.log({
+              service: 'OrdersImport', action: 'reverterBaixa', status: 'WARN',
+              caller: 'OrdersImportService',
+              summary: 'Reversão falhou para ' + sku + ': ' + e.message,
+              durationMs: 0, context: { orderSn: orderSn, sku: sku, error: e.message }
+            });
+          }
+        }
+      }
+    }
+
+    return { baixas: baixas, pendentes: pendentes, faltantes: faltantes, reverts: reverts };
   }
 
   function recalcAllCosts_() {
