@@ -333,10 +333,11 @@
         btn.disabled = true;
         btn.textContent = 'Rodando...';
         google.script.run
-          .withSuccessHandler(function () {
-            btn.textContent = 'OK!';
+          .withSuccessHandler(function (resp) {
+            var msg = resp && resp.updated != null ? resp.updated + ' pedidos atualizados' : 'OK';
+            btn.textContent = msg;
             btn.style.background = 'var(--color-success, #22c55e)';
-            setTimeout(function () { btn.disabled = false; btn.textContent = 'Backfill'; btn.style.background = ''; }, 3000);
+            setTimeout(function () { btn.disabled = false; btn.textContent = 'Backfill'; btn.style.background = ''; }, 5000);
           })
           .withFailureHandler(function (err) {
             btn.textContent = 'Erro';
@@ -344,7 +345,7 @@
             alert('Erro no backfill: ' + err.message);
             setTimeout(function () { btn.disabled = false; btn.textContent = 'Backfill'; btn.style.background = ''; }, 3000);
           })
-          .runBackfillEstoqueIdsAndCosts_();
+          .apiDispatch('ordersImport.backfillEstoqueIdsAndCosts', {});
       });
 
 
