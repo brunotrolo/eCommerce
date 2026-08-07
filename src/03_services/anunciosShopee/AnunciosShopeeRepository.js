@@ -240,6 +240,7 @@ var AnunciosShopeeRepository = (function () {
    * a Shopee não retorna item_sku (caso da maioria dos pedidos antigos).
    */
   function getItemSkuMap(sheetId) {
+    sheetId = (typeof sheetId === 'string' && sheetId) ? sheetId : ConfigService.getSheetId();
     var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
     var lastRow = sheet.getLastRow();
     var lastCol = sheet.getLastColumn();
