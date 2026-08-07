@@ -129,11 +129,14 @@ var AnunciosShopeeService = (function () {
           returns: 'object'
         },
         getSKUs: {
-          description: 'Lista variações/SKUs de um item (model_id, nomeSKU, preco, estoque).',
+          description: 'Lista SKUs de variação de um item.',
           params: {
             itemId: { type: 'string', required: true }
-          },
-          returns: 'array'
+          }
+        },
+        debugSkuColumn: {
+          description: 'Debug: contents of SKU column in ANUNCIOS_SHOPEE.',
+          params: {}
         }
       }
     };
@@ -899,6 +902,34 @@ var AnunciosShopeeService = (function () {
     return skus;
   }
 
+  function debugSkuColumn() {
+    var sheetId = ConfigService.getSheetId();
+    var sheet = SpreadsheetApp.openById(sheetId).getSheetByName('ANUNCIOS_SHOPEE');
+    if (!sheet) return { error: 'ANUNCIOS_SHOPEE not found' };
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2) return { error: 'empty sheet' };
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headerMap = {};
+    for (var i = 0; i < headers.length; i++) {
+      headerMap[headers[i]] = i + 1;
+    }
+    var itemIdCol = headerMap['ITEM_ID'] || -1;
+    var skuCol = headerMap['SKU'] || -1;
+    if (itemIdCol === -1 || skuCol === -1) return { error: 'missing columns', headers: headers };
+    var totalWithSku = 0;
+    var allSkuValues = sheet.getRange(2, skuCol, lastRow - 1, 1).getValues();
+    for (var r = 0; r < allSkuValues.length; r++) {
+      if (allSkuValues[r][0] && String(allSkuValues[r][0]).trim()) totalWithSku++;
+    }
+    var sample = [];
+    var allValues = sheet.getRange(2, 1, Math.min(lastRow - 1, 5), lastCol).getValues();
+    for (var r = 0; r < allValues.length; r++) {
+      sample.push({ itemId: allValues[r][itemIdCol - 1], sku: allValues[r][skuCol - 1] });
+    }
+    return { totalRows: lastRow - 1, totalWithSku: totalWithSku, sample: sample, headers: headers };
+  }
+
   return {
     describe: describe,
     syncListings: syncListings,
@@ -911,6 +942,7 @@ var AnunciosShopeeService = (function () {
     deleteItem: deleteItem,
     getSalesMetrics: getSalesMetrics,
     getSKUs: getSKUs,
+    debugSkuColumn: debugSkuColumn,
     // helpers expostos para smoke tests
     mapStatus_: mapStatus_,
     buildItemRow_: buildItemRow_,
