@@ -97,6 +97,16 @@ var EstoqueRepository = (function () {
           return String(r.CODIGO_PRODUTO || '').trim() === String(filters.codigoProduto).trim();
         });
       }
+      if (filters.sku) {
+        rows = rows.filter(function (r) {
+          return String(r.SKU || '').trim() === String(filters.sku).trim();
+        });
+      }
+      if (filters.baixado) {
+        rows = rows.filter(function (r) {
+          return String(r.BAIXADO || '').trim().toUpperCase() === String(filters.baixado).trim().toUpperCase();
+        });
+      }
       if (filters.status) {
         var filterStatus = String(filters.status).trim();
         var normalizedFilter = filterStatus.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
@@ -116,7 +126,7 @@ var EstoqueRepository = (function () {
   }
 
   function getItemsDisponivelPorProduto(sheetId, codigoProduto) {
-    var rows = getRows(sheetId, { codigoProduto: codigoProduto, status: 'DISPONÍVEL' });
+    var rows = getRows(sheetId, { sku: codigoProduto, baixado: 'N' });
     rows.sort(function (a, b) {
       return new Date(a.DATA_ENTRADA) - new Date(b.DATA_ENTRADA);
     });
