@@ -23,6 +23,12 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: var(--space-element);
+      overflow: hidden;
+    }
+    .detail-grid > section {
+      min-width: 0;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
     .detail-grid h4 {
       margin: 0 0 var(--space-sm) 0;
