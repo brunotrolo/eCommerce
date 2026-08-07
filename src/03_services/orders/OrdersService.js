@@ -101,6 +101,7 @@ var OrdersService = (function () {
     var paymentMethod = row.PAYMENT_METHOD || row.payment_method || row.paymentMethod || '';
     var itemNames = row.ITEMS_DETAIL || row.items_detail || row.itemsDetail || '';
     var itemSkus = row.ITEM_SKUS || row.item_skus || row.itemSkus || '';
+    var totalCost = num_(row.TOTAL_COST || row.total_cost || 0);
 
     var escrowAmount = num_(row.ESCROW_AMOUNT || row.escrow_amount || 0);
     var netCommissionFee = num_(row.NET_COMMISSION_FEE || row.net_commission_fee || 0);
@@ -126,6 +127,7 @@ var OrdersService = (function () {
       itemNames: itemNames,
       itemSkus: itemSkus,
       liquid: netAmount,
+      totalCost: totalCost,
       escrowAmount: escrowAmount,
       commissionFee: num_(row.COMMISSION_FEE || row.commission_fee || 0),
       netCommissionFee: netCommissionFee,

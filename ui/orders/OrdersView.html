@@ -140,6 +140,8 @@
         <span>Concluído: <span class="stats-value" id="stat-COMPLETED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
         <span>Cancelado: <span class="stats-value" id="stat-CANCELLED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
         <span>Líquido total: <span class="stats-value" id="stat-liquido" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">R$ 0,00</span></span>
+        <span>Custo total: <span class="stats-value" id="stat-cost" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">R$ 0,00</span></span>
+        <span>Lucro: <span class="stats-value" id="stat-profit" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">R$ 0,00</span></span>
       </div>
     </div>
     <div class="card table-container">
@@ -154,6 +156,7 @@
             <th>Produto(s)</th>
             <th data-sort="total">Total <span class="sort-arrow"></span></th>
             <th data-sort="liquid">Líquido <span class="sort-arrow"></span></th>
+            <th data-sort="totalCost">Custo <span class="sort-arrow"></span></th>
           </tr>
         </thead>
         <tbody id="orders-tbody"></tbody>
@@ -162,6 +165,7 @@
             <td colspan="6" class="tfoot-label">Total ({count})</td>
             <td class="tfoot-total" id="foot-total">R$ 0,00</td>
             <td class="tfoot-total" id="foot-liquid">R$ 0,00</td>
+            <td class="tfoot-total" id="foot-cost">R$ 0,00</td>
           </tr>
         </tfoot>
       </table>
@@ -357,6 +361,7 @@
         '<div class="detail-line"><span>Desconto PIX</span><strong>' + fmtDeduction_(o.pixDiscount) + '</strong></div>' +
         '<div class="detail-line"><span>Rebate</span><strong>' + fmtMoney_(o.sellerRebate) + '</strong></div>' +
         '<div class="detail-line"><span><b>Líquido</b></span><strong class="' + liquidClass_(o.liquid) + '">' + fmtMoney_(o.liquid) + '</strong></div>' +
+        (o.totalCost > 0 ? '<div class="detail-line"><span>Custo (estoque)</span><strong>' + fmtMoney_(o.totalCost) + '</strong></div>' : '') +
         '<div class="detail-sub"><span>Escrow (verificação)</span><strong>' + fmtMoney_(o.escrowAmount) + '</strong></div></section>';
 
       var items =
@@ -380,6 +385,7 @@
     function renderStats_(shadow, orders) {
       var counts = { 'READY_TO_SHIP': 0, 'SHIPPED': 0, 'TO_CONFIRM_RECEIVE': 0, 'COMPLETED': 0, 'CANCELLED': 0, 'IN_CANCEL': 0 };
       var liquidSum = 0;
+      var costSum = 0;
       var canceledStatuses = { 'CANCELLED': 1, 'IN_CANCEL': 1, 'TO_RETURN': 1 };
       for (var i = 0; i < orders.length; i++) {
         var st = String(orders[i].status || '').toUpperCase();
@@ -387,10 +393,13 @@
         counts[st]++;
         if (!canceledStatuses[st]) {
           liquidSum += Number(orders[i].liquid) || 0;
+          costSum += Number(orders[i].totalCost) || 0;
         }
       }
       shadow.getElementById('stat-total').textContent = orders.length;
       shadow.getElementById('stat-liquido').textContent = FormatterService.formatCurrency(liquidSum);
+      shadow.getElementById('stat-cost').textContent = FormatterService.formatCurrency(costSum);
+      shadow.getElementById('stat-profit').textContent = FormatterService.formatCurrency(liquidSum - costSum);
       var keys = Object.keys(counts);
       for (var j = 0; j < keys.length; j++) {
         var el = shadow.getElementById('stat-' + keys[j]);
@@ -403,7 +412,7 @@
       var order = _sortState.order;
       var dateFields = { createdAt: 1, payTime: 1, updateTime: 1 };
       var isDate = !!dateFields[field];
-      var isNumeric = field === 'total' || field === 'liquid';
+      var isNumeric = field === 'total' || field === 'liquid' || field === 'totalCost';
 
       return orders.slice().sort(function (a, b) {
         var va, vb;
@@ -439,7 +448,7 @@
       var filtered = orders.filter(function (o) {
         if (status !== 'all' && String(o.status || '').toUpperCase() !== status) return false;
         if (!search) return true;
-        var haystack = [o.id, o.buyerName, o.itemNames, o.itemSkus, o.paymentMethod, o.statusLabel].filter(Boolean).join(' ').toLowerCase();
+        var haystack = [o.id, o.buyerName, o.itemNames, o.itemSkus, o.paymentMethod, o.statusLabel, o.totalCost ? String(o.totalCost) : ''].filter(Boolean).join(' ').toLowerCase();
         return haystack.indexOf(search) !== -1;
       });
 
@@ -458,6 +467,7 @@
       var rowsHtml = '';
       var sumTotal = 0;
       var sumLiquid = 0;
+      var sumCost = 0;
       var canceledStatuses = { 'CANCELLED': 1, 'IN_CANCEL': 1, 'TO_RETURN': 1 };
 
       for (var i = 0; i < sorted.length; i++) {
@@ -469,10 +479,12 @@
           : escapeHtml_(statusLabel);
         var itens = escapeHtml_(o.itemNames || '-');
         var liquid = Number(o.liquid) || 0;
+        var totalCost = Number(o.totalCost) || 0;
         var st = String(o.status || '').toUpperCase();
         if (!canceledStatuses[st]) {
           sumTotal += Number(o.total) || 0;
           sumLiquid += liquid;
+          sumCost += totalCost;
         }
 
         rowsHtml +=
@@ -486,14 +498,16 @@
           '<td>' + itens + '</td>' +
           '<td>' + fmtMoney_(o.total) + '</td>' +
           '<td class="' + liquidClass_(liquid) + '">' + fmtMoney_(liquid) + '</td>' +
+          '<td>' + (totalCost > 0 ? fmtMoney_(totalCost) : '-') + '</td>' +
           '</tr>' +
-          '<tr class="detail-row" hidden data-id="' + escapeHtml_(o.id) + '"><td colspan="8">' + detailHtml_(o) + '</td></tr>';
+          '<tr class="detail-row" hidden data-id="' + escapeHtml_(o.id) + '"><td colspan="9">' + detailHtml_(o) + '</td></tr>';
       }
 
-      tbody.innerHTML = rowsHtml || '<tr><td colspan="8">Nenhum pedido encontrado.</td></tr>';
+      tbody.innerHTML = rowsHtml || '<tr><td colspan="9">Nenhum pedido encontrado.</td></tr>';
 
       shadow.getElementById('foot-total').textContent = FormatterService.formatCurrency(sumTotal);
       shadow.getElementById('foot-liquid').textContent = FormatterService.formatCurrency(sumLiquid);
+      shadow.getElementById('foot-cost').textContent = FormatterService.formatCurrency(sumCost);
       shadow.querySelector('#orders-table tfoot tr td.tfoot-label').textContent = 'Total (' + sorted.length + ')';
       updateSortArrows_(shadow);
     }
