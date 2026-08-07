@@ -370,7 +370,7 @@
         '<div class="detail-line"><span>Taxa serviço (líq.)</span><strong>' + fmtDeduction_(o.netServiceFee) + '</strong></div>' +
         '<div class="detail-line"><span>Desconto PIX</span><strong>' + fmtDeduction_(o.pixDiscount) + '</strong></div>' +
         '<div class="detail-line"><span>Rebate</span><strong>' + fmtMoney_(o.sellerRebate) + '</strong></div>' +
-        '<div class="detail-line"><span><b>Líquido</b></span><strong class="' + liquidClass_(o.liquid) + '">' + fmtMoney_(o.liquid) + '</strong></div>' +
+        '<div class="detail-line"><span><b>Líquido</b></span><strong>' + fmtMoney_(o.liquid) + '</strong></div>' +
         (o.totalCost > 0 ? '<div class="detail-line"><span>Custo (estoque)</span><strong class="' + (Number(o.totalCost) > Number(o.liquid) ? 'cost-warning' : '') + '">' + fmtMoney_(o.totalCost) + '</strong></div>' : '') +
         '<div class="detail-sub"><span>Escrow (verificação)</span><strong>' + fmtMoney_(o.escrowAmount) + '</strong></div></section>';
 
@@ -507,7 +507,7 @@
           '<td>' + escapeHtml_(o.buyerName || '-') + '</td>' +
           '<td>' + itens + '</td>' +
           '<td>' + fmtMoney_(o.total) + '</td>' +
-          '<td class="' + liquidClass_(liquid) + '">' + fmtMoney_(liquid) + '</td>' +
+          '<td>' + fmtMoney_(liquid) + '</td>' +
           '<td class="' + (totalCost > liquid && totalCost > 0 ? 'cost-warning' : '') + '">' + (totalCost > 0 ? fmtMoney_(totalCost) : '-') + '</td>' +
           '</tr>' +
           '<tr class="detail-row" hidden data-id="' + escapeHtml_(o.id) + '"><td colspan="9">' + detailHtml_(o) + '</td></tr>';
