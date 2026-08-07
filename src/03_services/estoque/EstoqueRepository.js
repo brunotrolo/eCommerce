@@ -103,8 +103,11 @@ var EstoqueRepository = (function () {
         });
       }
       if (filters.baixado) {
+        var filterBaixado = String(filters.baixado).trim().toUpperCase();
         rows = rows.filter(function (r) {
-          return String(r.BAIXADO || '').trim().toUpperCase() === String(filters.baixado).trim().toUpperCase();
+          var rowBaixado = String(r.BAIXADO || '').trim().toUpperCase();
+          if (!rowBaixado) rowBaixado = 'N';
+          return rowBaixado === filterBaixado;
         });
       }
       if (filters.status) {
