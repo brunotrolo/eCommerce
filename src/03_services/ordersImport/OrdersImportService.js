@@ -659,6 +659,7 @@ var OrdersImportService = (function () {
     if (!itemSkus) return { baixas: 0, pendentes: 0, faltantes: 0, reverts: 0 };
 
     var baixas = 0, pendentes = 0, faltantes = 0, reverts = 0;
+    var totalSkusNoPedido = 0;
     var orderSn = order.ORDER_ID;
 
     // Parse ITEM_SKUS: "SKU:qty; SKU:qty"
@@ -670,6 +671,7 @@ var OrdersImportService = (function () {
       var sku = p.substring(0, colonIdx).trim();
       var qty = parseInt(p.substring(colonIdx + 1), 10) || 1;
       if (!sku) continue;
+      totalSkusNoPedido++;
 
       var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
       var idempKey = refOrigem;
@@ -724,7 +726,7 @@ var OrdersImportService = (function () {
     }
 
     // Update BAIXADO on PEDIDOS sheet
-    if (baixas > 0 || reverts > 0) {
+    if (baixas > 0 || reverts > 0 || faltantes > 0) {
       try {
         var pedSheet = SpreadsheetApp.openById(ConfigService.getSheetId()).getSheetByName('PEDIDOS');
         if (pedSheet) {
@@ -739,7 +741,13 @@ var OrdersImportService = (function () {
             var pedData = pedSheet.getRange(2, pedOrderIdCol, pedSheet.getLastRow() - 1, 1).getValues();
             for (var pr = 0; pr < pedData.length; pr++) {
               if (String(pedData[pr][0]).trim() === String(orderSn).trim()) {
-                pedSheet.getRange(pr + 2, pedBaixadoCol).setValue(baixas > 0 ? 'S' : 'N');
+                var novoBaixado = 'PENDENTE';
+                if (totalSkusNoPedido > 0 && baixas >= totalSkusNoPedido) {
+                  novoBaixado = 'BAIXADO';
+                } else if (baixas > 0) {
+                  novoBaixado = 'PARCIAL';
+                }
+                pedSheet.getRange(pr + 2, pedBaixadoCol).setValue(novoBaixado);
                 break;
               }
             }

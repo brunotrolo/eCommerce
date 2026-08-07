@@ -510,7 +510,14 @@
           '<td>' + fmtMoney_(o.total) + '</td>' +
           '<td>' + fmtMoney_(liquid) + '</td>' +
           '<td class="' + (totalCost > liquid && totalCost > 0 ? 'cost-warning' : '') + '">' + (totalCost > 0 ? fmtMoney_(totalCost) : '-') + '</td>' +
-          '<td>' + (o.baixado === 'S' ? '<span class="badge badge-info">SIM</span>' : '<span class="badge badge-secondary">NÃO</span>') + '</td>' +
+          '<td>' + (function() {
+            var b = (o.baixado || '').toUpperCase();
+            if (b === 'BAIXADO') return '<span class="badge badge-success">BAIXADO</span>';
+            if (b === 'PARCIAL') return '<span class="badge badge-warning">PARCIAL</span>';
+            if (b === 'S') return '<span class="badge badge-success">SIM</span>';
+            if (b === 'PENDENTE' || b === 'N' || b === '') return '<span class="badge badge-secondary">PENDENTE</span>';
+            return '<span class="badge badge-secondary">' + escapeHtml_(b) + '</span>';
+          })() + '</td>' +
           '</tr>' +
           '<tr class="detail-row" hidden data-id="' + escapeHtml_(o.id) + '"><td colspan="10">' + detailHtml_(o) + '</td></tr>';
       }

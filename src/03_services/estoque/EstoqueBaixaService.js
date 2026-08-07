@@ -305,7 +305,7 @@ var EstoqueBaixaService = (function () {
       var currentBaixado = String(row[baixadoCol] || '').trim();
 
       if (!orderSn || !itemSkus) continue;
-      if (currentBaixado === 'S') { jaProcessados++; continue; }
+      if (currentBaixado === 'BAIXADO' || currentBaixado === 'S') { jaProcessados++; continue; }
 
       var isCancelled = CANCELLED_STATUSES.indexOf(status) !== -1;
       var isReturned = RETURN_STATUSES.indexOf(status) !== -1;
@@ -334,6 +334,7 @@ var EstoqueBaixaService = (function () {
 
       processados++;
       var totalBaixas = 0;
+      var totalSkusNoPedido = 0;
       var itensPedido = itemSkus.split(';');
 
       LoggingService.log({
@@ -351,6 +352,7 @@ var EstoqueBaixaService = (function () {
         var sku = p.substring(0, colonIdx).trim();
         var qty = parseInt(p.substring(colonIdx + 1), 10) || 1;
         if (!sku) continue;
+        totalSkusNoPedido++;
 
         var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
         var idempKey = refOrigem + ':backfill';
@@ -414,9 +416,14 @@ var EstoqueBaixaService = (function () {
         }
       }
 
-      var novoBaixado = totalBaixas > 0 ? 'S' : 'N';
+      var novoBaixado = 'PENDENTE';
+      if (totalSkusNoPedido > 0 && totalBaixas >= totalSkusNoPedido) {
+        novoBaixado = 'BAIXADO';
+      } else if (totalBaixas > 0) {
+        novoBaixado = 'PARCIAL';
+      }
       pedSheet.getRange(r + 2, baixadoCol + 1).setValue(novoBaixado);
-      if (totalBaixas > 0) baixados++;
+      if (novoBaixado === 'BAIXADO') baixados++;
 
       LoggingService.log({
         service: 'EstoqueBaixa', action: 'backfill.order.end', status: 'OK',
