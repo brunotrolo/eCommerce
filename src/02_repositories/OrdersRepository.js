@@ -246,7 +246,7 @@ var OrdersRepository = (function () {
       var col = headerMap[keys[k2]];
       if (col) {
         sheet.getRange(rowNumber, col).setValue(order[keys[k2]]);
-        updatedFields.push(keys[k2]);
+        updatedFields.push(keys[k2] + '=' + order[keys[k2]]);
       }
     }
 

@@ -113,6 +113,13 @@ var OrdersImportService = (function () {
       });
     }
 
+    LoggingService.log({
+      service: 'OrdersImport', action: 'getCostMap', status: 'OK',
+      caller: 'OrdersImportService',
+      summary: 'costMap total: ' + Object.keys(costMap).length + ' SKUs. Keys: ' + Object.keys(costMap).slice(0, 10).join(', '),
+      durationMs: 0, context: { skuCount: Object.keys(costMap).length, sampleKeys: Object.keys(costMap).slice(0, 10) }
+    });
+
     return costMap;
   }
 
@@ -292,6 +299,15 @@ var OrdersImportService = (function () {
     }
 
     order.TOTAL_COST = calculateTotalCost_(order.ITEM_SKUS, costMap || {});
+
+    if (order.TOTAL_COST > 0) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'costCalc', status: 'OK',
+        caller: 'OrdersImportService',
+        summary: order.ORDER_ID + ' => TOTAL_COST=' + order.TOTAL_COST + ' (ITEM_SKUS: ' + order.ITEM_SKUS + ')',
+        durationMs: 0, context: { orderSn: order.ORDER_ID, totalCost: order.TOTAL_COST, itemSkus: order.ITEM_SKUS }
+      });
+    }
 
     return order;
   }
