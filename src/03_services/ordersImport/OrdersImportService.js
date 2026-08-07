@@ -52,6 +52,10 @@ var OrdersImportService = (function () {
           params: {
             orderSn: { type: 'string', required: false, default: '260711CAQ9KK03' }
           }
+        },
+        debugSkuMap: {
+          description: 'Retorna o mapa de item_id → SKU da ANUNCIOS_SHOPEE.',
+          params: {}
         }
       }
     };
@@ -244,9 +248,11 @@ var OrdersImportService = (function () {
     skuMap = skuMap || {};
     var parts = [];
     for (var i = 0; i < items.length; i++) {
-      var sku = items[i].item_sku || '';
-      if (!sku && items[i].item_id && skuMap[items[i].item_id]) {
+      var sku = '';
+      if (items[i].item_id && skuMap[items[i].item_id]) {
         sku = skuMap[items[i].item_id];
+      } else {
+        sku = items[i].item_sku || '';
       }
       var qty = items[i].model_quantity_purchased || 1;
       if (sku) parts.push(sku + ':' + qty);
@@ -649,7 +655,11 @@ var OrdersImportService = (function () {
     };
   }
 
-  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, diagnoseCost: function (params) { return diagnoseCost_(params.orderSn); }, testWriteCost: function (params) {
+  return { describe: describe, importShopeeOrders: importShopeeOrders, syncOrderBySn: syncOrderBySn, debugSkuMap: function () {
+    var map = {};
+    try { map = AnunciosShopeeRepository.getItemSkuMap(ConfigService.getSheetId()); } catch (e) { return { error: e.message }; }
+    return { size: Object.keys(map).length, keys: Object.keys(map) };
+  }, diagnoseCost: function (params) { return diagnoseCost_(params.orderSn); }, testWriteCost: function (params) {
     var sheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
     var lastCol = sheet.getLastColumn();
     var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
