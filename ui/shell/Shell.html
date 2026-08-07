@@ -76,6 +76,7 @@
         <div style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
           <status-view></status-view>
           <button class="btn" id="calc-nav-btn" aria-label="Abrir Calculadora" style="font-size:18px; padding: 6px 10px; min-width: auto;">🧮</button>
+          <button class="btn" id="backfill-btn" aria-label="Backfill Estoque" style="font-size:12px; padding: 4px 8px; min-width: auto; background: var(--color-warning, #f59e0b); color: #000; border-radius: var(--radius-sm, 4px);">Backfill</button>
           <button class="theme-toggle" id="theme-toggle" aria-label="Alternar tema claro/escuro"></button>
         </div>
       </nav>
@@ -324,6 +325,26 @@
         if (calcWidget && calcWidget.shadowRoot) {
           calcWidget.shadowRoot.getElementById('calc-overlay').setAttribute('open', '');
         }
+      });
+
+      // TEMPORÁRIO — botão de backfill (remover depois)
+      document.getElementById('backfill-btn').addEventListener('click', function () {
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = 'Rodando...';
+        google.script.run
+          .withSuccessHandler(function () {
+            btn.textContent = 'OK!';
+            btn.style.background = 'var(--color-success, #22c55e)';
+            setTimeout(function () { btn.disabled = false; btn.textContent = 'Backfill'; btn.style.background = ''; }, 3000);
+          })
+          .withFailureHandler(function (err) {
+            btn.textContent = 'Erro';
+            btn.style.background = 'var(--color-danger, #ef4444)';
+            alert('Erro no backfill: ' + err.message);
+            setTimeout(function () { btn.disabled = false; btn.textContent = 'Backfill'; btn.style.background = ''; }, 3000);
+          })
+          .runBackfillEstoqueIdsAndCosts_();
       });
 
 

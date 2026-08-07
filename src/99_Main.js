@@ -3,7 +3,7 @@
  * (nunca por trigger/Web App). setup_() configura a API key uma única vez;
  * runSmokeTests_() cobre os critérios de aceite de specs/pricing.md.
  * onOpen() cria o menu customizado no editor GAS.
- * initLogging_() cria aba LOGS e configura trigger diário de limpeza.
+ * initLogging_() cria aba LOGS e configura triggers diário de limpeza.
  */
 
 function onOpen() {
