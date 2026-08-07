@@ -188,5 +188,13 @@ var OrdersService = (function () {
     return { order: withoutSortKey_(found) };
   }
 
-  return { describe: describe, listUnified: listUnified, getDetail: getDetail, calculateNet: calculateNet };
+  return { describe: describe, listUnified: listUnified, getDetail: getDetail, calculateNet: calculateNet, debugHeaders: function () {
+    var sheet = SheetsRepository.getOrCreateSheet(SHEET_NAME);
+    var lastCol = sheet.getLastColumn();
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var firstRow = lastCol > 0 ? sheet.getRange(2, 1, 1, lastCol).getValues()[0] : [];
+    var h = {};
+    for (var i = 0; i < headers.length; i++) { h[headers[i]] = firstRow[i]; }
+    return { headers: headers.map(String), totalCostValue: h['TOTAL_COST'], firstOrderId: h['ORDER_ID'] };
+  } };
 })();
