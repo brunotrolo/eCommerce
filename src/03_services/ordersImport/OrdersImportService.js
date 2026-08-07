@@ -58,6 +58,84 @@ var OrdersImportService = (function () {
     return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mi;
   }
 
+  /**
+   * Constrói mapa SKU => custo_unitário_líquido a partir de NFE_ENTRADA_PRODUTOS
+   * e MANUAL_ENTRADA_PRODUTOS. Para SKUs com múltiplas entradas, usa o custo
+   * da entrada mais recente (por DATA_ENTRADA ou DATA_EMISSAO).
+   */
+  function getCostMap_(sheetId) {
+    var costMap = {};
+    var dateMap = {};
+
+    // 1. Ler NFE_ENTRADA_PRODUTOS
+    try {
+      var nfeRows = NFeEntradaProdutosRepository.getProdutos(sheetId);
+      for (var i = 0; i < nfeRows.length; i++) {
+        var row = nfeRows[i];
+        var sku = String(row.SKU || row.CODIGO_PRODUTO || '').trim();
+        var cost = Number(row.VALOR_UNITARIO_LIQUIDO) || 0;
+        if (!sku || cost <= 0) continue;
+        var dateStr = String(row.DATA_EMISSAO || row.DATA_ENTRADA || '');
+        if (!dateStr || dateStr > (dateMap[sku] || '')) {
+          costMap[sku] = cost;
+          dateMap[sku] = dateStr;
+        }
+      }
+    } catch (e) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'getCostMap_NFE', status: 'WARN',
+        caller: 'OrdersImportService',
+        summary: 'Erro lendo NFE_ENTRADA_PRODUTOS: ' + e.message,
+        durationMs: 0, context: { error: e.message }
+      });
+    }
+
+    // 2. Ler MANUAL_ENTRADA_PRODUTOS (pode sobrescrever NFE se mais recente)
+    try {
+      var manualRows = ManualEntradaProdutosRepository.getRows(sheetId);
+      for (var j = 0; j < manualRows.length; j++) {
+        var mrow = manualRows[j];
+        var msku = String(mrow.CODIGO_PRODUTO || mrow.SKU || '').trim();
+        var mcost = Number(mrow.VALOR_UNITARIO_LIQUIDO) || 0;
+        if (!msku || mcost <= 0) continue;
+        var mdate = String(mrow.DATA_ENTRADA || mrow.DATA_COMPRA || '');
+        if (!mdate || mdate > (dateMap[msku] || '')) {
+          costMap[msku] = mcost;
+          dateMap[msku] = mdate;
+        }
+      }
+    } catch (e) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'getCostMap_MANUAL', status: 'WARN',
+        caller: 'OrdersImportService',
+        summary: 'Erro lendo MANUAL_ENTRADA_PRODUTOS: ' + e.message,
+        durationMs: 0, context: { error: e.message }
+      });
+    }
+
+    return costMap;
+  }
+
+  /**
+   * Calcula o custo total de um pedido a partir de ITEM_SKUS ("SKU:qty; SKU:qty")
+   * e do costMap {SKU: custo_unitario}.
+   */
+  function calculateTotalCost_(itemSkus, costMap) {
+    if (!itemSkus || !costMap) return 0;
+    var parts = itemSkus.split(';');
+    var total = 0;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].trim();
+      var colonIdx = p.indexOf(':');
+      if (colonIdx === -1) continue;
+      var sku = p.substring(0, colonIdx).trim();
+      var qty = parseInt(p.substring(colonIdx + 1), 10) || 1;
+      var unitCost = costMap[sku] || 0;
+      total += unitCost * qty;
+    }
+    return Math.round(total * 100) / 100;
+  }
+
   function formatItemsDetail_(items, skuMap) {
     if (!items || items.length === 0) return '';
     skuMap = skuMap || {};
@@ -173,7 +251,7 @@ var OrdersImportService = (function () {
     return escrowMap;
   }
 
-  function normalizeOrder_(detail, escrow, skuMap) {
+  function normalizeOrder_(detail, escrow, skuMap, costMap) {
     if (!detail) return null;
 
     var items = detail.item_list || [];
@@ -213,6 +291,8 @@ var OrdersImportService = (function () {
       order.SELLER_REBATE_SERVICE_OFFSET = Number(escrow.seller_product_rebate && escrow.seller_product_rebate.service_fee_offset) || 0;
     }
 
+    order.TOTAL_COST = calculateTotalCost_(order.ITEM_SKUS, costMap || {});
+
     return order;
   }
 
@@ -231,6 +311,25 @@ var OrdersImportService = (function () {
         service: 'OrdersImport', action: 'skuMapLoad', status: 'WARN',
         caller: 'OrdersImportService',
         summary: 'Fallback: skuMap vazio (' + e.message + ')',
+        durationMs: 0, context: { error: e.message }
+      });
+    }
+
+    var costMap = {};
+    try {
+      var sheetId = ConfigService.getSheetId();
+      costMap = getCostMap_(sheetId);
+      LoggingService.log({
+        service: 'OrdersImport', action: 'costMapLoad', status: 'OK',
+        caller: 'OrdersImportService',
+        summary: 'costMap carregado: ' + Object.keys(costMap).length + ' SKUs com custo',
+        durationMs: 0, context: { skuCount: Object.keys(costMap).length }
+      });
+    } catch (e) {
+      LoggingService.log({
+        service: 'OrdersImport', action: 'costMapLoad', status: 'WARN',
+        caller: 'OrdersImportService',
+        summary: 'Fallback: costMap vazio (' + e.message + ')',
         durationMs: 0, context: { error: e.message }
       });
     }
@@ -328,7 +427,7 @@ var OrdersImportService = (function () {
     var toUpsert = [];
     for (var u = 0; u < allDetailSns.length; u++) {
       var orderSn = allDetailSns[u];
-      var normalized = normalizeOrder_(details[orderSn], escrowMap[orderSn], skuMap);
+      var normalized = normalizeOrder_(details[orderSn], escrowMap[orderSn], skuMap, costMap);
       if (normalized) toUpsert.push(normalized);
     }
 
@@ -406,7 +505,14 @@ var OrdersImportService = (function () {
       // fallback silencioso: sem skuMap, usa item_sku da Shopee
     }
 
-    var order = normalizeOrder_(detail, escrow, skuMap);
+    var costMap = {};
+    try {
+      costMap = getCostMap_(ConfigService.getSheetId());
+    } catch (e) {
+      // fallback silencioso: sem costMap, TOTAL_COST = 0
+    }
+
+    var order = normalizeOrder_(detail, escrow, skuMap, costMap);
     if (!order) return { success: false, error: 'normalize failed' };
 
     var map = OrdersRepository.getAllOrdersMap();

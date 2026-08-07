@@ -16,7 +16,7 @@ var OrdersRepository = (function () {
     'ESCROW_AMOUNT', 'COMMISSION_FEE', 'NET_COMMISSION_FEE',
     'SERVICE_FEE', 'NET_SERVICE_FEE', 'PIX_DISCOUNT',
     'SELLER_REBATE', 'SELLER_REBATE_COMMISSION_OFFSET',
-    'SELLER_REBATE_SERVICE_OFFSET'
+    'SELLER_REBATE_SERVICE_OFFSET', 'TOTAL_COST'
   ];
   var _sheetCache = null;
   var _sheetCacheTs = 0;
