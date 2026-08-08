@@ -63,7 +63,7 @@ Resolve o problema: usuário vende/devolve/perde produtos diretamente sem passar
 - **Retorno:** `{ exits: [...] }` onde cada exit contém:
   ```javascript
   {
-    codigoProduto, sku, categoria,                // categoria = nome completo (PERFUME, UTILIDADES, ...)
+    codigoProduto, sku, categoria,                // categoria lida da aba ESTOQUE (coluna CATEGORIA); fallback: rótulo do prefixo do SKU
     descricaoProduto, ncm, quantidade, tipoSaida, precoUnitario, valorTotal, status,
     dataSaida, tipoMovimentacao, logId, clienteNome, motivoPerda, dataRegistro,
     estoqueIds, observacoes, valorUnitario, valorUnitarioLiquido, valorLiquidoItem,

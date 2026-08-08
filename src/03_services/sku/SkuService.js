@@ -16,7 +16,7 @@ var SkuService = (function () {
 
   var CATEGORY_LABELS = {
     PERF: 'PERFUME',
-    UTI: 'UTILIDADES',
+    UTI: 'UTILIDADE DOMÉSTICA',
     COZ: 'COZINHA',
     LIM: 'LIMPEZA',
     DEC: 'DECORAÇÃO',
@@ -26,6 +26,47 @@ var SkuService = (function () {
   function getCategoryLabel(prefix) {
     var p = String(prefix || '').trim().toUpperCase();
     return CATEGORY_LABELS[p] || p || '';
+  }
+
+  var _categoriaPorProduto_ = null;
+
+  /**
+   * Monta o mapa CODIGO_PRODUTO/SKU → CATEGORIA a partir da aba ESTOQUE
+   * (fonte de verdade real da categoria, coluna CATEGORIA).
+   */
+  function buildCategoriaMap_() {
+    try {
+      var rows = SheetsRepository.getRows(SHEETS.ESTOQUE);
+      var map = {};
+      for (var i = 0; i < rows.length; i++) {
+        var cod = String(rows[i].CODIGO_PRODUTO || '').trim();
+        var sku = String(rows[i].SKU || '').trim();
+        var cat = String(rows[i].CATEGORIA || '').trim();
+        if (!cat) continue;
+        if (cod && !map['C:' + cod]) map['C:' + cod] = cat;
+        if (sku && !map['S:' + sku]) map['S:' + sku] = cat;
+      }
+      return map;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  /**
+   * Categoria do produto: lookup na aba ESTOQUE (por CODIGO_PRODUTO e depois
+   * por SKU); se não encontrado, cai no rótulo do prefixo do SKU.
+   */
+  function getCategoryByCodigo(codigoProduto, sku) {
+    if (!_categoriaPorProduto_) _categoriaPorProduto_ = buildCategoriaMap_();
+    if (codigoProduto) {
+      var c = _categoriaPorProduto_['C:' + String(codigoProduto).trim()];
+      if (c) return c;
+    }
+    if (sku) {
+      var s = _categoriaPorProduto_['S:' + String(sku).trim()];
+      if (s) return s;
+    }
+    return getCategoryLabel(sku ? String(sku).split('-')[0] : '');
   }
 
   var BRAND_MAP = {
@@ -326,6 +367,7 @@ var SkuService = (function () {
     batchGenerate: batchGenerate,
     backfill: backfill,
     getAllExisting: getAllExisting,
-    getCategoryLabel: getCategoryLabel
+    getCategoryLabel: getCategoryLabel,
+    getCategoryByCodigo: getCategoryByCodigo
   };
 })();

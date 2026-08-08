@@ -551,7 +551,7 @@ var NFeEntradaProdutosService = (function () {
 
   /**
    * Retorna todos os produtos (linhas brutas) da aba NFE_ENTRADA_PRODUTOS,
-   * enriquecidos com CATEGORIA (derivada do SKU) e preços sugeridos do
+   * enriquecidos com CATEGORIA (lida da aba ESTOQUE) e preços sugeridos do
    * catálogo (para subtotais na view).
    */
   function getProdutos(params) {
@@ -580,7 +580,7 @@ var NFeEntradaProdutosService = (function () {
       for (var i = 0; i < produtos.length; i++) {
         var sku = String(produtos[i].SKU || '').trim();
         var cod = String(produtos[i].CODIGO_PRODUTO || '').trim();
-        produtos[i].CATEGORIA = SkuService.getCategoryLabel(sku ? sku.split('-')[0] : '');
+        produtos[i].CATEGORIA = SkuService.getCategoryByCodigo(cod, sku);
         var precos = precoMap[cod] || { shopee: 0, mercadoLivre: 0 };
         produtos[i].PRECO_SUGERIDO_SHOPEE = precos.shopee;
         produtos[i].PRECO_SUGERIDO_MERCADO_LIVRE = precos.mercadoLivre;

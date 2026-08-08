@@ -163,7 +163,7 @@ var ManualEntradaService = (function () {
       entries.push({
         codigoProduto: r.CODIGO_PRODUTO || '',
         sku: sku,
-        categoria: SkuService.getCategoryLabel(sku ? sku.split('-')[0] : ''),
+        categoria: SkuService.getCategoryByCodigo(cod, sku),
         descricaoProduto: r.DESCRICAO_PRODUTO || '',
         ncm: r.NCM || '',
         quantidade: parseFloat(r.QUANTIDADE) || 0,
