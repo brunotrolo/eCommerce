@@ -240,6 +240,19 @@ liquido_previsto = preco - cupom_vendedor - (preco * comissao_pct) - taxa_servic
 > OpenCode, não diretamente por esta sessão. O pseudocódigo abaixo continua
 > válido como referência da fórmula — mas o "onde aplicar" é o plano da
 > seção 9.3, não mais uma função nova solta chamada `calculateShopee`.
+>
+> **Atualização 2 (08/08/2026):** implementado direto por esta sessão (não
+> via handoff — exceção pontual pedida pelo usuário). O app tinha duas
+> calculadoras (esta seção documentava uma proposta de terceira); por pedido
+> explícito do usuário ("só deve existir uma única calculadora"), a lógica
+> Shopee foi incorporada na calculadora existente
+> (`CalculatorService.calculate`/`CalculatorView.html`, ver `specs/calculator.md`
+> v2), **não** num serviço/widget novo. O primeiro bullet da seção 9.4 abaixo
+> ("CalculatorService.js... fora de escopo") está desatualizado — Shopee
+> agora é suportado ali via `ConfigService.getShopeeFeeModel`, mas a tabela
+> ML por faixa/regime continua intocada e **não unificada** com o modelo
+> flat de `PricingService`/`specs/pricing.md` (mesma divergência conhecida,
+> ainda sem dados de ML reais para resolver).
 
 ### 9.1 Fórmula de referência (pseudocódigo — a fonte formal é `specs/pricing.md`)
 
