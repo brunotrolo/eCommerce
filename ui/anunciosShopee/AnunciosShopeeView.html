@@ -61,7 +61,9 @@
       </div>
 
       <div class="filter-bar">
-        <input type="text" id="filter-search" placeholder="Filtrar por ID, SKU ou nome..." />
+        <input type="text" id="filter-id" placeholder="ID..." />
+        <input type="text" id="filter-sku" placeholder="SKU..." />
+        <input type="text" id="filter-nome" placeholder="Nome..." />
         <select id="filter-status">
           <option value="all">Status: Todos</option>
           <option value="ativo">Ativo</option>
@@ -106,7 +108,7 @@
     var _currentPage = 0;
     var _allRows = [];
     var _listenersAttached = false;
-    var _filter = { texto: '', status: 'all' };
+    var _filter = { id: '', sku: '', nome: '', status: 'all' };
 
     function esc(v) {
       return String(v == null ? '' : v)
@@ -148,13 +150,15 @@
     }
 
     function filterRows() {
-      var texto = (_filter.texto || '').toLowerCase().trim();
+      var id = (_filter.id || '').toLowerCase().trim();
+      var sku = (_filter.sku || '').toLowerCase().trim();
+      var nome = (_filter.nome || '').toLowerCase().trim();
       return _allRows.filter(function (r) {
         if (_filter.status !== 'all' && String(r.STATUS || 'ativo') !== _filter.status) return false;
-        if (!texto) return true;
-        return (String(r.ITEM_ID || '').toLowerCase().indexOf(texto) !== -1 ||
-          String(r.SKU || '').toLowerCase().indexOf(texto) !== -1 ||
-          String(r.NOME || '').toLowerCase().indexOf(texto) !== -1);
+        if (id && String(r.ITEM_ID || '').toLowerCase().indexOf(id) === -1) return false;
+        if (sku && String(r.SKU || '').toLowerCase().indexOf(sku) === -1) return false;
+        if (nome && String(r.NOME || '').toLowerCase().indexOf(nome) === -1) return false;
+        return true;
       });
     }
 
@@ -211,9 +215,11 @@ function renderPage(shadow) {
     function renderAll(shadow, data) {
       _allRows = data.lista || [];
       _currentPage = 0;
-      _filter = { texto: '', status: 'all' };
-      var searchEl = shadow.getElementById('filter-search');
-      if (searchEl) searchEl.value = '';
+      _filter = { id: '', sku: '', nome: '', status: 'all' };
+      ['filter-id', 'filter-sku', 'filter-nome'].forEach(function (id) {
+        var el = shadow.getElementById(id);
+        if (el) el.value = '';
+      });
       var statusEl = shadow.getElementById('filter-status');
       if (statusEl) statusEl.value = 'all';
       shadow.getElementById('stat-grid').innerHTML = statsHtml(data.resumo || {});
@@ -225,15 +231,20 @@ function renderPage(shadow) {
       if (_listenersAttached) return;
       _listenersAttached = true;
 
-      var filterSearch = shadow.getElementById('filter-search');
+      var filterId = shadow.getElementById('filter-id');
+      var filterSku = shadow.getElementById('filter-sku');
+      var filterNome = shadow.getElementById('filter-nome');
       var filterStatus = shadow.getElementById('filter-status');
-      if (filterSearch) {
-        filterSearch.addEventListener('input', function () {
-          _filter.texto = filterSearch.value;
+      function onTextInput(field) {
+        return function () {
+          _filter[field] = this.value;
           _currentPage = 0;
           renderPage(shadow);
-        });
+        };
       }
+      if (filterId) filterId.addEventListener('input', onTextInput('id'));
+      if (filterSku) filterSku.addEventListener('input', onTextInput('sku'));
+      if (filterNome) filterNome.addEventListener('input', onTextInput('nome'));
       if (filterStatus) {
         filterStatus.addEventListener('change', function () {
           _filter.status = filterStatus.value || 'all';
