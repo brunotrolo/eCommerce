@@ -56,14 +56,34 @@ Resolve o problema: usuário compra produtos sem NF mas precisa registrar entrad
   - `Invalid date format`
 
 ### `manualEntrada.listEntries`
-- **Descrição:** Lista todas as entradas manuais ou filtra por código de produto
+- **Descrição:** Lista todas as entradas manuais ou filtra por código de produto,
+  enriquecidas para exibição com `categoria` e preços sugeridos de venda.
 - **Params:**
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
   | codigoProduto | string | não | — | Filtrar por código (se omitir, retorna tudo) |
   | limit | number | não | 100 | Máximo de linhas |
 
-- **Retorno:** Array de objetos com mesma estrutura de NFE_ENTRADA_PRODUTOS
+- **Retorno:** `{ entries: [...] }` onde cada entry contém:
+  ```javascript
+  {
+    codigoProduto, sku, categoria,        // categoria = prefixo do SKU
+    descricaoProduto, ncm, quantidade, valorUnitario, valorTotal, status,
+    dataEntrada, tipoMovimentacao, logId, valorOutrosItem, tipoOutros,
+    valorLiquidoItem, valorUnitarioLiquido, emitenteNome, dataCompra, observacoes,
+    precoSugeridoShopee,                  // preço sugerido Shopee do catálogo (0 se sem preço)
+    precoSugeridoMercadoLivre             // preço sugerido Mercado Livre do catálogo (0 se sem preço)
+  }
+  ```
+- **Subtotais na view (client-side, sobre o filtro ativo):**
+  - Total = soma de quantidade
+  - Disponivel = soma de quantidade com status='Recebido'
+  - Vendido = soma de quantidade com status='Desconsiderar'
+  - Alertas = nº de itens sem preço sugerido no catálogo (ambos preços = 0)
+  - Custo Total = soma de valorLiquidoItem
+  - Preco Shopee = soma de quantidade × precoSugeridoShopee
+  - Preco ML = soma de quantidade × precoSugeridoMercadoLivre
+- **Filtros por coluna:** Código, Categoria, Descrição, Fornecedor, NCM e STATUS (combináveis).
 
 ### `manualEntrada.validateEntry`
 - **Descrição:** Valida dados antes de inserir (sem efetivamente inserir)

@@ -138,11 +138,32 @@ var ManualEntradaService = (function () {
     var limit = params.limit || 100;
     var rows = ManualEntradaProdutosRepository.getRows(sheetId, params.codigoProduto);
 
+    var precoMap = {};
+    try {
+      var catalogo = CatalogService.getProducts({ sortBy: 'code', sortOrder: 'asc' });
+      if (catalogo && catalogo.success && catalogo.data) {
+        for (var c = 0; c < catalogo.data.length; c++) {
+          var cp = catalogo.data[c];
+          precoMap[String(cp.codigoProduto || '').trim()] = {
+            shopee: cp.precoShopee || 0,
+            mercadoLivre: cp.precoMercadoLivre || 0
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('ManualEntradaService: erro ao carregar catálogo p/ preços — ' + e.message);
+    }
+
     var entries = [];
     for (var i = 0; i < rows.length && i < limit; i++) {
       var r = rows[i];
+      var sku = String(r.SKU || '').trim();
+      var cod = String(r.CODIGO_PRODUTO || '').trim();
+      var precos = precoMap[cod] || { shopee: 0, mercadoLivre: 0 };
       entries.push({
         codigoProduto: r.CODIGO_PRODUTO || '',
+        sku: sku,
+        categoria: sku ? sku.split('-')[0] : '',
         descricaoProduto: r.DESCRICAO_PRODUTO || '',
         ncm: r.NCM || '',
         quantidade: parseFloat(r.QUANTIDADE) || 0,
@@ -158,7 +179,9 @@ var ManualEntradaService = (function () {
         valorUnitarioLiquido: parseFloat(r.VALOR_UNITARIO_LIQUIDO) || 0,
         emitenteNome: r.EMITENTE_NOME || '',
         dataCompra: r.DATA_COMPRA || '',
-        observacoes: r.OBSERVACOES || ''
+        observacoes: r.OBSERVACOES || '',
+        precoSugeridoShopee: precos.shopee,
+        precoSugeridoMercadoLivre: precos.mercadoLivre
       });
     }
 
