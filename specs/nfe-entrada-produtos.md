@@ -67,7 +67,7 @@ Resolve o problema: ter dados agregados na NFe (NFE_ENTRADA) mas precisar de gra
   ```javascript
   {
     ...linha da aba (NUMERO_NF, CODIGO_PRODUTO, SKU, DESCRICAO_PRODUTO, NCM, ...),
-    CATEGORIA: string,                    // prefixo do SKU (PERF, UTI, COZ, LIM, DEC, OUT)
+    CATEGORIA: string,                    // nome completo (PERFUME, UTILIDADES, COZINHA, LIMPEZA, DECORAÇÃO, OUTROS)
     PRECO_SUGERIDO_SHOPEE: number,        // preço sugerido Shopee do catálogo (0 se sem preço)
     PRECO_SUGERIDO_MERCADO_LIVRE: number  // preço sugerido Mercado Livre do catálogo (0 se sem preço)
   }

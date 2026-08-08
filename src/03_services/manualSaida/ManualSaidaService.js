@@ -196,7 +196,7 @@ var ManualSaidaService = (function () {
         codigoProduto: r.CODIGO_PRODUTO || '',
         descricaoProduto: r.DESCRICAO_PRODUTO || '',
         sku: sku,
-        categoria: sku ? sku.split('-')[0] : '',
+        categoria: SkuService.getCategoryLabel(sku ? sku.split('-')[0] : ''),
         quantidade: parseFloat(r.QUANTIDADE) || 0,
         tipoSaida: r.TIPO_SAIDA || '',
         precoUnitario: parseFloat(r.PRECO_UNITARIO) || 0,

@@ -67,7 +67,7 @@ Resolve o problema: usuário compra produtos sem NF mas precisa registrar entrad
 - **Retorno:** `{ entries: [...] }` onde cada entry contém:
   ```javascript
   {
-    codigoProduto, sku, categoria,        // categoria = prefixo do SKU
+    codigoProduto, sku, categoria,        // categoria = nome completo (PERFUME, UTILIDADES, ...)
     descricaoProduto, ncm, quantidade, valorUnitario, valorTotal, status,
     dataEntrada, tipoMovimentacao, logId, valorOutrosItem, tipoOutros,
     valorLiquidoItem, valorUnitarioLiquido, emitenteNome, dataCompra, observacoes,

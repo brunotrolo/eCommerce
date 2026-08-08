@@ -14,6 +14,20 @@ var SkuService = (function () {
     DEC: ['QUADRO', 'VASO', 'LUMINÁRIA', 'LUMINARIA', 'DECORAÇÃO', 'DECORACAO', 'PORTA RETRATO']
   };
 
+  var CATEGORY_LABELS = {
+    PERF: 'PERFUME',
+    UTI: 'UTILIDADES',
+    COZ: 'COZINHA',
+    LIM: 'LIMPEZA',
+    DEC: 'DECORAÇÃO',
+    OUT: 'OUTROS'
+  };
+
+  function getCategoryLabel(prefix) {
+    var p = String(prefix || '').trim().toUpperCase();
+    return CATEGORY_LABELS[p] || p || '';
+  }
+
   var BRAND_MAP = {
     'LATTAFA': 'LAT',
     'MAISON ALHAMBRA': 'MAL',
@@ -311,6 +325,7 @@ var SkuService = (function () {
     resolve: resolve,
     batchGenerate: batchGenerate,
     backfill: backfill,
-    getAllExisting: getAllExisting
+    getAllExisting: getAllExisting,
+    getCategoryLabel: getCategoryLabel
   };
 })();
