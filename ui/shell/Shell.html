@@ -76,6 +76,7 @@
         <div style="margin-left: auto; display: flex; align-items: center; gap: 4px;">
           <status-view></status-view>
           <button class="btn" id="calc-nav-btn" aria-label="Abrir Calculadora" style="font-size:18px; padding: 6px 10px; min-width: auto;">🧮</button>
+          <button class="btn" id="reparar-baixas-btn" title="Corrigir baixas (temporário)" aria-label="Corrigir baixas" style="font-size:15px; padding: 6px 10px; min-width: auto;">🔧</button>
           <button class="theme-toggle" id="theme-toggle" aria-label="Alternar tema claro/escuro"></button>
         </div>
       </nav>
@@ -324,6 +325,18 @@
         if (calcWidget && calcWidget.shadowRoot) {
           calcWidget.shadowRoot.getElementById('calc-overlay').setAttribute('open', '');
         }
+      });
+
+      document.getElementById('reparar-baixas-btn').addEventListener('click', function () {
+        if (!window.confirm('Rodar correção de baixas?\nReverte baixas de pedidos cancelados/devolvidos e processa pedidos sem baixa.')) return;
+        google.script.run
+          .withSuccessHandler(function (r) {
+            alert('Correção concluída:\n' + JSON.stringify(r, null, 1));
+          })
+          .withFailureHandler(function (e) {
+            alert('Erro: ' + (e && e.message ? e.message : e));
+          })
+          .apiDispatch('estoqueBaixa.corrigirBaixas', {});
       });
 
 
