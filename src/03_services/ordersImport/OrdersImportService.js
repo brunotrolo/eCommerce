@@ -477,11 +477,14 @@ var OrdersImportService = (function () {
 
     // Read existing statuses before upsert (for revert detection)
     var oldStatuses = {};
+    var oldBaixadoStatuses = {};
     try {
       var existingMap = OrdersRepository.getAllOrdersMap();
       var existingKeys = Object.keys(existingMap);
       for (var e = 0; e < existingKeys.length; e++) {
-        oldStatuses[existingKeys[e]] = existingMap[existingKeys[e]].STATUS || '';
+        oldStatuses[existingKeys[e]] = existingMap[existingKeys[e]].status || '';
+        oldBaixadoStatuses[existingKeys[e]] = existingMap[existingKeys[e]].baixado || '';
+        oldBaixadoStatuses[existingKeys[e]] = existingMap[existingKeys[e]].baixado || '';
       }
     } catch (e) { /* fallback: no oldStatuses, baixa still works for new orders */ }
 
@@ -493,14 +496,15 @@ var OrdersImportService = (function () {
     var imported = upsertResult.inserted || 0;
     var updated = upsertResult.updated || 0;
 
-    // Process stock baixa for new orders and status changes
+    // Process stock baixa for new orders, status changes, and unprocessed orders
     var baixasRealizadas = 0, pendentesMapeamento = 0, faltantesEstoque = 0, revertsRealizadas = 0;
     for (var b = 0; b < toUpsert.length; b++) {
       var o = toUpsert[b];
       var isNew = !oldStatuses[o.ORDER_ID];
       var oldSt = oldStatuses[o.ORDER_ID] || null;
+      var oldBaixado = oldBaixadoStatuses[o.ORDER_ID] || '';
       try {
-        var bx = processBaixaForOrder_(o, isNew, oldSt);
+        var bx = processBaixaForOrder_(o, isNew, oldSt, oldBaixado);
         baixasRealizadas += bx.baixas;
         pendentesMapeamento += bx.pendentes;
         faltantesEstoque += bx.faltantes;
@@ -601,7 +605,8 @@ var OrdersImportService = (function () {
     var map = OrdersRepository.getAllOrdersMap();
     var inserted = 0;
     var updated = 0;
-    var oldStatus = map[orderSn] ? (map[orderSn].STATUS || '') : null;
+    var oldStatus = map[orderSn] ? (map[orderSn].status || '') : null;
+    var oldBaixado = map[orderSn] ? (map[orderSn].baixado || '') : '';
     var isNew = !map[orderSn];
 
     if (map[orderSn]) {
@@ -629,7 +634,7 @@ var OrdersImportService = (function () {
     // Process stock baixa
     var baixasRealizadas = 0, pendentesMapeamento = 0, faltantesEstoque = 0, revertsRealizadas = 0;
     try {
-      var bx = processBaixaForOrder_(order, isNew, oldStatus);
+      var bx = processBaixaForOrder_(order, isNew, oldStatus, oldBaixado);
       baixasRealizadas = bx.baixas;
       pendentesMapeamento = bx.pendentes;
       faltantesEstoque = bx.faltantes;
@@ -676,7 +681,7 @@ var OrdersImportService = (function () {
    * @param {boolean} isNew - true se pedido é novo (inserted)
    * @param {string|null} oldStatus - status anterior (null se novo)
    */
-  function processBaixaForOrder_(order, isNew, oldStatus) {
+  function processBaixaForOrder_(order, isNew, oldStatus, oldBaixado) {
     var itemSkus = order.ITEM_SKUS || '';
     if (!itemSkus) return { baixas: 0, pendentes: 0, faltantes: 0, reverts: 0, custoTotal: 0, estoqueIds: '' };
 
@@ -685,6 +690,9 @@ var OrdersImportService = (function () {
     var orderSn = order.ORDER_ID;
     var custoTotal = 0;
     var allEstoqueIds = [];
+
+    // Determine if baixa should run: new order OR existing order with empty BAIXADO
+    var shouldBaixar = isNew || (oldBaixado !== undefined && oldBaixado === '');
 
     // Parse ITEM_SKUS: "SKU:qty; SKU:qty"
     var parts = itemSkus.split(';');
@@ -700,8 +708,14 @@ var OrdersImportService = (function () {
       var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
       var idempKey = refOrigem;
 
-      if (isNew) {
-        // New order → baixar
+      // Skip baixa for cancelled/returned orders
+      var orderStatusU = String(order.STATUS || '').trim().toUpperCase();
+      if (CANCELLED_STATUSES.indexOf(orderStatusU) !== -1 || RETURN_STATUSES.indexOf(orderStatusU) !== -1) {
+        continue;
+      }
+
+      if (shouldBaixar) {
+        // New order or unprocessed order → baixar
         try {
           var result = EstoqueBaixaService.baixarPorProduto({
             codigoProduto: sku,
@@ -784,6 +798,15 @@ var OrdersImportService = (function () {
             if (h === 'BAIXADO') pedBaixadoCol = ph + 1;
             if (h === 'BAIXA_ESTOQUE_IDS') pedEstoqueIdsCol = ph + 1;
             if (h === 'TOTAL_COST') pedCostCol = ph + 1;
+          }
+          // Create missing columns if needed
+          if (pedEstoqueIdsCol === -1) {
+            pedEstoqueIdsCol = pedSheet.getLastColumn() + 1;
+            pedSheet.getRange(1, pedEstoqueIdsCol).setValue('BAIXA_ESTOQUE_IDS');
+          }
+          if (pedCostCol === -1) {
+            pedCostCol = pedSheet.getLastColumn() + 1;
+            pedSheet.getRange(1, pedCostCol).setValue('TOTAL_COST');
           }
           if (pedOrderIdCol > 0) {
             var pedData = pedSheet.getRange(2, pedOrderIdCol, pedSheet.getLastRow() - 1, 1).getValues();

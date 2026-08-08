@@ -182,12 +182,14 @@ var OrdersRepository = (function () {
     var statusCol = -1;
     var itemSkusCol = -1;
     var baixaEstoqueIdsCol = -1;
+    var baixadoCol = -1;
     for (var i = 0; i < headers.length; i++) {
       var h = String(headers[i]).trim();
       if (h === 'ORDER_ID') orderIdCol = i + 1;
       if (h === 'STATUS') statusCol = i + 1;
       if (h === 'ITEM_SKUS') itemSkusCol = i + 1;
       if (h === 'BAIXA_ESTOQUE_IDS') baixaEstoqueIdsCol = i + 1;
+      if (h === 'BAIXADO') baixadoCol = i + 1;
     }
     if (orderIdCol === -1) return {};
 
@@ -200,7 +202,8 @@ var OrdersRepository = (function () {
       var status = statusCol !== -1 ? String(allValues[r][statusCol - 1]).trim() : '';
       var itemSkus = itemSkusCol !== -1 ? String(allValues[r][itemSkusCol - 1] || '').trim() : '';
       var baixaEstoqueIds = baixaEstoqueIdsCol !== -1 ? String(allValues[r][baixaEstoqueIdsCol - 1] || '').trim() : '';
-      map[oid] = { rowNumber: rowNumber, status: status, itemSkus: itemSkus, baixaEstoqueIds: baixaEstoqueIds };
+      var baixado = baixadoCol !== -1 ? String(allValues[r][baixadoCol - 1] || '').trim() : '';
+      map[oid] = { rowNumber: rowNumber, status: status, itemSkus: itemSkus, baixaEstoqueIds: baixaEstoqueIds, baixado: baixado };
     }
 
     var totalMs = Date.now() - startTime;
