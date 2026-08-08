@@ -129,7 +129,12 @@ var EstoqueRepository = (function () {
   }
 
   function getItemsDisponivelPorProduto(sheetId, codigoProduto) {
-    var rows = getRows(sheetId, { sku: codigoProduto, baixado: 'N' });
+    var identificador = String(codigoProduto || '').trim();
+    if (!identificador) return [];
+    var rows = getRows(sheetId, { baixado: 'N' }).filter(function (r) {
+      return String(r.CODIGO_PRODUTO || '').trim() === identificador ||
+             String(r.SKU || '').trim() === identificador;
+    });
     rows.sort(function (a, b) {
       return new Date(a.DATA_ENTRADA) - new Date(b.DATA_ENTRADA);
     });

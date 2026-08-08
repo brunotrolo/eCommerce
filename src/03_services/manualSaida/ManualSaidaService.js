@@ -12,7 +12,7 @@ var ManualSaidaService = (function () {
       name: 'manualSaida',
       actions: {
         addExit: {
-          description: 'Registra uma saída manual em MANUAL_SAIDA_PRODUTOS.',
+          description: 'Registra uma saída manual em MANUAL_SAIDA_PRODUTOS e dispara baixa automática na aba ESTOQUE (FIFO, origem SAIDA_MANUAL), gravando SKU e ESTOQUE_IDS das unidades baixadas.',
           params: {
             codigoProduto: { type: 'string', required: true },
             descricaoProduto: { type: 'string', required: true },
@@ -24,7 +24,7 @@ var ManualSaidaService = (function () {
             observacoes: { type: 'string', required: false },
             motivoPerda: { type: 'string', required: false }
           },
-          returns: { success: 'boolean', exitId: 'string', processedAt: 'string', estoqueRestante: 'number', row: 'object', errors: 'array' }
+          returns: { success: 'boolean', exitId: 'string', processedAt: 'string', estoqueRestante: 'number', estoque_ids: 'array', sku: 'string', row: 'object', errors: 'array' }
         },
         listExits: {
           description: 'Lista saídas manuais ou filtra por código de produto / tipo de saída.',
@@ -117,9 +117,30 @@ var ManualSaidaService = (function () {
       tipoOutros: produtoOrigem.tipoOutros
     };
 
+    var baixa = null;
+    try {
+      baixa = EstoqueBaixaService.baixarPorProduto({
+        codigoProduto: params.codigoProduto,
+        quantidade: Math.floor(quantidade),
+        origem: 'SAIDA_MANUAL',
+        referenciaOrigem: logId,
+        idempotencyKey: 'MS-' + logId
+      });
+    } catch (e) {
+      return { error: 'Falha na baixa de estoque: ' + e.message };
+    }
+
+    if (!baixa.success || (baixa.faltantes || 0) > 0) {
+      return { error: 'Quantidade maior que o estoque disponível na aba ESTOQUE. Nenhuma saída registrada.' };
+    }
+
+    rowData.sku = getSkuDaBaixa_(sheetId, baixa.estoque_ids) || produtoOrigem.sku || '';
+    rowData.estoqueIds = (baixa.estoque_ids || []).join(',');
+
     var result = ManualSaidaProdutosRepository.appendRow(sheetId, rowData);
 
-    CacheRepository.invalidateByPattern('catalog.');
+    CacheRepository.invalidateByPattern('frontend.');
+    CacheRepository.invalidateByPattern('catalog_');
 
     var estoqueRestante = _getEstoqueDisponivel(sheetId, params.codigoProduto);
 
@@ -128,6 +149,8 @@ var ManualSaidaService = (function () {
       exitId: logId,
       processedAt: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
       estoqueRestante: estoqueRestante,
+      estoque_ids: baixa.estoque_ids || [],
+      sku: rowData.sku,
       row: rowData,
       errors: []
     };
@@ -153,6 +176,7 @@ var ManualSaidaService = (function () {
       exits.push({
         codigoProduto: r.CODIGO_PRODUTO || '',
         descricaoProduto: r.DESCRICAO_PRODUTO || '',
+        sku: r.SKU || '',
         quantidade: parseFloat(r.QUANTIDADE) || 0,
         tipoSaida: r.TIPO_SAIDA || '',
         precoUnitario: parseFloat(r.PRECO_UNITARIO) || 0,
@@ -164,6 +188,7 @@ var ManualSaidaService = (function () {
         clienteNome: r.CLIENTE_NOME || '',
         motivoPerda: r.MOTIVO_PERDA || '',
         dataRegistro: _fmtDataBR_(r.DATA_REGISTRO),
+        estoqueIds: r.ESTOQUE_IDS || '',
         observacoes: r.OBSERVACOES || '',
         ncm: r.NCM || '',
         valorUnitario: parseFloat(r.VALOR_UNITARIO) || 0,
@@ -221,62 +246,35 @@ var ManualSaidaService = (function () {
       return { error: 'Sheet ID não configurado.' };
     }
 
-    var nfProdutos = [];
+    var unidades = [];
     try {
-      nfProdutos = NFeEntradaProdutosRepository.getProdutos(sheetId);
+      unidades = EstoqueRepository.getRows(sheetId, { baixado: 'N' });
     } catch (e) {
-      console.warn('ManualSaidaService: Erro ao ler NFeEntradaProdutos — ' + e.message);
+      console.warn('ManualSaidaService: Erro ao ler aba ESTOQUE — ' + e.message);
     }
-
-    var manualProdutos = [];
-    try {
-      manualProdutos = ManualEntradaProdutosRepository.getRows(sheetId);
-    } catch (e) {
-      console.warn('ManualSaidaService: Erro ao ler ManualEntradaProdutos — ' + e.message);
-    }
-
-    var allProdutos = nfProdutos.concat(manualProdutos);
 
     var grouped = {};
-    for (var i = 0; i < allProdutos.length; i++) {
-      var row = allProdutos[i];
-      var status = String(row.STATUS || '').trim().toLowerCase();
-      if (status !== 'recebido') continue;
+    for (var i = 0; i < unidades.length; i++) {
+      var r = unidades[i];
+      var status = String(r.STATUS || '').trim().toLowerCase();
+      if (status && status !== 'disponível' && status !== 'disponivel') continue;
 
-      var cod = String(row.CODIGO_PRODUTO || '').trim();
+      var cod = String(r.CODIGO_PRODUTO || '').trim();
       if (!cod) continue;
-
-      var qty = parseFloat(row.QUANTIDADE) || 0;
-      var vUnitLiq = parseFloat(row.VALOR_UNITARIO_LIQUIDO);
-      if (isNaN(vUnitLiq)) vUnitLiq = parseFloat(row.VALOR_UNITARIO) || 0;
 
       if (!grouped[cod]) {
         grouped[cod] = {
           codigoProduto: cod,
-          descricaoProduto: row.DESCRICAO_PRODUTO || '',
-          estoqueEntrada: 0,
-          valorUnitarioLiquido: vUnitLiq,
+          descricaoProduto: r.DESCRICAO_PRODUTO || '',
+          sku: r.SKU || '',
+          estoqueDisponivel: 0,
+          somaCusto: 0,
           count: 0
         };
       }
-      grouped[cod].estoqueEntrada += qty;
+      grouped[cod].estoqueDisponivel += 1;
+      grouped[cod].somaCusto += parseFloat(r.PRECO_CUSTO_ORIGINAL) || 0;
       grouped[cod].count++;
-      grouped[cod].valorUnitarioLiquido = vUnitLiq;
-    }
-
-    var saidas = [];
-    try {
-      saidas = ManualSaidaProdutosRepository.getRows(sheetId);
-    } catch (e) {
-      console.warn('ManualSaidaService: Erro ao ler ManualSaidaProdutos — ' + e.message);
-    }
-
-    var saidasByCodigo = {};
-    for (var j = 0; j < saidas.length; j++) {
-      var sc = String(saidas[j].CODIGO_PRODUTO || '').trim();
-      var sq = parseFloat(saidas[j].QUANTIDADE) || 0;
-      if (!saidasByCodigo[sc]) saidasByCodigo[sc] = 0;
-      saidasByCodigo[sc] += sq;
     }
 
     var products = [];
@@ -285,10 +283,7 @@ var ManualSaidaService = (function () {
 
     for (var k = 0; k < codes.length; k++) {
       var p = grouped[codes[k]];
-      var estoqueSaida = saidasByCodigo[codes[k]] || 0;
-      var estoqueDisponivel = Math.max(0, Math.round((p.estoqueEntrada - estoqueSaida) * 100) / 100);
-
-      if (estoqueDisponivel <= 0) continue;
+      if (p.estoqueDisponivel <= 0) continue;
 
       if (filtro) {
         var matchCode = p.codigoProduto.toLowerCase().indexOf(filtro) !== -1;
@@ -299,8 +294,9 @@ var ManualSaidaService = (function () {
       products.push({
         codigoProduto: p.codigoProduto,
         descricaoProduto: p.descricaoProduto,
-        estoqueDisponivel: estoqueDisponivel,
-        precoUnitarioMedio: Math.round(p.valorUnitarioLiquido * 100) / 100
+        sku: p.sku,
+        estoqueDisponivel: p.estoqueDisponivel,
+        precoUnitarioMedio: p.count > 0 ? Math.round((p.somaCusto / p.count) * 100) / 100 : 0
       });
     }
 
@@ -341,7 +337,8 @@ var ManualSaidaService = (function () {
       emitenteNome: '',
       dataCompra: '',
       valorOutrosItem: 0,
-      tipoOutros: ''
+      tipoOutros: '',
+      sku: ''
     };
     if (!codigoProduto) return info;
 
@@ -375,38 +372,41 @@ var ManualSaidaService = (function () {
       if (r.TIPO_OUTROS) info.tipoOutros = String(r.TIPO_OUTROS);
       if (r.EMITENTE_NOME) info.emitenteNome = String(r.EMITENTE_NOME);
       if (r.DATA_COMPRA) info.dataCompra = _fmtDataBR_(r.DATA_COMPRA);
+      if (r.SKU) info.sku = String(r.SKU).trim();
     }
 
     return info;
   }
 
   function _getEstoqueDisponivel(sheetId, codigoProduto) {
-    var entradaNF = 0;
+    var unidades = [];
     try {
-      var nfRows = NFeEntradaProdutosRepository.getProdutos(sheetId);
-      for (var i = 0; i < nfRows.length; i++) {
-        if (String(nfRows[i].CODIGO_PRODUTO || '').trim() === String(codigoProduto).trim()) {
-          var st = String(nfRows[i].STATUS || '').trim().toLowerCase();
-          if (st === 'recebido') {
-            entradaNF += parseFloat(nfRows[i].QUANTIDADE) || 0;
-          }
-        }
-      }
-    } catch (e) { /* ignore */ }
+      unidades = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto)
+        .filter(function (r) {
+          return String(r.BAIXADO || '').trim().toUpperCase() !== 'S';
+        });
+    } catch (e) {
+      console.warn('ManualSaidaService: Erro ao ler aba ESTOQUE — ' + e.message);
+      return 0;
+    }
+    return unidades.length;
+  }
 
-    var entradaManual = 0;
+  function getSkuDaBaixa_(sheetId, estoqueIds) {
+    if (!estoqueIds || estoqueIds.length === 0) return '';
     try {
-      var manualRows = ManualEntradaProdutosRepository.getRows(sheetId);
-      for (var j = 0; j < manualRows.length; j++) {
-        if (String(manualRows[j].CODIGO_PRODUTO || '').trim() === String(codigoProduto).trim()) {
-          entradaManual += parseFloat(manualRows[j].QUANTIDADE) || 0;
-        }
+      var rows = EstoqueRepository.getRows(sheetId);
+      var idToSku = {};
+      for (var i = 0; i < rows.length; i++) {
+        idToSku[rows[i].ESTOQUE_ID] = rows[i].SKU || '';
       }
-    } catch (e) { /* ignore */ }
-
-    var saida = ManualSaidaProdutosRepository.getQtdByCodigo(sheetId, codigoProduto);
-
-    return Math.max(0, Math.round((entradaNF + entradaManual - saida) * 100) / 100);
+      for (var j = 0; j < estoqueIds.length; j++) {
+        if (idToSku[estoqueIds[j]]) return idToSku[estoqueIds[j]];
+      }
+    } catch (e) {
+      console.warn('ManualSaidaService: Erro ao ler SKU de baixa — ' + e.message);
+    }
+    return '';
   }
 
   return {

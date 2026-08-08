@@ -12,7 +12,8 @@ var ManualSaidaProdutosRepository = (function () {
     'TIPO_MOVIMENTACAO', 'LOG_ID', 'VALOR_OUTROS_ITEM', 'TIPO_OUTROS',
     'VALOR_LIQUIDO_ITEM', 'VALOR_UNITARIO_LIQUIDO', 'EMITENTE_NOME',
     'DATA_COMPRA', 'OBSERVACOES', 'TIPO_SAIDA', 'PRECO_UNITARIO',
-    'DATA_SAIDA', 'CLIENTE_NOME', 'MOTIVO_PERDA', 'DATA_REGISTRO'
+    'DATA_SAIDA', 'CLIENTE_NOME', 'MOTIVO_PERDA', 'DATA_REGISTRO',
+    'ESTOQUE_IDS'
   ];
 
   function getOrCreateSheet(sheetId) {
@@ -125,6 +126,7 @@ var ManualSaidaProdutosRepository = (function () {
 
     var fieldToHeader = {
       codigoProduto: 'CODIGO_PRODUTO',
+      sku: 'SKU',
       descricaoProduto: 'DESCRICAO_PRODUTO',
       ncm: 'NCM',
       quantidade: 'QUANTIDADE',
@@ -146,7 +148,8 @@ var ManualSaidaProdutosRepository = (function () {
       dataSaida: 'DATA_SAIDA',
       clienteNome: 'CLIENTE_NOME',
       motivoPerda: 'MOTIVO_PERDA',
-      dataRegistro: 'DATA_REGISTRO'
+      dataRegistro: 'DATA_REGISTRO',
+      estoqueIds: 'ESTOQUE_IDS'
     };
 
     var keys = Object.keys(fieldToHeader);

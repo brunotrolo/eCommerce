@@ -14,7 +14,7 @@ Resolve o problema: usuário vende/devolve/perde produtos diretamente sem passar
 ## Contrato da API Interna
 
 ### `manualSaida.addExit`
-- **Descrição:** Registra uma saída manual em MANUAL_SAIDA_PRODUTOS e deduz quantidade do estoque
+- **Descrição:** Registra uma saída manual em MANUAL_SAIDA_PRODUTOS, dispara baixa automática na aba ESTOQUE (FIFO via `estoqueBaixa.baixarPorProduto`, `origem=SAIDA_MANUAL`, `referenciaOrigem=exitId`) e grava `SKU` + `ESTOQUE_IDS` das unidades baixadas na linha da saída. Sem passo de "sincronizar": a baixa acontece no próprio `addExit`.
 - **Params:**
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
@@ -35,8 +35,10 @@ Resolve o problema: usuário vende/devolve/perde produtos diretamente sem passar
     exitId: string,            // timestamp + nonce para rastreabilidade
     processedAt: string,       // ISO 8601
     estoqueRestante: number,   // Quantidade que restou após a saída
+    estoque_ids: [string],     // IDs das unidades baixadas na aba ESTOQUE (FIFO)
+    sku: string,               // SKU das unidades baixadas
     row: {
-      codigo, descricao, quantidade, tipoSaida, clienteName, ...
+      codigo, descricao, quantidade, tipoSaida, clienteName, sku, estoqueIds, ...
     },
     errors: []
   }
@@ -73,7 +75,7 @@ Resolve o problema: usuário vende/devolve/perde produtos diretamente sem passar
   ```
 
 ### `manualSaida.getAvailableProducts`
-- **Descrição:** Retorna lista de produtos disponíveis em estoque com quantidade
+- **Descrição:** Retorna lista de produtos disponíveis em estoque com quantidade (fonte: aba ESTOQUE, unidades com BAIXADO=N)
 - **Params:** 
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
@@ -104,9 +106,9 @@ Resolve o problema: usuário vende/devolve/perde produtos diretamente sem passar
 Colunas:
 
 ```
-CODIGO_PRODUTO | DESCRICAO_PRODUTO | QUANTIDADE | TIPO_SAIDA | PRECO_UNITARIO | 
+CODIGO_PRODUTO | SKU | DESCRICAO_PRODUTO | QUANTIDADE | TIPO_SAIDA | PRECO_UNITARIO | 
 VALOR_TOTAL | STATUS | DATA_SAIDA | TIPO_MOVIMENTACAO | LOG_ID | 
-CLIENTE_NOME | MOTIVO_PERDA | DATA_REGISTRO | OBSERVACOES
+CLIENTE_NOME | MOTIVO_PERDA | DATA_REGISTRO | OBSERVACOES | ESTOQUE_IDS
 ```
 
 | Campo | Formato | Descrição |
@@ -131,12 +133,13 @@ CLIENTE_NOME | MOTIVO_PERDA | DATA_REGISTRO | OBSERVACOES
 ## Regras de Negócio
 
 1. **Validação de estoque obrigatória:** 
-   - Quantidade solicitada DEVE ser ≤ estoque disponível (agregado de NFE_ENTRADA_PRODUTOS + MANUAL_ENTRADA_PRODUTOS - MANUAL_SAIDA_PRODUTOS)
+   - Quantidade solicitada DEVE ser ≤ estoque disponível. A fonte de verdade é a aba **ESTOQUE**: unidades com `BAIXADO = N` (agrupadas por `CODIGO_PRODUTO` ou `SKU`, FIFO). Baixas de pedidos de Shopee/ML já marcam `BAIXADO = S`, então essas unidades NÃO contam como disponíveis — diferente do cálculo antigo (`NFE_ENTRADA + MANUAL_ENTRADA - MANUAL_SAIDA`).
    - Se inválida, rejeitar com erro claro
 
-2. **Dedução automática do estoque:**
-   - Ao confirmar a saída, estoque disponível é reduzido imediatamente
-   - CatalogService.getProducts() deve refletir a nova quantidade
+2. **Baixa automática de estoque no salvar (sem passo de sincronizar):**
+   - Ao confirmar `addExit`, o backend executa `EstoqueBaixaService.baixarPorProducto()` com `origem='SAIDA_MANUAL'`, `referenciaOrigem=exitId`, `idempotencyKey=exitId` — marca `STATUS='VENDIDO'`/`BAIXADO='S'` nas unidades FIFO da aba ESTOQUE.
+   - A linha de MANUAL_SAIDA_PRODUTOS também grava `SKU` e `ESTOQUE_IDS` das unidades baixadas (rastreio unitário).
+   - A baixa é síncrona e automática — sem cliques adicionais na UI.
 
 3. **Tipos de saída padronizados:**
    - Venda: saída paga ou normal
@@ -162,7 +165,7 @@ CLIENTE_NOME | MOTIVO_PERDA | DATA_REGISTRO | OBSERVACOES
    - Modal exibe `manualSaida.getAvailableProducts()` com:
      * CODIGO_PRODUTO
      * DESCRICAO_PRODUTO
-     * ESTOQUE_DISPONIVEL (qty disponível)
+     * ESTOQUE_DISPONIVEL (qty disponível — soma das unidades `BAIXADA = N` da aba ESTOQUE)
      * PRECO_UNITARIO_MEDIO (para referência, opcional)
    - Permite filtro por nome/código (substring search)
    - Ao selecionar, preenche código e descrição automaticamente
@@ -172,6 +175,7 @@ CLIENTE_NOME | MOTIVO_PERDA | DATA_REGISTRO | OBSERVACOES
    - CatalogService.getProducts() deve deduzir saídas manuais do estoque
    - Fórmula: Estoque Final = (NFE_ENTRADA + MANUAL_ENTRADA) - MANUAL_SAIDA
    - Saída manual marcada com TIPO_MOVIMENTACAO="Saída Manual" para auditoria
+   - Regra do estoque unitário: manual saida baixa unidades na aba ESTOQUE (item 2), então o estoque agregado do catálogo reflete automaticamente (unidades com `BAiXDADO=S` não são contadas).
 
 ---
 
@@ -314,7 +318,7 @@ function initializeSheets() {
       'CODIGO_PRODUTO', 'DESCRICAO_PRODUTO', 'QUANTIDADE', 'TIPO_SAIDA',
       'PRECO_UNITARIO', 'VALOR_TOTAL', 'STATUS', 'DATA_SAIDA',
       'TIPO_MOVIMENTACAO', 'LOG_ID', 'CLIENTE_NOME', 'MOTIVO_PERDA',
-      'DATA_REGISTRO', 'OBSERVACOES'
+      'DATA_REGISTRO', 'OBSERVACOES', 'SKU', 'ESTOQUE_IDS'
     ]);
   }
 }
@@ -323,12 +327,12 @@ function initializeSheets() {
 ### Cálculo de Estoque Agregado
 ```javascript
 function getEstoqueDisponivel(codigoProduto) {
-  var entrada = (NFeEntradaProdutosRepository.getQtdByCodigo(codigoProduto) || 0) +
-                (ManualEntradaProdutosRepository.getQtdByCodigo(codigoProduto) || 0);
-  var saida = ManualSaidaProdutosRepository.getQtdByCodigo(codigoProduto) || 0;
-  return entrada - saida; // nunca negativo
+  // Fonte de verdade: aba ESTOQUE (unidades BAIXADO='N', casa por CODIGO_PRODUTO ou SKU)
+  var unidades = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto);
+  return unidades.length; // cada linha = 1 unidade física
 }
 ```
+> **Alterado (fev/2026):** o cálculo antigo (`NFE_ENTRADA + MANUAL_ENTRADA - MANUAL_SAIDA`) ignorava as baixas de pedidos Shopee que marcam unidades como VENDIDAS na aba ESTOQUE — inflando o "disponível" (ex.: 6 mostrados vs. 4 reais com BAIXADO=N). Agora o estoque disponível é contado das unidades `BAIXADO=N`.
 
 ### Geração de LOG_ID
 ```javascript
