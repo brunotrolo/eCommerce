@@ -174,6 +174,7 @@ var CatalogService = (function () {
 
       var estoqueSaida = saidasByCodigo[codes[k]] || 0;
       p.estoqueDisponivel = Math.max(0, Math.round((p.estoqueEntrada - estoqueSaida) * 100) / 100);
+      p.quantidadeVendida = Math.round(estoqueSaida * 100) / 100;
 
       if (cost < 0) {
         p.precoShopee = 0;
@@ -204,6 +205,7 @@ var CatalogService = (function () {
         sku: p.sku || '',
         descricaoProduto: p.descricaoProduto,
         estoqueDisponivel: p.estoqueDisponivel,
+        quantidadeVendida: p.quantidadeVendida,
         totalEntradas: p.totalEntradas,
         valorUnitarioLiquido: p.valorUnitarioLiquido,
         dataEmissaoMaisRecente: p.dataEmissaoMaisRecente,

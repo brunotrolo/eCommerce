@@ -560,6 +560,8 @@
           'codigo': 'codigoProduto',
           'descricao': 'descricaoProduto',
           'unitCost': 'valorUnitarioLiquido',
+          'estoque': 'estoqueDisponivel',
+          'vendido': 'quantidadeVendida',
           'shopee': 'precoShopee',
           'ml': 'precoMercadoLivre',
           'margin': 'margemCalculadaShopee'
@@ -582,6 +584,8 @@
         html += '<th data-sort="codigo">Código</th>';
         html += '<th data-sort="descricao">Descrição</th>';
         html += '<th data-sort="unitCost">Custo Unit.</th>';
+        html += '<th data-sort="estoque">Em estoque</th>';
+        html += '<th data-sort="vendido">Vendido</th>';
         html += '<th data-sort="shopee">Preço Shopee</th>';
         html += '<th data-sort="ml">Preço ML</th>';
         html += '<th data-sort="margin">Margem</th>';
@@ -596,6 +600,8 @@
           html += '<td class="col-codigo">' + (p.codigoProduto || '') + '</td>';
           html += '<td class="col-desc" title="' + (p.descricaoProduto || '') + '">' + (p.descricaoProduto || '-') + '</td>';
           html += '<td class="col-custo">' + formatBRL(p.valorUnitarioLiquido) + '</td>';
+          html += '<td>' + (p.estoqueDisponivel || 0) + '</td>';
+          html += '<td>' + (p.quantidadeVendida || 0) + '</td>';
           html += '<td><button class="catalog-price-btn shopee" data-cod="' + (p.codigoProduto || '') + '" data-mp="shopee">';
           html += '<span class="catalog-price-label">Shopee</span>';
           html += '<span class="catalog-price-value">' + formatBRL(p.precoShopee) + '</span>';

@@ -577,6 +577,11 @@ function runCatalogSmokeTests_() {
     expectTrue('getProducts returns array', Array.isArray(result.data));
     expectTrue('getProducts has totalCount', typeof result.totalCount === 'number');
     expectTrue('getProducts has lastSync', typeof result.lastSync === 'string');
+    if (result.data.length > 0) {
+      var first = result.data[0];
+      expectTrue('getProducts item has estoqueDisponivel', typeof first.estoqueDisponivel === 'number');
+      expectTrue('getProducts item has quantidadeVendida', typeof first.quantidadeVendida === 'number');
+    }
   }
 
   // Cenário 3: getProductByCode sem parâmetro retorna erro

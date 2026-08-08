@@ -33,6 +33,8 @@ fonte consultável para gestão de precificação antes de criar/atualizar anún
   dataEmissaoMaisRecente: string,           // DATA_EMISSAO da NFe mais recente (ISO 8601)
   emitenteMaisRecente: string,              // nome do fornecedor da compra mais recente
   totalEntradas: number,                    // quantas NFes têm este produto
+  estoqueDisponivel: number,                // unidades restantes (entradas − saídas)
+  quantidadeVendida: number,                // unidades vendidas (soma das saídas manuais)
   precoShopee: number,                      // preço sugerido Shopee (R$)
   precoMercadoLivre: number,                // preço sugerido Mercado Livre (R$)
   margemCalculadaShopee: number,            // % de margem líquida no Shopee
