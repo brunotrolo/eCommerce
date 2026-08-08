@@ -19,8 +19,7 @@ var SkuService = (function () {
     UTI: 'UTILIDADE DOMÉSTICA',
     COZ: 'COZINHA',
     LIM: 'LIMPEZA',
-    DEC: 'DECORAÇÃO',
-    OUT: 'OUTROS'
+    DEC: 'DECORAÇÃO'
   };
 
   function getCategoryLabel(prefix) {
@@ -66,7 +65,9 @@ var SkuService = (function () {
       var s = _categoriaPorProduto_['S:' + String(sku).trim()];
       if (s) return s;
     }
-    return getCategoryLabel(sku ? String(sku).split('-')[0] : '');
+    var label = getCategoryLabel(sku ? String(sku).split('-')[0] : '');
+    if (label === String(sku ? String(sku).split('-')[0] : '').toUpperCase()) return '';
+    return label;
   }
 
   var BRAND_MAP = {
