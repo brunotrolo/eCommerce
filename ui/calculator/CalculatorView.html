@@ -131,6 +131,7 @@
       margin-bottom: var(--space-md, 12px);
     }
     .calc-form-row.full { grid-template-columns: 1fr; }
+    .calc-form-row[hidden] { display: none; }
     .calc-field label {
       display: block;
       font-size: var(--font-size-sm, 12px);
@@ -479,6 +480,7 @@
         shadow.getElementById('calc-mode-hint').textContent = isLiquido
           ? 'Informo o preço de venda (o que já cobro ou vou cobrar), veja quanto sobra líquido depois das taxas.'
           : 'Informo o custo e a margem alvo, a calculadora sugere o preço de venda.';
+        shadow.getElementById('calc-result-header').textContent = isLiquido ? 'Receita Líquida' : 'Preço de Venda Sugerido';
       }
 
       _debouncedCalc() {
