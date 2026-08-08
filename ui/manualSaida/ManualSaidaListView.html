@@ -29,17 +29,31 @@
     .search-bar {
       margin-bottom: var(--space-lg);
     }
-    .search-bar input {
-      width: 100%; max-width: 400px;
-      padding: var(--space-sm) var(--space-md);
-      border: 1px solid var(--color-border); border-radius: var(--radius-sm);
-      font-size: var(--font-size-base); font-family: var(--font-family-base);
-      background: var(--color-surface); color: var(--color-text);
-      box-sizing: border-box;
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
     }
-    .search-bar input:focus {
-      outline: none; border-color: var(--color-primary);
-      box-shadow: 0 0 0 2px var(--color-primary-light);
+    .filters input,
+    .filters select {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-size: var(--font-size-sm);
+    }
+    .filters input { flex: 1 1 130px; min-width: 110px; }
+    .filters input:focus,
+    .filters select:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+    .filters-hint {
+      margin-top: var(--space-xs);
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
     }
 
     .table-wrapper {
@@ -76,10 +90,24 @@
     .empty-state p { margin: 0; font-size: var(--font-size-md); }
 
     .stats {
-      display: flex; gap: var(--space-xl); margin-bottom: var(--space-lg);
-      font-size: var(--font-size-sm); color: var(--color-text-secondary);
+      display: flex;
+      gap: var(--space-lg);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-lg);
     }
-    .stats-value { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+    .stats .stat { text-align: center; }
+    .stats .stat-value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: var(--letter-spacing-tight);
+      color: var(--color-text);
+    }
+    .stats .stat-label {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: var(--letter-spacing-micro);
+    }
 
     .loading {
       text-align: center; padding: var(--space-3xl);
@@ -102,10 +130,33 @@
       <button class="btn btn-primary" id="btn-add">+ Inserir Novo Item</button>
     </div>
 
-    <div class="stats" id="stats"></div>
+    <div class="stats" id="stats">
+      <div class="stat"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total</div></div>
+      <div class="stat"><div class="stat-value" id="stat-vendas">0</div><div class="stat-label">Vendas</div></div>
+      <div class="stat"><div class="stat-value" id="stat-outros">0</div><div class="stat-label">Outros</div></div>
+      <div class="stat"><div class="stat-value" id="stat-alertas">0</div><div class="stat-label">Alertas</div></div>
+      <div class="stat" style="border-left: 1px solid var(--color-border); padding-left: var(--space-lg);"><div class="stat-value" id="stat-valor">R$ 0,00</div><div class="stat-label">Valor Total</div></div>
+      <div class="stat"><div class="stat-value" id="stat-preco-shopee">R$ 0,00</div><div class="stat-label">Preco Shopee</div></div>
+      <div class="stat"><div class="stat-value" id="stat-preco-ml">R$ 0,00</div><div class="stat-label">Preco ML</div></div>
+    </div>
 
     <div class="search-bar">
-      <input type="text" id="search" placeholder="Buscar por código, descrição ou cliente..." />
+      <div class="filters">
+        <input type="text" id="filter-codigo" placeholder="Código..." />
+        <input type="text" id="filter-categoria" placeholder="Categoria..." />
+        <input type="text" id="filter-descricao" placeholder="Descrição..." />
+        <input type="text" id="filter-cliente" placeholder="Cliente..." />
+        <input type="text" id="filter-ncm" placeholder="NCM..." />
+        <select id="filter-tipo">
+          <option value="">Tipo: todos</option>
+          <option value="Venda">Venda</option>
+          <option value="Devolução">Devolução</option>
+          <option value="Perda">Perda</option>
+          <option value="Ajuste">Ajuste</option>
+          <option value="Brinde">Brinde</option>
+        </select>
+      </div>
+      <div class="filters-hint">Filtros combinados por coluna — digite e filtra na hora.</div>
     </div>
 
     <div id="content">
@@ -159,9 +210,16 @@
         }
       });
 
-      this.shadowRoot.getElementById('search').addEventListener('input', function (e) {
-        self._filter(e.target.value);
-      });
+      var filterIds = ['filter-codigo', 'filter-categoria', 'filter-descricao', 'filter-cliente', 'filter-ncm', 'filter-tipo'];
+      for (var f = 0; f < filterIds.length; f++) {
+        (function (id) {
+          var el = self.shadowRoot.getElementById(id);
+          if (!el) return;
+          el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', function () {
+            self._applyFilters();
+          });
+        })(filterIds[f]);
+      }
     }
 
     _loadData() {
@@ -172,8 +230,7 @@
       var cached = ds && ds.get(cacheKey);
       if (cached) {
         self._entries = cached.exits || cached.data && cached.data.exits || [];
-        self._filtered = self._entries.slice();
-        self._render();
+        self._applyFilters();
         return;
       }
 
@@ -189,8 +246,7 @@
           } else {
             self._entries = [];
           }
-          self._filtered = self._entries.slice();
-          self._render();
+          self._applyFilters();
         })
         .withFailureHandler(function (e) {
           self.shadowRoot.getElementById('content').innerHTML =
@@ -199,47 +255,72 @@
         .apiDispatch('manualSaida.listExits', { limit: 500 });
     }
 
-    _filter(query) {
-      if (!query || query.trim() === '') {
-        this._filtered = this._entries.slice();
-      } else {
-        var q = query.toLowerCase();
-        this._filtered = this._entries.filter(function (e) {
-          return (e.codigoProduto || '').toLowerCase().indexOf(q) !== -1 ||
-                 (e.descricaoProduto || '').toLowerCase().indexOf(q) !== -1 ||
-                 (e.clienteNome || '').toLowerCase().indexOf(q) !== -1;
-        });
-      }
+    _applyFilters() {
+      var self = this;
+      var v = function (id) {
+        var el = self.shadowRoot.getElementById(id);
+        return el ? el.value.trim().toLowerCase() : '';
+      };
+      var fCod = v('filter-codigo');
+      var fCat = v('filter-categoria');
+      var fDesc = v('filter-descricao');
+      var fCli = v('filter-cliente');
+      var fNcm = v('filter-ncm');
+      var fTipo = v('filter-tipo');
+
+      this._filtered = this._entries.filter(function (e) {
+        if (fCod && String(e.codigoProduto || '').toLowerCase().indexOf(fCod) === -1) return false;
+        if (fCat && String(e.categoria || '').toLowerCase().indexOf(fCat) === -1) return false;
+        if (fDesc && String(e.descricaoProduto || '').toLowerCase().indexOf(fDesc) === -1) return false;
+        if (fCli && String(e.clienteNome || '').toLowerCase().indexOf(fCli) === -1) return false;
+        if (fNcm && String(e.ncm || '').toLowerCase().indexOf(fNcm) === -1) return false;
+        if (fTipo && String(e.tipoSaida || '').toLowerCase() !== fTipo.toLowerCase()) return false;
+        return true;
+      });
+
+      this._updateStats(this._filtered);
       this._render();
+    }
+
+    _updateStats(items) {
+      var set = items || [];
+      var total = 0;
+      var vendas = 0;
+      var outros = 0;
+      var alertas = 0;
+      var somaValor = 0;
+      var somaShopee = 0;
+      var somaML = 0;
+      for (var i = 0; i < set.length; i++) {
+        var qtd = parseFloat(set[i].quantidade) || 0;
+        var tipo = String(set[i].tipoSaida || '').trim();
+        total += qtd;
+        if (tipo === 'Venda') vendas += qtd;
+        else outros += qtd;
+        var precoShopee = parseFloat(set[i].precoSugeridoShopee) || 0;
+        var precoML = parseFloat(set[i].precoSugeridoMercadoLivre) || 0;
+        if (precoShopee <= 0 && precoML <= 0) alertas++;
+        somaShopee += qtd * precoShopee;
+        somaML += qtd * precoML;
+        somaValor += parseFloat(set[i].valorTotal) || 0;
+      }
+      this.shadowRoot.getElementById('stat-total').textContent = Math.round(total);
+      this.shadowRoot.getElementById('stat-vendas').textContent = Math.round(vendas);
+      this.shadowRoot.getElementById('stat-outros').textContent = Math.round(outros);
+      this.shadowRoot.getElementById('stat-alertas').textContent = alertas;
+      this.shadowRoot.getElementById('stat-valor').textContent = FormatterService.formatCurrency(somaValor);
+      this.shadowRoot.getElementById('stat-preco-shopee').textContent = FormatterService.formatCurrency(somaShopee);
+      this.shadowRoot.getElementById('stat-preco-ml').textContent = FormatterService.formatCurrency(somaML);
     }
 
     _render() {
       var self = this;
       var content = this.shadowRoot.getElementById('content');
-      var stats = this.shadowRoot.getElementById('stats');
-
-      var totalExits = this._entries.length;
-      var totalQty = 0;
-      var totalValue = 0;
-      for (var i = 0; i < this._entries.length; i++) {
-        totalQty += this._entries[i].quantidade || 0;
-        totalValue += this._entries[i].valorTotal || 0;
-      }
-
-      stats.innerHTML =
-        '<span>Total: <span class="stats-value">' + totalExits + ' registros</span></span>' +
-        '<span>Quantidade: <span class="stats-value">' + totalQty + '</span></span>' +
-        '<span>Valor Total: <span class="stats-value">R$ ' + totalValue.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '</span></span>';
 
       if (this._filtered.length === 0) {
         content.innerHTML = '<div class="empty-state"><p>Nenhuma saída manual registrada.</p></div>';
         return;
       }
-
-      var fmt = function (v) {
-        if (typeof v !== 'number' || isNaN(v)) return 'R$ 0,00';
-        return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-      };
 
       var sorted = this._filtered.slice().sort(function (a, b) {
         var field = self._sortField;
@@ -262,8 +343,9 @@
 
       var html = '<div class="table-wrapper"><table>' +
         '<thead><tr>' +
-        '<th data-sort="descricaoProduto">Descrição ' + sortIcon('descricaoProduto') + '</th>' +
         '<th data-sort="codigoProduto">Código ' + sortIcon('codigoProduto') + '</th>' +
+        '<th data-sort="categoria">Categoria ' + sortIcon('categoria') + '</th>' +
+        '<th data-sort="descricaoProduto">Descrição ' + sortIcon('descricaoProduto') + '</th>' +
         '<th data-sort="tipoSaida">Tipo Saída ' + sortIcon('tipoSaida') + '</th>' +
         '<th data-sort="quantidade">Qtd ' + sortIcon('quantidade') + '</th>' +
         '<th data-sort="valorTotal">Valor Total ' + sortIcon('valorTotal') + '</th>' +
@@ -275,11 +357,12 @@
       for (var j = 0; j < sorted.length; j++) {
         var e = sorted[j];
         html += '<tr>' +
-          '<td>' + (e.descricaoProduto || '') + '</td>' +
           '<td>' + (e.codigoProduto || '') + '</td>' +
+          '<td>' + (e.categoria || '') + '</td>' +
+          '<td>' + (e.descricaoProduto || '') + '</td>' +
           '<td>' + (e.tipoSaida || '') + '</td>' +
           '<td>' + (e.quantidade || 0) + '</td>' +
-          '<td>' + fmt(e.valorTotal) + '</td>' +
+          '<td>' + FormatterService.formatCurrency(e.valorTotal || 0) + '</td>' +
           '<td>' + (e.clienteNome || '') + '</td>' +
           '<td>' + (e.dataSaida || '') + '</td>' +
           '<td><span class="badge badge-success">' + (e.status || 'Saído') + '</span></td>' +

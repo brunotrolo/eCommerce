@@ -170,13 +170,33 @@ var ManualSaidaService = (function () {
 
     var rows = ManualSaidaProdutosRepository.getRows(sheetId, filters);
 
+    var precoMap = {};
+    try {
+      var catalogo = CatalogService.getProducts({ sortBy: 'code', sortOrder: 'asc' });
+      if (catalogo && catalogo.success && catalogo.data) {
+        for (var c = 0; c < catalogo.data.length; c++) {
+          var cp = catalogo.data[c];
+          precoMap[String(cp.codigoProduto || '').trim()] = {
+            shopee: cp.precoShopee || 0,
+            mercadoLivre: cp.precoMercadoLivre || 0
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('ManualSaidaService: erro ao carregar catálogo p/ preços — ' + e.message);
+    }
+
     var exits = [];
     for (var i = 0; i < rows.length && i < limit; i++) {
       var r = rows[i];
+      var sku = String(r.SKU || '').trim();
+      var cod = String(r.CODIGO_PRODUTO || '').trim();
+      var precos = precoMap[cod] || { shopee: 0, mercadoLivre: 0 };
       exits.push({
         codigoProduto: r.CODIGO_PRODUTO || '',
         descricaoProduto: r.DESCRICAO_PRODUTO || '',
-        sku: r.SKU || '',
+        sku: sku,
+        categoria: sku ? sku.split('-')[0] : '',
         quantidade: parseFloat(r.QUANTIDADE) || 0,
         tipoSaida: r.TIPO_SAIDA || '',
         precoUnitario: parseFloat(r.PRECO_UNITARIO) || 0,
@@ -197,7 +217,9 @@ var ManualSaidaService = (function () {
         emitenteNome: r.EMITENTE_NOME || '',
         dataCompra: _fmtDataBR_(r.DATA_COMPRA),
         valorOutrosItem: parseFloat(r.VALOR_OUTROS_ITEM) || 0,
-        tipoOutros: r.TIPO_OUTROS || ''
+        tipoOutros: r.TIPO_OUTROS || '',
+        precoSugeridoShopee: precos.shopee,
+        precoSugeridoMercadoLivre: precos.mercadoLivre
       });
     }
 

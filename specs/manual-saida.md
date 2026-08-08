@@ -51,7 +51,8 @@ Resolve o problema: usuário vende/devolve/perde produtos diretamente sem passar
   - `Produto não encontrado`
 
 ### `manualSaida.listExits`
-- **Descrição:** Lista todas as saídas manuais ou filtra por código de produto / tipo de saída
+- **Descrição:** Lista todas as saídas manuais ou filtra por código de produto / tipo de saída,
+  enriquecidas para exibição com `categoria` e preços sugeridos de venda.
 - **Params:**
   | Nome | Tipo | Obr. | Default | Descrição |
   |------|------|------|---------|-----------|
@@ -59,7 +60,27 @@ Resolve o problema: usuário vende/devolve/perde produtos diretamente sem passar
   | tipoSaida | string | não | — | Filtrar por tipo (Venda, Devolução, etc.) |
   | limit | number | não | 100 | Máximo de linhas |
 
-- **Retorno:** Array de objetos com mesma estrutura de MANUAL_SAIDA_PRODUTOS
+- **Retorno:** `{ exits: [...] }` onde cada exit contém:
+  ```javascript
+  {
+    codigoProduto, sku, categoria,                // categoria = prefixo do SKU
+    descricaoProduto, ncm, quantidade, tipoSaida, precoUnitario, valorTotal, status,
+    dataSaida, tipoMovimentacao, logId, clienteNome, motivoPerda, dataRegistro,
+    estoqueIds, observacoes, valorUnitario, valorUnitarioLiquido, valorLiquidoItem,
+    emitenteNome, dataCompra, valorOutrosItem, tipoOutros,
+    precoSugeridoShopee,                          // preço sugerido Shopee do catálogo (0 se sem preço)
+    precoSugeridoMercadoLivre                     // preço sugerido Mercado Livre do catálogo (0 se sem preço)
+  }
+  ```
+- **Subtotais na view (client-side, sobre o filtro ativo):**
+  - Total = soma de quantidade (total saído)
+  - Vendas = soma de quantidade com tipoSaida='Venda'
+  - Outros = soma de quantidade com tipoSaida≠'Venda'
+  - Alertas = nº de itens sem preço sugerido no catálogo (ambos preços = 0)
+  - Valor Total = soma de valorTotal
+  - Preco Shopee = soma de quantidade × precoSugeridoShopee
+  - Preco ML = soma de quantidade × precoSugeridoMercadoLivre
+- **Filtros por coluna:** Código, Categoria, Descrição, Cliente, NCM e Tipo Saída (combináveis).
 
 ### `manualSaida.validateExit`
 - **Descrição:** Valida dados antes de inserir (sem efetivamente inserir)
