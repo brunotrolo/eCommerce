@@ -41,11 +41,6 @@ var EstoqueBaixaService = (function () {
           description: 'Lê TODOS os pedidos da aba PEDIDOS e aplica baixa FIFO para os que ainda não foram baixados (BAIXADO ≠ S). Ignora pedidos cancelados/devolvidos.',
           params: {},
           returns: { processados: 'number', baixados: 'number', erros: 'number', jaProcessados: 'number' }
-        },
-        corrigirBaixas: {
-          description: 'Reverte baixas (BAIXADO/PENDENTE_MAPEAMENTO) de pedidos CANCELLED/IN_CANCEL/TO_RETURN/RETURNED registradas indevidamente, limpa BAIXADO/BAIXA_ESTOQUE_IDS desses pedidos e roda o backfill FIFO para os pedidos sem baixa. Reparo pós-importação.',
-          params: {},
-          returns: { revertidos: 'number', pendentesRevertidos: 'number', limpos: 'number', erros: 'number', backfill: 'object' }
         }
       }
     };
@@ -472,159 +467,12 @@ var EstoqueBaixaService = (function () {
     return { processados: processados, baixados: baixados, erros: erros, jaProcessados: jaProcessados };
   }
 
-  /**
-   * Corrige baixas gravadas indevidamente (ex.: código antigo sem filtro de
-   * status gravou baixa para pedidos cancelados/devolvidos):
-   * 1. Reverte baixas BAIXADO/PENDENTE_MAPEAMENTO de pedidos cujo status atual
-   *    em PEDIDOS é CANCELLED/IN_CANCEL/TO_RETURN/RETURNED.
-   * 2. Limpa BAIXADO e BAIXA_ESTOQUE_IDS desses pedidos na aba PEDIDOS.
-   * 3. Roda backfill FIFO para os pedidos sem baixa (ex.: antigos fora da janela
-   *    da API Shopee, que o import nunca mais vê).
-   */
-  function corrigirBaixas() {
-    var t0 = new Date().getTime();
-    var sheetId = ConfigService.getSheetId();
-
-    var pedSheet = SpreadsheetApp.openById(sheetId).getSheetByName('PEDIDOS');
-    if (!pedSheet) return { error: 'PEDIDOS sheet not found' };
-    var lastRow = pedSheet.getLastRow();
-    var lastCol = pedSheet.getLastColumn();
-    if (lastRow < 2) return { error: 'PEDIDOS vazio' };
-
-    var headers = pedSheet.getRange(1, 1, 1, lastCol).getValues()[0];
-    var hIdx = {};
-    for (var h = 0; h < headers.length; h++) hIdx[String(headers[h]).trim()] = h;
-    var orderIdCol = hIdx['ORDER_ID'];
-    var statusCol = hIdx['STATUS'];
-    var baixadoCol = hIdx['BAIXADO'];
-    var estoqueIdsCol = hIdx['BAIXA_ESTOQUE_IDS'];
-    if (orderIdCol === undefined || statusCol === undefined) {
-      return { error: 'Colunas ORDER_ID/STATUS ausentes em PEDIDOS' };
-    }
-
-    var CANCELLED_STATUSES = ['CANCELLED', 'IN_CANCEL', 'CANCELADO'];
-    var RETURN_STATUSES = ['TO_RETURN', 'RETURNED', 'DEVOLVIDO'];
-
-    var allData = pedSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-    var pedStatusByOrder = {};
-    for (var r = 0; r < allData.length; r++) {
-      var orderSn = String(allData[r][orderIdCol] || '').trim();
-      if (!orderSn) continue;
-      var statusU = String(allData[r][statusCol] || '').trim().toUpperCase();
-      var motivo = '';
-      if (CANCELLED_STATUSES.indexOf(statusU) !== -1) motivo = 'CANCELADO';
-      else if (RETURN_STATUSES.indexOf(statusU) !== -1) motivo = 'DEVOLVIDO';
-      if (motivo) pedStatusByOrder[orderSn] = motivo;
-    }
-
-    var baixas = [];
-    try {
-      baixas = EstoqueBaixasRepository.getRows(sheetId);
-    } catch (e) {
-      LoggingService.log({
-        service: 'EstoqueBaixa', action: 'corrigirBaixas', status: 'WARN',
-        caller: 'EstoqueBaixaService',
-        summary: 'Falha lendo ESTOQUE_BAIXAS: ' + e.message,
-        durationMs: 0, context: { error: e.message }
-      });
-    }
-
-    var revertidos = 0, pendentesRevertidos = 0, erros = 0;
-    var refsVistas = {};
-    for (var i = 0; i < baixas.length; i++) {
-      var bxo = baixas[i];
-      var ref = String(bxo.REFERENCIA_ORIGEM || '').trim();
-      var mt = ref.match(/^SHOPEE#(\d+):/);
-      if (!mt) continue;
-      var motivoBaixa = pedStatusByOrder[mt[1]];
-      if (!motivoBaixa) continue;
-      if (refsVistas[ref]) continue;
-      refsVistas[ref] = true;
-
-      var st = String(bxo.STATUS || '').trim();
-      try {
-        if (st === 'BAIXADO') {
-          var rev = reverterBaixa({ referenciaOrigem: ref, motivo: motivoBaixa });
-          if (rev.revertidos > 0) {
-            revertidos++;
-            LoggingService.log({
-              service: 'EstoqueBaixa', action: 'corrigirBaixas.revert', status: 'OK',
-              caller: 'EstoqueBaixaService',
-              summary: 'Baixa revertida: ' + ref + ' (' + rev.revertidos + ' un. → ' + (motivoBaixa === 'CANCELADO' ? 'DISPONÍVEL' : 'DEVOLVIDO') + ')',
-              durationMs: 0, context: { referenciaOrigem: ref, motivo: motivoBaixa, revertidos: rev.revertidos }
-            });
-          } else {
-            erros++;
-            LoggingService.log({
-              service: 'EstoqueBaixa', action: 'corrigirBaixas.revert', status: 'WARN',
-              caller: 'EstoqueBaixaService',
-              summary: 'Reversão sem efeito: ' + ref + ' → ' + JSON.stringify(rev),
-              durationMs: 0, context: { referenciaOrigem: ref, rev: rev }
-            });
-          }
-        } else if (st === 'PENDENTE_MAPEAMENTO') {
-          EstoqueBaixasRepository.updateRowByBaixaId(sheetId, bxo.BAIXA_ID, {
-            status: 'REVERTIDO',
-            revertidoEm: nowBr_()
-          });
-          pendentesRevertidos++;
-        }
-      } catch (e) {
-        erros++;
-        LoggingService.log({
-          service: 'EstoqueBaixa', action: 'corrigirBaixas.revert', status: 'WARN',
-          caller: 'EstoqueBaixaService',
-          summary: 'Falha revertendo ' + ref + ': ' + e.message,
-          durationMs: 0, context: { referenciaOrigem: ref, error: e.message }
-        });
-      }
-    }
-
-    var limpos = 0;
-    for (var r2 = 0; r2 < allData.length; r2++) {
-      var oid = String(allData[r2][orderIdCol] || '').trim();
-      if (!oid || !pedStatusByOrder[oid]) continue;
-      if (baixadoCol !== undefined) {
-        var bCell = pedSheet.getRange(r2 + 2, baixadoCol + 1);
-        if (String(bCell.getValue()).trim() !== '') {
-          bCell.setValue('');
-          limpos++;
-        }
-      }
-      if (estoqueIdsCol !== undefined) {
-        var eCell = pedSheet.getRange(r2 + 2, estoqueIdsCol + 1);
-        if (String(eCell.getValue()).trim() !== '') eCell.setValue('');
-      }
-    }
-
-    var backfillResult = {};
-    try {
-      backfillResult = backfillExistingOrders();
-    } catch (e) {
-      backfillResult = { error: e.message };
-    }
-
-    var durationMs = new Date().getTime() - t0;
-    var summary = 'Correção concluída — revertidos: ' + revertidos + ', pendentes revertidos: ' + pendentesRevertidos + ', BAIXADO limpos: ' + limpos + ', erros: ' + erros;
-
-    LoggingService.log({
-      service: 'EstoqueBaixa', action: 'corrigirBaixas', status: erros > 0 ? 'WARN' : 'OK',
-      caller: 'EstoqueBaixaService',
-      summary: summary,
-      durationMs: durationMs,
-      context: { revertidos: revertidos, pendentesRevertidos: pendentesRevertidos, limpos: limpos, erros: erros, backfill: backfillResult }
-    });
-
-    return { revertidos: revertidos, pendentesRevertidos: pendentesRevertidos, limpos: limpos, erros: erros, backfill: backfillResult, durationMs: durationMs };
-  }
-
   return {
     describe: describe,
     baixarPorProduto: baixarPorProduto,
     reverterBaixa: reverterBaixa,
     getBaixaStatus: getBaixaStatus,
     reprocessarPendentes: reprocessarPendentes,
-    backfillExistingOrders: backfillExistingOrders,
-    corrigirBaixas: corrigirBaixas
+    backfillExistingOrders: backfillExistingOrders
   };
 })();

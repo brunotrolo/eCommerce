@@ -911,7 +911,7 @@ function runEstoqueBaixaSmokeTests_() {
   expectEqual('describe.name', desc.name, 'estoqueBaixa');
   expectTrue('ação baixarPorProduto', !!desc.actions.baixarPorProduto);
   expectTrue('ação reverterBaixa', !!desc.actions.reverterBaixa);
-  expectTrue('ação backfillExistingOrders', !!desc.actions.backfillExistingOrders);
+  expectTrue('ação reprocessarPendentes', !!desc.actions.reprocessarPendentes);
 
   // Cenário 3: getItemsDisponivelPorProduto retorna array (precisa sheetId real)
   var sheetId = ConfigService.getSheetId();
