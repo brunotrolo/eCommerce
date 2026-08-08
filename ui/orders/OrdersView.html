@@ -133,8 +133,16 @@
           <option value="CANCELLED">Cancelado</option>
           <option value="TO_RETURN">Devolução Solicitada</option>
         </select>
+        <select id="baixado-filter">
+          <option value="">Baixado: Todos</option>
+          <option value="BAIXADO">Baixado</option>
+          <option value="PARCIAL">Parcial</option>
+          <option value="PENDENTE">Pendente</option>
+        </select>
         <input type="number" id="limit-input" value="30" min="1" max="100" title="Limite de pedidos" placeholder="Limite" />
-        <input type="text" id="search-input" placeholder="Buscar (ID, comprador, produto)..." />
+        <input type="text" id="filter-id" placeholder="ID do pedido..." />
+        <input type="text" id="filter-buyer" placeholder="Comprador..." />
+        <input type="text" id="filter-product" placeholder="Produto..." />
       </div>
       <div class="alert alert-error panel-gap" id="error-box" hidden></div>
       <div class="panel-gap" id="result-box" hidden></div>
@@ -192,7 +200,10 @@
         shadow.getElementById('btn-refresh').addEventListener('click', () => this._load(shadow, true));
         shadow.getElementById('btn-sync-shopee').addEventListener('click', () => this._syncShopee(shadow));
         shadow.getElementById('status-filter').addEventListener('change', () => { if (this._orders) renderRows(shadow, this._orders); });
-        shadow.getElementById('search-input').addEventListener('input', () => { if (this._orders) renderRows(shadow, this._orders); });
+        shadow.getElementById('baixado-filter').addEventListener('change', () => { if (this._orders) renderRows(shadow, this._orders); });
+        shadow.getElementById('filter-id').addEventListener('input', () => { if (this._orders) renderRows(shadow, this._orders); });
+        shadow.getElementById('filter-buyer').addEventListener('input', () => { if (this._orders) renderRows(shadow, this._orders); });
+        shadow.getElementById('filter-product').addEventListener('input', () => { if (this._orders) renderRows(shadow, this._orders); });
 
         var table = shadow.getElementById('orders-table');
         var theadThs = table.querySelectorAll('thead th[data-sort]');
@@ -451,13 +462,23 @@
       var shadow = window.__ordersShadow;
       if (!shadow) return orders;
       var status = shadow.getElementById('status-filter').value;
-      var search = shadow.getElementById('search-input').value.toLowerCase().trim();
+      var baixado = shadow.getElementById('baixado-filter').value;
+      var filterId = (shadow.getElementById('filter-id').value || '').toLowerCase().trim();
+      var filterBuyer = (shadow.getElementById('filter-buyer').value || '').toLowerCase().trim();
+      var filterProduct = (shadow.getElementById('filter-product').value || '').toLowerCase().trim();
 
       var filtered = orders.filter(function (o) {
         if (status !== 'all' && String(o.status || '').toUpperCase() !== status) return false;
-        if (!search) return true;
-        var haystack = [o.id, o.buyerName, o.itemNames, o.itemSkus, o.paymentMethod, o.statusLabel, o.totalCost ? String(o.totalCost) : ''].filter(Boolean).join(' ').toLowerCase();
-        return haystack.indexOf(search) !== -1;
+        if (baixado) {
+          var b = (o.baixado || '').toUpperCase();
+          if (baixado === 'BAIXADO' && b !== 'BAIXADO' && b !== 'S' && b !== 'SIM') return false;
+          if (baixado === 'PARCIAL' && b !== 'PARCIAL') return false;
+          if (baixado === 'PENDENTE' && b !== 'PENDENTE' && b !== 'N' && b !== '') return false;
+        }
+        if (filterId && String(o.id || '').toLowerCase().indexOf(filterId) === -1) return false;
+        if (filterBuyer && String(o.buyerName || '').toLowerCase().indexOf(filterBuyer) === -1) return false;
+        if (filterProduct && String(o.itemNames || '').toLowerCase().indexOf(filterProduct) === -1) return false;
+        return true;
       });
 
       return filtered;
