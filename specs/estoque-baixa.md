@@ -1,7 +1,13 @@
 # Spec: Motor Central de Baixa de Estoque (ESTOQUE_BAIXAS)
 
 ## Status
-Draft
+Approved
+
+> 07/08/2026 — Aprovado ajuste de idempotência do `reprocessarPendentes`: o
+> backfill deve usar a **mesma** `idempotencyKey` da importação
+> (`SHOPEE#<order_sn>:<sku>`, sem sufixo `:backfill`) para não rebaixar itens
+> que a importação já baixou (evita dupla-baixa em pedidos `PARCIAL`/`PENDENTE`
+> reprocessados). Seção `reprocessarPendentes` e Regra 2 atualizadas.
 
 ## Objetivo
 
@@ -76,12 +82,28 @@ desafio" de controle de estoque automatizado e auditável pedido pelo usuário.
 - **Retorno:** `{ jaBaixado: boolean, estoque_ids: [string], status: string, baixadoEm: string }`
 
 ### `estoqueBaixa.reprocessarPendentes`
-- **Descrição:** varre `ESTOQUE_BAIXAS` com `STATUS='PENDENTE_MAPEAMENTO'` (linhas
-  criadas por `specs/estoque-baixa-shopee.md` quando um item de pedido não tinha
-  mapeamento `item_id → codigoProduto` no momento do import) e tenta baixar de novo
-  usando o mapeamento atual.
+- **Descrição:** varre **toda a aba `PEDIDOS`** (não só `ESTOQUE_BAIXAS`), linha por
+  linha, e aplica baixa FIFO para todo pedido que ainda não tem `BAIXADO='BAIXADO'`
+  ou `BAIXADO='S'`. Destina-se a cubrir pedidos antigos que a API Shopee não retorna
+  mais na janela de listagem (ex.: pedidos de julho fora dos ~15 dias do
+  `shopee_list_orders`) — casos em que a importação nunca "enxerga" o pedido para
+  dar a baixa.
+- **Regras de varredura:**
+  - Pula pedidos sem `ORDER_ID`/`ITEM_SKUS`, e os já marcados `BAIXADO`/`S`.
+  - Pula `CANCELLED`/`CANCELADO` e `TO_RETURN`/`RETURNED`/`DEVOLVIDO` — sempre
+    registra log (`backfill.skip`).
+  - Para cada SKU usa `origem:'PEDIDO_SHOPEE'`,
+    `referenciaOrigem:'SHOPEE#'+order_sn+':'+sku` e
+    **`idempotencyKey` = `referenciaOrigem`** (mesma chave da importação em
+    `OrdersImportService.processBaixaForOrder_`). Isso faz o backfill reconhecer
+    baixas já feitas (`jaExistia:true`) e **nunca rebaixar** um item que a
+    importação já baixou — decisão crítica para pedidos `PARCIAL`/`PENDENTE`.
+  - Atualiza a coluna `BAIXADO` da aba `PEDIDOS`: `BAIXADO` se todos os SKUs
+    baixados, `PARCIAL` se só parte, `PENDENTE` se nenhum (sem estoque).
 - **Params:** nenhum.
-- **Retorno:** `{ processados: number, baixados: number, aindaPendentes: number }`.
+- **Retorno:** `{ processados: number, baixados: number, erros: number, jaProcessados: number }`.
+- **Nota:** se a coluna `BAIXADO` não existir na aba `PEDIDOS`, ela é criada na
+  última coluna livre.
 
 ## Formato da Aba ESTOQUE_BAIXAS
 
@@ -115,6 +137,10 @@ BAIXA_ID | REFERENCIA_ORIGEM | ORIGEM | CODIGO_PRODUTO | QUANTIDADE | ESTOQUE_ID
    `baixarPorProduto` consulta `ESTOQUE_BAIXAS` pela chave. Se existir linha com
    `STATUS='BAIXADO'`, retorna `{ success: true, baixados: 0, jaExistia: true,
    estoque_ids: <os mesmos da vez anterior> }` sem tocar `ESTOQUE` de novo.
+   **Todos os chamadores usam a mesma convenção de chave** —
+   `SHOPEE#<order_sn>:<sku>` (importação e `reprocessarPendentes`); nunca inventar
+   sufixo por chamador, senão a idempotência entre eles quebra e o mesmo item é
+   baixado duas vezes.
 3. **Lock obrigatório.** `baixarPorProduto` e `reverterBaixa` executam dentro de
    `LockService.getScriptLock()` (timeout curto, poucos segundos) ao redor do ciclo
    ler-`ESTOQUE_BAIXAS`→gravar. **Este é o primeiro uso de `LockService` no

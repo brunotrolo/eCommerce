@@ -374,7 +374,7 @@ var EstoqueBaixaService = (function () {
         totalSkusNoPedido++;
 
         var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
-        var idempKey = refOrigem + ':backfill';
+        var idempKey = refOrigem;
 
         LoggingService.log({
           service: 'EstoqueBaixa', action: 'backfill.item.try', status: 'OK',
