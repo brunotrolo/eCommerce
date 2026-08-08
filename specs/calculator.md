@@ -4,6 +4,19 @@
 Implemented
 
 ## Changelog
+- **08/08/2026** — v2.1: seletor explícito de modo. O modo reverso (campo
+  `precoVenda` vazio = sugere preço, preenchido = simula esse preço) era
+  implícito demais na prática — usuário achou confuso. Adicionado um
+  segundo seletor no topo do modal, abaixo do de marketplace: **"Formador
+  de Preço"** (mostra o campo Margem, esconde Preço de Venda) vs. **"Receita
+  Líquida"** (o inverso; exige um preço de venda preenchido, senão mostra um
+  aviso em vez de calcular). O contrato de `calculator.calculate` não mudou —
+  é só a UI que agora deixa explícito qual `precoVenda` está sendo enviado
+  (`null` ou o valor digitado) em vez de depender do usuário perceber que um
+  campo vazio muda o comportamento. No modo "Receita Líquida", o cabeçalho
+  do resultado também troca de "Preço de Venda Sugerido" para "Receita
+  Líquida", e o número em destaque passa a ser `descomposicao.subTotal`
+  (o que sobra líquido) em vez de `precoVenda`.
 - **08/08/2026** — v2: unificada com Shopee. O app tinha duas calculadoras
   (este widget, só ML; e um widget novo `pricing.compareMarketplaces`/
   `PricingView.html` construído para validar o modelo Shopee). Por pedido do
@@ -35,9 +48,13 @@ em conta:
 
 Acessível como **widget flutuante** no canto inferior direito de qualquer página,
 abre como **modal em tela cheia** ao clicar. Cálculos em tempo real conforme o
-usuário digita. Se `precoVenda` for informado, a calculadora muda de modo:
-em vez de sugerir um preço a partir do custo+margem, decompõe esse preço já
-decidido e mostra quanto sobra líquido (e a margem real resultante).
+usuário digita. Um seletor explícito no topo do modal ("Formador de Preço" \|
+"Receita Líquida") escolhe o modo — não é mais implícito por um campo vazio:
+- **Formador de Preço**: informa custo + margem alvo, a calculadora sugere o
+  preço de venda (`precoVenda: null` enviado ao backend).
+- **Receita Líquida**: informa um preço de venda já decidido, a calculadora
+  decompõe esse preço e mostra quanto sobra líquido (e, com o custo
+  informado, o lucro e a margem real resultantes).
 
 ---
 
@@ -380,6 +397,7 @@ Retornar array `avisos`:
    - Floater no canto inferior direito (minimizado até clique)
    - Abre como modal full-screen com dark overlay
    - Seletor de marketplace no topo (Shopee/Mercado Livre, cores de marca) — campos específicos de cada canal aparecem/somem conforme a seleção
+   - Seletor de modo logo abaixo (Formador de Preço/Receita Líquida) — troca qual campo aparece (Margem vs. Preço de Venda) e o que é enviado como `precoVenda`; texto de dica abaixo do seletor explica o modo ativo
    - Inputs: custoProduto, custosAdicionais, margem%, ads%, imposto% (genéricos); regime/campanha/iniciante (só ML); cenário de pagamento/itens (só Shopee)
    - **Resultado em tempo real** conforme digita (debounce 300ms)
    - Descomposição visual de preço (árvore de deduções, rótulos dinâmicos por canal)
@@ -412,6 +430,8 @@ Abrir CalculatorView e validar:
 - Cenário 5 (vendedor iniciante): sem taxa ✅
 - Cenário 7 (Shopee básico): preço confere com specs/pricing.md ✅
 - Trocar o seletor de marketplace troca os campos visíveis e recalcula ✅
+- Trocar o seletor de modo troca Margem↔Preço de Venda e o cabeçalho do resultado ✅
+- Modo Receita Líquida com Preço de Venda vazio mostra aviso, não erro cru ✅
 - Todos 10 cenários Given/When/Then passam ✅
 - Avisos aparecem quando necessário (low margin, negative profit) ✅
 - Responsivo em mobile e desktop ✅

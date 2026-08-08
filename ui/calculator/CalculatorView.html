@@ -88,6 +88,42 @@
       color: var(--color-mercado-livre-text, #3d3d00);
     }
 
+    .calc-mode-switch {
+      display: flex;
+      border: 1px solid var(--color-border, #e0e0e0);
+      border-radius: var(--radius-md, 8px);
+      overflow: hidden;
+      margin-bottom: var(--space-sm, 8px);
+    }
+    .calc-mode-switch input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .calc-mode-switch label {
+      flex: 1;
+      text-align: center;
+      padding: var(--space-sm, 8px) var(--space-md, 12px);
+      font-size: var(--font-size-sm, 12px);
+      font-weight: var(--font-weight-medium, 500);
+      color: var(--color-text-secondary, #666);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .calc-mode-switch label:first-of-type {
+      border-right: 1px solid var(--color-border, #e0e0e0);
+    }
+    .calc-mode-switch input:checked + label {
+      background: var(--color-primary, #0a0a0a);
+      color: var(--color-on-primary, #fff);
+    }
+    .calc-mode-hint {
+      font-size: var(--font-size-xs, 11px);
+      color: var(--color-text-secondary, #666);
+      margin-bottom: var(--space-lg, 16px);
+    }
+
     .calc-form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -257,6 +293,14 @@
           <label for="calc-mkt-ml" class="calc-mkt-ml">Mercado Livre</label>
         </div>
 
+        <div class="calc-mode-switch" id="calc-mode-switch">
+          <input type="radio" name="calcMode" id="calc-mode-preco" value="preco" checked />
+          <label for="calc-mode-preco">Formador de Preço</label>
+          <input type="radio" name="calcMode" id="calc-mode-liquido" value="liquido" />
+          <label for="calc-mode-liquido">Receita Líquida</label>
+        </div>
+        <div class="calc-mode-hint" id="calc-mode-hint">Informo o custo e a margem alvo, a calculadora sugere o preço de venda.</div>
+
         <div class="calc-form-row">
           <div class="calc-field">
             <label for="custoProduto">Custo do Produto (R$)</label>
@@ -269,9 +313,13 @@
         </div>
 
         <div class="calc-form-row">
-          <div class="calc-field">
+          <div class="calc-field" id="calc-field-margem">
             <label for="margemInput">Margem (%)</label>
             <input type="number" id="margemInput" step="1" min="0" max="99" value="20" />
+          </div>
+          <div class="calc-field" id="calc-field-precoVenda" hidden>
+            <label for="precoVendaInput">Preço de Venda (R$)</label>
+            <input type="number" id="precoVendaInput" step="0.01" min="0" placeholder="0,00" />
           </div>
           <div class="calc-field">
             <label for="adsInput">Ads (%)</label>
@@ -279,11 +327,7 @@
           </div>
         </div>
 
-        <div class="calc-form-row">
-          <div class="calc-field">
-            <label for="precoVendaInput">Preço de Venda (R$) — vazio = calcular</label>
-            <input type="number" id="precoVendaInput" step="0.01" min="0" placeholder="Automático" />
-          </div>
+        <div class="calc-form-row full">
           <div class="calc-field">
             <label for="impostoInput">Imposto Simples (%)</label>
             <input type="number" id="impostoInput" step="0.5" min="0" max="100" value="6" />
@@ -324,7 +368,7 @@
         <div class="calc-divider"></div>
 
         <div class="calc-result" id="calc-result">
-          <div class="calc-result-header">Preço de Venda Sugerido</div>
+          <div class="calc-result-header" id="calc-result-header">Preço de Venda Sugerido</div>
           <div class="calc-price-big" id="calc-price">R$ 0,00</div>
 
           <div class="calc-margins" id="calc-margins"></div>
@@ -409,7 +453,15 @@
           });
         });
 
+        shadow.querySelectorAll('input[name="calcMode"]').forEach(function (radio) {
+          radio.addEventListener('change', function () {
+            self._toggleCalcMode(shadow);
+            self._debouncedCalc();
+          });
+        });
+
         this._toggleMarketplaceFields(shadow);
+        this._toggleCalcMode(shadow);
         this._calculate();
       }
 
@@ -417,6 +469,16 @@
         var marketplace = shadow.querySelector('input[name="marketplace"]:checked').value;
         shadow.getElementById('calc-ml-fields').hidden = marketplace !== 'mercado_livre';
         shadow.getElementById('calc-shopee-fields').hidden = marketplace !== 'shopee';
+      }
+
+      _toggleCalcMode(shadow) {
+        var mode = shadow.querySelector('input[name="calcMode"]:checked').value;
+        var isLiquido = mode === 'liquido';
+        shadow.getElementById('calc-field-margem').hidden = isLiquido;
+        shadow.getElementById('calc-field-precoVenda').hidden = !isLiquido;
+        shadow.getElementById('calc-mode-hint').textContent = isLiquido
+          ? 'Informo o preço de venda (o que já cobro ou vou cobrar), veja quanto sobra líquido depois das taxas.'
+          : 'Informo o custo e a margem alvo, a calculadora sugere o preço de venda.';
       }
 
       _debouncedCalc() {
@@ -430,13 +492,26 @@
       _calculate() {
         var shadow = this._shadow;
         var marketplace = shadow.querySelector('input[name="marketplace"]:checked').value;
+        var calcMode = shadow.querySelector('input[name="calcMode"]:checked').value;
         var custoProduto = parseFloat(shadow.getElementById('custoProduto').value) || 0;
         var custosAdicionais = parseFloat(shadow.getElementById('custosAdicionais').value) || 0;
         var margem = parseFloat(shadow.getElementById('margemInput').value) || 0;
         var ads = parseFloat(shadow.getElementById('adsInput').value) || 0;
-        var precoVendaStr = shadow.getElementById('precoVendaInput').value;
-        var precoVenda = precoVendaStr !== '' ? parseFloat(precoVendaStr) : null;
         var imposto = parseFloat(shadow.getElementById('impostoInput').value) || 0;
+
+        var precoVenda = null;
+        if (calcMode === 'liquido') {
+          var precoVendaStr = shadow.getElementById('precoVendaInput').value;
+          precoVenda = precoVendaStr !== '' ? parseFloat(precoVendaStr) : null;
+          if (!precoVenda || precoVenda <= 0) {
+            shadow.getElementById('calc-price').textContent = '—';
+            shadow.getElementById('calc-margins').innerHTML = '';
+            shadow.getElementById('calc-decomp').innerHTML = '';
+            shadow.getElementById('calc-warnings').innerHTML =
+              '<div class="calc-warning warning">Informe o preço de venda para calcular a receita líquida.</div>';
+            return;
+          }
+        }
 
         var params = {
           marketplace: marketplace,
@@ -462,7 +537,7 @@
           .withSuccessHandler(function (response) {
             var outer = response.data || response;
             var data = outer.data || outer;
-            self._renderResult(shadow, data, marketplace);
+            self._renderResult(shadow, data, marketplace, calcMode);
           })
           .withFailureHandler(function () {
             shadow.getElementById('calc-result').innerHTML = '<div class="calc-warning critical">Erro ao calcular.</div>';
@@ -470,7 +545,10 @@
           .apiDispatch('calculator.calculate', params);
       }
 
-      _renderResult(shadow, data, marketplace) {
+      _renderResult(shadow, data, marketplace, calcMode) {
+        var isLiquido = calcMode === 'liquido';
+        shadow.getElementById('calc-result-header').textContent = isLiquido ? 'Receita Líquida' : 'Preço de Venda Sugerido';
+
         if (!data) {
           shadow.getElementById('calc-price').textContent = 'R$ 0,00';
           shadow.getElementById('calc-margins').innerHTML = '';
@@ -492,7 +570,7 @@
         var isShopee = marketplace === 'shopee';
         var canal = data.taxasCanal || {};
 
-        shadow.getElementById('calc-price').textContent = formatBRL(d.precoVenda || 0);
+        shadow.getElementById('calc-price').textContent = formatBRL(isLiquido ? (d.subTotal || 0) : (d.precoVenda || 0));
 
         var marginsHtml = '';
         marginsHtml += '<div class="calc-margin-item"><span class="calc-margin-value">' + formatPct(data.margemAlcancada) + '</span><span class="calc-margin-label">Margem Alcançada</span></div>';
