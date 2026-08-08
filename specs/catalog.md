@@ -19,7 +19,7 @@ fonte consultável para gestão de precificação antes de criar/atualizar anún
 |---|---|---|---|---|
 | targetMarginShopee | number | não | 0.25 | margem alvo Shopee (ex. 0.25 = 25%) |
 | targetMarginMercadoLivre | number | não | 0.25 | margem alvo Mercado Livre |
-| sortBy | string (`code`\|`description`\|`unitCost`\|`suggestedShopee`) | não | `code` | ordem de exibição |
+| sortBy | string (`code`\|`sku`\|`categoria`\|`description`\|`unitCost`\|`suggestedShopee`) | não | `code` | ordem de exibição |
 | sortOrder | string (`asc`\|`desc`) | não | `asc` | crescente ou decrescente |
 
 - Retorno: `{ success: true, data: [...], totalCount: number, lastSync: string }` ou `{ error: string }`
@@ -28,6 +28,8 @@ fonte consultável para gestão de precificação antes de criar/atualizar anún
 ```javascript
 {
   codigoProduto: string,                    // código único do item
+  sku: string,                              // SKU do item (última entrada conhecida)
+  categoria: string,                        // categoria via SkuService.getCategoryByCodigo (aba ESTOQUE / rótulo do prefixo do SKU)
   descricaoProduto: string,                 // descrição do produto
   valorUnitarioLiquido: number,             // VALOR_UNITARIO_LIQUIDO mais recente (R$)
   dataEmissaoMaisRecente: string,           // DATA_EMISSAO da NFe mais recente (ISO 8601)

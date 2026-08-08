@@ -7,6 +7,7 @@
       margin-bottom: var(--space-card);
       flex-wrap: wrap;
     }
+    .catalog-toolbar input,
     .catalog-toolbar select {
       padding: var(--space-xs) var(--space-sm);
       border: 1px solid var(--color-border);
@@ -14,6 +15,17 @@
       background: var(--color-surface);
       color: var(--color-text);
       font-size: var(--font-size-sm);
+    }
+    .catalog-toolbar input[type="text"] {
+      min-width: 160px;
+    }
+    .catalog-toolbar input[type="number"] {
+      width: 70px;
+    }
+    .catalog-toolbar-label {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      white-space: nowrap;
     }
     .catalog-summary {
       display: flex;
@@ -295,17 +307,22 @@
       <p class="page-subtitle">Produtos recebidos com preços sugeridos para Shopee e Mercado Livre.</p>
 
       <div class="catalog-toolbar">
-        <input type="text" id="filterInput" placeholder="Filtrar por código ou descrição..." style="flex:1; min-width:200px; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: var(--font-size-sm);" />
-        <label for="marginInput" style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">Margem %:</label>
-        <input type="number" id="marginInput" value="25" min="0" max="99" step="1" style="width:60px; padding: var(--space-xs) var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: var(--font-size-sm);" />
-        <label for="sortBy" style="font-size: var(--font-size-sm); color: var(--color-text-secondary);">Ordenar por:</label>
+        <input type="text" id="filter-codigo" placeholder="Código..." />
+        <input type="text" id="filter-sku" placeholder="SKU..." />
+        <input type="text" id="filter-descricao" placeholder="Descrição..." />
+        <input type="text" id="filter-categoria" placeholder="Categoria..." />
+        <label class="catalog-toolbar-label" for="marginInput">Margem %:</label>
+        <input type="number" id="marginInput" value="25" min="0" max="99" step="1" />
+        <label class="catalog-toolbar-label" for="sortBy">Ordenar por:</label>
         <select id="sortBy">
           <option value="code">Código</option>
+          <option value="sku">SKU</option>
+          <option value="categoria">Categoria</option>
           <option value="description">Descrição</option>
           <option value="unitCost">Custo</option>
           <option value="suggestedShopee">Preço Shopee</option>
         </select>
-        <button class="btn" id="btn-sort-order" style="padding: var(--space-xs) var(--space-sm);">▲ ASC</button>
+        <button class="btn" id="btn-sort-order">▲ ASC</button>
       </div>
 
       <div class="catalog-summary" id="catalog-summary"></div>
@@ -345,7 +362,7 @@
   (function () {
     if (customElements.get('catalog-widget')) return;
 
-    var SORT_LABELS = { code: 'Código', description: 'Descrição', unitCost: 'Custo', suggestedShopee: 'Preço Shopee' };
+    var SORT_LABELS = { code: 'Código', sku: 'SKU', categoria: 'Categoria', description: 'Descrição', unitCost: 'Custo', suggestedShopee: 'Preço Shopee' };
 
     function formatBRL(value) {
       return FormatterService.formatCurrency(value);
@@ -402,8 +419,10 @@
           this._renderProducts(shadow);
         }.bind(this));
 
-        shadow.getElementById('filterInput').addEventListener('input', function () {
-          this._applyFilterAndRender(shadow);
+        ['filter-codigo', 'filter-sku', 'filter-descricao', 'filter-categoria'].forEach(function (id) {
+          shadow.getElementById(id).addEventListener('input', function () {
+            this._applyFilterAndRender(shadow);
+          }.bind(this));
         }.bind(this));
 
         shadow.getElementById('marginInput').addEventListener('input', function () {
@@ -523,27 +542,49 @@
       }
 
       _applyFilterAndRender(shadow) {
-        var filter = (shadow.getElementById('filterInput').value || '').toLowerCase().trim();
+        var fCodigo = (shadow.getElementById('filter-codigo').value || '').toLowerCase().trim();
+        var fSku = (shadow.getElementById('filter-sku').value || '').toLowerCase().trim();
+        var fDescricao = (shadow.getElementById('filter-descricao').value || '').toLowerCase().trim();
+        var fCategoria = (shadow.getElementById('filter-categoria').value || '').toLowerCase().trim();
         var products = this._products;
+        var anyFilter = fCodigo || fSku || fDescricao || fCategoria;
 
-        if (!filter) {
+        if (!anyFilter) {
           this._filteredProducts = products;
         } else {
           this._filteredProducts = products.filter(function (p) {
-            var cod = (p.codigoProduto || '').toLowerCase();
-            var desc = (p.descricaoProduto || '').toLowerCase();
-            return cod.indexOf(filter) !== -1 || desc.indexOf(filter) !== -1;
+            if (fCodigo && (p.codigoProduto || '').toLowerCase().indexOf(fCodigo) === -1) return false;
+            if (fSku && (p.sku || '').toLowerCase().indexOf(fSku) === -1) return false;
+            if (fDescricao && (p.descricaoProduto || '').toLowerCase().indexOf(fDescricao) === -1) return false;
+            if (fCategoria && (p.categoria || '').toLowerCase().indexOf(fCategoria) === -1) return false;
+            return true;
           });
         }
 
-        this._renderSummary(shadow, this._filteredProducts.length);
+        this._renderSummary(shadow, this._filteredProducts);
         this._renderProducts(shadow);
       }
 
-      _renderSummary(shadow, total) {
+      _renderSummary(shadow, products) {
+        var total = products.length;
+        var estoque = 0;
+        var custoTotal = 0;
+        var precoShopee = 0;
+        var precoMercadoLivre = 0;
+        for (var i = 0; i < products.length; i++) {
+          var p = products[i];
+          estoque += Number(p.estoqueDisponivel) || 0;
+          custoTotal += (Number(p.valorUnitarioLiquido) || 0) * (Number(p.estoqueDisponivel) || 0);
+          precoShopee += (Number(p.precoShopee) || 0) * (Number(p.estoqueDisponivel) || 0);
+          precoMercadoLivre += (Number(p.precoMercadoLivre) || 0) * (Number(p.estoqueDisponivel) || 0);
+        }
         var summaryEl = shadow.getElementById('catalog-summary');
         summaryEl.innerHTML =
-          '<div class="stat"><div class="stat-value">' + total + '</div><div class="stat-label">Produtos</div></div>';
+          '<div class="stat"><div class="stat-value">' + total + '</div><div class="stat-label">Produtos</div></div>' +
+          '<div class="stat"><div class="stat-value">' + estoque.toLocaleString('pt-BR') + '</div><div class="stat-label">Estoque (und)</div></div>' +
+          '<div class="stat"><div class="stat-value">' + formatBRL(custoTotal) + '</div><div class="stat-label">Custo total</div></div>' +
+          '<div class="stat"><div class="stat-value">' + formatBRL(precoShopee) + '</div><div class="stat-label">Preço Shopee</div></div>' +
+          '<div class="stat"><div class="stat-value">' + formatBRL(precoMercadoLivre) + '</div><div class="stat-label">Preço ML</div></div>';
       }
 
       _renderProducts(shadow) {
@@ -558,6 +599,8 @@
 
         var sortMap = {
           'codigo': 'codigoProduto',
+          'sku': 'sku',
+          'categoria': 'categoria',
           'descricao': 'descricaoProduto',
           'unitCost': 'valorUnitarioLiquido',
           'estoque': 'estoqueDisponivel',
@@ -582,6 +625,8 @@
 
         var html = '<table class="catalog-table" id="catalog-main-table"><thead><tr>';
         html += '<th data-sort="codigo">Código</th>';
+        html += '<th data-sort="sku">SKU</th>';
+        html += '<th data-sort="categoria">Categoria</th>';
         html += '<th data-sort="descricao">Descrição</th>';
         html += '<th data-sort="unitCost">Custo Unit.</th>';
         html += '<th data-sort="estoque">Em estoque</th>';
@@ -598,6 +643,8 @@
 
           html += '<tr>';
           html += '<td class="col-codigo">' + (p.codigoProduto || '') + '</td>';
+          html += '<td>' + (p.sku || '-') + '</td>';
+          html += '<td>' + (p.categoria || '-') + '</td>';
           html += '<td class="col-desc" title="' + (p.descricaoProduto || '') + '">' + (p.descricaoProduto || '-') + '</td>';
           html += '<td class="col-custo">' + formatBRL(p.valorUnitarioLiquido) + '</td>';
           html += '<td>' + (p.estoqueDisponivel || 0) + '</td>';

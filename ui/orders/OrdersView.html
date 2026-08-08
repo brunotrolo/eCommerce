@@ -99,59 +99,89 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .filter-bar {
+      display: flex;
+      gap: var(--space-md);
+      margin-bottom: var(--space-lg);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .filter-bar input,
+    .filter-bar select {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+    .filter-bar input[type="text"] {
+      min-width: 220px;
+    }
+    .filter-bar input[type="number"] {
+      width: 72px;
+    }
+    .stats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-xl);
+      margin-top: var(--space-xl);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+    .stats-value {
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text);
+    }
+    .stats-bar .divider {
+      border-left: 1px solid var(--color-border);
+      padding-left: var(--space-xl);
+      margin-left: var(--space-xl);
+    }
+    .panel-gap {
+      margin-top: var(--space-xl);
+    }
   </style>
   <div class="widget-grid">
     <div class="card">
       <h1>Pedidos</h1>
       <div class="filter-bar">
-        <div class="form-field">
-          <label for="marketplace-filter">Canal</label>
-          <select id="marketplace-filter">
-            <option value="all">Todos</option>
-            <option value="shopee">Shopee</option>
-            <option value="mercado_livre">Mercado Livre</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label for="status-filter">Status</label>
-          <select id="status-filter">
-            <option value="all">Todos</option>
-            <option value="UNPAID">Não Pago</option>
-            <option value="INVOICE_PENDING">Aguardando NF</option>
-            <option value="PROCESSED">Processado</option>
-            <option value="READY_TO_SHIP">A Enviar</option>
-            <option value="SHIPPED">Enviado</option>
-            <option value="TO_CONFIRM_RECEIVE">Entregue</option>
-            <option value="COMPLETED">Concluído</option>
-            <option value="RETRY_SHIP">Reenviar</option>
-            <option value="IN_CANCEL">Em Cancelamento</option>
-            <option value="CANCELLED">Cancelado</option>
-            <option value="TO_RETURN">Devolução Solicitada</option>
-          </select>
-        </div>
-        <div class="form-field">
-          <label for="limit-input">Limite</label>
-          <input type="number" id="limit-input" value="30" min="1" max="100" />
-        </div>
-        <div class="form-field">
-          <label for="search-input">Buscar</label>
-          <input type="text" id="search-input" placeholder="ID, comprador, produto..." />
-        </div>
+        <select id="marketplace-filter">
+          <option value="all">Canal: Todos</option>
+          <option value="shopee">Shopee</option>
+          <option value="mercado_livre">Mercado Livre</option>
+        </select>
+        <select id="status-filter">
+          <option value="all">Status: Todos</option>
+          <option value="UNPAID">Não Pago</option>
+          <option value="INVOICE_PENDING">Aguardando NF</option>
+          <option value="PROCESSED">Processado</option>
+          <option value="READY_TO_SHIP">A Enviar</option>
+          <option value="SHIPPED">Enviado</option>
+          <option value="TO_CONFIRM_RECEIVE">Entregue</option>
+          <option value="COMPLETED">Concluído</option>
+          <option value="RETRY_SHIP">Reenviar</option>
+          <option value="IN_CANCEL">Em Cancelamento</option>
+          <option value="CANCELLED">Cancelado</option>
+          <option value="TO_RETURN">Devolução Solicitada</option>
+        </select>
+        <input type="number" id="limit-input" value="30" min="1" max="100" title="Limite de pedidos" placeholder="Limite" />
+        <input type="text" id="search-input" placeholder="Buscar (ID, comprador, produto)..." />
         <button class="btn" id="btn-refresh">Filtrar</button>
         <button class="btn btn--primary" id="btn-sync-shopee">Sincronizar Pedidos Shopee</button>
       </div>
-      <div class="alert alert-error" id="error-box" hidden style="margin-top: var(--space-xl)"></div>
-      <div id="result-box" hidden style="margin-top: var(--space-xl)"></div>
-      <div id="stats-bar" style="display: flex; flex-wrap: wrap; gap: var(--space-xl); margin-top: var(--space-xl); font-size: var(--font-size-sm); color: var(--color-text-secondary)">
-        <span>Total: <span class="stats-value" id="stat-total" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
-        <span>A enviar: <span class="stats-value" id="stat-READY_TO_SHIP" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
-        <span>Enviado: <span class="stats-value" id="stat-SHIPPED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
-        <span>Entregue: <span class="stats-value" id="stat-TO_CONFIRM_RECEIVE" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
-        <span>Concluído: <span class="stats-value" id="stat-COMPLETED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
-        <span>Cancelado: <span class="stats-value" id="stat-CANCELLED" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">0</span></span>
-        <span>Líquido total: <span class="stats-value" id="stat-liquido" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">R$ 0,00</span></span>
-        <span>Custo total: <span class="stats-value" id="stat-cost" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">R$ 0,00</span></span>
-        <span>Lucro: <span class="stats-value" id="stat-profit" style="font-weight: var(--font-weight-semibold); color: var(--color-text)">R$ 0,00</span></span>
+      <div class="alert alert-error panel-gap" id="error-box" hidden></div>
+      <div class="panel-gap" id="result-box" hidden></div>
+      <div class="stats-bar" id="stats-bar">
+        <span>Total: <span class="stats-value" id="stat-total">0</span></span>
+        <span>A enviar: <span class="stats-value" id="stat-READY_TO_SHIP">0</span></span>
+        <span>Enviado: <span class="stats-value" id="stat-SHIPPED">0</span></span>
+        <span>Entregue: <span class="stats-value" id="stat-TO_CONFIRM_RECEIVE">0</span></span>
+        <span>Concluído: <span class="stats-value" id="stat-COMPLETED">0</span></span>
+        <span>Cancelado: <span class="stats-value" id="stat-CANCELLED">0</span></span>
+        <span class="divider">Líquido total: <span class="stats-value" id="stat-liquido">R$ 0,00</span></span>
+        <span>Custo total: <span class="stats-value" id="stat-cost">R$ 0,00</span></span>
+        <span>Lucro: <span class="stats-value" id="stat-profit">R$ 0,00</span></span>
       </div>
     </div>
     <div class="card table-container">

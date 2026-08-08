@@ -13,7 +13,7 @@ var CatalogService = (function () {
           params: {
             targetMarginShopee: { type: 'number', required: false, default: 0.25, description: 'Margem alvo Shopee (0-1)' },
             targetMarginMercadoLivre: { type: 'number', required: false, default: 0.25, description: 'Margem alvo Mercado Livre (0-1)' },
-            sortBy: { type: 'string', required: false, default: 'code', enum: ['code', 'description', 'unitCost', 'suggestedShopee'], description: 'Campo de ordenação' },
+            sortBy: { type: 'string', required: false, default: 'code', enum: ['code', 'sku', 'categoria', 'description', 'unitCost', 'suggestedShopee'], description: 'Campo de ordenação' },
             sortOrder: { type: 'string', required: false, default: 'asc', enum: ['asc', 'desc'], description: 'Ordem crescente ou decrescente' }
           },
           returns: {
@@ -200,9 +200,16 @@ var CatalogService = (function () {
       }
 
       delete p._rows;
+      var categoria = '';
+      try {
+        categoria = SkuService.getCategoryByCodigo(p.codigoProduto, p.sku) || '';
+      } catch (e) {
+        console.warn('CatalogService: categoria indisponível para ' + p.codigoProduto + ' — ' + e.message);
+      }
       products.push({
         codigoProduto: p.codigoProduto,
         sku: p.sku || '',
+        categoria: categoria,
         descricaoProduto: p.descricaoProduto,
         estoqueDisponivel: p.estoqueDisponivel,
         quantidadeVendida: p.quantidadeVendida,
@@ -220,6 +227,7 @@ var CatalogService = (function () {
     var sortField = {
       code: 'codigoProduto',
       sku: 'sku',
+      categoria: 'categoria',
       description: 'descricaoProduto',
       unitCost: 'valorUnitarioLiquido',
       suggestedShopee: 'precoShopee'

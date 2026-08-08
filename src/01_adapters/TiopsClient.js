@@ -6,6 +6,8 @@
  * Autenticação: API key via PropertiesService (TIOPS_API_KEY).
  * Contrato: POST https://mcp.tiops.com.br { action, params }
  *   sucesso -> { status: 200, data }     erro -> { error: "mensagem" }
+ *   excecao: acoes como `shopee_sales_by_item` devolvem o payload FLAT
+ *   (sem wrapper `data`) — o `call` aceita esse corpo como dados diretos.
  *
  * Logging: toda chamada é auditada via LoggingService (sync) com timing,
  * params sanitizados, response summary e erros. Aba LOGS no Sheets.
@@ -56,6 +58,11 @@ var TiopsClient = (function () {
 
       if (code >= 200 && code < 300 && body && !body.error) {
         var data = body.data;
+        // Algumas acoes (ex.: shopee_sales_by_item) retornam o payload FLAT,
+        // sem o wrapper { data: ... }. Aceita-se o proprio corpo nesses casos.
+        if (data === undefined) {
+          data = body;
+        }
         var totalMs = Date.now() - startTime;
 
         LoggingService.log({

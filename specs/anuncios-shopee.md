@@ -466,7 +466,7 @@ implementar (skill `tiops-contract`):
 - `shopee_get_item` — detalhes de um item (releitura obrigatória pós-update) ✅ confirmada
 - `shopee_get_items_batch` — detalhes em lote ✅ confirmada
 - `shopee_get_models` — variações/SKUs ✅ confirmada
-- `shopee_sales_by_item` — vendas por item ✅ confirmada
+- `shopee_sales_by_item` — vendas por item ✅ confirmada ⚠️ **payload FLAT** (sem wrapper `data`) — confirmado 2026-08-08 que `TiopsClient.call` aceita o corpo direto; `VENDAS_30D` ficava zerada porque `body.data` era `undefined`
 - ~~`shopee_sales_summary`~~ — **NÃO EXISTE no catálogo** (verificado 2026-08-05); usar `shopee_sales_by_item` por item
 - ~~`shopee_get_item_pictures`~~ — **NÃO EXISTE no catálogo** (verificado 2026-08-05); imagens vêm em `shopee_get_item.image.image_url_list`
 
@@ -629,7 +629,8 @@ function syncListingsDaily() {
 No browser:
 - Página "Anúncios Shopee" carrega ✅
 - Botão "Sincronizar" existe ✅
-- Tabela mostra: ID, Nome, Preço, Estoque, Status, Vendas, Avaliação ✅
+- Tabela mostra: ID, SKU, Nome, Preço, Estoque, Status, Vendas, Avaliação ✅
+- Filtro de texto (ID/SKU/nome) + filtro de status no topo da tabela ✅ (padrão Estoque: inputs com placeholder, select "Todos")
 - Click item → mostra detalhes completos ✅
 - Botão "Pausar" / "Ativar" funciona ✅
 - Editar preço inline → atualiza Shopee via TIOPS + releitura confirma ✅

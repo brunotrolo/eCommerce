@@ -49,6 +49,23 @@
     .pagination button:not(:disabled):hover {
       background: var(--color-bg-secondary, #f7f8fa);
     }
+    .filter-bar {
+      display: flex;
+      gap: var(--space-md);
+      margin-bottom: var(--space-lg);
+      flex-wrap: wrap;
+    }
+    .filter-bar input,
+    .filter-bar select {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+      width: 200px;
+      max-width: 100%;
+    }
   </style>
   <div class="widget-grid">
     <div class="card">
@@ -62,10 +79,20 @@
     <div class="stat-grid" id="stat-grid"></div>
     <div class="card table-container">
       <h3>Inventário de anúncios</h3>
+      <div class="filter-bar">
+        <input type="text" id="filter-search" placeholder="Filtrar por ID, SKU ou nome..." />
+        <select id="filter-status">
+          <option value="all">Status: Todos</option>
+          <option value="ativo">Ativo</option>
+          <option value="pausado">Pausado</option>
+          <option value="deletado">Deletado</option>
+        </select>
+      </div>
       <table class="table" id="items-table">
         <thead>
           <tr>
             <th data-sort="ITEM_ID">ID</th>
+            <th data-sort="SKU">SKU</th>
             <th data-sort="NOME">Nome</th>
             <th data-sort="PRECO">Preço</th>
             <th data-sort="ESTOQUE">Estoque</th>
@@ -90,6 +117,7 @@
     var _currentPage = 0;
     var _allRows = [];
     var _listenersAttached = false;
+    var _filter = { texto: '', status: 'all' };
 
     function esc(v) {
       return String(v == null ? '' : v)
@@ -130,6 +158,17 @@
       return _sortState.asc ? sorted : sorted.reverse();
     }
 
+    function filterRows() {
+      var texto = (_filter.texto || '').toLowerCase().trim();
+      return _allRows.filter(function (r) {
+        if (_filter.status !== 'all' && String(r.STATUS || 'ativo') !== _filter.status) return false;
+        if (!texto) return true;
+        return (String(r.ITEM_ID || '').toLowerCase().indexOf(texto) !== -1 ||
+          String(r.SKU || '').toLowerCase().indexOf(texto) !== -1 ||
+          String(r.NOME || '').toLowerCase().indexOf(texto) !== -1);
+      });
+    }
+
     function updateArrows(tableEl) {
       var ths = tableEl.querySelectorAll('th[data-sort]');
       for (var i = 0; i < ths.length; i++) {
@@ -151,14 +190,14 @@
       acoes += '<button class="btn btn--ghost" data-act="price" data-id="' + esc(r.ITEM_ID) + '" data-nome="' + esc(r.NOME) + '" data-valor="' + r.PRECO + '">Preço</button> ' +
         '<button class="btn btn--ghost" data-act="stock" data-id="' + esc(r.ITEM_ID) + '" data-nome="' + esc(r.NOME) + '" data-valor="' + r.ESTOQUE + '">Estoque</button> ';
       if (status !== 'deletado') acoes += '<button class="btn btn-secondary" data-act="delete" data-id="' + esc(r.ITEM_ID) + '">Deletar</button>';
-      return '<tr><td>' + esc(r.ITEM_ID) + '</td><td>' + esc(r.NOME) + '</td><td>' + fmtBRL(r.PRECO) + '</td><td>' +
+      return '<tr><td>' + esc(r.ITEM_ID) + '</td><td>' + (r.SKU === '' || r.SKU == null ? '-' : esc(r.SKU)) + '</td><td>' + esc(r.NOME) + '</td><td>' + fmtBRL(r.PRECO) + '</td><td>' +
         (r.ESTOQUE === '' ? '-' : r.ESTOQUE) + '</td><td>' + statusLabel(status) + '</td><td>' +
         (r.VENDAS_30D === '' ? '-' : r.VENDAS_30D) + '</td><td>' + (r.AVALIACAO || '-') + '</td><td>' + acoes + '</td></tr>';
     }
 
-    function renderPage(shadow) {
+function renderPage(shadow) {
       var tbody = shadow.querySelector('#items-table tbody');
-      var sorted = sortRows(_allRows);
+      var sorted = sortRows(filterRows());
       var totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
       if (_currentPage >= totalPages) _currentPage = totalPages - 1;
       if (_currentPage < 0) _currentPage = 0;
@@ -167,7 +206,7 @@
 
       var html = '';
       for (var i = 0; i < page.length; i++) html += buildRow(page[i]);
-      tbody.innerHTML = html || '<tr><td colspan="8">Nenhum anúncio ainda. Clique em "Sincronizar Anúncios".</td></tr>';
+      tbody.innerHTML = html || '<tr><td colspan="9">Nenhum anúncio ainda. Clique em "Sincronizar Anúncios".</td></tr>';
 
       var pag = shadow.getElementById('pagination');
       if (sorted.length <= PAGE_SIZE) { pag.innerHTML = ''; return; }
@@ -183,6 +222,11 @@
     function renderAll(shadow, data) {
       _allRows = data.lista || [];
       _currentPage = 0;
+      _filter = { texto: '', status: 'all' };
+      var searchEl = shadow.getElementById('filter-search');
+      if (searchEl) searchEl.value = '';
+      var statusEl = shadow.getElementById('filter-status');
+      if (statusEl) statusEl.value = 'all';
       shadow.getElementById('stat-grid').innerHTML = statsHtml(data.resumo || {});
       updateArrows(shadow.querySelector('#items-table'));
       renderPage(shadow);
@@ -191,6 +235,23 @@
     function attachListeners(shadow) {
       if (_listenersAttached) return;
       _listenersAttached = true;
+
+      var filterSearch = shadow.getElementById('filter-search');
+      var filterStatus = shadow.getElementById('filter-status');
+      if (filterSearch) {
+        filterSearch.addEventListener('input', function () {
+          _filter.texto = filterSearch.value;
+          _currentPage = 0;
+          renderPage(shadow);
+        });
+      }
+      if (filterStatus) {
+        filterStatus.addEventListener('change', function () {
+          _filter.status = filterStatus.value || 'all';
+          _currentPage = 0;
+          renderPage(shadow);
+        });
+      }
 
       shadow.querySelector('#items-table thead').addEventListener('click', function (e) {
         var th = e.target.closest('th[data-sort]');

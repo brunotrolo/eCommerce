@@ -197,7 +197,7 @@ var AnunciosShopeeRepository = (function () {
   }
 
   /** Versão enxuta: lê só colunas essenciais para a tabela (sem DADOS_JSON). */
-  var SLIM_HEADERS = ['ITEM_ID', 'NOME', 'PRECO', 'ESTOQUE', 'STATUS', 'VENDAS_30D', 'AVALIACAO'];
+  var SLIM_HEADERS = ['ITEM_ID', 'SKU', 'NOME', 'PRECO', 'ESTOQUE', 'STATUS', 'VENDAS_30D', 'AVALIACAO'];
 
   function getAllSlim(sheetId) {
     var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);

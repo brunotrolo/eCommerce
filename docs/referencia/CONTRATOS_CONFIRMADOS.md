@@ -54,7 +54,7 @@ Sondagem via MCP Tiops (`shopId` = `1880105398`). Item sem variação usa `model
 | `shopee_update_stock` | `item_id`, `stock_list:[{model_id, seller_stock:[{location_id:"BRZ", stock:N}]}]` | `response.success_list[].stock`, `failure_list` |
 | `shopee_unlist_item` | `item_id`, `unlist: bool` (default true = pausar) | `response.success_list[].unlist` |
 | `shopee_delete_item` | `item_id` | success/error |
-| `shopee_sales_by_item` | `item_id`, `period` (e.g. "30d") | `total_orders`, `total_quantity`, `total_revenue`, `avg_price`, `orders[]` |
+| `shopee_sales_by_item` | `item_id`, `period` (e.g. "30d") | `total_orders`, `total_quantity`, `total_revenue`, `avg_price`, `orders[]` — **⚠️ payload FLAT, SEM wrapper `{data:...}`** (única ação confirmada até hoje com esse shape; `TiopsClient.call` cobre isso desde 2026-08-08) |
 | `shopee_get_item_content_diagnosis_result` | `item_id` | diagnóstico de qualidade do item |
 
 **Aviso crítico:** `shopee_sales_summary` **NÃO existe** no catálogo (citar na spec estava errado). Para agregados de vendas, somar `shopee_sales_by_item` por item ou usar `shopee_get_income_overview` (por mês). ✅ **Corrigido em 2026-08-05:** chamada removida de `OrdersImportService` (pedidos COMPLETED já são cobertos por `shopee_list_orders` com `order_status: COMPLETED` em `ALL_STATUSES`).
