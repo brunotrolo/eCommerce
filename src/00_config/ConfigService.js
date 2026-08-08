@@ -16,6 +16,19 @@ var ConfigService = (function () {
     mercado_livre: { pct: 0.14, fixed: 6 }
   };
 
+  // Modelo de dois componentes da Shopee (comissão + taxa de serviço),
+  // derivado por engenharia reversa de 11 pedidos COMPLETED reais — ver
+  // specs/calculator-shopee.md e specs/pricing.md. Substitui, só para
+  // Shopee, o modelo flat de FALLBACK_FEES.shopee (mantido por
+  // compatibilidade com getMarketplaceFee, ainda usado por outros pontos).
+  var FALLBACK_SHOPEE_FEE_MODEL = {
+    commissionPctCartao: 0.18,
+    commissionPctPix: 0.12,
+    serviceFeeBasePct: 0.02,
+    serviceFeePerItem: 4,
+    serviceFeePromoExtra: 16
+  };
+
   var _configCache = null;
   var _cacheTimestamp = 0;
   var CACHE_TTL_MS = 5 * 60 * 1000;
@@ -96,6 +109,32 @@ var ConfigService = (function () {
     throw new Error('Marketplace desconhecido: ' + marketplace);
   }
 
+  /**
+   * Modelo de taxa Shopee de dois componentes (comissão + taxa de serviço),
+   * conforme specs/pricing.md — usado por PricingService para Shopee em vez
+   * de getMarketplaceFee (que segue flat, para ML e compatibilidade).
+   * @param {string} paymentScenario 'cartao_avista' (default, pior caso) | 'pix_ou_parcelado'
+   * @param {number} itemCount nº de itens no pedido, mínimo 1 (default 1)
+   * @return {{commissionPct:number, serviceFeeBasePct:number, serviceFeeFixed:number}}
+   */
+  function getShopeeFeeModel(paymentScenario, itemCount) {
+    var config = _loadConfig();
+    var isPromo = paymentScenario === 'pix_ou_parcelado';
+    var count = itemCount && itemCount >= 1 ? itemCount : 1;
+
+    var commissionPctCartao = config.shopee_commission_pct_cartao || FALLBACK_SHOPEE_FEE_MODEL.commissionPctCartao;
+    var commissionPctPix = config.shopee_commission_pct_pix || FALLBACK_SHOPEE_FEE_MODEL.commissionPctPix;
+    var serviceFeeBasePct = config.shopee_service_fee_base_pct || FALLBACK_SHOPEE_FEE_MODEL.serviceFeeBasePct;
+    var serviceFeePerItem = config.shopee_service_fee_per_item || FALLBACK_SHOPEE_FEE_MODEL.serviceFeePerItem;
+    var serviceFeePromoExtra = config.shopee_service_fee_promo_extra || FALLBACK_SHOPEE_FEE_MODEL.serviceFeePromoExtra;
+
+    return {
+      commissionPct: isPromo ? commissionPctPix : commissionPctCartao,
+      serviceFeeBasePct: serviceFeeBasePct,
+      serviceFeeFixed: serviceFeePerItem * count + (isPromo ? serviceFeePromoExtra : 0)
+    };
+  }
+
   function getDefaultMargin() {
     var config = _loadConfig();
     return config.default_margin_pct || 0.25;
@@ -152,6 +191,7 @@ var ConfigService = (function () {
     getAccountId: getAccountId,
     getSheetId: getSheetId,
     getMarketplaceFee: getMarketplaceFee,
+    getShopeeFeeModel: getShopeeFeeModel,
     getDefaultMargin: getDefaultMargin,
     getAllConfig: getAllConfig,
     listMarketplaces: listMarketplaces,
