@@ -1,9 +1,17 @@
 # Spec: Calculadora de Precificação
 
 ## Status
-Approved
+Implemented
 
 ## Changelog
+- **08/08/2026** — Implementado em código: `ConfigService.getShopeeFeeModel`,
+  `PricingService.calculateSuggestedPrice`/`compareMarketplaces` (branch Shopee
+  com fórmula fechada + params `itemCount`/`paymentScenario`) e
+  `ui/pricing/PricingView.html` (seletor de cenário Shopee, breakdown
+  comissão/taxa de serviço, cards com cor de marca por canal). Implementado
+  diretamente por esta sessão (exceção pontual ao fluxo padrão de handoff
+  para OpenCode — ver `CLAUDE.md`). Smoke tests atualizados em
+  `src/99_Main.js` (`runSmokeTests_`) com os 3 novos casos Shopee.
 - **08/08/2026** — Corrigido o modelo de taxa da Shopee. O modelo anterior
   (20% flat) foi substituído por um modelo de dois componentes (comissão por
   cenário de pagamento + taxa de serviço com parte fixa por item), derivado
@@ -146,9 +154,9 @@ price = (cost*(1+m) + fixedFee) / (1 - c - 0.02)
 
 ## Critérios de Aceite (Given/When/Then)
 - Given `unitCost=50, targetMarginPct=0.25, marketplace=mercado_livre` When calculado Then `suggestedPrice ≈ 91.80`.
-- Given `unitCost=50, targetMarginPct=0.20, marketplace=shopee` (default `paymentScenario=cartao_avista`, `itemCount=1`) When calculado Then `suggestedPrice = 83.12` e `netMarginPct = 0.20` exato (validado por round-trip test em `specs/calculator-shopee.md` seção 9.1).
-- Given os mesmos parâmetros acima mas `paymentScenario=pix_ou_parcelado` When calculado Then `suggestedPrice = 95.93` (comissão menor compensa a taxa extra de R$16, preço sugerido fica mais alto que o intuitivo — conferir contra `specs/calculator-shopee.md` antes de estranhar).
-- Given `unitCost=15, targetMarginPct=0.20, marketplace=shopee, itemCount=3` When calculado Then `suggestedPrice = 38.44` (fixo de R$12 em vez de R$4 — kit de 3 itens).
+- Given `unitCost=50, targetMarginPct=0.20, marketplace=shopee` (default `paymentScenario=cartao_avista`, `itemCount=1`) When calculado Then `suggestedPrice = 90.00`, `marketplaceFee = 22.00` (commission 16.20 + serviceFee 5.80), `netProfit = 18.00`, `netMarginPct = 0.20` exato — margem sempre medida sobre o **preço de venda** (`marginBasis: price`), mesma convenção do Mercado Livre, não sobre o valor líquido recebido.
+- Given os mesmos parâmetros acima mas `paymentScenario=pix_ou_parcelado` When calculado Then `suggestedPrice = 106.06` (comissão menor, 12% em vez de 18%, mas a taxa de serviço fixa sobe de R$4 para R$20 — o efeito líquido é um preço sugerido mais alto, não mais baixo; contra-intuitivo, mas confira `commission=12.73` + `serviceFee=22.12` = `marketplaceFee=34.85` antes de estranhar).
+- Given `unitCost=15, targetMarginPct=0.20, marketplace=shopee, itemCount=3` When calculado Then `suggestedPrice = 45.00` (fixo de R$12 em vez de R$4 — kit de 3 itens; `commission=8.10`, `serviceFee=12.90`).
 - Given `targetMarginPct=0.85, marketplace=shopee` When calculado Then retorna `{error: "..."}"`.
 - Given `marketplace='amazon'` When calculado Then `ServiceRegistry` retorna erro de validação de enum antes de chamar o serviço.
 - Cobertos por `runSmokeTests_()` em `src/99_Main.js` — **adicionar os 3 novos casos Shopee acima aos smoke tests existentes**, não só os 2 antigos.

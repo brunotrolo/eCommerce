@@ -123,9 +123,10 @@ function runSmokeTests_() {
     }
   }
 
-  // Given unitCost=50, targetMarginPct=0.25, marketplace=shopee -> 50/(1-0.20-0.25)=90.91
+  // Given unitCost=50, targetMarginPct=0.25, marketplace=shopee (modelo 2 componentes,
+  // default cartao_avista/itemCount=1) -> (50+4)/(1-0.18-0.02-0.25) = 54/0.55 = 98.18
   var r1 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.25, marketplace: 'shopee' });
-  expectClose('shopee price@25%', r1.suggestedPrice, 90.91);
+  expectClose('shopee price@25%', r1.suggestedPrice, 98.18);
 
   // Given unitCost=50, targetMarginPct=0.25, marketplace=mercado_livre -> (50+6)/(1-0.14-0.25)=91.80
   var r2 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.25, marketplace: 'mercado_livre' });
@@ -138,6 +139,28 @@ function runSmokeTests_() {
   // Given marketplace inválido -> erro
   var r4 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.25, marketplace: 'amazon' });
   expectError('marketplace desconhecido', r4);
+
+  // Given unitCost=50, targetMarginPct=0.20, marketplace=shopee (default cartao_avista/itemCount=1)
+  // -> suggestedPrice=90.00, marketplaceFee=22.00 (commission 16.20 + serviceFee 5.80), netProfit=18.00
+  var r5 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.20, marketplace: 'shopee' });
+  expectClose('shopee price@20% cartao_avista', r5.suggestedPrice, 90.00);
+  expectClose('shopee marketplaceFee@20% cartao_avista', r5.marketplaceFee, 22.00);
+  expectClose('shopee netProfit@20% cartao_avista', r5.netProfit, 18.00);
+
+  // Given os mesmos parâmetros acima mas paymentScenario=pix_ou_parcelado
+  // -> suggestedPrice=106.06, commission=12.73, serviceFee=22.12, marketplaceFee=34.85
+  var r6 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.20, marketplace: 'shopee', paymentScenario: 'pix_ou_parcelado' });
+  expectClose('shopee price@20% pix', r6.suggestedPrice, 106.06);
+  expectClose('shopee commission@20% pix', r6.commission, 12.73);
+  expectClose('shopee serviceFee@20% pix', r6.serviceFee, 22.12);
+  expectClose('shopee marketplaceFee@20% pix', r6.marketplaceFee, 34.85);
+
+  // Given unitCost=15, targetMarginPct=0.20, marketplace=shopee, itemCount=3
+  // -> suggestedPrice=45.00, commission=8.10, serviceFee=12.90
+  var r7 = PricingService.calculateSuggestedPrice({ unitCost: 15, targetMarginPct: 0.20, marketplace: 'shopee', itemCount: 3 });
+  expectClose('shopee price@20% itemCount=3', r7.suggestedPrice, 45.00);
+  expectClose('shopee commission@20% itemCount=3', r7.commission, 8.10);
+  expectClose('shopee serviceFee@20% itemCount=3', r7.serviceFee, 12.90);
 
   // Given escrow=120 → escrow JÁ É o valor líquido (taxas já descontadas pela Shopee)
   var netShopee = OrdersService.calculateNet({ escrowAmount: 120, netCommissionFee: 24, netServiceFee: 6, pixDiscount: 0, total: 120 });
