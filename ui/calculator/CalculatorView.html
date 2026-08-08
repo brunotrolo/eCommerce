@@ -53,6 +53,41 @@
       padding: var(--space-lg, 16px);
     }
 
+    .calc-marketplace-switch {
+      display: flex;
+      border: 1px solid var(--color-border, #e0e0e0);
+      border-radius: var(--radius-md, 8px);
+      overflow: hidden;
+      margin-bottom: var(--space-lg, 16px);
+    }
+    .calc-marketplace-switch input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .calc-marketplace-switch label {
+      flex: 1;
+      text-align: center;
+      padding: var(--space-sm, 8px) var(--space-md, 12px);
+      font-size: var(--font-size-sm, 12px);
+      font-weight: var(--font-weight-medium, 500);
+      color: var(--color-text-secondary, #666);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .calc-marketplace-switch label:first-of-type {
+      border-right: 1px solid var(--color-border, #e0e0e0);
+    }
+    .calc-marketplace-switch input:checked + label.calc-mkt-shopee {
+      background: var(--color-shopee, #ee4d2d);
+      color: var(--color-shopee-text, #fff);
+    }
+    .calc-marketplace-switch input:checked + label.calc-mkt-ml {
+      background: var(--color-mercado-livre, #ffe600);
+      color: var(--color-mercado-livre-text, #3d3d00);
+    }
+
     .calc-form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -215,6 +250,13 @@
         <button class="calc-close" id="calc-close">&times;</button>
       </div>
       <div class="calc-modal-body">
+        <div class="calc-marketplace-switch" id="calc-marketplace-switch">
+          <input type="radio" name="marketplace" id="calc-mkt-shopee" value="shopee" />
+          <label for="calc-mkt-shopee" class="calc-mkt-shopee">Shopee</label>
+          <input type="radio" name="marketplace" id="calc-mkt-ml" value="mercado_livre" checked />
+          <label for="calc-mkt-ml" class="calc-mkt-ml">Mercado Livre</label>
+        </div>
+
         <div class="calc-form-row">
           <div class="calc-field">
             <label for="custoProduto">Custo do Produto (R$)</label>
@@ -248,7 +290,7 @@
           </div>
         </div>
 
-        <div class="calc-form-row">
+        <div class="calc-form-row" id="calc-ml-fields">
           <div class="calc-field">
             <label>Regime Tributário</label>
             <div class="calc-radio-group">
@@ -262,6 +304,20 @@
               <label><input type="checkbox" id="campanhaCheck" /> Destaque (3,5%)</label>
               <label><input type="checkbox" id="inicianteCheck" /> Iniciante</label>
             </div>
+          </div>
+        </div>
+
+        <div class="calc-form-row" id="calc-shopee-fields" hidden>
+          <div class="calc-field">
+            <label>Pagamento assumido</label>
+            <div class="calc-radio-group">
+              <label><input type="radio" name="paymentScenario" value="cartao_avista" checked /> Cartão à vista</label>
+              <label><input type="radio" name="paymentScenario" value="pix_ou_parcelado" /> Pix/parcelado</label>
+            </div>
+          </div>
+          <div class="calc-field">
+            <label for="itemCountInput">Itens no pedido</label>
+            <input type="number" id="itemCountInput" step="1" min="1" value="1" />
           </div>
         </div>
 
@@ -319,7 +375,7 @@
         });
 
         var self = this;
-        var inputs = ['custoProduto', 'custosAdicionais', 'margemInput', 'adsInput', 'precoVendaInput', 'impostoInput'];
+        var inputs = ['custoProduto', 'custosAdicionais', 'margemInput', 'adsInput', 'precoVendaInput', 'impostoInput', 'itemCountInput'];
         inputs.forEach(function (id) {
           shadow.getElementById(id).addEventListener('input', function () {
             self._debouncedCalc();
@@ -327,6 +383,12 @@
         });
 
         shadow.querySelectorAll('input[name="regime"]').forEach(function (radio) {
+          radio.addEventListener('change', function () {
+            self._debouncedCalc();
+          });
+        });
+
+        shadow.querySelectorAll('input[name="paymentScenario"]').forEach(function (radio) {
           radio.addEventListener('change', function () {
             self._debouncedCalc();
           });
@@ -340,7 +402,21 @@
           self._debouncedCalc();
         });
 
+        shadow.querySelectorAll('input[name="marketplace"]').forEach(function (radio) {
+          radio.addEventListener('change', function () {
+            self._toggleMarketplaceFields(shadow);
+            self._debouncedCalc();
+          });
+        });
+
+        this._toggleMarketplaceFields(shadow);
         this._calculate();
+      }
+
+      _toggleMarketplaceFields(shadow) {
+        var marketplace = shadow.querySelector('input[name="marketplace"]:checked').value;
+        shadow.getElementById('calc-ml-fields').hidden = marketplace !== 'mercado_livre';
+        shadow.getElementById('calc-shopee-fields').hidden = marketplace !== 'shopee';
       }
 
       _debouncedCalc() {
@@ -353,6 +429,7 @@
 
       _calculate() {
         var shadow = this._shadow;
+        var marketplace = shadow.querySelector('input[name="marketplace"]:checked').value;
         var custoProduto = parseFloat(shadow.getElementById('custoProduto').value) || 0;
         var custosAdicionais = parseFloat(shadow.getElementById('custosAdicionais').value) || 0;
         var margem = parseFloat(shadow.getElementById('margemInput').value) || 0;
@@ -360,36 +437,40 @@
         var precoVendaStr = shadow.getElementById('precoVendaInput').value;
         var precoVenda = precoVendaStr !== '' ? parseFloat(precoVendaStr) : null;
         var imposto = parseFloat(shadow.getElementById('impostoInput').value) || 0;
-        var regime = shadow.querySelector('input[name="regime"]:checked').value;
-        var campanha = shadow.getElementById('campanhaCheck').checked;
-        var iniciante = shadow.getElementById('inicianteCheck').checked;
 
         var params = {
+          marketplace: marketplace,
           custoProduto: custoProduto,
           custosAdicionais: custosAdicionais,
           margem: margem / 100,
           adsPercent: ads,
           precoVenda: precoVenda,
-          regime: regime,
-          impostoSimples: imposto / 100,
-          campanhadeDestaque: campanha,
-          vendedorIniciante: iniciante
+          impostoSimples: imposto / 100
         };
+
+        if (marketplace === 'mercado_livre') {
+          params.regime = shadow.querySelector('input[name="regime"]:checked').value;
+          params.campanhadeDestaque = shadow.getElementById('campanhaCheck').checked;
+          params.vendedorIniciante = shadow.getElementById('inicianteCheck').checked;
+        } else {
+          params.paymentScenario = shadow.querySelector('input[name="paymentScenario"]:checked').value;
+          params.itemCount = parseInt(shadow.getElementById('itemCountInput').value, 10) || 1;
+        }
 
         var self = this;
         google.script.run
           .withSuccessHandler(function (response) {
             var outer = response.data || response;
             var data = outer.data || outer;
-            self._renderResult(shadow, data);
+            self._renderResult(shadow, data, marketplace);
           })
           .withFailureHandler(function () {
             shadow.getElementById('calc-result').innerHTML = '<div class="calc-warning critical">Erro ao calcular.</div>';
           })
-          .apiDispatch('calculator.calculateML', params);
+          .apiDispatch('calculator.calculate', params);
       }
 
-      _renderResult(shadow, data) {
+      _renderResult(shadow, data, marketplace) {
         if (!data) {
           shadow.getElementById('calc-price').textContent = 'R$ 0,00';
           shadow.getElementById('calc-margins').innerHTML = '';
@@ -408,6 +489,9 @@
         }
 
         var d = data.descomposicao || {};
+        var isShopee = marketplace === 'shopee';
+        var canal = data.taxasCanal || {};
+
         shadow.getElementById('calc-price').textContent = formatBRL(d.precoVenda || 0);
 
         var marginsHtml = '';
@@ -416,11 +500,16 @@
         marginsHtml += '<div class="calc-margin-item"><span class="calc-margin-value">' + formatBRL(d.lucroLiquido) + '</span><span class="calc-margin-label">Lucro Líquido</span></div>';
         shadow.getElementById('calc-margins').innerHTML = marginsHtml;
 
+        var comissaoLabel = isShopee
+          ? '− Comissão Shopee (' + (canal.comissaoPct * 100).toFixed(0) + '%, ' + canal.label + ')'
+          : '− Taxa ML ' + (canal.label || '') + ' (' + ((canal.comissaoPct || 0) * 100).toFixed(0) + '%)';
+        var taxaServicoLabel = isShopee ? '− Taxa de serviço Shopee' : '− Taxa fixa ML';
+
         var decompHtml = '';
         decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">Preço de Venda</span><span class="calc-decomp-value">' + formatBRL(d.precoVenda) + '</span></div>';
-        decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Taxa ML ' + (data.taxasML ? data.taxasML.faixa : '') + ' (' + (data.taxasML ? (data.taxasML.pct * 100).toFixed(0) : '0') + '%)</span><span class="calc-decomp-value">− ' + formatBRL(d.menosML_percent) + '</span></div>';
-        if (d.menosML_fixo > 0) {
-          decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Taxa fixa ML</span><span class="calc-decomp-value">− ' + formatBRL(d.menosML_fixo) + '</span></div>';
+        decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">' + comissaoLabel + '</span><span class="calc-decomp-value">− ' + formatBRL(d.menosComissao) + '</span></div>';
+        if (d.menosTaxaServico > 0) {
+          decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">' + taxaServicoLabel + '</span><span class="calc-decomp-value">− ' + formatBRL(d.menosTaxaServico) + '</span></div>';
         }
         if (d.menosAds > 0) {
           decompHtml += '<div class="calc-decomp-row"><span class="calc-decomp-label">− Ads (' + ((data.adsPercent || 0) * 100).toFixed(0) + '%)</span><span class="calc-decomp-value">− ' + formatBRL(d.menosAds) + '</span></div>';

@@ -4,6 +4,24 @@
 Implemented
 
 ## Changelog
+- **08/08/2026** — `ui/pricing/PricingView.html` (o widget dedicado criado
+  na revisão anterior, nunca chegou a ser montado em `Shell.html`) foi
+  **removido**. O usuário pediu explicitamente que só exista uma única
+  calculadora no app — a que já existia (`CalculatorService`/
+  `CalculatorView.html`, botão 🧮 no topo). O modelo Shopee validado
+  (`ConfigService.getShopeeFeeModel`) foi incorporado lá, ver
+  `specs/calculator.md` v2. `PricingService.calculateSuggestedPrice`/
+  `compareMarketplaces` **continuam existindo e em uso** — são a API interna
+  consumida por `CatalogService.js` (e potencialmente outros serviços), só a
+  UI dedicada é que saiu.
+- **08/08/2026** — O usuário pediu um modo reverso ("já decidi vender por
+  R$X, quanto sobra líquido depois de todas as taxas?"), além do modo já
+  existente custo→preço. Esse modo **não foi adicionado aqui** — foi
+  implementado em `CalculatorService.calculate`/`CalculatorView.html`
+  (`specs/calculator.md` v2, campo `precoVenda` informado = modo "simular"),
+  já que essa é agora a única calculadora do app. `PricingService` continua
+  só com o modo custo→preço (`calculateSuggestedPrice`/`compareMarketplaces`),
+  que é o que `CatalogService.js` consome.
 - **08/08/2026** — Implementado em código: `ConfigService.getShopeeFeeModel`,
   `PricingService.calculateSuggestedPrice`/`compareMarketplaces` (branch Shopee
   com fórmula fechada + params `itemCount`/`paymentScenario`) e
@@ -26,7 +44,11 @@ Implemented
 Generalizar a planilha manual existente (Custo Unitário, Preço Médio de
 Mercado, Sugerido Shopee, Sugerido ML, Taxa, Lucro Líquido) num serviço:
 dado custo + margem alvo + marketplace, calcular o preço sugerido descontando
-a taxa correta do canal.
+a taxa correta do canal. Esta é a API interna de precificação — não é uma UI
+própria (a calculadora do app, com modo custo→preço e o modo reverso
+preço→líquido, é `CalculatorService`/`CalculatorView.html`, ver
+`specs/calculator.md`); `PricingService` é consumido por outros serviços
+(`CatalogService.js` hoje).
 
 ## Contrato da API Interna
 

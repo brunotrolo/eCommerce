@@ -662,18 +662,18 @@ function runCalculatorSmokeTests_() {
   }
 
   // Cenário 1: Básico CNPJ, faixa R$100–199
-  var r1 = CalculatorService.calculateML({ custoProduto: 100, margem: 0.20, regime: 'cnpj' });
+  var r1 = CalculatorService.calculate({ custoProduto: 100, margem: 0.20, regime: 'cnpj' });
   expectTrue('cenário1 success', !!r1.success);
   expectTrue('cenário1 data exists', !!r1.data);
   if (r1.data) {
-    expectTrue('cenário1 faixa R$100–199', r1.data.taxasML.faixa === 'R$100–199');
-    expectTrue('cenário1 taxa 14%', r1.data.taxasML.pct === 0.14);
-    expectTrue('cenário1 fixa R$20', r1.data.taxasML.fixed === 20);
+    expectTrue('cenário1 faixa R$100–199', r1.data.taxasCanal.label === 'R$100–199');
+    expectTrue('cenário1 taxa 14%', r1.data.taxasCanal.comissaoPct === 0.14);
+    expectTrue('cenário1 fixa R$20', r1.data.descomposicao.menosTaxaServico === 20);
     expectTrue('cenário1 preco ~168-175', r1.data.precoVenda >= 165 && r1.data.precoVenda <= 180);
   }
 
   // Cenário 2: CPF com custo adicional
-  var r2 = CalculatorService.calculateML({ custoProduto: 50, custosAdicionais: 10, margem: 0.25, regime: 'cpf' });
+  var r2 = CalculatorService.calculate({ custoProduto: 50, custosAdicionais: 10, margem: 0.25, regime: 'cpf' });
   expectTrue('cenário2 success', !!r2.success);
   if (r2.data) {
     expectTrue('cenário2 custoTotal 60', r2.data.custoTotal === 60);
@@ -681,7 +681,7 @@ function runCalculatorSmokeTests_() {
   }
 
   // Cenário 3: Campanha + ads
-  var r3 = CalculatorService.calculateML({ custoProduto: 100, margem: 0.20, campanhadeDestaque: true, adsPercent: 2 });
+  var r3 = CalculatorService.calculate({ custoProduto: 100, margem: 0.20, campanhadeDestaque: true, adsPercent: 2 });
   expectTrue('cenário3 success', !!r3.success);
   if (r3.data) {
     expectTrue('cenário3 campanha applies', r3.data.descomposicao.menoCampanha > 0);
@@ -689,7 +689,7 @@ function runCalculatorSmokeTests_() {
   }
 
   // Cenário 4: Preço manual
-  var r4 = CalculatorService.calculateML({ custoProduto: 50, precoVenda: 150 });
+  var r4 = CalculatorService.calculate({ custoProduto: 50, precoVenda: 150 });
   expectTrue('cenário4 success', !!r4.success);
   if (r4.data) {
     expectTrue('cenário4 precoVenda 150', r4.data.precoVenda === 150);
@@ -697,21 +697,58 @@ function runCalculatorSmokeTests_() {
   }
 
   // Cenário 5: Vendedor iniciante
-  var r5 = CalculatorService.calculateML({ custoProduto: 100, regime: 'cnpj', vendedorIniciante: true });
+  var r5 = CalculatorService.calculate({ custoProduto: 100, regime: 'cnpj', vendedorIniciante: true });
   expectTrue('cenário5 success', !!r5.success);
   if (r5.data) {
-    expectTrue('cenário5 isento', r5.data.taxasML.isento === true);
-    expectTrue('cenário5 taxa 0', r5.data.taxasML.pct === 0);
-    expectTrue('cenário5 fixa 0', r5.data.taxasML.fixed === 0);
+    expectTrue('cenário5 isento', r5.data.taxasCanal.isento === true);
+    expectTrue('cenário5 taxa 0', r5.data.taxasCanal.comissaoPct === 0);
+    expectTrue('cenário5 fixa 0', r5.data.descomposicao.menosTaxaServico === 0);
   }
 
   // Cenário 6: Imposto alto → aviso
-  var r6 = CalculatorService.calculateML({ custoProduto: 100, impostoSimples: 0.15 });
+  var r6 = CalculatorService.calculate({ custoProduto: 100, impostoSimples: 0.15 });
   expectTrue('cenário6 success', !!r6.success);
   if (r6.data) {
     expectTrue('cenário6 has avisos', r6.data.avisos && r6.data.avisos.length > 0);
     var hasLowMargin = r6.data.avisos.some(function (a) { return a.tipo === 'margin_low'; });
     expectTrue('cenário6 margin_low warning', hasLowMargin);
+  }
+
+  // Cenário 7: Shopee básico, cartão à vista — deve bater com specs/pricing.md
+  var r7 = CalculatorService.calculate({ marketplace: 'shopee', custoProduto: 50, margem: 0.20 });
+  expectTrue('cenário7 success', !!r7.success);
+  if (r7.data) {
+    expectClose('cenário7 preco 90.00', r7.data.precoVenda, 90.00, 0.01);
+    expectClose('cenário7 comissao 16.20', r7.data.descomposicao.menosComissao, 16.20, 0.01);
+    expectClose('cenário7 taxaServico 5.80', r7.data.descomposicao.menosTaxaServico, 5.80, 0.01);
+    expectClose('cenário7 lucro 18.00', r7.data.descomposicao.lucroLiquido, 18.00, 0.01);
+  }
+
+  // Cenário 8: Shopee, Pix/parcelado — comissão menor, taxa fixa maior
+  var r8 = CalculatorService.calculate({ marketplace: 'shopee', custoProduto: 50, margem: 0.20, paymentScenario: 'pix_ou_parcelado' });
+  expectTrue('cenário8 success', !!r8.success);
+  if (r8.data) {
+    expectClose('cenário8 preco 106.06', r8.data.precoVenda, 106.06, 0.01);
+    expectClose('cenário8 comissao 12.73', r8.data.descomposicao.menosComissao, 12.73, 0.01);
+    expectClose('cenário8 taxaServico 22.12', r8.data.descomposicao.menosTaxaServico, 22.12, 0.01);
+  }
+
+  // Cenário 9: Shopee, kit de 3 itens — taxa fixa de serviço escala com itemCount
+  var r9 = CalculatorService.calculate({ marketplace: 'shopee', custoProduto: 15, margem: 0.20, itemCount: 3 });
+  expectTrue('cenário9 success', !!r9.success);
+  if (r9.data) {
+    expectClose('cenário9 preco 45.00', r9.data.precoVenda, 45.00, 0.01);
+    expectClose('cenário9 comissao 8.10', r9.data.descomposicao.menosComissao, 8.10, 0.01);
+    expectClose('cenário9 taxaServico 12.90', r9.data.descomposicao.menosTaxaServico, 12.90, 0.01);
+  }
+
+  // Cenário 10: Shopee, preço manual — modo "simular venda"
+  var r10 = CalculatorService.calculate({ marketplace: 'shopee', custoProduto: 50, precoVenda: 90 });
+  expectTrue('cenário10 success', !!r10.success);
+  if (r10.data) {
+    expectTrue('cenário10 precoSugerido null', r10.data.precoSugerido === null);
+    expectClose('cenário10 subTotal 68.00', r10.data.descomposicao.subTotal, 68.00, 0.01);
+    expectClose('cenário10 lucro 18.00', r10.data.descomposicao.lucroLiquido, 18.00, 0.01);
   }
 
   if (failures.length) {
