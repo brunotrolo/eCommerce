@@ -291,7 +291,10 @@ function calculateShopee(params) {
         taxaServico: taxaServico(preco),
         liquidoRecebido: liquido,
         lucro,
-        margemReal: lucro / liquido,
+        // margem sempre medida sobre o preço de venda (marginBasis: 'price'),
+        // mesma convenção do Mercado Livre e de specs/pricing.md — NUNCA sobre
+        // o líquido recebido (são conceitos diferentes e dão valores diferentes).
+        margemReal: lucro / preco,
       }
     };
   }
@@ -299,15 +302,15 @@ function calculateShopee(params) {
   // Caso contrário: resolve o preço de venda algebricamente.
   // Embora a taxa de serviço tenha um componente fixo em R$ (não só percentual),
   // esse componente NÃO depende do preço (só de qtdItens e do cenário de pagamento),
-  // então a equação continua linear em `preco` e pode ser isolada diretamente:
+  // então a equação continua linear em `preco` e pode ser isolada diretamente.
   //
-  //   liquido = preco*(1 - comissaoPct - 0.02) - cupom - fixo
-  //   preco   = (liquido + cupom + fixo) / (1 - comissaoPct - 0.02)
+  // Margem-alvo definida sobre o PREÇO DE VENDA (margem = lucro / precoVenda,
+  // idêntica à convenção do Mercado Livre — ver specs/pricing.md):
   //
-  // e, para atingir uma margem-alvo definida sobre o líquido recebido
-  // (margem = lucro / liquido):
-  //
-  //   liquido_necessario = custoTotal / (1 - margem)
+  //   liquido = preco*kAjustado - cupom - fixo
+  //   lucro   = liquido - custoTotal
+  //   margem*preco = preco*kAjustado - cupom - fixo - custoTotal
+  //   preco   = (custoTotal + cupom + fixo) / (kAjustado - margem)
   //
   const custoTotal = params.custoProduto + (params.custosAdicionais || 0);
   const k = 1 - comissaoPct - 0.02; // fração do preço que sobra após comissão + taxa-base
@@ -316,8 +319,7 @@ function calculateShopee(params) {
   const imposto = params.impostoSimples || 0;
   const kAjustado = k - ads - imposto; // Ads e imposto também são % sobre o preço
 
-  const liquidoNecessario = custoTotal / (1 - params.margem);
-  const precoSugerido = (liquidoNecessario + (params.cupomVendedor || 0) + fixo) / kAjustado;
+  const precoSugerido = (custoTotal + (params.cupomVendedor || 0) + fixo) / (kAjustado - params.margem);
   const liquido = liquidoParaPreco(precoSugerido);
 
   return {
@@ -329,10 +331,18 @@ function calculateShopee(params) {
       taxaServico: taxaServico(precoSugerido),
       liquidoRecebido: liquido,
       lucroEstimado: liquido - custoTotal,
+      margemReal: (liquido - custoTotal) / precoSugerido,
     }
   };
 }
 ```
+
+> Nota: `cupomVendedor`, `adsPercent` e `impostoSimples` são extensões deste
+> pseudocódigo de referência, não fazem parte do contrato aprovado em
+> `specs/pricing.md` (que cobre só `unitCost`/`extraCosts`/`itemCount`/
+> `paymentScenario`) — não implementar esses três parâmetros agora; ficam
+> registrados aqui só para não perder a álgebra caso um dia sejam adicionados
+> ao contrato formal.
 
 **Por que fórmula fechada (e não busca numérica):** o componente fixo da taxa de serviço (R$4/item + R$16 se Pix/parcelado) não depende do preço — só da quantidade de itens e do cenário de pagamento, que são conhecidos antes de calcular o preço. Isso mantém a equação linear em `preco`, permitindo isolar algebricamente em vez de precisar de bisseção ou outro método iterativo. Mais simples, mais rápido e sem risco de não-convergência.
 
