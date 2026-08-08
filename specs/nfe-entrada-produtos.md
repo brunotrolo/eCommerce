@@ -59,6 +59,29 @@ Resolve o problema: ter dados agregados na NFe (NFE_ENTRADA) mas precisar de gra
   | codigoProduto | string | não | — | Filtrar por código (se omitir, retorna tudo) |
 - **Retorno:** Array de {codigoProduto, descricao, quantidadeTotal, ultimaEntrada, ultimaNfOrigemNumero}
 
+### `nfeEntradaProdutos.getProdutos`
+- **Descrição:** Retorna todos os produtos (linhas brutas) da aba NFE_ENTRADA_PRODUTOS,
+  enriquecidos para exibição com `CATEGORIA` e preços sugeridos de venda.
+- **Params:** Nenhum
+- **Retorno:** `{ data: [...] }` onde cada item é uma linha da aba com campos adicionais:
+  ```javascript
+  {
+    ...linha da aba (NUMERO_NF, CODIGO_PRODUTO, SKU, DESCRICAO_PRODUTO, NCM, ...),
+    CATEGORIA: string,                    // prefixo do SKU (PERF, UTI, COZ, LIM, DEC, OUT)
+    PRECO_SUGERIDO_SHOPEE: number,        // preço sugerido Shopee do catálogo (0 se sem preço)
+    PRECO_SUGERIDO_MERCADO_LIVRE: number  // preço sugerido Mercado Livre do catálogo (0 se sem preço)
+  }
+  ```
+- **Subtotais na view (client-side, sobre o filtro ativo):**
+  - Total = soma de QUANTIDADE
+  - Disponivel = soma de QUANTIDADE com STATUS='Recebido'
+  - Vendido = soma de QUANTIDADE com STATUS='Desconsiderar'
+  - Alertas = nº de itens sem preço sugerido no catálogo (ambos preços = 0)
+  - Custo Total = soma de VALOR_LIQUIDO_ITEM
+  - Preco Shopee = soma de QUANTIDADE × PRECO_SUGERIDO_SHOPEE
+  - Preco ML = soma de QUANTIDADE × PRECO_SUGERIDO_MERCADO_LIVRE
+- **Filtros por coluna:** NF, CÓDIGO, CATEGORIA, DESCRIÇÃO, NCM e STATUS (combináveis).
+
 ## Formato da Aba NFE_ENTRADA_PRODUTOS
 
 Colunas (ordem fixa) — mantém referência completa aos dados da NFe para auditoria cruzada:

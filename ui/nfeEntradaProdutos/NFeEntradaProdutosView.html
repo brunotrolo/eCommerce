@@ -13,57 +13,31 @@
     .nfe-search-wrap {
       margin-bottom: var(--space-xl);
     }
-    .nfe-search {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 8px;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      background: var(--color-surface);
-      min-height: 38px;
-    }
-    .nfe-search:focus-within {
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 2px var(--color-primary-light);
-    }
-    .search-tag {
-      display: inline-flex !important;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 8px !important;
-      background: var(--color-info-light) !important;
-      color: var(--color-info-text) !important;
-      border: 1px solid var(--color-info) !important;
-      border-radius: var(--radius-sm);
-      font-size: var(--font-size-xs);
-      white-space: nowrap;
-      cursor: default;
-    }
-    .search-tag-remove {
-      cursor: pointer;
-      font-weight: bold;
-      opacity: 0.7;
-      line-height: 1;
-      margin-left: 2px;
-    }
-    .search-tag-remove:hover { opacity: 1; }
-    .nfe-search input {
-      flex: 1;
-      min-width: 150px;
-      border: none;
-      outline: none;
-      padding: 4px;
-      font-size: var(--font-size-sm);
-      background: transparent;
-      color: var(--color-text);
-    }
-    .nfe-search input::placeholder { color: var(--color-text-secondary); }
     .nfe-search-hint {
       margin-top: 4px;
       font-size: var(--font-size-xs);
       color: var(--color-text-secondary);
+    }
+    .nfe-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-sm);
+      align-items: center;
+    }
+    .nfe-filters input,
+    .nfe-filters select {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-size: var(--font-size-sm);
+    }
+    .nfe-filters input { flex: 1 1 130px; min-width: 110px; }
+    .nfe-filters input:focus,
+    .nfe-filters select:focus {
+      outline: none;
+      border-color: var(--color-primary);
     }
     .nfe-summary {
       display: flex;
@@ -263,13 +237,30 @@
       <div id="result-box" hidden></div>
 
       <div class="nfe-search-wrap">
-        <div class="nfe-search" id="search-bar">
-          <input type="text" id="search-input" placeholder="Digite e pressione Enter para filtrar..." />
+        <div class="nfe-filters">
+          <input type="text" id="filter-nf" placeholder="NF..." />
+          <input type="text" id="filter-codigo" placeholder="Código..." />
+          <input type="text" id="filter-categoria" placeholder="Categoria..." />
+          <input type="text" id="filter-descricao" placeholder="Descrição..." />
+          <input type="text" id="filter-ncm" placeholder="NCM..." />
+          <select id="filter-status">
+            <option value="">Status: todos</option>
+            <option value="Recebido">Recebido</option>
+            <option value="Desconsiderar">Desconsiderar</option>
+          </select>
         </div>
-        <div class="nfe-search-hint">Pressione <strong>Enter</strong> para adicionar filtro. Clique no <strong>×</strong> para remover.</div>
+        <div class="nfe-search-hint">Filtros combinados por coluna — digite e filtra na hora.</div>
       </div>
 
-      <div class="nfe-summary" id="summary"></div>
+      <div class="nfe-summary" id="summary">
+        <div class="stat"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total</div></div>
+        <div class="stat"><div class="stat-value" id="stat-disponivel">0</div><div class="stat-label">Disponivel</div></div>
+        <div class="stat"><div class="stat-value" id="stat-vendido">0</div><div class="stat-label">Vendido</div></div>
+        <div class="stat"><div class="stat-value" id="stat-alertas">0</div><div class="stat-label">Alertas</div></div>
+        <div class="stat" style="border-left: 1px solid var(--color-border); padding-left: var(--space-lg);"><div class="stat-value" id="stat-custo">R$ 0,00</div><div class="stat-label">Custo Total</div></div>
+        <div class="stat"><div class="stat-value" id="stat-preco-shopee">R$ 0,00</div><div class="stat-label">Preco Shopee</div></div>
+        <div class="stat"><div class="stat-value" id="stat-preco-ml">R$ 0,00</div><div class="stat-label">Preco ML</div></div>
+      </div>
 
       <div class="card" id="estoque-card" hidden>
         <h2>Itens Importados</h2>
@@ -306,7 +297,6 @@
             this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
           }
           this._allItems = [];
-          this._filterTags = [];
           this._sortState = { field: null, asc: true };
         }
 
@@ -360,7 +350,6 @@
           var self = this;
           var btnProcessar = this.shadowRoot.getElementById('btn-processar');
           var status = this.shadowRoot.getElementById('process-status');
-          var searchInput = this.shadowRoot.getElementById('search-input');
           var overlay = this.shadowRoot.getElementById('sidebar-overlay');
           var closeBtn = this.shadowRoot.getElementById('sidebar-close');
 
@@ -407,18 +396,15 @@ self._showResult(html);
               .apiDispatch('nfeEntradaProdutos.processarTodasNfs', {});
           });
 
-          searchInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              var val = searchInput.value.trim();
-              if (val) {
-                self._addTag(val);
-                searchInput.value = '';
-              }
-            } else if (e.key === 'Backspace' && !searchInput.value && self._filterTags.length > 0) {
-              self._removeTag(self._filterTags.length - 1);
-            }
-          });
+          var filterIds = ['filter-nf', 'filter-codigo', 'filter-categoria', 'filter-descricao', 'filter-ncm', 'filter-status'];
+          for (var f = 0; f < filterIds.length; f++) {
+            (function (id) {
+              var el = self.shadowRoot.getElementById(id);
+              el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', function () {
+                self._applyFilter();
+              });
+            })(filterIds[f]);
+          }
 
           overlay.addEventListener('click', function () { self._closeSidebar(); });
           closeBtn.addEventListener('click', function () { self._closeSidebar(); });
@@ -435,82 +421,30 @@ self._showResult(html);
           this._loadProdutos();
         }
 
-        _addTag(text) {
-          var v = text.trim();
-          if (!v) return;
-          for (var i = 0; i < this._filterTags.length; i++) {
-            if (this._filterTags[i].toLowerCase() === v.toLowerCase()) return;
-          }
-          this._filterTags.push(v);
-          this._renderTags();
-          this._applyFilter();
-        }
-
-        _removeTag(index) {
-          this._filterTags.splice(index, 1);
-          this._renderTags();
-          this._applyFilter();
-        }
-
-        _renderTags() {
-          var self = this;
-          var bar = this.shadowRoot.getElementById('search-bar');
-          var input = this.shadowRoot.getElementById('search-input');
-
-          var old = bar.querySelectorAll('.search-tag');
-          for (var i = 0; i < old.length; i++) old[i].remove();
-
-          for (var j = 0; j < self._filterTags.length; j++) {
-            (function (idx) {
-              var tag = document.createElement('span');
-              tag.className = 'search-tag';
-              var txt = document.createTextNode(self._filterTags[idx] + ' ');
-              tag.appendChild(txt);
-
-              var x = document.createElement('span');
-              x.className = 'search-tag-remove';
-              x.textContent = '\u00d7';
-              x.addEventListener('click', function () {
-                self._removeTag(idx);
-              });
-              tag.appendChild(x);
-
-              bar.insertBefore(tag, input);
-            })(j);
-          }
-        }
-
         _applyFilter() {
           var self = this;
-          var input = this.shadowRoot.getElementById('search-input');
-          var live = input.value.trim().toLowerCase();
+          var v = function (id) {
+            var el = self.shadowRoot.getElementById(id);
+            return el ? el.value.trim().toLowerCase() : '';
+          };
+          var fNf = v('filter-nf');
+          var fCod = v('filter-codigo');
+          var fCat = v('filter-categoria');
+          var fDesc = v('filter-descricao');
+          var fNcm = v('filter-ncm');
+          var fStatus = v('filter-status');
 
-          var items = this._allItems;
+          var items = this._allItems.filter(function (item) {
+            if (fNf && String(item.NUMERO_NF || '').toLowerCase().indexOf(fNf) === -1) return false;
+            if (fCod && String(item.CODIGO_PRODUTO || '').toLowerCase().indexOf(fCod) === -1) return false;
+            if (fCat && String(item.CATEGORIA || '').toLowerCase().indexOf(fCat) === -1) return false;
+            if (fDesc && String(item.DESCRICAO_PRODUTO || '').toLowerCase().indexOf(fDesc) === -1) return false;
+            if (fNcm && String(item.NCM || '').toLowerCase().indexOf(fNcm) === -1) return false;
+            if (fStatus && String(item.STATUS || 'Recebido').toLowerCase() !== fStatus.toLowerCase()) return false;
+            return true;
+          });
 
-          if (self._filterTags.length > 0) {
-            items = items.filter(function (item) {
-              for (var i = 0; i < self._filterTags.length; i++) {
-                var t = self._filterTags[i].toLowerCase();
-                var ok = String(item.CODIGO_PRODUTO || '').toLowerCase().indexOf(t) !== -1 ||
-                  String(item.NUMERO_NF || '').toLowerCase().indexOf(t) !== -1 ||
-                  String(item.DESCRICAO_PRODUTO || '').toLowerCase().indexOf(t) !== -1;
-                if (!ok) return false;
-              }
-              return true;
-            });
-          }
-
-          if (live) {
-            items = items.filter(function (item) {
-              return String(item.CODIGO_PRODUTO || '').toLowerCase().indexOf(live) !== -1 ||
-                String(item.NUMERO_NF || '').toLowerCase().indexOf(live) !== -1 ||
-                String(item.DESCRICAO_PRODUTO || '').toLowerCase().indexOf(live) !== -1;
-            });
-          }
-
-          var summary = this.shadowRoot.getElementById('summary');
-          summary.innerHTML =
-            '<div class="stat"><div class="stat-value">' + items.length + '</div><div class="stat-label">Itens</div></div>';
+          this._updateStats(items);
 
           var table = this.shadowRoot.getElementById('estoque-table');
           items = this._sortItems(items);
@@ -525,6 +459,39 @@ self._showResult(html);
               self._updateStatus(nf, cod, st);
             });
           }
+        }
+
+        _updateStats(items) {
+          var set = items || [];
+          var total = 0;
+          var disponivel = 0;
+          var vendido = 0;
+          var alertas = 0;
+          var somaCusto = 0;
+          var somaShopee = 0;
+          var somaML = 0;
+          for (var i = 0; i < set.length; i++) {
+            var qtd = parseFloat(set[i].QUANTIDADE) || 0;
+            var status = String(set[i].STATUS || 'Recebido').trim();
+            total += qtd;
+            if (status === 'Recebido') disponivel += qtd;
+            else if (status === 'Desconsiderar') vendido += qtd;
+            var precoShopee = parseFloat(set[i].PRECO_SUGERIDO_SHOPEE) || 0;
+            var precoML = parseFloat(set[i].PRECO_SUGERIDO_MERCADO_LIVRE) || 0;
+            if (precoShopee <= 0 && precoML <= 0) alertas++;
+            somaShopee += qtd * precoShopee;
+            somaML += qtd * precoML;
+            var vLiq = parseFloat(set[i].VALOR_LIQUIDO_ITEM);
+            if (isNaN(vLiq)) vLiq = parseFloat(set[i].VALOR_TOTAL) || 0;
+            somaCusto += vLiq;
+          }
+          this.shadowRoot.getElementById('stat-total').textContent = Math.round(total);
+          this.shadowRoot.getElementById('stat-disponivel').textContent = Math.round(disponivel);
+          this.shadowRoot.getElementById('stat-vendido').textContent = Math.round(vendido);
+          this.shadowRoot.getElementById('stat-alertas').textContent = alertas;
+          this.shadowRoot.getElementById('stat-custo').textContent = FormatterService.formatCurrency(somaCusto);
+          this.shadowRoot.getElementById('stat-preco-shopee').textContent = FormatterService.formatCurrency(somaShopee);
+          this.shadowRoot.getElementById('stat-preco-ml').textContent = FormatterService.formatCurrency(somaML);
         }
 
         _hideResult() {
@@ -608,6 +575,7 @@ self._showResult(html);
             '<thead><tr>' +
             '<th data-sort="NUMERO_NF">NF' + this._sortIcon('NUMERO_NF') + '</th>' +
             '<th data-sort="CODIGO_PRODUTO">Código' + this._sortIcon('CODIGO_PRODUTO') + '</th>' +
+            '<th data-sort="CATEGORIA">Categoria' + this._sortIcon('CATEGORIA') + '</th>' +
             '<th data-sort="DESCRICAO_PRODUTO">Descrição' + this._sortIcon('DESCRICAO_PRODUTO') + '</th>' +
             '<th data-sort="NCM">NCM' + this._sortIcon('NCM') + '</th>' +
             '<th data-sort="QUANTIDADE">Qtd' + this._sortIcon('QUANTIDADE') + '</th>' +
@@ -629,6 +597,7 @@ self._showResult(html);
             html += '<tr data-index="' + j + '" class="prod-row">' +
               '<td>' + nf + '</td>' +
               '<td>' + codProd + '</td>' +
+              '<td>' + (item.CATEGORIA || '') + '</td>' +
               '<td>' + (item.DESCRICAO_PRODUTO || '').toUpperCase() + '</td>' +
               '<td>' + (item.NCM || '') + '</td>' +
               '<td>' + (Math.round(parseFloat(item.QUANTIDADE) || 0)) + '</td>' +

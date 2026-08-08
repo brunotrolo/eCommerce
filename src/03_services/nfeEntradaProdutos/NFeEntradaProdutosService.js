@@ -550,7 +550,9 @@ var NFeEntradaProdutosService = (function () {
   }
 
   /**
-   * Retorna todos os produtos (linhas brutas) da aba NFE_ENTRADA_PRODUTOS.
+   * Retorna todos os produtos (linhas brutas) da aba NFE_ENTRADA_PRODUTOS,
+   * enriquecidos com CATEGORIA (derivada do SKU) e preços sugeridos do
+   * catálogo (para subtotais na view).
    */
   function getProdutos(params) {
     var sheetId = ConfigService.getNfeEntradaSheetId();
@@ -560,6 +562,29 @@ var NFeEntradaProdutosService = (function () {
 
     try {
       var produtos = NFeEntradaProdutosRepository.getProdutos(sheetId);
+      var precoMap = {};
+      try {
+        var catalogo = CatalogService.getProducts({ sortBy: 'code', sortOrder: 'asc' });
+        if (catalogo && catalogo.success && catalogo.data) {
+          for (var c = 0; c < catalogo.data.length; c++) {
+            var cp = catalogo.data[c];
+            precoMap[String(cp.codigoProduto || '').trim()] = {
+              shopee: cp.precoShopee || 0,
+              mercadoLivre: cp.precoMercadoLivre || 0
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('NFeEntradaProdutosService: erro ao carregar catálogo p/ preços — ' + e.message);
+      }
+      for (var i = 0; i < produtos.length; i++) {
+        var sku = String(produtos[i].SKU || '').trim();
+        var cod = String(produtos[i].CODIGO_PRODUTO || '').trim();
+        produtos[i].CATEGORIA = sku ? sku.split('-')[0] : '';
+        var precos = precoMap[cod] || { shopee: 0, mercadoLivre: 0 };
+        produtos[i].PRECO_SUGERIDO_SHOPEE = precos.shopee;
+        produtos[i].PRECO_SUGERIDO_MERCADO_LIVRE = precos.mercadoLivre;
+      }
       trace_('getProdutos:ok', produtos.length + ' produto(s) encontrado(s)', { count: produtos.length });
       return { data: produtos };
     } catch (e) {
