@@ -342,6 +342,7 @@
       _invalidateCache() {
         var ds = window.__DataStore;
         if (!ds) return;
+        ds.invalidate('estoque.Items.TODOS');
         var statuses = ['DISPONIVEL', 'VENDIDO', 'DEVOLVIDO', 'QUEBRADO', 'COM_DEFEITO'];
         for (var i = 0; i < statuses.length; i++) {
           ds.invalidate('estoque.Items.' + statuses[i]);
@@ -353,9 +354,8 @@
         var loadingEl = this._el('loading-state');
         if (loadingEl) loadingEl.style.display = 'block';
 
-        var statusVal = this._el('filter-status').value || 'DISPONIVEL';
-        var params = { status: statusVal };
-        var cacheKey = 'estoque.Items.' + statusVal;
+        var params = {};
+        var cacheKey = 'estoque.Items.TODOS';
         var ds = window.__DataStore;
 
         if (ds) {
@@ -720,8 +720,13 @@
 
         var totalItens = 0;
         for (var i = 0; i < sorted.length; i++) totalItens += sorted[i].qtd;
+        var dispCount = 0;
+        for (var j = 0; j < this._items.length; j++) {
+          var stNorm = (this._items[j].STATUS || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          if (stNorm === 'DISPONIVEL') dispCount++;
+        }
         this._el('stat-total').textContent = totalItens;
-        this._el('stat-disponivel').textContent = this._items.length;
+        this._el('stat-disponivel').textContent = dispCount;
         this._el('stat-vendido').textContent = '—';
         this._el('stat-alertas').textContent = '—';
 
@@ -1192,16 +1197,17 @@
       }
 
       _updateStats(items) {
-        var total = this._items.length;
+        var allItems = this._items || [];
+        var total = allItems.length;
         var disponivel = 0;
         var vendido = 0;
         var alertas = 0;
-        for (var i = 0; i < this._items.length; i++) {
-          var st = (this._items[i].STATUS || '').toUpperCase();
+        for (var i = 0; i < allItems.length; i++) {
+          var st = (allItems[i].STATUS || '').toUpperCase();
           var stNorm = st.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
           if (stNorm === 'DISPONIVEL') disponivel++;
           else if (stNorm === 'VENDIDO') vendido++;
-          if (this._items[i].ALERTA_ESTOQUE_BAIXO === true || this._items[i].ALERTA_ESTOQUE_BAIXO === 'true') {
+          if (allItems[i].ALERTA_ESTOQUE_BAIXO === true || allItems[i].ALERTA_ESTOQUE_BAIXO === 'true') {
             alertas++;
           }
         }
