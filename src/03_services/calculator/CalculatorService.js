@@ -39,7 +39,7 @@ var CalculatorService = (function () {
             margem: { type: 'number', required: false, default: 0.20, description: 'Margem alvo (0-0.99), sobre o preço de venda' },
             adsPercent: { type: 'number', required: false, default: 0, description: 'Taxa ads sobre venda (0-100)' },
             precoVenda: { type: 'number', required: false, default: null, description: 'Preço manual (null = calcula sugerido; informado = simula esse preço)' },
-            impostoSimples: { type: 'number', required: false, default: 0.06, description: 'Imposto Simples Nacional (0-1)' },
+            impostoSimples: { type: 'number', required: false, default: 0, description: 'Imposto Simples Nacional (0-1)' },
             regime: { type: 'string', required: false, default: 'cnpj', enum: ['cpf', 'cnpj'], description: '[Mercado Livre] regime tributário' },
             campanhadeDestaque: { type: 'boolean', required: false, default: false, description: '[Mercado Livre] taxa adicional de 3,5%' },
             vendedorIniciante: { type: 'boolean', required: false, default: false, description: '[Mercado Livre] isenção de comissão/taxa fixa' },
@@ -138,7 +138,7 @@ var CalculatorService = (function () {
     var margemAlvo = typeof params.margem === 'number' ? params.margem : 0.20;
     var adsPercent = params.adsPercent || 0;
     var precoVendaManual = params.precoVenda || null;
-    var impostoSimples = typeof params.impostoSimples === 'number' ? params.impostoSimples : 0.06;
+    var impostoSimples = typeof params.impostoSimples === 'number' ? params.impostoSimples : 0;
 
     if (custoProduto < 0) return { error: 'custoProduto deve ser ≥ 0.' };
     if (margemAlvo < 0 || margemAlvo >= 1) return { error: 'margem deve estar entre 0 e 0.99.' };
