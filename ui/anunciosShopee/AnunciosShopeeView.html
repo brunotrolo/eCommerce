@@ -70,10 +70,11 @@
         </select>
       </div>
 
+      <div class="page-summary" id="stat-grid"></div>
+
       <div class="alert alert-error" id="error-box" hidden></div>
       <div id="result-box" hidden></div>
     </div>
-    <div class="stat-grid" id="stat-grid"></div>
     <div class="card table-container">
       <h3>Inventário de anúncios</h3>
       <table class="table" id="items-table">
@@ -125,11 +126,11 @@
     }
 
     function statsHtml(r) {
-      return '<div class="stat-card stat-card--featured"><span class="stat-label">Anúncios ativos</span><span class="stat-value">' + (r.totalAtivos || 0) + '</span><span class="stat-meta">publicados e vendendo</span></div>' +
-        '<div class="stat-card"><span class="stat-label">Pausados</span><span class="stat-value stat-value--primary">' + (r.totalPausados || 0) + '</span><span class="stat-meta">fora da busca</span></div>' +
-        '<div class="stat-card"><span class="stat-label">Estoque total</span><span class="stat-value">' + (r.estoqueTotal || 0) + '</span><span class="stat-meta">soma de todos os itens</span></div>' +
-        '<div class="stat-card"><span class="stat-label">Vendas 30d</span><span class="stat-value stat-value--success">' + (r.vendasPeriodo || 0) + '</span><span class="stat-meta">unidades no período</span></div>' +
-        '<div class="stat-card"><span class="stat-label">Avaliação média</span><span class="stat-value">' + (r.avaliacaoMedia || '-') + '</span><span class="stat-meta">de 0 a 5</span></div>';
+      return '<div class="stat"><div class="stat-value">' + (r.totalAtivos || 0) + '</div><div class="stat-label">Anúncios ativos</div></div>' +
+        '<div class="stat"><div class="stat-value">' + (r.totalPausados || 0) + '</div><div class="stat-label">Pausados</div></div>' +
+        '<div class="stat"><div class="stat-value">' + (r.estoqueTotal || 0) + '</div><div class="stat-label">Estoque total</div></div>' +
+        '<div class="stat"><div class="stat-value">' + (r.vendasPeriodo || 0) + '</div><div class="stat-label">Vendas 30d</div></div>' +
+        '<div class="stat stat-sep"><div class="stat-value">' + (r.avaliacaoMedia || '-') + '</div><div class="stat-label">Avaliação média</div></div>';
     }
 
     function sortRows(rows) {
