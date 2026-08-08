@@ -1,17 +1,5 @@
 <template id="dashboard-template">
   <style>
-    .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg); }
-    .header-row h1 { margin: 0; }
-    .header-actions { display: flex; gap: var(--space-sm); }
-    .btn-sync-all {
-      padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-sm);
-      font-size: var(--font-size-sm); font-weight: var(--font-weight-medium);
-      cursor: pointer; border: 1px solid var(--color-primary);
-      background: var(--color-primary); color: var(--color-on-primary);
-      transition: background var(--transition-fast);
-    }
-    .btn-sync-all:hover { background: var(--color-primary-hover); }
-    .btn-sync-all:disabled { opacity: 0.5; cursor: not-allowed; }
     .modal-overlay {
       position: fixed; inset: 0; z-index: 1000;
       background: rgba(0, 0, 0, 0.5);
@@ -41,16 +29,14 @@
   </style>
   <div class="widget-grid">
     <div class="card">
-      <div class="header-row">
-        <div>
-          <h1>Dashboard</h1>
-          <p class="page-subtitle">Visao unificada de vendas, pedidos e estoque das duas lojas.</p>
-        </div>
-        <div class="header-actions">
-          <button class="btn" id="btn-refresh">Atualizar</button>
-          <button class="btn-sync-all" id="btn-sync-all">Sincronizar Tudo</button>
-        </div>
+      <h1>Dashboard</h1>
+      <p class="page-subtitle">Visao unificada de vendas, pedidos e estoque das duas lojas.</p>
+
+      <div class="page-actions">
+        <button class="btn btn-secondary" id="btn-refresh">Atualizar</button>
+        <button class="btn" id="btn-sync-all">Sincronizar Tudo</button>
       </div>
+
       <div class="alert alert-error" id="error-box" hidden></div>
       <div id="result-box" hidden></div>
     </div>

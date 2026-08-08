@@ -49,36 +49,17 @@
     .pagination button:not(:disabled):hover {
       background: var(--color-bg-secondary, #f7f8fa);
     }
-    .filter-bar {
-      display: flex;
-      gap: var(--space-md);
-      margin-bottom: var(--space-lg);
-      flex-wrap: wrap;
-    }
-    .filter-bar input,
-    .filter-bar select {
-      padding: var(--space-xs) var(--space-sm);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      font-size: var(--font-size-sm);
-      background: var(--color-surface);
-      color: var(--color-text);
-      width: 200px;
-      max-width: 100%;
-    }
   </style>
   <div class="widget-grid">
     <div class="card">
       <h1>Anúncios Shopee</h1>
       <p class="page-subtitle">Inventário, preço, estoque e vendas da loja Shopee.</p>
-      <button class="btn" id="btn-sync">Sincronizar Anúncios</button>
-      <span class="badge badge-info" id="cache-badge" hidden></span>
-      <div class="alert alert-error" id="error-box" hidden></div>
-      <div id="result-box" hidden></div>
-    </div>
-    <div class="stat-grid" id="stat-grid"></div>
-    <div class="card table-container">
-      <h3>Inventário de anúncios</h3>
+
+      <div class="page-actions">
+        <button class="btn" id="btn-sync">Sincronizar Anúncios</button>
+        <span class="badge badge-info" id="cache-badge" hidden></span>
+      </div>
+
       <div class="filter-bar">
         <input type="text" id="filter-search" placeholder="Filtrar por ID, SKU ou nome..." />
         <select id="filter-status">
@@ -88,6 +69,13 @@
           <option value="deletado">Deletado</option>
         </select>
       </div>
+
+      <div class="alert alert-error" id="error-box" hidden></div>
+      <div id="result-box" hidden></div>
+    </div>
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="card table-container">
+      <h3>Inventário de anúncios</h3>
       <table class="table" id="items-table">
         <thead>
           <tr>

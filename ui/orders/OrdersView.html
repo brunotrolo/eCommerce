@@ -99,45 +99,6 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .filter-bar {
-      display: flex;
-      gap: var(--space-md);
-      margin-bottom: var(--space-lg);
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .filter-bar input,
-    .filter-bar select {
-      padding: var(--space-xs) var(--space-sm);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      font-size: var(--font-size-sm);
-      background: var(--color-surface);
-      color: var(--color-text);
-    }
-    .filter-bar input[type="text"] {
-      min-width: 220px;
-    }
-    .filter-bar input[type="number"] {
-      width: 72px;
-    }
-    .stats-bar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-xl);
-      margin-top: var(--space-xl);
-      font-size: var(--font-size-sm);
-      color: var(--color-text-secondary);
-    }
-    .stats-value {
-      font-weight: var(--font-weight-semibold);
-      color: var(--color-text);
-    }
-    .stats-bar .divider {
-      border-left: 1px solid var(--color-border);
-      padding-left: var(--space-xl);
-      margin-left: var(--space-xl);
-    }
     .panel-gap {
       margin-top: var(--space-xl);
     }
@@ -145,6 +106,13 @@
   <div class="widget-grid">
     <div class="card">
       <h1>Pedidos</h1>
+      <p class="page-subtitle">Pedidos de Shopee e Mercado Livre, com status, valores e baixa no estoque.</p>
+
+      <div class="page-actions">
+        <button class="btn" id="btn-sync-shopee">Sincronizar Pedidos Shopee</button>
+        <button class="btn btn-secondary" id="btn-refresh">Filtrar</button>
+      </div>
+
       <div class="filter-bar">
         <select id="marketplace-filter">
           <option value="all">Canal: Todos</option>
@@ -167,21 +135,19 @@
         </select>
         <input type="number" id="limit-input" value="30" min="1" max="100" title="Limite de pedidos" placeholder="Limite" />
         <input type="text" id="search-input" placeholder="Buscar (ID, comprador, produto)..." />
-        <button class="btn" id="btn-refresh">Filtrar</button>
-        <button class="btn btn--primary" id="btn-sync-shopee">Sincronizar Pedidos Shopee</button>
       </div>
       <div class="alert alert-error panel-gap" id="error-box" hidden></div>
       <div class="panel-gap" id="result-box" hidden></div>
-      <div class="stats-bar" id="stats-bar">
-        <span>Total: <span class="stats-value" id="stat-total">0</span></span>
-        <span>A enviar: <span class="stats-value" id="stat-READY_TO_SHIP">0</span></span>
-        <span>Enviado: <span class="stats-value" id="stat-SHIPPED">0</span></span>
-        <span>Entregue: <span class="stats-value" id="stat-TO_CONFIRM_RECEIVE">0</span></span>
-        <span>Concluído: <span class="stats-value" id="stat-COMPLETED">0</span></span>
-        <span>Cancelado: <span class="stats-value" id="stat-CANCELLED">0</span></span>
-        <span class="divider">Líquido total: <span class="stats-value" id="stat-liquido">R$ 0,00</span></span>
-        <span>Custo total: <span class="stats-value" id="stat-cost">R$ 0,00</span></span>
-        <span>Lucro: <span class="stats-value" id="stat-profit">R$ 0,00</span></span>
+      <div class="page-summary" id="stats-bar">
+        <div class="stat"><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total</div></div>
+        <div class="stat"><div class="stat-value" id="stat-READY_TO_SHIP">0</div><div class="stat-label">A enviar</div></div>
+        <div class="stat"><div class="stat-value" id="stat-SHIPPED">0</div><div class="stat-label">Enviado</div></div>
+        <div class="stat"><div class="stat-value" id="stat-TO_CONFIRM_RECEIVE">0</div><div class="stat-label">Entregue</div></div>
+        <div class="stat"><div class="stat-value" id="stat-COMPLETED">0</div><div class="stat-label">Concluído</div></div>
+        <div class="stat"><div class="stat-value" id="stat-CANCELLED">0</div><div class="stat-label">Cancelado</div></div>
+        <div class="stat stat-sep"><div class="stat-value" id="stat-liquido">R$ 0,00</div><div class="stat-label">Líquido total</div></div>
+        <div class="stat"><div class="stat-value" id="stat-cost">R$ 0,00</div><div class="stat-label">Custo total</div></div>
+        <div class="stat"><div class="stat-value" id="stat-profit">R$ 0,00</div><div class="stat-label">Lucro</div></div>
       </div>
     </div>
     <div class="card table-container">

@@ -2,6 +2,12 @@
   <div class="widget-grid">
     <div class="card">
       <h1>Anúncios</h1>
+      <p class="page-subtitle">Anúncios de Shopee e Mercado Livre com preço, estoque e status consolidados.</p>
+
+      <div class="page-actions">
+        <button class="btn" id="btn-refresh">Filtrar</button>
+      </div>
+
       <div class="filter-bar">
         <div class="form-field">
           <label for="marketplace-filter">Canal</label>
@@ -11,7 +17,6 @@
             <option value="mercado_livre">Mercado Livre</option>
           </select>
         </div>
-        <button class="btn" id="btn-refresh">Filtrar</button>
       </div>
       <div class="alert alert-error" id="error-box" hidden></div>
       <div id="result-box" hidden></div>

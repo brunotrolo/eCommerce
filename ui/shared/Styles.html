@@ -716,6 +716,98 @@
     margin-bottom: 0;
   }
 
+  .filter-bar input,
+  .filter-bar select {
+    padding: var(--space-xs) var(--space-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+  }
+  .filter-bar input[type="text"] {
+    flex: 1 1 130px;
+    min-width: 110px;
+    max-width: 280px;
+  }
+  .filter-bar input[type="number"] {
+    flex: 0 1 72px;
+    width: 72px;
+  }
+  .filter-bar select {
+    flex: 0 1 auto;
+  }
+  .filter-bar input:focus,
+  .filter-bar select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+  }
+
+  /* ============================================================
+     PAGE LAYOUT PADRÃO — estrutura obrigatória de TODA a página
+     Ordem fixa: <h1> Título → .page-subtitle → .page-actions
+     (botões/ações) → .filter-bar (filtros) → .page-summary
+     (totais) → tabela. Novas telas devem seguir esta ordem e
+     reutilizar estas classes — nunca duplicar CSS local.
+     ============================================================ */
+  .page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+    margin-bottom: var(--space-lg);
+  }
+  .page-actions .btn {
+    white-space: nowrap;
+  }
+  .status-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+  .card-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-sm);
+  }
+  .filter-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+  .filter-hint {
+    margin-top: var(--space-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    flex-basis: 100%;
+  }
+  .page-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-lg);
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-card);
+  }
+  .page-summary .stat {
+    text-align: center;
+  }
+  .page-summary .stat-value {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: var(--letter-spacing-tight);
+    color: var(--color-text);
+  }
+  .page-summary .stat-label {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--letter-spacing-micro);
+    color: var(--color-text-secondary);
+  }
+  .page-summary .stat-sep {
+    border-left: 1px solid var(--color-border);
+    padding-left: var(--space-lg);
+  }
+
   /* ============================================================
      TABLE CONTAINER — wrapper de tabela com scroll horizontal
      ============================================================ */
