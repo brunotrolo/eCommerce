@@ -112,6 +112,7 @@
     <manual-saida-widget id="manual-saida-widget"></manual-saida-widget>
 
     <script>
+      performance.mark('shell-js-start');
       // Cada rota é um micro-frontend independente: um Web Component com
       // Shadow DOM próprio (ver *View.html). O Shell só monta/desmonta a tag.
       var ROUTES = {
@@ -302,6 +303,7 @@
 
       initTheme();
       navigate((window.location.hash || '#dashboard').replace('#', ''));
+      performance.mark('shell-first-view-mounted');
 
       if (window.__DataStore) {
         window.__DataStore.preFetch([
@@ -326,6 +328,11 @@
         }
       });
 
+      performance.mark('shell-js-end');
+      performance.measure('shell-total', 'shell-js-start', 'shell-js-end');
+      performance.measure('shell-to-first-view', 'shell-js-start', 'shell-first-view-mounted');
+      var totals = performance.getEntriesByType('measure').filter(function(e){ return e.name.indexOf('shell-')===0; });
+      console.log('[Shell Perf] ' + totals.map(function(e){ return e.name + '=' + Math.round(e.duration) + 'ms'; }).join(', '));
 
     </script>
   </body>
