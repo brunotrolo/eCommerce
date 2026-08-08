@@ -132,6 +132,9 @@
       <span>Disponivel: <span class="stats-value" id="stat-disponivel">0</span></span>
       <span>Vendido: <span class="stats-value" id="stat-vendido">0</span></span>
       <span>Alertas: <span class="stats-value" id="stat-alertas">0</span></span>
+      <span style="margin-left: var(--space-lg); padding-left: var(--space-lg); border-left: 1px solid var(--color-border);">Custo Total: <span class="stats-value" id="stat-custo">R$ 0,00</span></span>
+      <span>Preco Shopee: <span class="stats-value" id="stat-preco-shopee">R$ 0,00</span></span>
+      <span>Preco ML: <span class="stats-value" id="stat-preco-ml">R$ 0,00</span></span>
     </div>
     <div class="filter-bar">
       <input type="text" id="filter-codigo" placeholder="Filtrar por codigo..." />
@@ -718,17 +721,7 @@
         var loadingEl = this._el('loading-state');
         if (loadingEl) loadingEl.style.display = 'none';
 
-        var totalItens = 0;
-        for (var i = 0; i < sorted.length; i++) totalItens += sorted[i].qtd;
-        var dispCount = 0;
-        for (var j = 0; j < this._items.length; j++) {
-          var stNorm = (this._items[j].STATUS || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-          if (stNorm === 'DISPONIVEL') dispCount++;
-        }
-        this._el('stat-total').textContent = totalItens;
-        this._el('stat-disponivel').textContent = dispCount;
-        this._el('stat-vendido').textContent = '—';
-        this._el('stat-alertas').textContent = '—';
+        this._updateStats(this._filtered);
 
         if (!sorted.length) {
           tbody.innerHTML = '<tr><td colspan="11" class="empty-state">Nenhum item encontrado.</td></tr>';
@@ -1197,24 +1190,35 @@
       }
 
       _updateStats(items) {
-        var allItems = this._items || [];
-        var total = allItems.length;
+        var set = items || this._filtered || this._items || [];
+        var total = set.length;
         var disponivel = 0;
         var vendido = 0;
         var alertas = 0;
-        for (var i = 0; i < allItems.length; i++) {
-          var st = (allItems[i].STATUS || '').toUpperCase();
+        var somaCusto = 0;
+        var somaShopee = 0;
+        var somaML = 0;
+        for (var i = 0; i < set.length; i++) {
+          var st = (set[i].STATUS || '').toUpperCase();
           var stNorm = st.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
           if (stNorm === 'DISPONIVEL') disponivel++;
           else if (stNorm === 'VENDIDO') vendido++;
-          if (allItems[i].ALERTA_ESTOQUE_BAIXO === true || allItems[i].ALERTA_ESTOQUE_BAIXO === 'true') {
+          if (set[i].ALERTA_ESTOQUE_BAIXO === true || set[i].ALERTA_ESTOQUE_BAIXO === 'true') {
             alertas++;
           }
+          somaCusto += parseFloat(set[i].PRECO_CUSTO_ORIGINAL) || 0;
+          somaShopee += set[i].PRECO_VENDA_SHOPEE != null && set[i].PRECO_VENDA_SHOPEE !== ''
+            ? (parseFloat(set[i].PRECO_VENDA_SHOPEE) || 0) : 0;
+          somaML += set[i].PRECO_VENDA_MERCADO_LIVRE != null && set[i].PRECO_VENDA_MERCADO_LIVRE !== ''
+            ? (parseFloat(set[i].PRECO_VENDA_MERCADO_LIVRE) || 0) : 0;
         }
         this._el('stat-total').textContent = total;
         this._el('stat-disponivel').textContent = disponivel;
         this._el('stat-vendido').textContent = vendido;
         this._el('stat-alertas').textContent = alertas;
+        this._el('stat-custo').textContent = this._fmtCurrency(somaCusto);
+        this._el('stat-preco-shopee').textContent = this._fmtCurrency(somaShopee);
+        this._el('stat-preco-ml').textContent = this._fmtCurrency(somaML);
       }
 
       _fmtCurrency(value) {
