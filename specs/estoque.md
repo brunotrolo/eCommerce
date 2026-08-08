@@ -140,7 +140,7 @@ DATA_SINCRONIZACAO | LOG_ID
 | PRECO_CUSTO_ORIGINAL | number | Custo unitário imutável (VALOR_UNITARIO_LIQUIDO) |
 | PRECO_VENDA_SHOPEE | number | Preço de venda Shopee (mutável, default=null) |
 | PRECO_VENDA_MERCADO_LIVRE | number | Preço de venda ML (mutável, default=null) |
-| MARGEM_SHOPEE | number | % = (PRECO_VENDA_SHOPEE - PRECO_CUSTO) / PRECO_VENDA_SHOPEE * 100 |
+| MARGEM_SHOPEE | number | % — via `pricing.calculateSuggestedPrice`/modelo de taxa Shopee (ver `specs/pricing.md`), **não** `(preço-custo)/preço` bruto. Ver nota de correção abaixo. |
 | MARGEM_MERCADO_LIVRE | number | % = (PRECO_VENDA_ML - PRECO_CUSTO) / PRECO_VENDA_ML * 100 |
 | STATUS | string | DISPONÍVEL, VENDIDO, DEVOLVIDO, QUEBRADO, COM_DEFEITO |
 | ALERTA_ESTOQUE_BAIXO | boolean | true quando é o último item DISPONÍVEL do produto |
@@ -183,8 +183,26 @@ DATA_SINCRONIZACAO | LOG_ID
    - Não altera items já VENDIDO/DEVOLVIDO (histórico imutável).
 
 7. **Cálculo de margem:**
-   - MARGEM_SHOPEE = (PRECO_VENDA_SHOPEE - PRECO_CUSTO_ORIGINAL) / PRECO_VENDA_SHOPEE * 100
-   - MARGEM_MERCADO_LIVRE = (PRECO_VENDA_ML - PRECO_CUSTO_ORIGINAL) / PRECO_VENDA_ML * 100
+   - MARGEM_MERCADO_LIVRE = (PRECO_VENDA_ML - PRECO_CUSTO_ORIGINAL) / PRECO_VENDA_ML * 100 (inalterada)
+   - **MARGEM_SHOPEE (corrigida em 08/08/2026 — ver `specs/calculator-shopee.md`):**
+     a fórmula `(preço-custo)/preço` bruta **ignora comissão e taxa de
+     serviço da Shopee**, então superestimava a margem real em todos os
+     produtos (observado entre 30% e 49% de margem "aparente" quando a
+     margem líquida real, descontando taxas, era bem menor). Fórmula correta:
+     ```
+     comissao      = PRECO_VENDA_SHOPEE * 0.18   // cenário cartão à vista — pior caso, conservador
+     taxaServico   = PRECO_VENDA_SHOPEE * 0.02 + 4   // 2% + R$4 (itemCount=1, cada linha ESTOQUE = 1 unidade)
+     liquido       = PRECO_VENDA_SHOPEE - comissao - taxaServico
+     MARGEM_SHOPEE = (liquido - PRECO_CUSTO_ORIGINAL) / liquido * 100
+     ```
+     Implementação: reusar `PricingService` (não duplicar a fórmula em
+     `EstoquePrecoService.js`/`EstoqueService.js` — ambos têm hoje uma
+     função `calcularMargem_` própria e idêntica, que deve passar a delegar
+     para uma função pura compartilhada de `PricingService`; ver
+     `specs/calculator-shopee.md` seção 9 para o plano de refatoração).
+     `itemCount=1` e `paymentScenario=cartao_avista` são os defaults corretos
+     aqui porque cada linha ESTOQUE representa 1 unidade vendida
+     isoladamente — não um pedido multi-item.
    - Se preço de venda = null → margem = não aplicável
    - Se margem < 0 → prejuízo (alertar no UI)
 
@@ -267,8 +285,8 @@ Then:
 Given: Item em ESTOQUE de "Maison Delilah" (PRECO_CUSTO_ORIGINAL=100)
 When: Web App atualiza PRECO_VENDA_SHOPEE=150, PRECO_VENDA_MERCADO_LIVRE=160
 Then:
-  - MARGEM_SHOPEE = (150-100)/150*100 = 33.3%
-  - MARGEM_MERCADO_LIVRE = (160-100)/160*100 = 37.5%
+  - MARGEM_SHOPEE = 13.79% (comissão 18% + taxa serviço 2%+R$4 sobre 150 → líquido 116; (116-100)/116*100 — **não** os 33.3% do cálculo bruto antigo)
+  - MARGEM_MERCADO_LIVRE = (160-100)/160*100 = 37.5% (inalterada)
   - Ambos refletem imediatamente na UI
   - Todos items DISPONÍVEL do produto recebem mesmos preços
 ```
