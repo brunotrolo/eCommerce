@@ -73,7 +73,7 @@ usuário digita. Um seletor explícito no topo do modal ("Formador de Preço" \|
 | margem | number | não | 0.20 | Margem alvo (ex. 0.20 = 20%), 0–0.99, sobre o preço de venda |
 | adsPercent | number | não | 0 | Taxa de ads sobre venda (%), 0–100 |
 | precoVenda | number | não | null | Preço manual de venda em R$. Se nulo, calcula automaticamente; se informado, simula esse preço |
-| impostoSimples | number | não | 0.06 | Imposto Simples Nacional (%), 0–1 |
+| impostoSimples | number | não | 0 | Imposto Simples Nacional (%), 0–1 |
 | regime | string (`cpf`\|`cnpj`) | não | `cnpj` | **[Mercado Livre]** regime tributário |
 | campanhadeDestaque | boolean | não | false | **[Mercado Livre]** aplica taxa adicional de 3.5%? |
 | vendedorIniciante | boolean | não | false | **[Mercado Livre]** isento de comissão e taxa fixa? |
@@ -218,7 +218,7 @@ Mercado Livre, reduzindo `k` antes de resolver o preço.
 
 ### Imposto Simples Nacional
 
-- Percentual fornecido pelo usuário (default 6% conforme escala padrão)
+- Percentual fornecido pelo usuário (default 0% — usuário informa a alíquota real quando aplicável)
 - Aplicado sobre a receita bruta antes de custos
 - Fórmula: `impostoValor = precoVenda * impostoSimples%`
 
