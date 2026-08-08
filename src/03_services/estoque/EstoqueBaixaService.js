@@ -298,9 +298,27 @@ var EstoqueBaixaService = (function () {
     if (baixadoCol === undefined) {
       pedSheet.getRange(1, lastCol + 1).setValue('BAIXADO');
       baixadoCol = lastCol;
+      lastCol = pedSheet.getLastColumn();
+    }
+    var baixaIdsCol = hIdx['BAIXA_ESTOQUE_IDS'];
+    if (baixaIdsCol === undefined) {
+      pedSheet.getRange(1, lastCol + 1).setValue('BAIXA_ESTOQUE_IDS');
+      baixaIdsCol = lastCol;
+      lastCol = pedSheet.getLastColumn();
+    }
+    var totalCostCol = hIdx['TOTAL_COST'];
+    if (totalCostCol === undefined) {
+      pedSheet.getRange(1, lastCol + 1).setValue('TOTAL_COST');
+      totalCostCol = lastCol;
+      lastCol = pedSheet.getLastColumn();
     }
 
     var allData = pedSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var estoqueCostMap = {};
+    var allEstoque = EstoqueRepository.getRows(sheetId);
+    for (var em = 0; em < allEstoque.length; em++) {
+      estoqueCostMap[allEstoque[em].ESTOQUE_ID] = allEstoque[em];
+    }
     var CANCELLED_STATUSES = ['CANCELLED', 'CANCELADO'];
     var RETURN_STATUSES = ['TO_RETURN', 'RETURNED', 'DEVOLVIDO'];
 
@@ -324,7 +342,9 @@ var EstoqueBaixaService = (function () {
       var currentBaixado = String(row[baixadoCol] || '').trim();
 
       if (!orderSn || !itemSkus) continue;
-      if (currentBaixado === 'BAIXADO' || currentBaixado === 'S') { jaProcessados++; continue; }
+      var currentBaixaIds = String(row[baixaIdsCol] || '').trim();
+      var jaCompleto = (currentBaixado === 'BAIXADO' || currentBaixado === 'S') && currentBaixaIds !== '';
+      if (jaCompleto) { jaProcessados++; continue; }
 
       var isCancelled = CANCELLED_STATUSES.indexOf(status) !== -1;
       var isReturned = RETURN_STATUSES.indexOf(status) !== -1;
@@ -354,6 +374,8 @@ var EstoqueBaixaService = (function () {
       processados++;
       var totalBaixas = 0;
       var totalSkusNoPedido = 0;
+      var orderEstoqueIds = [];
+      var orderCustoTotal = 0;
       var itensPedido = itemSkus.split(';');
 
       LoggingService.log({
@@ -385,27 +407,59 @@ var EstoqueBaixaService = (function () {
         });
 
         try {
-          var result = baixarPorProduto({
-            codigoProduto: sku,
-            quantidade: qty,
-            origem: 'PEDIDO_SHOPEE',
-            referenciaOrigem: refOrigem,
-            idempotencyKey: idempKey
-          });
+          var baixasRef = EstoqueBaixasRepository.getRows(sheetId, { referenciaOrigem: refOrigem });
+          var bxExistente = null;
+          for (var br = baixasRef.length - 1; br >= 0; br--) {
+            if (String(baixasRef[br].STATUS || '').trim() === 'BAIXADO') {
+              bxExistente = baixasRef[br];
+              break;
+            }
+          }
+
+          var result;
+          if (bxExistente) {
+            var idsRef = (bxExistente.ESTOQUE_IDS || '').split(',').filter(Boolean);
+            var custoRef = 0;
+            for (var cj = 0; cj < idsRef.length; cj++) {
+              var itemRef = estoqueCostMap[idsRef[cj]];
+              if (itemRef) custoRef += Number(itemRef.PRECO_CUSTO_ORIGINAL) || 0;
+            }
+            result = {
+              success: true,
+              baixados: 0,
+              estoque_ids: idsRef,
+              custoTotal: Math.round(custoRef * 100) / 100,
+              faltantes: 0,
+              jaExistia: true,
+              viaReferencia: true
+            };
+          } else {
+            result = baixarPorProduto({
+              codigoProduto: sku,
+              quantidade: qty,
+              origem: 'PEDIDO_SHOPEE',
+              referenciaOrigem: refOrigem,
+              idempotencyKey: idempKey
+            });
+          }
 
           if (result.jaExistia) {
             totalBaixas += qty;
             totalSkusBaixados += qty;
+            orderEstoqueIds = orderEstoqueIds.concat(result.estoque_ids || []);
+            orderCustoTotal += Number(result.custoTotal) || 0;
             LoggingService.log({
               service: 'EstoqueBaixa', action: 'backfill.item.done', status: 'OK',
               caller: 'EstoqueBaixaService',
               summary: 'Baixa já existente: ' + orderSn + ' → SKU ' + sku + ' (estoque_ids: ' + (result.estoque_ids || []).join(',') + ')',
               durationMs: 0,
-              context: { orderSn: orderSn, sku: sku, estoque_ids: result.estoque_ids, jaExistia: true }
+              context: { orderSn: orderSn, sku: sku, estoque_ids: result.estoque_ids, jaExistia: true, viaReferencia: !!result.viaReferencia }
             });
           } else if (result.baixados > 0) {
             totalBaixas += result.baixados;
             totalSkusBaixados += result.baixados;
+            orderEstoqueIds = orderEstoqueIds.concat(result.estoque_ids || []);
+            orderCustoTotal += Number(result.custoTotal) || 0;
             LoggingService.log({
               service: 'EstoqueBaixa', action: 'backfill.item.done', status: 'OK',
               caller: 'EstoqueBaixaService',
@@ -441,6 +495,16 @@ var EstoqueBaixaService = (function () {
       } else if (totalBaixas > 0) {
         novoBaixado = 'PARCIAL';
       }
+
+      var uniqueIds = [];
+      for (var ui = 0; ui < orderEstoqueIds.length; ui++) {
+        if (uniqueIds.indexOf(orderEstoqueIds[ui]) === -1) uniqueIds.push(orderEstoqueIds[ui]);
+      }
+      if (uniqueIds.length > 0) {
+        pedSheet.getRange(r + 2, baixaIdsCol + 1).setValue(uniqueIds.join(','));
+        pedSheet.getRange(r + 2, totalCostCol + 1).setValue(Math.round(orderCustoTotal * 100) / 100);
+      }
+
       pedSheet.getRange(r + 2, baixadoCol + 1).setValue(novoBaixado);
       if (novoBaixado === 'BAIXADO') baixados++;
 

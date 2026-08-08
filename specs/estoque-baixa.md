@@ -8,6 +8,17 @@ Approved
 > (`SHOPEE#<order_sn>:<sku>`, sem sufixo `:backfill`) para não rebaixar itens
 > que a importação já baixou (evita dupla-baixa em pedidos `PARCIAL`/`PENDENTE`
 > reprocessados). Seção `reprocessarPendentes` e Regra 2 atualizadas.
+>
+> 07/08/2026 — Correção pós-validação: o backfill escrevia apenas a coluna
+> `BAIXADO` de `PEDIDOS`, deixando `BAIXA_ESTOQUE_IDS`/`TOTAL_COST` vazias nos
+> pedidos antigos (estoque consumido, mas sem registro de quais unidades).
+> Agora o backfill também (a) acumula `estoque_ids`/`custoTotal` por pedido e
+> grava `BAIXA_ESTOQUE_IDS`/`TOTAL_COST` (criando as colunas se faltarem), e
+> (b) só pula linhas já `BAIXADO`/`S` **quando `BAIXA_ESTOQUE_IDS` não está
+> vazio** — linhas marcadas sem IDs entram de novo, encontram a baixa pela
+> `REFERENCIA_ORIGEM` (nunca rebaixam, mesmo com chave legada) e preenchem a
+> coluna. Resolve pedidos antigos (pré-window da API) que ficaram "BAIXADO sem
+> item".
 
 ## Objetivo
 
@@ -98,12 +109,20 @@ desafio" de controle de estoque automatizado e auditável pedido pelo usuário.
     `OrdersImportService.processBaixaForOrder_`). Isso faz o backfill reconhecer
     baixas já feitas (`jaExistia:true`) e **nunca rebaixar** um item que a
     importação já baixou — decisão crítica para pedidos `PARCIAL`/`PENDENTE`.
-  - Atualiza a coluna `BAIXADO` da aba `PEDIDOS`: `BAIXADO` se todos os SKUs
-    baixados, `PARCIAL` se só parte, `PENDENTE` se nenhum (sem estoque).
+  - Atualiza as colunas da aba `PEDIDOS`: `BAIXADO` (`BAIXADO` se todos os SKUs
+    baixados, `PARCIAL` se só parte, `PENDENTE` se nenhum) e também
+    `BAIXA_ESTOQUE_IDS` (CSV dos `ESTOQUE_ID` consumidos, somados por pedido) e
+    `TOTAL_COST` (soma dos `PRECO_CUSTO_ORIGINAL` das unidades baixadas).
+  - **Pulo de linha já processada só é completo quando a baixa está registrada:**
+    uma linha `BAIXADO`/`S` com `BAIXA_ESTOQUE_IDS` vazio **não** é pulada —
+    entra no fluxo de preenchimento, que localiza a baixa existente por
+    `REFERENCIA_ORIGEM` (sem chamar `baixarPorProduto`, logo sem risco de
+    rebaixar, mesmo se a `IDEMPOTENCY_KEY` histórica for de formato legado) e
+    grava a coluna.
 - **Params:** nenhum.
 - **Retorno:** `{ processados: number, baixados: number, erros: number, jaProcessados: number }`.
-- **Nota:** se a coluna `BAIXADO` não existir na aba `PEDIDOS`, ela é criada na
-  última coluna livre.
+- **Nota:** se as colunas `BAIXADO`, `BAIXA_ESTOQUE_IDS` ou `TOTAL_COST` não
+  existirem na aba `PEDIDOS`, elas são criadas na última coluna livre.
 
 ## Formato da Aba ESTOQUE_BAIXAS
 
