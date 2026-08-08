@@ -18,20 +18,9 @@ var TiopsClient = (function () {
   var BASE_DELAY_MS = 500;
 
   function call(action, params) {
-    var startTime = Date.now();
     var apiKey = PropertiesRepository.getScriptProperty('TIOPS_API_KEY');
     if (!apiKey) {
       var err = 'TIOPS_API_KEY_MISSING: Configure TIOPS_API_KEY em Script Properties.';
-      LoggingService.log({
-        service: 'TiopsClient',
-        action: action,
-        status: 'ERROR',
-        caller: 'TiopsClient.call',
-        summary: err,
-        durationMs: Date.now() - startTime,
-        errorMessage: err,
-        context: { params: sanitizeParams_(params) }
-      });
       throw new Error(err);
     }
 
@@ -65,44 +54,11 @@ var TiopsClient = (function () {
         }
         var totalMs = Date.now() - startTime;
 
-        LoggingService.log({
-          service: 'TiopsClient',
-          action: action,
-          status: 'OK',
-          caller: 'TiopsClient.call',
-          summary: action + ' => ' + code + ' (' + totalMs + 'ms, ' + attempts + ' attempt' + (attempts > 1 ? 's' : '') + ')',
-          durationMs: totalMs,
-          context: {
-            params: sanitizeParams_(params),
-            httpCode: code,
-            attempts: attempts,
-            responseDataKeys: data ? Object.keys(data) : [],
-            responseSnippet: snippet_(rawBody, 500)
-          }
-        });
-
         return data;
       }
 
       lastError = (body && body.error) || 'HTTP ' + code;
       lastCode = code;
-
-      LoggingService.log({
-        service: 'TiopsClient',
-        action: action,
-        status: 'ERROR',
-        caller: 'TiopsClient.call',
-        summary: action + ' => attempt ' + (attempt + 1) + '/' + (MAX_RETRIES + 1) + ' failed: ' + lastError + ' (' + code + ', ' + attemptMs + 'ms)',
-        durationMs: attemptMs,
-        errorMessage: lastError,
-        context: {
-          params: sanitizeParams_(params),
-          httpCode: code,
-          attempt: attempt + 1,
-          maxRetries: MAX_RETRIES + 1,
-          responseSnippet: snippet_(rawBody, 500)
-        }
-      });
 
       var isRetryable = code === 429 || code >= 500;
       if (isRetryable && attempt < MAX_RETRIES) {
@@ -113,23 +69,7 @@ var TiopsClient = (function () {
       break;
     }
 
-    var totalMs = Date.now() - startTime;
     var errMsg = 'Tiops [' + action + ']: ' + lastError;
-
-    LoggingService.log({
-      service: 'TiopsClient',
-      action: action,
-      status: 'ERROR',
-      caller: 'TiopsClient.call',
-      summary: errMsg + ' (final after ' + attempts + ' attempts, ' + totalMs + 'ms)',
-      durationMs: totalMs,
-      errorMessage: errMsg,
-      context: {
-        params: sanitizeParams_(params),
-        lastHttpCode: lastCode,
-        totalAttempts: attempts
-      }
-    });
 
     throw new Error(errMsg);
   }
@@ -161,6 +101,59 @@ var TiopsClient = (function () {
     } catch (e) {
       return null;
     }
+  }
+
+  /**
+   * Chamadas em paralelo via UrlFetchApp.fetchAll.
+   * items: [{action, params}] — mesmo formato de call().
+   * Retorna: [{data, error}] — mesmo contrato, idx a idx.
+   * Erros individuais viram {error: msg} sem derrubar o lote.
+   */
+  function callBatch(items) {
+    if (!items || items.length === 0) return [];
+    var apiKey = PropertiesRepository.getScriptProperty('TIOPS_API_KEY');
+    if (!apiKey) {
+      var err = 'TIOPS_API_KEY_MISSING';
+      return items.map(function () { return { error: err }; });
+    }
+
+    var payloads = items.map(function (it) {
+      return JSON.stringify({ action: it.action, params: it.params || {} });
+    });
+    var requests = items.map(function (it, idx) {
+      return {
+        method: 'post',
+        contentType: 'application/json',
+        payload: payloads[idx],
+        headers: { Authorization: 'Bearer ' + apiKey },
+        muteHttpExceptions: true
+      };
+    });
+
+    var responses;
+    try {
+      responses = UrlFetchApp.fetchAll(requests);
+    } catch (e) {
+      return items.map(function () { return { error: 'BATCH_FETCH_FAILED: ' + e.message }; });
+    }
+
+    var results = [];
+    for (var i = 0; i < responses.length; i++) {
+      try {
+        var code = responses[i].getResponseCode();
+        var body = safeParse_(responses[i].getContentText());
+        if (code >= 200 && code < 300 && body && !body.error) {
+          var data = body.data !== undefined ? body.data : body;
+          results.push({ data: data });
+        } else {
+          var errMsg = (body && body.error) || 'HTTP ' + code;
+          results.push({ error: errMsg });
+        }
+      } catch (e) {
+        results.push({ error: e.message });
+      }
+    }
+    return results;
   }
 
   function describe() {

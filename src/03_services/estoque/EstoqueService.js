@@ -157,6 +157,33 @@ var EstoqueService = (function () {
     }
   }
 
+  /**
+   * Batch: atualiza alertas para N códigos com UMA ÚNICA leitura da sheet.
+   * itemsByProductMap: vindo de EstoqueRepository.buildItemsByProductMap(sheetId).
+   * codigosProdutos: array de códigos para atualizar.
+   * Retorna { updated: number }.
+   */
+  function atualizarAlertasBulk_(sheetId, itemsByProductMap, codigosProdutos) {
+    var toUpdate = [];
+    for (var p = 0; p < codigosProdutos.length; p++) {
+      var cod = codigosProdutos[p];
+      var items = itemsByProductMap[cod];
+      if (!items || items.length === 0) continue;
+      for (var i = 0; i < items.length; i++) {
+        var isLast = items.length === 1;
+        if (items[i].ALERTA_ESTOQUE_BAIXO !== isLast) {
+          toUpdate.push({ estoqueId: items[i].ESTOQUE_ID, alertaEstoqueBaixo: isLast });
+        }
+      }
+    }
+    for (var u = 0; u < toUpdate.length; u++) {
+      EstoqueRepository.updateRow(sheetId, toUpdate[u].estoqueId, {
+        alertaEstoqueBaixo: toUpdate[u].alertaEstoqueBaixo
+      });
+    }
+    return { updated: toUpdate.length };
+  }
+
   function importarDeNfe(params) {
     var startTime = Date.now();
     var sheetId = getSheetId_();
@@ -220,10 +247,8 @@ var EstoqueService = (function () {
       for (var j = 0; j < rowsToInsert.length; j++) {
         produtos[rowsToInsert[j].codigoProduto] = true;
       }
-      var codigos = Object.keys(produtos);
-      for (var p = 0; p < codigos.length; p++) {
-        atualizarAlertas_(sheetId, codigos[p]);
-      }
+      var itemsByProductMap = EstoqueRepository.buildItemsByProductMap(sheetId);
+      atualizarAlertasBulk_(sheetId, itemsByProductMap, Object.keys(produtos));
     }
 
     var duration = Date.now() - startTime;
@@ -300,10 +325,8 @@ var EstoqueService = (function () {
       for (var j = 0; j < rowsToInsert.length; j++) {
         produtos[rowsToInsert[j].codigoProduto] = true;
       }
-      var codigos = Object.keys(produtos);
-      for (var p = 0; p < codigos.length; p++) {
-        atualizarAlertas_(sheetId, codigos[p]);
-      }
+      var itemsByProductMap = EstoqueRepository.buildItemsByProductMap(sheetId);
+      atualizarAlertasBulk_(sheetId, itemsByProductMap, Object.keys(produtos));
     }
 
     var duration = Date.now() - startTime;
@@ -408,8 +431,9 @@ var EstoqueService = (function () {
     var result = EstoqueRepository.updateRowsBulk(sheetId, estoqueIds, updates);
 
     var codigos = Object.keys(produtosAfetados);
-    for (var p = 0; p < codigos.length; p++) {
-      atualizarAlertas_(sheetId, codigos[p]);
+    if (codigos.length > 0) {
+      var itemsByProductMap = EstoqueRepository.buildItemsByProductMap(sheetId);
+      atualizarAlertasBulk_(sheetId, itemsByProductMap, codigos);
     }
 
     return {

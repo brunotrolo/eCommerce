@@ -275,14 +275,11 @@ var EstoqueBaixaService = (function () {
   function backfillExistingOrders() {
     var t0 = new Date().getTime();
     var sheetId = ConfigService.getSheetId();
-    var pedSheet = SpreadsheetApp.openById(sheetId).getSheetByName('PEDIDOS');
-    if (!pedSheet) return { error: 'PEDIDOS sheet not found' };
 
-    var lastRow = pedSheet.getLastRow();
-    var lastCol = pedSheet.getLastColumn();
-    if (lastRow < 2) return { processados: 0, baixados: 0, erros: 0 };
+    var pedData = OrdersRepository.prepareBaixaBulk([]);
+    if (!pedData) return { processados: 0, baixados: 0, erros: 0 };
 
-    var headers = pedSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headers = pedData.headers;
     var hIdx = {};
     for (var h = 0; h < headers.length; h++) {
       hIdx[String(headers[h]).trim()] = h;
@@ -292,28 +289,12 @@ var EstoqueBaixaService = (function () {
     var statusCol = hIdx['STATUS'];
     var itemSkusCol = hIdx['ITEM_SKUS'];
     var baixadoCol = hIdx['BAIXADO'];
+    var baixaIdsCol = hIdx['BAIXA_ESTOQUE_IDS'];
+    var totalCostCol = hIdx['TOTAL_COST'];
     if (orderIdCol === undefined || statusCol === undefined || itemSkusCol === undefined) {
       return { error: 'Missing columns in PEDIDOS' };
     }
-    if (baixadoCol === undefined) {
-      pedSheet.getRange(1, lastCol + 1).setValue('BAIXADO');
-      baixadoCol = lastCol;
-      lastCol = pedSheet.getLastColumn();
-    }
-    var baixaIdsCol = hIdx['BAIXA_ESTOQUE_IDS'];
-    if (baixaIdsCol === undefined) {
-      pedSheet.getRange(1, lastCol + 1).setValue('BAIXA_ESTOQUE_IDS');
-      baixaIdsCol = lastCol;
-      lastCol = pedSheet.getLastColumn();
-    }
-    var totalCostCol = hIdx['TOTAL_COST'];
-    if (totalCostCol === undefined) {
-      pedSheet.getRange(1, lastCol + 1).setValue('TOTAL_COST');
-      totalCostCol = lastCol;
-      lastCol = pedSheet.getLastColumn();
-    }
 
-    var allData = pedSheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
     var estoqueCostMap = {};
     var allEstoque = EstoqueRepository.getRows(sheetId);
     for (var em = 0; em < allEstoque.length; em++) {
@@ -325,13 +306,16 @@ var EstoqueBaixaService = (function () {
     var processados = 0, baixados = 0, erros = 0, jaProcessados = 0;
     var totalSkusBaixados = 0;
     var totalSkusPulados = 0;
+    var updatesMap = {};
+
+    var allData = pedData.allData;
 
     LoggingService.log({
       service: 'EstoqueBaixa', action: 'backfill.start', status: 'OK',
       caller: 'EstoqueBaixaService',
-      summary: 'Iniciando backfill — ' + (lastRow - 1) + ' pedidos na aba PEDIDOS',
+      summary: 'Iniciando backfill — ' + allData.length + ' pedidos na aba PEDIDOS',
       durationMs: 0,
-      context: { totalRows: lastRow - 1 }
+      context: { totalRows: allData.length }
     });
 
     for (var r = 0; r < allData.length; r++) {
@@ -500,12 +484,11 @@ var EstoqueBaixaService = (function () {
       for (var ui = 0; ui < orderEstoqueIds.length; ui++) {
         if (uniqueIds.indexOf(orderEstoqueIds[ui]) === -1) uniqueIds.push(orderEstoqueIds[ui]);
       }
-      if (uniqueIds.length > 0) {
-        pedSheet.getRange(r + 2, baixaIdsCol + 1).setValue(uniqueIds.join(','));
-        pedSheet.getRange(r + 2, totalCostCol + 1).setValue(Math.round(orderCustoTotal * 100) / 100);
-      }
-
-      pedSheet.getRange(r + 2, baixadoCol + 1).setValue(novoBaixado);
+      updatesMap[orderSn] = {
+        baixado: novoBaixado,
+        estoqueIdsStr: uniqueIds.length > 0 ? uniqueIds.join(',') : '',
+        custoTotal: Math.round(orderCustoTotal * 100) / 100
+      };
       if (novoBaixado === 'BAIXADO') baixados++;
 
       LoggingService.log({
@@ -516,6 +499,8 @@ var EstoqueBaixaService = (function () {
         context: { orderSn: orderSn, baixado: novoBaixado, totalBaixas: totalBaixas }
       });
     }
+
+    OrdersRepository.flushBaixaBulk(pedData, updatesMap);
 
     var durationMs = new Date().getTime() - t0;
     var summary = 'Backfill concluído — processados: ' + processados + ', baixados: ' + baixados + ', erros: ' + erros + ', já processados: ' + jaProcessados + ', SKUs baixados: ' + totalSkusBaixados + ', SKUs sem estoque: ' + totalSkusPulados;

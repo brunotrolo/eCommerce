@@ -393,6 +393,176 @@ var OrdersRepository = (function () {
     return rows;
   }
 
+  /**
+   * Lê múltiplos pedidos por ORDER_ID em um batch (única leitura da sheet).
+   * Retorna mapa orderId → {row, data} ou null se não encontrado.
+   */
+  function readPedidosBatch(orderIds) {
+    var sheet = getOrCreateSheet();
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2 || lastCol === 0) return {};
+
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var orderIdCol = -1;
+    for (var i = 0; i < headers.length; i++) {
+      if (String(headers[i]).trim() === 'ORDER_ID') { orderIdCol = i + 1; break; }
+    }
+    if (orderIdCol === -1) return {};
+
+    var allIds = sheet.getRange(2, orderIdCol, lastRow - 1, 1).getValues();
+    var idSet = {};
+    var orderIdsList = [];
+    for (var j = 0; j < orderIds.length; j++) {
+      var key = String(orderIds[j]).trim();
+      if (!idSet[key]) { idSet[key] = true; orderIdsList.push(key); }
+    }
+
+    var targetRows = [];
+    var targetRowNums = [];
+    for (var k = 0; k < allIds.length; k++) {
+      var val = String(allIds[k][0]).trim();
+      if (idSet[val]) {
+        targetRows.push(k);
+        targetRowNums.push(k + 2);
+      }
+    }
+    if (targetRows.length === 0) return {};
+
+    var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    var result = {};
+    for (var r = 0; r < targetRows.length; r++) {
+      var rowNum = targetRows[r];
+      var obj = {};
+      for (var c = 0; c < headers.length; c++) {
+        obj[String(headers[c]).trim()] = allData[rowNum][c];
+      }
+      obj.__ROW = targetRowNums[r];
+      result[obj.ORDER_ID] = obj;
+    }
+    return result;
+  }
+
+  /**
+   * Escreve colunas BAIXADO, BAIXA_ESTOQUE_IDS, TOTAL_COST para um pedido.
+   * Cria as colunas se não existirem.
+   */
+  function writeBaixaColumns(orderId, baixado, estoqueIdsStr, custoTotal) {
+    var sheet = getOrCreateSheet();
+    var lastCol = sheet.getLastColumn();
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var hIdx = {};
+    for (var i = 0; i < headers.length; i++) {
+      hIdx[String(headers[i]).trim()] = i + 1;
+    }
+
+    var baixadoCol = hIdx['BAIXADO'];
+    var estoqueIdsCol = hIdx['BAIXA_ESTOQUE_IDS'];
+    var costCol = hIdx['TOTAL_COST'];
+
+    if (!estoqueIdsCol) {
+      estoqueIdsCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, estoqueIdsCol).setValue('BAIXA_ESTOQUE_IDS');
+    }
+    if (!costCol) {
+      costCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, costCol).setValue('TOTAL_COST');
+    }
+
+    var orderIdCol = hIdx['ORDER_ID'];
+    if (!orderIdCol) return;
+
+    var allIds = sheet.getRange(2, orderIdCol, sheet.getLastRow() - 1, 1).getValues();
+    for (var j = 0; j < allIds.length; j++) {
+      if (String(allIds[j][0]).trim() === String(orderId).trim()) {
+        var row = j + 2;
+        sheet.getRange(row, baixadoCol).setValue(baixado);
+        sheet.getRange(row, estoqueIdsCol).setValue(estoqueIdsStr);
+        sheet.getRange(row, costCol).setValue(custoTotal);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Batch: lê todas as linhas para update em memória + write único.
+   * Retorna {headers, rows, orderIdCol, baixadoCol, estoqueIdsCol, costCol, idSet}
+   * pronto para update in-memory + setValues.
+   */
+  function prepareBaixaBulk(orderIds) {
+    var sheet = getOrCreateSheet();
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow < 2) return null;
+
+    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var hIdx = {};
+    for (var i = 0; i < headers.length; i++) {
+      hIdx[String(headers[i]).trim()] = i + 1;
+    }
+
+    var baixadoCol = hIdx['BAIXADO'];
+    var estoqueIdsCol = hIdx['BAIXA_ESTOQUE_IDS'];
+    var costCol = hIdx['TOTAL_COST'];
+
+    if (!estoqueIdsCol) {
+      estoqueIdsCol = lastCol + 1;
+      sheet.getRange(1, estoqueIdsCol).setValue('BAIXA_ESTOQUE_IDS');
+      lastCol = sheet.getLastColumn();
+    }
+    if (!costCol) {
+      costCol = sheet.getLastColumn() + 1;
+      sheet.getRange(1, costCol).setValue('TOTAL_COST');
+      lastCol = sheet.getLastColumn();
+    }
+
+    var orderIdCol = hIdx['ORDER_ID'];
+    var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    var idSet = {};
+    for (var j = 0; j < orderIds.length; j++) {
+      idSet[String(orderIds[j]).trim()] = true;
+    }
+
+    return {
+      sheet: sheet,
+      headers: headers,
+      lastCol: lastCol,
+      allData: allData,
+      baixadoCol: baixadoCol,
+      estoqueIdsCol: estoqueIdsCol,
+      costCol: costCol,
+      orderIdCol: orderIdCol,
+      idSet: idSet
+    };
+  }
+
+  /**
+   * Aplica writes em memória (prepareBaixaBulk result) e faz flush único.
+   */
+  function flushBaixaBulk(prepared, updatesMap) {
+    if (!prepared) return;
+    var sheet = prepared.sheet;
+    var rowsWritten = 0;
+
+    for (var i = 0; i < prepared.allData.length; i++) {
+      var orderId = String(prepared.allData[i][prepared.orderIdCol - 1]).trim();
+      if (!prepared.idSet[orderId]) continue;
+
+      var upd = updatesMap[orderId];
+      if (!upd) continue;
+
+      prepared.allData[i][prepared.baixadoCol - 1] = upd.baixado;
+      prepared.allData[i][prepared.estoqueIdsCol - 1] = upd.estoqueIdsStr;
+      prepared.allData[i][prepared.costCol - 1] = upd.custoTotal;
+      rowsWritten++;
+    }
+
+    if (rowsWritten > 0) {
+      sheet.getRange(2, 1, prepared.allData.length, prepared.lastCol).setValues(prepared.allData);
+    }
+  }
+
   return {
     SHEET_NAME: SHEET_NAME,
     HEADERS: HEADERS,
@@ -404,6 +574,10 @@ var OrdersRepository = (function () {
     getAllOrdersMap: getAllOrdersMap,
     updateOrderRow: updateOrderRow,
     upsertOrders: upsertOrders,
-    getAll: getAll
+    getAll: getAll,
+    readPedidosBatch: readPedidosBatch,
+    writeBaixaColumns: writeBaixaColumns,
+    prepareBaixaBulk: prepareBaixaBulk,
+    flushBaixaBulk: flushBaixaBulk
   };
 })();

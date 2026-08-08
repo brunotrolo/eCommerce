@@ -113,6 +113,21 @@ var AnunciosShopeeRepository = (function () {
     return null;
   }
 
+  /** Mapa itemId → rowIndex para busca O(1). Uma única leitura do Sheets. */
+  function buildItemIdMap_(sheet) {
+    var colMap = getColumnMap_(sheet);
+    var colIdx = colMap['ITEM_ID'];
+    var lastRow = sheet.getLastRow();
+    if (!colIdx || lastRow < 2) return {};
+    var values = sheet.getRange(2, colIdx, lastRow - 1, 1).getValues();
+    var map = {};
+    for (var i = 0; i < values.length; i++) {
+      var id = String(values[i][0]).trim();
+      if (id) map[id] = i + 2;
+    }
+    return map;
+  }
+
   /**
    * Upsert de listings: atualiza linha existente por ITEM_ID, insere se novo.
    * Dev () para o chamador decidir histórico — aqui apenas reflete o estado
@@ -121,6 +136,7 @@ var AnunciosShopeeRepository = (function () {
   function syncMain(sheetId, items) {
     var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
     var colMap = getColumnMap_(sheet);
+    var itemIdMap = buildItemIdMap_(sheet);
     var novos = 0;
     var atualizados = 0;
     var errors = [];
@@ -131,12 +147,15 @@ var AnunciosShopeeRepository = (function () {
       try {
         var itemId = String(item.ITEM_ID || item.item_id || '').trim();
         if (!itemId) continue;
-        var rowIdx = findItemRow_(sheet, itemId);
-        var isNew = rowIdx === null;
+        var existingRow = itemIdMap[itemId];
+        var isNew = !existingRow;
+        var rowIdx;
         if (isNew) {
           rowIdx = sheet.getLastRow() + 1;
+          itemIdMap[itemId] = rowIdx;
           novos++;
         } else {
+          rowIdx = existingRow;
           atualizados++;
         }
         writeMainRow_(sheet, rowIdx, colMap, item, now);
@@ -177,17 +196,20 @@ var AnunciosShopeeRepository = (function () {
       DADOS_JSON: 'DADOS_JSON',
       DATA_SINCRONIZACAO: 'DATA_SINCRONIZACAO'
     };
+    var lastCol = sheet.getLastColumn();
+    var row = [];
+    for (var c = 1; c <= lastCol; c++) row.push('');
     var keys = Object.keys(fieldToHeader);
     for (var i = 0; i < keys.length; i++) {
       var col = colMap[fieldToHeader[keys[i]]];
       if (!col) continue;
       var value = item[keys[i]];
       if (value === undefined || value === null) value = '';
-      sheet.getRange(rowIdx, col).setValue(value);
+      row[col - 1] = value;
     }
-    // DATA_ATUALIZACAO recebe o timestamp do sync sempre
-    if (colMap['DATA_ATUALIZACAO']) sheet.getRange(rowIdx, colMap['DATA_ATUALIZACAO']).setValue(now);
-    if (colMap['DATA_SINCRONIZACAO']) sheet.getRange(rowIdx, colMap['DATA_SINCRONIZACAO']).setValue(now);
+    if (colMap['DATA_ATUALIZACAO']) row[colMap['DATA_ATUALIZACAO'] - 1] = now;
+    if (colMap['DATA_SINCRONIZACAO']) row[colMap['DATA_SINCRONIZACAO'] - 1] = now;
+    sheet.getRange(rowIdx, 1, 1, lastCol).setValues([row]);
   }
 
   /** Lê todas as linhas do inventário como objetos (chave = header). */
@@ -284,15 +306,18 @@ var AnunciosShopeeRepository = (function () {
     var rowIdx = findItemRow_(sheet, itemId);
     if (rowIdx === null) return { success: false, error: 'Item não encontrado: ' + itemId };
     var colMap = getColumnMap_(sheet);
+    var lastCol = sheet.getLastColumn();
+    var row = sheet.getRange(rowIdx, 1, 1, lastCol).getValues()[0];
     var keys = Object.keys(updates || {});
     for (var i = 0; i < keys.length; i++) {
       var col = colMap[keys[i]];
       if (!col) continue;
       var value = updates[keys[i]];
       if (value === undefined || value === null) value = '';
-      sheet.getRange(rowIdx, col).setValue(value);
+      row[col - 1] = value;
     }
-    if (colMap['DATA_ATUALIZACAO']) sheet.getRange(rowIdx, colMap['DATA_ATUALIZACAO']).setValue(nowBR_());
+    if (colMap['DATA_ATUALIZACAO']) row[colMap['DATA_ATUALIZACAO'] - 1] = nowBR_();
+    sheet.getRange(rowIdx, 1, 1, lastCol).setValues([row]);
     SheetsRepository.logWriteAudit({
       sheet: MAIN_SHEET, operation: 'UPDATE', status: 'OK',
       stats: { rows: 1, updated: 1 },
@@ -304,24 +329,32 @@ var AnunciosShopeeRepository = (function () {
   function appendRows_(sheetId, sheetName, headers, rows) {
     var sheet = getOrCreateSheet(sheetId, sheetName, headers);
     var colMap = getColumnMap_(sheet);
+    var lastCol = sheet.getLastColumn();
     var inserted = 0;
     var errors = [];
+    var matrix = [];
     for (var i = 0; i < rows.length; i++) {
       var row = rows[i];
       try {
-        var newRow = sheet.getLastRow() + 1;
+        var line = [];
+        for (var c = 1; c <= lastCol; c++) line.push('');
         var keys = Object.keys(row);
         for (var k = 0; k < keys.length; k++) {
           var col = colMap[keys[k]];
           if (!col) continue;
           var value = row[keys[k]];
           if (value === undefined || value === null) value = '';
-          sheet.getRange(newRow, col).setValue(value);
+          line[col - 1] = value;
         }
+        matrix.push(line);
         inserted++;
       } catch (e) {
         errors.push({ error: e.message });
       }
+    }
+    if (matrix.length > 0) {
+      var startRow = sheet.getLastRow() + 1;
+      sheet.getRange(startRow, 1, matrix.length, lastCol).setValues(matrix);
     }
     SheetsRepository.logWriteAudit({
       sheet: sheetName, operation: 'APPEND',
@@ -360,6 +393,8 @@ var AnunciosShopeeRepository = (function () {
   function writePerformance(sheetId, perf) {
     var sheet = getOrCreateSheet(sheetId, PERFORMANCE_SHEET, PERFORMANCE_HEADERS);
     var colMap = getColumnMap_(sheet);
+    var lastCol = sheet.getLastColumn();
+    var row = sheet.getRange(2, 1, 1, lastCol).getValues()[0];
     var fieldToHeader = {
       periodo: 'PERIODO',
       totalAnunciosAtivos: 'TOTAL_ANUNCIOS_ATIVOS',
@@ -378,8 +413,9 @@ var AnunciosShopeeRepository = (function () {
       if (!col) continue;
       var value = perf[keys[i]];
       if (value === undefined || value === null) value = '';
-      sheet.getRange(2, col).setValue(value);
+      row[col - 1] = value;
     }
+    sheet.getRange(2, 1, 1, lastCol).setValues([row]);
     SheetsRepository.logWriteAudit({
       sheet: PERFORMANCE_SHEET, operation: 'UPSERT', status: 'OK',
       stats: { rows: 1, updated: 1 },

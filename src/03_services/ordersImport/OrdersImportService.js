@@ -788,51 +788,13 @@ var OrdersImportService = (function () {
       custoTotal = Math.round(custoTotal * 100) / 100;
       var estoqueIdsStr = allEstoqueIds.join(',');
       try {
-        var pedSheet = SpreadsheetApp.openById(ConfigService.getSheetId()).getSheetByName('PEDIDOS');
-        if (pedSheet) {
-          var pedHeaders = pedSheet.getRange(1, 1, 1, pedSheet.getLastColumn()).getValues()[0];
-          var pedOrderIdCol = -1, pedBaixadoCol = -1, pedEstoqueIdsCol = -1, pedCostCol = -1;
-          for (var ph = 0; ph < pedHeaders.length; ph++) {
-            var h = String(pedHeaders[ph]).trim();
-            if (h === 'ORDER_ID') pedOrderIdCol = ph + 1;
-            if (h === 'BAIXADO') pedBaixadoCol = ph + 1;
-            if (h === 'BAIXA_ESTOQUE_IDS') pedEstoqueIdsCol = ph + 1;
-            if (h === 'TOTAL_COST') pedCostCol = ph + 1;
-          }
-          // Create missing columns if needed
-          if (pedEstoqueIdsCol === -1) {
-            pedEstoqueIdsCol = pedSheet.getLastColumn() + 1;
-            pedSheet.getRange(1, pedEstoqueIdsCol).setValue('BAIXA_ESTOQUE_IDS');
-          }
-          if (pedCostCol === -1) {
-            pedCostCol = pedSheet.getLastColumn() + 1;
-            pedSheet.getRange(1, pedCostCol).setValue('TOTAL_COST');
-          }
-          if (pedOrderIdCol > 0) {
-            var pedData = pedSheet.getRange(2, pedOrderIdCol, pedSheet.getLastRow() - 1, 1).getValues();
-            for (var pr = 0; pr < pedData.length; pr++) {
-              if (String(pedData[pr][0]).trim() === String(orderSn).trim()) {
-                var row = pr + 2;
-                if (pedBaixadoCol > 0) {
-                  var novoBaixado = 'PENDENTE';
-                  if (totalSkusNoPedido > 0 && baixas >= totalSkusNoPedido) {
-                    novoBaixado = 'BAIXADO';
-                  } else if (baixas > 0) {
-                    novoBaixado = 'PARCIAL';
-                  }
-                  pedSheet.getRange(row, pedBaixadoCol).setValue(novoBaixado);
-                }
-                if (pedEstoqueIdsCol > 0) {
-                  pedSheet.getRange(row, pedEstoqueIdsCol).setValue(estoqueIdsStr);
-                }
-                if (pedCostCol > 0 && (custoTotal > 0 || reverts > 0)) {
-                  pedSheet.getRange(row, pedCostCol).setValue(custoTotal);
-                }
-                break;
-              }
-            }
-          }
+        var novoBaixado = 'PENDENTE';
+        if (totalSkusNoPedido > 0 && baixas >= totalSkusNoPedido) {
+          novoBaixado = 'BAIXADO';
+        } else if (baixas > 0) {
+          novoBaixado = 'PARCIAL';
         }
+        OrdersRepository.writeBaixaColumns(orderSn, novoBaixado, estoqueIdsStr, custoTotal);
       } catch (e) { /* non-critical */ }
     }
 

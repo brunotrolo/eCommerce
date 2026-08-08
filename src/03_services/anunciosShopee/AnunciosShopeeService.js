@@ -246,6 +246,42 @@ var AnunciosShopeeService = (function () {
     }
   }
 
+  /** Batch fetchSales via callBatch + UrlFetchApp.fetchAll. Retorna mapa itemId → {total_orders, total_quantity, total_revenue}. */
+  function fetchSalesBatch_(shopId, itemIds) {
+    var defaultSales = { total_orders: 0, total_quantity: 0, total_revenue: 0 };
+    var map = {};
+    var batches = chunk_(itemIds, PAGE_SIZE);
+    for (var b = 0; b < batches.length; b++) {
+      var batch = batches[b];
+      var items = batch.map(function (id) {
+        return { action: 'shopee_sales_by_item', params: { item_id: id, period: PERIODO_PADRAO, shopId: shopId } };
+      });
+      var results = TiopsClient.callBatch(items);
+      for (var i = 0; i < results.length; i++) {
+        var itemId = batch[i];
+        var r = results[i];
+        if (r.error) {
+          logSalesFailure_(itemId, new Error(r.error));
+          map[itemId] = { total_orders: 0, total_quantity: 0, total_revenue: 0 };
+        } else {
+          var resp = r.data;
+          if (resp && resp.response) resp = resp.response;
+          if (resp && resp.data) resp = resp.data;
+          if (!resp || typeof resp !== 'object') {
+            map[itemId] = { total_orders: 0, total_quantity: 0, total_revenue: 0 };
+          } else {
+            map[itemId] = {
+              total_orders: num_(resp.total_orders),
+              total_quantity: num_(resp.total_quantity),
+              total_revenue: num_(resp.total_revenue)
+            };
+          }
+        }
+      }
+    }
+    return map;
+  }
+
   /** Loga falha no sales_by_item (evita zero 'fantasma' sem rastro). */
   function logSalesFailure_(itemId, error) {
     try {
@@ -426,9 +462,10 @@ var AnunciosShopeeService = (function () {
         rows.push(row);
       }
 
-      // vendas 30d por item (falha individual não derruba o sync)
+      // vendas 30d por item — batch via callBatch (paralelo)
+      var salesMap = fetchSalesBatch_(shopId, rows.map(function (r) { return r.ITEM_ID; }));
       for (var j = 0; j < rows.length; j++) {
-        var sales = fetchSales_(shopId, rows[j].ITEM_ID);
+        var sales = salesMap[rows[j].ITEM_ID] || { total_orders: 0, total_quantity: 0, total_revenue: 0 };
         rows[j].VENDAS_30D = sales.total_quantity;
       }
 

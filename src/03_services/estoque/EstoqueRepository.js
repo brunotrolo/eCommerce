@@ -141,6 +141,30 @@ var EstoqueRepository = (function () {
     return rows;
   }
 
+  /**
+   * Lê todas as linhas DISPONÍVEIS (baixado=N) UMA ÚNICA VEZ e agrupa por CODIGO_PRODUTO/SKU.
+   * Retorna mapa: { codigoProduto: [item, ...], ... }
+   * Usado por EstoqueService.atualizarAlertasBulk_ para evitar N chamadas a getRows.
+   */
+  function buildItemsByProductMap(sheetId) {
+    var rows = getRows(sheetId, { baixado: 'N' });
+    var map = {};
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var cod = String(r.CODIGO_PRODUTO || '').trim();
+      var sku = String(r.SKU || '').trim();
+      if (cod) {
+        if (!map[cod]) map[cod] = [];
+        map[cod].push(r);
+      }
+      if (sku && sku !== cod) {
+        if (!map[sku]) map[sku] = [];
+        map[sku].push(r);
+      }
+    }
+    return map;
+  }
+
   function appendRow(sheetId, rowData) {
     var sheet = getOrCreateSheet(sheetId);
     var colMap = getColumnMap_(sheet);
@@ -294,6 +318,7 @@ var EstoqueRepository = (function () {
   function updateRow(sheetId, estoqueId, updates) {
     var sheet = getOrCreateSheet(sheetId);
     var colMap = getColumnMap_(sheet);
+    var lastCol = sheet.getLastColumn();
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return { success: false, error: 'No data rows' };
 
@@ -327,13 +352,15 @@ var EstoqueRepository = (function () {
       logId: 'LOG_ID'
     };
 
+    var row = sheet.getRange(targetRow, 1, 1, lastCol).getValues()[0];
     var keys = Object.keys(updates);
     for (var k = 0; k < keys.length; k++) {
       var field = keys[k];
       var header = fieldToHeader[field];
       if (!header || !colMap[header]) continue;
-      sheet.getRange(targetRow, colMap[header]).setValue(updates[field]);
+      row[colMap[header] - 1] = updates[field];
     }
+    sheet.getRange(targetRow, 1, 1, lastCol).setValues([row]);
 
     SheetsRepository.logWriteAudit({
       sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
@@ -350,6 +377,7 @@ var EstoqueRepository = (function () {
     var lastRow = sheet.getLastRow();
     if (lastRow < 2) return { success: false, error: 'No data rows' };
 
+    var lastCol = sheet.getLastColumn();
     var idCol = colMap['ESTOQUE_ID'];
     if (!idCol) return { success: false, error: 'ESTOQUE_ID column not found' };
 
@@ -360,11 +388,17 @@ var EstoqueRepository = (function () {
     }
 
     var rowsToUpdate = [];
+    var rowNumbers = [];
     for (var j = 0; j < allIds.length; j++) {
       if (idSet[String(allIds[j][0]).trim()]) {
-        rowsToUpdate.push(j + 2);
+        rowsToUpdate.push(j);
+        rowNumbers.push(j + 2);
       }
     }
+
+    if (rowsToUpdate.length === 0) return { success: true, updated: 0 };
+
+    var allRows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
     var fieldToHeader = {
       status: 'STATUS',
@@ -377,26 +411,29 @@ var EstoqueRepository = (function () {
       dataSincronizacao: 'DATA_SINCRONIZACAO'
     };
 
-    var updated = 0;
     for (var r = 0; r < rowsToUpdate.length; r++) {
-      var rowNum = rowsToUpdate[r];
+      var rowIdx = rowsToUpdate[r];
+      var row = allRows[rowIdx];
       var keys = Object.keys(updates);
       for (var k = 0; k < keys.length; k++) {
         var field = keys[k];
         var header = fieldToHeader[field];
         if (!header || !colMap[header]) continue;
-        sheet.getRange(rowNum, colMap[header]).setValue(updates[field]);
+        row[colMap[header] - 1] = updates[field];
       }
-      updated++;
     }
+
+    var updateRows = rowsToUpdate.map(function (idx) { return allRows[idx]; });
+    var firstRow = Math.min.apply(null, rowNumbers);
+    sheet.getRange(firstRow, 1, updateRows.length, lastCol).setValues(updateRows);
 
     SheetsRepository.logWriteAudit({
       sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
-      stats: { rows: updated, updated: updated },
+      stats: { rows: updateRows.length, updated: updateRows.length },
       caller: 'EstoqueRepository', detail: 'updateRowsBulk'
     });
 
-    return { success: true, updated: updated };
+    return { success: true, updated: updateRows.length };
   }
 
   function countByStatus(sheetId, codigoProduto) {    var rows = getRows(sheetId, { codigoProduto: codigoProduto });
@@ -436,6 +473,7 @@ var EstoqueRepository = (function () {
     getOrCreateSheet: getOrCreateSheet,
     getRows: getRows,
     getItemsDisponivelPorProduto: getItemsDisponivelPorProduto,
+    buildItemsByProductMap: buildItemsByProductMap,
     appendRow: appendRow,
     appendRows: appendRows,
     updateRow: updateRow,
