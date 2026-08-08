@@ -7,11 +7,11 @@ que foi atualizado a partir dos achados aqui. Casos de aceite específicos de
 ESTOQUE vivem em `specs/estoque.md` e `specs/estoque-preco-update.md`,
 também já atualizados.
 
-**Data da análise:** 08/08/2026 (atualizado com 2 pedidos adicionais em 08/08/2026)
+**Data da análise:** 08/08/2026 (atualizado com 3 pedidos adicionais em 08/08/2026)
 **Autor:** Claude (sessão de engenharia reversa)
 **Fonte de dados:** API oficial Shopee (via integração TIOPS), pedidos reais da conta `1880105398`, status `COMPLETED`
-**Período analisado:** últimos 10 dias (29/07/2026 a 08/08/2026) + 2 pedidos pontuais de validação (08/08/2026)
-**Amostra:** 10 pedidos completos, R$ 1.411,95 em vendas brutas somadas
+**Período analisado:** últimos 10 dias (29/07/2026 a 08/08/2026) + 3 pedidos pontuais de validação (08/08/2026)
+**Amostra:** 11 pedidos completos, R$ 1.710,95 em vendas brutas somadas
 
 ---
 
@@ -60,21 +60,25 @@ Pedidos `COMPLETED` retornados por `shopee_list_orders` (janela `create_time`) e
 | 260802A0RQANG2 | 168,00 | 20,16 | 23,36 | 8,39 | 8,39 | 0,00 | 0,00 | Cartão | 5x | 1 | **124,48** |
 | 260808RDC2YAHE **[9º, validação]** | 223,25 | 25,99 | 30,33 | 9,62 | 9,62 | 10,28 | 6,70 | Pix | — | 1 | **160,23** |
 | 260806K8PE8HU5 **[10º, validação]** | 189,00 | 22,68 | 23,78 | 12,04 | 0,00* | 9,45 | 0,00 | Pix | — | 1 | **142,54** |
+| 2608029E930AHE **[11º, validação]** | 299,00 | 35,16 | 31,86 | 14,48 | 0,00* | 0,00 | 5,98 | Cartão | 4x | 1 | **226,00** |
 
-\* Nestes três pedidos o comprador pagou o frete separadamente (`buyer_paid_shipping_fee`), então não há repasse — o frete simplesmente não passa pelo caixa do vendedor.
+\* Nestes quatro pedidos o comprador pagou o frete separadamente (`buyer_paid_shipping_fee`), então não há repasse — o frete simplesmente não passa pelo caixa do vendedor.
 
-**Total:** R$ 1.411,95 em vendas → R$ 1.028,09 líquido recebido (72,8% médio simples — **não use essa média direta**, veja seção 4 sobre por que a taxa varia por cenário).
+**Total:** R$ 1.710,95 em vendas → R$ 1.254,09 líquido recebido (73,3% médio simples — **não use essa média direta**, veja seção 4 sobre por que a taxa varia por cenário).
 
-> **Sobre os pedidos 9 e 10:** não fizeram parte da amostra original de 10
-> dias — foram puxados avulsos em 08/08/2026 como teste de validação em
+> **Sobre os pedidos 9, 10 e 11:** não fizeram parte da amostra original de
+> 10 dias — foram puxados avulsos em 08/08/2026 como teste de validação em
 > tempo real com o usuário (ele informou o preço de venda antes de saber o
-> valor líquido real, e eu previ às cegas nos dois casos). A fórmula mestra
-> (seção 3) acertou em cheio nos dois. O modelo simplificado de taxa de
-> serviço (seção 5): errou por R$5,86 no 9º pedido (R$223,25) — mesmo padrão
-> do pedido `260803C4FWHDVU` — mas **acertou exato, sem nenhum erro, no 10º
-> pedido (R$189,00)**. Isso estreita bastante o intervalo onde o componente
-> extra de taxa de serviço aparece: confirmado ausente em R$189,00,
-> confirmado presente em R$223,25. Ver seção 5.
+> valor líquido real, e eu previ às cegas nos três casos). A fórmula mestra
+> (seção 3) acertou em cheio nos três. O modelo simplificado de taxa de
+> serviço (seção 5): errou por R$5,86 no 9º pedido (R$223,25, Pix) — mesmo
+> padrão do pedido `260803C4FWHDVU` — acertou exato no 10º pedido (R$189,00,
+> Pix) — e no 11º pedido (R$299,00, **cartão 4x**, mesmo produto do pedido
+> `260803C4FWHDVU` mas transação diferente) teve **comissão e taxa de
+> serviço idênticas, centavo a centavo**, ao pedido Pix original de mesmo
+> valor — confirmando de forma independente que Pix e parcelado caem na
+> mesma faixa de taxa, e que o componente extra de R$5,88 em R$299 é
+> reproduzível, não um acaso de um único pedido. Ver seção 5.
 
 ---
 
@@ -84,11 +88,11 @@ Pedidos `COMPLETED` retornados por `shopee_list_orders` (janela `create_time`) e
 ESCROW (valor líquido) = PREÇO_VENDA − CUPOM_DO_VENDEDOR − COMISSÃO − TAXA_DE_SERVIÇO
 ```
 
-Testada contra os 9 pedidos reais (8 da amostra original + 1 de validação
-pontual), **erro de R$ 0,00 em 7 dos 9 pedidos e menos de R$ 0,01 nos outros
-2** (arredondamento) — incluindo o 9º pedido, testado às cegas antes de eu
-saber o valor real. Esta é a fórmula estrutural exata que a Shopee usa — não
-uma aproximação.
+Testada contra os 11 pedidos reais (8 da amostra original + 3 de validação
+pontual), **erro de R$ 0,00 em 9 dos 11 pedidos e menos de R$ 0,01 nos
+outros 2** (arredondamento) — incluindo os 3 pedidos de validação, todos
+testados às cegas antes de eu saber o valor real. Esta é a fórmula
+estrutural exata que a Shopee usa — não uma aproximação.
 
 ### O que **NÃO** entra na conta (achados que corrigem premissas antigas)
 
@@ -107,7 +111,7 @@ uma aproximação.
 | Cenário | Comissão | Confiança |
 |---|---:|---|
 | Cartão de crédito, à vista (1x) | **18,0%** | Alta — 4/4 pedidos, exatamente 18,00% em todos |
-| Pix **ou** cartão parcelado (>1x) | **12,0%** | Alta — 6/6 pedidos entre 11,6% e 12,3% (10º pedido: 12,00% exato) |
+| Pix **ou** cartão parcelado (>1x) | **12,0%** | Alta — 7/7 pedidos entre 11,6% e 12,3% (10º pedido: 12,00% exato; 11º pedido: 11,76%, idêntico ao pedido Pix de mesmo valor) |
 
 A Shopee **reduz a comissão em 6 pontos percentuais** para incentivar pagamentos via Pix ou parcelamento — provavelmente porque o parcelamento é mais barato para a Shopee processar via seu próprio programa de crédito, e o Pix reduz risco de chargeback. Isso é uma descoberta relevante: **um pedido parcelado ou pago via Pix é, na prática, MAIS barato para o vendedor em comissão**, o que compensa parcialmente qualquer ansiedade sobre "custos do Pix".
 
@@ -121,36 +125,48 @@ TAXA_SERVIÇO = (2% × PREÇO_VENDA) + (R$ 4,00 × QTD_ITENS) + (R$ 16,00 SE Pix
 
 | Componente | Valor | Confiança |
 |---|---|---|
-| Base percentual | **2,0%** do preço de venda | Alta — consistente em 10/10 pedidos (variação < 0,05 p.p.) |
-| Fixo por item | **R$ 4,00 por item** do pedido | Alta — bate exatamente em 7/10 pedidos (kits de 3 itens = R$ 12,00 exatos) |
-| Extra Pix/parcelado | **R$ 16,00** fixo por pedido | Alta até ~R$189, incerta acima disso — bate exatamente em 4/6 pedidos Pix/parcelado, incluindo o de R$189,00 (10º pedido, erro R$0,00); os 2 pedidos de ticket mais alto (R$ 299 e R$ 223,25, ambos Pix) tiveram um excedente de **R$ 5,88 e R$ 5,86** respectivamente — quase idêntico entre si |
+| Base percentual | **2,0%** do preço de venda | Alta — consistente em 11/11 pedidos (variação < 0,05 p.p.) |
+| Fixo por item | **R$ 4,00 por item** do pedido | Alta — bate exatamente em 8/11 pedidos (kits de 3 itens = R$ 12,00 exatos) |
+| Extra Pix/parcelado | **R$ 16,00** fixo por pedido | Alta até ~R$189, e agora **alta também em R$299** (2 confirmações independentes) — bate exatamente em 4/7 pedidos Pix/parcelado; os 3 pedidos de ticket mais alto (2× R$299 + R$223,25) tiveram excedente de **R$5,88 / R$5,88 / R$5,86** — praticamente idêntico nos três |
 
-**Atualização (3 pontos de dados, 08/08/2026):** os pedidos `260808RDC2YAHE`
-(R$223,25) e `260806K8PE8HU5` (R$189,00) foram testados **às cegas** — previ
-o líquido antes de saber o valor real nos dois casos, e a fórmula mestra
-(seção 3) acertou exato nos dois. Só o modelo simplificado de taxa de
-serviço divergiu, e só num deles:
+**Atualização (4 pontos de dados, 08/08/2026):** os pedidos `260808RDC2YAHE`
+(R$223,25, Pix), `260806K8PE8HU5` (R$189,00, Pix) e `2608029E930AHE`
+(R$299,00, **cartão 4x**) foram testados **às cegas** — previ o líquido
+antes de saber o valor real nos três casos, e a fórmula mestra (seção 3)
+acertou exato em todos. O modelo simplificado de taxa de serviço:
 
 - **R$223,25 (Pix):** taxa de serviço real R$30,33 vs prevista R$24,46 —
-  erro de +R$5,86, mesmo padrão do pedido de R$299 (+R$5,88).
+  erro de +R$5,86, mesmo padrão do pedido de R$299 original.
 - **R$189,00 (Pix):** taxa de serviço real R$23,78 vs prevista R$23,78 —
   **erro zero**. Comissão também bateu exata (R$22,68 = 12,00% cravado).
+- **R$299,00 (Cartão 4x, produto e preço idênticos ao pedido `260803C4FWHDVU`
+  original, mas transação diferente):** comissão (R$35,16) e taxa de serviço
+  (R$31,86) **idênticas, centavo a centavo**, ao pedido Pix original de
+  mesmo valor — apesar de um ser Pix e outro cartão parcelado. Excedente de
+  +R$5,88, igual ao original.
 
-Isso estreita o intervalo do limiar de forma concreta: **confirmado ausente
-em R$189,00, confirmado presente em R$223,25** — o limiar está nesses
-R$34,25 de diferença, não mais numa faixa vaga de R$180-250. Também reforça
-que não é um componente percentual do preço (o valor absoluto do excedente,
-~R$5,87, foi quase idêntico em R$223 e R$299, dois tickets bem diferentes)
-— é mais consistente com um **degrau fixo** que liga acima de algum ponto
-entre R$189 e R$223.
+O pedido 11 é a confirmação mais forte até agora: dois pedidos
+**independentes** (transações diferentes, formas de pagamento diferentes —
+Pix vs cartão 4x) no mesmo valor (R$299) resultaram em comissão e taxa de
+serviço **idênticas**. Isso confirma dois pontos ao mesmo tempo: (1) Pix e
+parcelado realmente caem na mesma faixa de taxa, não é coincidência de
+classificação; (2) o excedente de ~R$5,87-5,88 em R$299 é reproduzível e
+não foi ruído de um pedido isolado. Combinado com R$189,00 (confirmado sem
+o excedente) e R$223,25 (confirmado com), o limiar de preço onde esse
+componente liga está localizado com boa confiança **entre R$189 e R$223**,
+e continua presente pelo menos até R$299 (não é um efeito só de "borda" que
+desaparece em tickets maiores).
 
-**Limitação conhecida (revisada):** o componente "extra Pix" tem 2 partes:
-R$16,00 fixo (alta confiança, confirmado até R$189,00 exatos) + um possível
-componente adicional de ~R$5,87 que liga acima de um limiar ainda não
-localizado com precisão dentro do intervalo (R$189, R$223,25]. Recomenda-se
-reunir pedidos Pix/parcelado especificamente entre R$190 e R$222 para
-encontrar o ponto exato de transição antes de incorporar esse componente à
-fórmula de produção com confiança alta.
+**Limitação conhecida (revisada):** o componente "extra Pix/parcelado" tem 2
+partes: R$16,00 fixo (alta confiança, confirmado até R$189,00 exatos) + um
+componente adicional de ~R$5,87-5,88 (agora alta confiança em R$223-299,
+com 3 confirmações independentes) que liga acima de um limiar ainda não
+localizado com precisão dentro do intervalo (R$189, R$223,25]. Falta apenas
+apertar esse intervalo de R$34,25 — não mais validar se o componente existe
+de fato, isso já está bem estabelecido. Recomenda-se reunir pedidos
+Pix/parcelado especificamente entre R$190 e R$222 para encontrar o ponto
+exato de transição antes de incorporar esse componente à fórmula de
+produção com confiança alta.
 
 ---
 
@@ -191,19 +207,20 @@ liquido_previsto = preco - cupom_vendedor - (preco * comissao_pct) - taxa_servic
 | 260802A0RQANG2 | 168,00 | 124,48 | 124,48 | 0,00 | 0,00% |
 | 260808RDC2YAHE **[9º, validação às cegas]** | 223,25 | 160,23 | 165,30 | 5,07 | 3,16% |
 | 260806K8PE8HU5 **[10º, validação às cegas]** | 189,00 | 142,54 | 142,54 | 0,00 | 0,00% |
+| 2608029E930AHE **[11º, validação às cegas]** | 299,00 | 226,00 | 231,16 | 5,16 | 2,28% |
 
-**Resultado agregado (10 pedidos): erro absoluto médio de R$ 1,08 por pedido; erro total de R$ 10,84 sobre R$ 1.411,95 em vendas = 0,77% de desvio.**
+**Resultado agregado (11 pedidos): erro absoluto médio de R$ 1,45 por pedido; erro total de R$ 16,00 sobre R$ 1.710,95 em vendas = 0,94% de desvio.**
 
-✅ **A fórmula está validada e pronta para uso em produção**, com uma ressalva mais nítida agora: os 2 únicos pedidos com erro acima de 1% são exatamente os 2 pedidos Pix de ticket mais alto (R$299 → 2,28%; R$223,25 → 3,16%), ambos puxados para cima pelo mesmo componente de taxa de serviço não capturado (seção 5). O 10º pedido (R$189,00, Pix) prova que o problema **não é genérico de todo pedido Pix de ticket "alto"** — é específico de um limiar entre R$189 e R$223,25 ainda não localizado com precisão. Para tickets Pix/parcelado até R$189 e qualquer cenário cartão-1x, o erro é essencialmente zero (8 dos 10 pedidos). Antes de confiar na fórmula para produtos Pix/parcelado acima de R$189, aplicar a fórmula assumindo o excedente de ~R$5,87 como colchão de segurança adicional, ou reunir mais dados na faixa R$190-222 para localizar o limiar exato.
+✅ **A fórmula está validada e pronta para uso em produção**, com uma ressalva mais nítida agora: os 3 únicos pedidos com erro acima de 1% são exatamente os 3 pedidos Pix/parcelado de ticket ≥ R$223 (R$299 → 2,28% em dois pedidos distintos; R$223,25 → 3,16%), todos puxados para cima pelo mesmo componente de taxa de serviço não capturado (seção 5), agora confirmado reproduzível (2 pedidos independentes em R$299 com erro idêntico). O 10º pedido (R$189,00, Pix) prova que o problema **não é genérico de todo pedido Pix de ticket "alto"** — é específico de um limiar entre R$189 e R$223,25 ainda não localizado com precisão. Para tickets Pix/parcelado até R$189 e qualquer cenário cartão-1x, o erro é essencialmente zero (8 dos 11 pedidos). Antes de confiar na fórmula para produtos Pix/parcelado acima de R$189, aplicar a fórmula assumindo o excedente de ~R$5,87 como colchão de segurança adicional, ou reunir mais dados na faixa R$190-222 para localizar o limiar exato.
 
 ---
 
 ## 8. Limitações e dados fora do escopo desta análise
 
-- **Ads/Shopee Ads:** nenhum dos 10 pedidos teve `campaign_fee` ou `ads_escrow_top_up_fee` diferente de zero — a conta não tinha campanhas ativas de Ads no período. A calculadora deve manter um campo de input para % de Ads (como já existe em `calculateML`), mas ele não pôde ser calibrado com dados reais aqui.
+- **Ads/Shopee Ads:** nenhum dos 11 pedidos teve `campaign_fee` ou `ads_escrow_top_up_fee` diferente de zero — a conta não tinha campanhas ativas de Ads no período. A calculadora deve manter um campo de input para % de Ads (como já existe em `calculateML`), mas ele não pôde ser calibrado com dados reais aqui.
 - **Devoluções/reembolsos:** o pedido `260802A0RQANG2` teve uma devolução parcial associada (`return_order_sn_list`), processada como transação separada — não afeta o escrow do pedido original, mas representa um risco não capturado pela calculadora (perda potencial de frete de retorno + tempo). Recomenda-se incluir um "buffer de devolução" opcional (ex: 1-2% de margem de segurança).
 - **GTIN e taxas de categoria especial:** não foram identificadas variações de taxa por categoria além do padrão observado (perfumaria, NCM 33030010). Categorias diferentes podem ter comissão-base diferente de 18%/12% — a calculadora deve permitir edição manual desses dois parâmetros por categoria se o catálogo se diversificar.
-- **Amostra pequena (n=10):** suficiente para validar a fórmula estrutural (que é exata, matemática, não estatística — 10/10 pedidos bateram na fórmula mestra), mas o componente "extra Pix" ainda tem confiança média para tickets acima de R$189. O 10º pedido (seção 5) provou que o limiar existe entre R$189,00 (sem extra) e R$223,25 (com extra) — uma faixa de só R$34,25 —, mas faltam pedidos Pix/parcelado especificamente dentro dessa faixa (R$190-222) para cravar o valor exato.
+- **Amostra pequena (n=11):** suficiente para validar a fórmula estrutural (que é exata, matemática, não estatística — 11/11 pedidos bateram na fórmula mestra), e o componente "extra Pix/parcelado" já passou de "suspeita" para "confirmado, localização pendente": existe com alta confiança em R$223-299 (3 confirmações independentes, incluindo 2 pedidos distintos no mesmo valor de R$299), está confirmadamente ausente até R$189,00, e o limiar exato de transição está nesse intervalo de R$34,25 (R$189-223) — faltam pedidos Pix/parcelado especificamente dentro dessa faixa para cravar o valor.
 
 ---
 
