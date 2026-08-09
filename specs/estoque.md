@@ -121,15 +121,20 @@ Diferenças de NFE/MANUAL:
   `PRECO_VENDA_SHOPEE`/`PRECO_VENDA_MERCADO_LIVRE` de **todos** os items do
   estoque, um por um, **sempre a partir do `PRECO_CUSTO_ORIGINAL` daquele
   item específico** — nunca de um preço agregado do Catálogo. Motor único:
-  `PricingService.calculateSuggestedPrice`, margem alvo =
-  `ConfigService.getDefaultMargin()` (a mesma margem padrão que o Catálogo
-  usa quando o usuário não ajusta o campo "Margem %").
+  `PricingService.calculateSuggestedPrice`, margem alvo = `params.targetMargin`
+  quando informado, senão `ConfigService.getDefaultMargin()`.
   - **Corrigido em 09/08/2026** (antes buscava o preço já calculado de
     `CatalogService.getProducts()`, que agrega por "custo mais recente por
     código de produto" — divergente do custo real de um item específico se
     ele veio de um lote/NFe mais antigo e mais barato/caro que o lote mais
     recente do mesmo produto).
-- Params: nenhum.
+  - **Ajustado em 09/08/2026**: a UI de Estoque ganhou um campo "Margem %"
+    (padrão 10%, mesmo padrão do Catálogo) ao lado do botão — o usuário pode
+    alterar o valor (ex.: 20%) antes de clicar, e a margem escolhida é enviada
+    como `targetMargin`. Sem o campo, o motor sempre usava o valor global de
+    `ConfigService.getDefaultMargin()`, sem opção de ajuste manual pontual.
+- Params: `{ targetMargin?: number }` — opcional, deve estar entre 0
+  (inclusive) e 1 (exclusivo); se omitido, usa `ConfigService.getDefaultMargin()`.
 - Retorno: `{ success: true, atualizados: number, semCusto: number, total: number }`
   — `semCusto` conta items com `PRECO_CUSTO_ORIGINAL <= 0` (pulados, não é possível calcular).
 - Regra: só escreve na planilha os items cujo preço recalculado difere do
