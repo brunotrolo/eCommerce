@@ -107,9 +107,10 @@ var EstoqueService = (function () {
           description:
             'Recalcula os preços Shopee e ML de TODOS os itens do estoque ' +
             'diretamente a partir do PRECO_CUSTO_ORIGINAL de cada item ' +
-            '(PricingService.calculateSuggestedPrice, margem alvo padrão), ' +
-            'nunca de um preço cacheado do Catálogo.',
-          params: {},
+            '(PricingService.calculateSuggestedPrice), nunca de um preço cacheado do Catálogo.',
+          params: {
+            targetMargin: { type: 'number', required: false, default: 'ConfigService.getDefaultMargin()', description: 'Margem alvo (0-1) usada no recálculo' }
+          },
           returns: { success: 'boolean', atualizados: 'number', semCusto: 'number', total: 'number' }
         },
         getEstoqueAtualPorProduto: {
@@ -821,10 +822,16 @@ var EstoqueService = (function () {
    */
   function sincronizarPrecosCatalogo(params) {
     var startTime = Date.now();
+    params = params || {};
     var sheetId = getSheetId_();
     if (!sheetId) {
       traceError_('sincronizarPrecosCatalogo', 'Sheet ID não configurado', {});
       return { error: 'Sheet ID não configurado.' };
+    }
+
+    var targetMargin = typeof params.targetMargin === 'number' ? params.targetMargin : ConfigService.getDefaultMargin();
+    if (targetMargin < 0 || targetMargin >= 1) {
+      return { error: 'targetMargin deve estar entre 0 (inclusive) e 1 (exclusivo).' };
     }
 
     try {
@@ -834,7 +841,6 @@ var EstoqueService = (function () {
         return { success: true, atualizados: 0, semCusto: 0, total: 0 };
       }
 
-      var targetMargin = ConfigService.getDefaultMargin();
       var priceCache = {};
 
       function precosParaCusto_(custo) {
