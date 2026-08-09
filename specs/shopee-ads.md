@@ -118,7 +118,7 @@ Inclui toggle para métricas de visita/conversão por item.
 ## Dependências
 - Services: TiopsClient, CacheRepository, SheetsRepository, LoggingService
 - Ações Tiops: shopee_ads_balance, shopee_ads_campaigns, shopee_ads_pause_campaign,
-  shopee_ads_resume_campaign, shopee_ads_terminate_campaign, shopee_ads_daily_performance,
+  shopee_ads_resume_campaign, shopee_ads_terminate_campaign,
   shopee_ads_hourly_performance, shopee_ads_campaign_daily, shopee_ads_recommended_keywords,
   shopee_ads_edit_keywords, shopee_ads_delete_keywords, shopee_ads_recommended_items,
   shopee_ads_gms_items, shopee_ads_roi_target, shopee_ads_budget_suggestion,

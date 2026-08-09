@@ -85,6 +85,24 @@ deste projeto é **local BR** — essas chamadas sempre falham (erro genérico d
 |---|---|---|
 | `shopee_get_payout_info` | Sempre `error_param: "Invalid or missing page_size"` mesmo enviando `page_size`/`page_no`/`limit`/`offset` em todas as formas | Wrapper Tiops provavelmente lê a paginação de outro lugar (top-level do payload, não `params`) ou exige `describe_action` para nome exato |
 
+## Shopee Ads performance — confirmado em 2026-08-09
+
+Sondagem via MCP Tiops (`shopId` = `1880105398`). **⚠️ `shopee_ads_daily_performance`
+é agregado da LOJA inteira (param `shopId`) — NÃO aceita `campaign_id` e NÃO
+serve para métricas por campanha.** A ação correta por campanha é
+`shopee_ads_campaign_daily` (descoberto via `describe_action` + teste real;
+enviar `campaign_id` scalar como param rejeita com "campaign_id_list
+obrigatório").
+
+| Ação | Params confirmados | Retorno-chave |
+|---|---|---|
+| `shopee_ads_campaign_daily` | `campaign_id_list` (array de ids), `start_date`, `end_date` (formato **DD-MM-YYYY**) | `data.response.campaign_list[]` — cada item tem `campaign_id` e `metrics_list[]` com `{date, impression, clicks, ctr, expense, broad_gmv, broad_order, broad_order_amount, broad_roi, cr, cpc, direct_gmv, direct_order, direct_order_amount, direct_roi, cpdc}` |
+
+`ShopeeAdsService.syncCampaigns` usa `shopee_ads_campaign_daily` (1 chamada
+com `campaign_id_list` de todas as campanhas) e agrega `metrics_list`
+sombrando `broad_gmv`+`direct_gmv` (receita) e `broad_order`+`direct_order`
+(conversões).
+
 ## Ainda não confirmados
 
 Estas ações são usadas pelo código mas **não** tiveram nome e schema

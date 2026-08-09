@@ -7,7 +7,7 @@
  *   shopee_ads_balance — saldo de créditos
  *   shopee_ads_campaigns — listar campanhas
  *   shopee_ads_pause_campaign / resume_campaign / terminate_campaign — ações
- *   shopee_ads_daily_performance — performance diária
+ *   shopee_ads_campaign_daily — performance por campanha (campaign_id_list)
  *   shopee_ads_hourly_performance — performance horária
  *   shopee_ads_recommended_keywords / edit_keywords / delete_keywords — keywords
  *   shopee_ads_recommended_items / gms_items — itens
@@ -176,63 +176,64 @@ var ShopeeAdsService = (function () {
     var campanhas = normalizeCampaigns_(data);
     SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP2: normalizeCampaigns resultado=' + campanhas.length + ' campanhas' });
 
-    // Busca métricas de performance para cada campanha em paralelo
+    // Busca métricas de performance POR CAMPANHA (shopee_ads_campaign_daily
+    // agrega por campaign_id_list — diferente de shopee_ads_daily_performance,
+    // que é agregado da LOJA inteira). Uma única chamada para todas as campanhas.
     if (campanhas.length > 0) {
       var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd-MM-yyyy');
       var sevenDaysAgo = Utilities.formatDate(
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), Session.getScriptTimeZone(), 'dd-MM-yyyy'
       );
 
-      var batchItems = campanhas.map(function (c) {
-        return {
-          action: 'shopee_ads_daily_performance',
-          params: {
-            campaign_id: Number(c.CAMPANHA_ID),
-            start_date: sevenDaysAgo,
-            end_date: today
-          }
-        };
-      });
+      var campaignIds = campanhas.map(function (c) { return Number(c.CAMPANHA_ID); });
 
-      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP3: preparando callBatch com ' + batchItems.length + ' itens, callBatchExiste=' + (typeof TiopsClient.callBatch === 'function') });
+      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP3: shopee_ads_campaign_daily com campaign_id_list=' + campaignIds.length + ' itens, periodo ' + sevenDaysAgo + ' a ' + today });
 
-      var batchResults = typeof TiopsClient.callBatch === 'function' ? TiopsClient.callBatch(batchItems) : [];
+      var perfResult = null;
+      try {
+        perfResult = callTiops_('shopee_ads_campaign_daily', {
+          campaign_id_list: campaignIds,
+          start_date: sevenDaysAgo,
+          end_date: today
+        });
+      } catch (e) {
+        SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'ERROR', caller: 'ShopeeAdsService', detail: 'STEP3b: campaign_daily lançou erro: ' + (e.message || e) });
+      }
 
-      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP4: callBatch retornou ' + batchResults.length + ' resultados' });
+      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP4: campaign_daily retornou ' + (perfResult ? 'objeto' : 'null') + (perfResult ? ', keys=' + Object.keys(perfResult).join(',') : '') });
 
-      var comPerf = 0, comErro = 0, semData = 0;
-      for (var i = 0; i < batchResults.length && i < campanhas.length; i++) {
-        var br = batchResults[i];
-        if (br && br.error) {
-          comErro++;
-          continue;
-        }
-        if (!br || !br.data) {
-          semData++;
-          continue;
-        }
-        var perf = br.data.response || br.data;
-        var perfData = Array.isArray(perf) ? perf : (perf.performance_list || perf.data || []);
-        if (Array.isArray(perfData) && perfData.length > 0) {
-          var agg = aggregatePerformance_(perfData);
-          campanhas[i].IMPRESSOES = agg.impressions;
-          campanhas[i].CLIQUES = agg.clicks;
-          campanhas[i].CTR = agg.ctr;
-          campanhas[i].CVR = agg.cvr;
-          campanhas[i].GASTO_TOTAL = agg.cost;
-          campanhas[i].VENDAS = agg.revenue;
-          campanhas[i].ROAS = agg.roas;
-          campanhas[i].CONVERSOES = agg.conversions;
+      var comPerf = 0;
+      var campanhasPorId = {};
+      campanhas.forEach(function (c) { campanhasPorId[String(c.CAMPANHA_ID)] = c; });
+
+      if (perfResult) {
+        var resp = (perfResult.response || perfResult) || {};
+        var campaignList = resp.campaign_list || resp.campaigns || [];
+        if (!Array.isArray(campaignList)) campaignList = [];
+        for (var i = 0; i < campaignList.length; i++) {
+          var cl = campaignList[i];
+          var alvo = campanhasPorId[String(cl.campaign_id)];
+          if (!alvo) continue;
+          var metrics = cl.metrics_list || [];
+          if (!Array.isArray(metrics)) metrics = [];
+          var agg = aggregatePerformance_(metrics);
+          alvo.IMPRESSOES = agg.impressions;
+          alvo.CLIQUES = agg.clicks;
+          alvo.CTR = agg.ctr;
+          alvo.CVR = agg.cvr;
+          alvo.GASTO_TOTAL = agg.cost;
+          alvo.VENDAS = agg.revenue;
+          alvo.ROAS = agg.roas;
+          alvo.CONVERSOES = agg.conversions;
           comPerf++;
         }
       }
 
-      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP5: performance processada: comPerf=' + comPerf + ', comErro=' + comErro + ', semData=' + semData + ', batchResults=' + batchResults.length });
+      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP5: performance processada: comPerf=' + comPerf + ', totalCampanhas=' + campanhas.length });
 
-      if (batchResults.length > 0 && comPerf === 0) {
-        var sample = batchResults[0];
-        var sampleStr = JSON.stringify(sample).substring(0, 500);
-        SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'WARN', caller: 'ShopeeAdsService', detail: 'STEP5b: NENHUMA perf processada. Sample[0]=' + sampleStr });
+      if (comPerf === 0) {
+        var sample = perfResult ? JSON.stringify(perfResult).substring(0, 500) : 'perfResult=null';
+        SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'WARN', caller: 'ShopeeAdsService', detail: 'STEP5b: NENHUMA perf processada. Sample[0]=' + sample });
       }
     }
 
@@ -259,11 +260,17 @@ var ShopeeAdsService = (function () {
     var result = { impressions: 0, clicks: 0, cost: 0, revenue: 0, conversions: 0 };
     for (var i = 0; i < perfData.length; i++) {
       var d = perfData[i];
+      if (!d) continue;
       result.impressions += Number(d.impressions || d.impression || 0);
       result.clicks += Number(d.clicks || d.click || 0);
       result.cost += Number(d.cost || d.expense || d.spend || d.total_cost || 0);
-      result.revenue += Number(d.revenue || d.broad_gmv || d.direct_gmv || d.gmv || d.sales || 0);
-      result.conversions += Number(d.broad_order || d.direct_order || d.conversions || d.conversion || 0);
+      // campaign-daily traz broad_gmv E direct_gmv na mesma linha — soma os dois
+      var broadGmv = Number(d.broad_gmv || 0);
+      var directGmv = Number(d.direct_gmv || 0);
+      result.revenue += Number(d.revenue || 0) + broadGmv + directGmv;
+      var broadOrder = Number(d.broad_order || 0);
+      var directOrder = Number(d.direct_order || 0);
+      result.conversions += Number(d.conversions || d.conversion || 0) + broadOrder + directOrder;
     }
     result.ctr = result.impressions > 0 ? Math.round((result.clicks / result.impressions) * 10000) / 100 : 0;
     result.cvr = result.clicks > 0 ? Math.round((result.conversions / result.clicks) * 10000) / 100 : 0;
