@@ -12,8 +12,7 @@ escrever qualquer chamada nova à Tiops.
 | `CONTRATOS_CONFIRMADOS.md` | Registro do que já foi verificado contra a API real (contas, tokens, ações confirmadas x pendentes) |
 
 Regras extraídas daqui que viraram lei do projeto estão resumidas em
-`AGENTS.md` e detalhadas em `specs/inventory-pricing.md` (mantida com
-`Status: Removed` como referência; o domínio Anúncios/Listings que ela e
-`specs/listings.md` originalmente descreviam foi removido, ver `PLANO.md`).
-Se encontrar divergência entre um documento daqui e uma spec, **a spec vence** —
-e a divergência deve ser corrigida no mesmo commit.
+`AGENTS.md`; o domínio Anúncios/Listings/Preço&Estoque que essas regras
+originalmente serviam foi removido (ver `PLANO.md`, seção "Removidos").
+Se encontrar divergência entre um documento daqui e o código do serviço
+real, **o código vence** — e a divergência deve ser corrigida no mesmo commit.

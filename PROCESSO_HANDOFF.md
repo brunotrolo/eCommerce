@@ -4,6 +4,12 @@ Documento de Spec-Driven Development (SDD) para coordenação entre **Claude Cod
 e **OpenCode** (executor). Este processo é agnóstico de ferramenta e vale para qualquer
 agente/executor que implemente as specs deste projeto.
 
+> Nota (09/08/2026): os exemplos concretos abaixo (`nfe-entrada-produtos.md`,
+> `pricing.md`, `logging.md`) citam specs de domínio que já foram
+> implementadas e consolidadas em `specs/ARQUITETURA.md` — os arquivos em si
+> não existem mais em `specs/`, mas o fluxo `specs/xxx.md` descrito aqui
+> continua valendo para qualquer domínio **novo**.
+
 ## Pipeline de Desenvolvimento
 
 ```

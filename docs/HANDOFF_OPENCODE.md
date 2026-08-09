@@ -91,16 +91,15 @@ Workflow verde, Shell renderizando com estilo no /dev, e ?action=ping devolvendo
 ```
 CONTEXTO
 Fase 1 do PLANO.md. PricingService (src/03_services/pricing/PricingService.js)
-e PricingView.html já estão escritos, conforme specs/pricing.md (Status:
-Implemented). Nunca foram executados.
+e PricingView.html já estão escritos. Nunca foram executados.
 
 SKILL
-Ative /spec-first e trate specs/pricing.md como fonte de verdade.
+Ative /spec-first.
 
 TAREFA
-1. Leia specs/pricing.md e confira, linha a linha, que PricingService
-   implementa exatamente as duas fórmulas descritas (marginBasis 'price' e
-   'cost') e todos os casos de borda listados.
+1. Leia PricingService.js e confira, linha a linha, que implementa
+   exatamente as duas fórmulas (marginBasis 'price' e 'cost') e todos os
+   casos de borda documentados no próprio código.
 2. Rode runSmokeTests_() no editor do Apps Script e cole o log.
 3. Se algum teste falhar, corrija o SERVIÇO para bater com a spec — nunca
    ajuste o teste para passar.
@@ -124,7 +123,7 @@ inviável mostra erro tratado.
 ```
 CONTEXTO
 Fase 2 do PLANO.md. DashboardService + CacheRepository + DashboardView.html
-já escritos, conforme specs/dashboard.md.
+já escritos.
 
 SKILL
 Ative /tiops-contract antes de tocar em qualquer chamada à Tiops.
@@ -153,11 +152,11 @@ Números conferindo, cache confirmado, erro tratado na tela.
 ```
 CONTEXTO
 Fase 3 do PLANO.md. OrdersService (listUnified, getDetail) e OrdersView.html
-já escritos, conforme specs/orders.md. O DashboardService deve consumir o
-OrdersService em vez de duplicar a busca de pedidos.
+já escritos. O DashboardService deve consumir o OrdersService em vez de
+duplicar a busca de pedidos.
 
 SKILL
-Ative /tiops-contract e /spec-first.
+Ative /tiops-contract.
 
 TAREFA
 1. Confirme as ações Tiops de pedidos dos dois canais via describe_action.
@@ -185,16 +184,14 @@ tratada.
 `ListingsService`/`ListingsView.html` foram excluídos do projeto — página
 sem utilidade, decisão do usuário (ver `PLANO.md`, seção "Removidos"). Não
 use o prompt desta fase; a funcionalidade equivalente hoje é o domínio
-**Anúncios Shopee** (`specs/anuncios-shopee.md`,
-`AnunciosShopeeService`/`AnunciosShopeeView.html`, já implementado e
-validado).
+**Anúncios Shopee** (`AnunciosShopeeService`/`AnunciosShopeeView.html`, já
+implementado e validado).
 
 ### Fase 5 — ~~Validar Preço & Estoque~~ (Removida)
 
 `InventoryPricingService` foi excluído do projeto junto com `ListingsService`
-(dependia dele). Spec mantida como `Status: Removed` em
-`specs/inventory-pricing.md` porque ainda serve de referência de regras de
-preço/estoque. Não use o prompt desta fase.
+(dependia dele); regras de preço/estoque seguem em `PricingService`/
+`EstoqueService`. Não use o prompt desta fase.
 
 RESTRIÇÕES
 - Fórmula de preço existe em um lugar só: PricingService.
