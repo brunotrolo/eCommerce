@@ -82,6 +82,7 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | — | DataStore (cache client-side) | ✅ | ⬜ |
 | — | Estoque (unidades FIFO) | ✅ | ✅ |
 | — | Webhook Shopee (Push) | ✅ | ⬜ |
+| — | Shopee Ads (Gestão de Anúncios Pagos) | ✅ | ⬜ |
 
 > **Estado real de hoje:** o app roda em produção (Web App deployado, última
 > versão @146). O fluxo funcional ativo é o domínio **Estoque**: 157 unidades
@@ -186,6 +187,22 @@ Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.
 - [ ] Avisos aparecem (low margin <10%, negative profit, high ads).
 - [ ] Responsivo em mobile (95vw) e desktop (~600px).
 - [ ] Descomposição visual de preço (árvore de deduções) clara.
+
+### Shopee Ads — Gestão de Anúncios Pagos
+
+**Critério de aceite:**
+- [ ] A página "Shopee Ads" aparece no menu Vendas.
+- [ ] Ao carregar, exibe saldo de créditos Shopee (verde >R$50, amarelo <R$50, vermelho =R$0).
+- [ ] Lista campanhas com métricas: impressões, cliques, CTR, CVR, ROAS, vendas.
+- [ ] ROAS colorido: >2 verde, 1–2 amarelo, <1 vermelho.
+- [ ] Ação pausar: confirmação → campanha fica PAUSED na Shopee.
+- [ ] Ação retomar: confirmação → campanha fica ACTIVE.
+- [ ] Ação encerrar: confirmação dupla → campanha TERMINATED (irreversível).
+- [ ] Toggle "Campanhas Ads" ↔ "Visitas / Conversão" funciona.
+- [ ] Métricas de visitas mostram itens, visitas, cliques, conversão.
+- [ ] Cache: segunda carga em <5s (cache 5min campanhas).
+- [ ] Sync: botão "Sincronizar Campanhas" atualiza dados via Tiops.
+- [ ] Erro Tiops: exibe mensagem de erro, não tela em branco.
 
 ---
 

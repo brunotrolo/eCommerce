@@ -69,6 +69,9 @@
             <li role="none">
               <button class="nav-dropdown-item" data-route="anunciosShopee" role="menuitem">Anúncios Shopee</button>
             </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="shopeeAds" role="menuitem">Shopee Ads</button>
+            </li>
           </ul>
         </div>
 
@@ -105,6 +108,7 @@
     <?!= include('ui/manualSaida/ManualSaidaListView'); ?>
     <?!= include('ui/carteiraShopee/CarteiraShopeeView'); ?>
     <?!= include('ui/anunciosShopee/AnunciosShopeeView'); ?>
+    <?!= include('ui/shopeeAds/ShopeeAdsView'); ?>
 
       <calculator-widget></calculator-widget>
     <manual-entrada-widget></manual-entrada-widget>
@@ -125,7 +129,8 @@
         manualEntrada: 'manual-entrada-list-widget',
         manualSaida: 'manual-saida-list-widget',
         carteiraShopee: 'carteira-shopee-widget',
-        anunciosShopee: 'anuncios-shopee-widget'
+        anunciosShopee: 'anuncios-shopee-widget',
+        shopeeAds: 'shopee-ads-widget'
       };
 
       function navigate(route) {

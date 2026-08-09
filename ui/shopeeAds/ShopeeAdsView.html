@@ -1,0 +1,598 @@
+<template id="shopee-ads-template">
+  <style>
+    th[data-sort] {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 24px !important;
+    }
+    th[data-sort]:hover { background: var(--color-bg-secondary, #f7f8fa); }
+    th[data-sort]::after {
+      content: '';
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 5px solid var(--color-text-tertiary, #b0b7c3);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    th[data-sort].sort-asc::after,
+    th[data-sort].sort-desc::after { opacity: 1; }
+    th[data-sort].sort-desc::after {
+      border-top: none;
+      border-bottom: 5px solid var(--color-text-tertiary, #b0b7c3);
+    }
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+    }
+    .pagination button {
+      padding: var(--space-xs) var(--space-sm);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      cursor: pointer;
+      font-size: var(--font-size-sm);
+    }
+    .pagination button:disabled { opacity: 0.4; cursor: default; }
+    .pagination button:not(:disabled):hover { background: var(--color-bg-secondary, #f7f8fa); }
+    .toggle-bar {
+      display: flex;
+      gap: var(--space-xs);
+      margin-bottom: var(--space-md);
+    }
+    .toggle-bar button {
+      padding: var(--space-xs) var(--space-md);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      cursor: pointer;
+      font-size: var(--font-size-sm);
+      transition: all 0.15s ease;
+    }
+    .toggle-bar button.active {
+      background: var(--color-primary);
+      color: #fff;
+      border-color: var(--color-primary);
+    }
+    .roas-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      font-size: var(--font-size-sm);
+    }
+    .roas-good { background: #e6f9ed; color: #1a7f37; }
+    .roas-warn { background: #fff8e1; color: #b26a00; }
+    .roas-bad { background: #fee; color: #c41e3a; }
+    .status-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      font-weight: 500;
+    }
+    .status-active { background: #e6f9ed; color: #1a7f37; }
+    .status-paused { background: #fff8e1; color: #b26a00; }
+    .status-terminated { background: #fee; color: #666; }
+    .saldo-alert {
+      padding: var(--space-sm) var(--space-md);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-sm);
+      margin-bottom: var(--space-md);
+    }
+    .saldo-ok { background: #e6f9ed; color: #1a7f37; border: 1px solid #b7e1c7; }
+    .saldo-low { background: #fff8e1; color: #b26a00; border: 1px solid #f5d98e; }
+    .saldo-zero { background: #fee; color: #c41e3a; border: 1px solid #f5c6cb; }
+  </style>
+  <div class="widget-grid">
+    <div class="card">
+      <h1>Shopee Ads</h1>
+      <p class="page-subtitle">Gestão de eficiência de anúncios pagos e métricas de visitas/conversão.</p>
+
+      <div class="page-actions">
+        <button class="btn" id="btn-sync">Sincronizar Campanhas</button>
+        <span class="badge badge-info" id="cache-badge" hidden></span>
+      </div>
+
+      <div class="toggle-bar" id="view-toggle">
+        <button class="active" data-view="campanhas">Campanhas Ads</button>
+        <button data-view="visitas">Visitas / Conversão</button>
+      </div>
+
+      <div id="saldo-box"></div>
+
+      <div class="filter-bar" id="filter-bar-campanhas">
+        <input type="text" id="filter-nome" placeholder="Nome..." />
+        <select id="filter-status">
+          <option value="all">Status: Todos</option>
+          <option value="ACTIVE">Ativo</option>
+          <option value="PAUSED">Pausado</option>
+          <option value="TERMINATED">Encerrado</option>
+        </select>
+      </div>
+
+      <div class="filter-bar" id="filter-bar-visitas" hidden>
+        <input type="text" id="filter-item-id" placeholder="Item ID..." />
+        <input type="number" id="filter-days" placeholder="Dias" value="7" min="1" max="90" />
+      </div>
+
+      <div class="page-summary" id="stat-grid"></div>
+
+      <div class="alert alert-error" id="error-box" hidden></div>
+      <div id="result-box" hidden></div>
+    </div>
+
+    <div class="card table-container" id="campanhas-section">
+      <h3>Campanhas</h3>
+      <table class="table" id="campanhas-table">
+        <thead>
+          <tr>
+            <th data-sort="NOME">Campanha</th>
+            <th data-sort="TIPO">Tipo</th>
+            <th data-sort="STATUS">Status</th>
+            <th data-sort="ORCAMENTO_DIARIO">Orç. Diário</th>
+            <th data-sort="GASTO_TOTAL">Gasto</th>
+            <th data-sort="IMPRESSOES">Impressões</th>
+            <th data-sort="CLIQUES">Cliques</th>
+            <th data-sort="CTR">CTR</th>
+            <th data-sort="ROAS">ROAS</th>
+            <th data-sort="VENDAS">Vendas</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <div class="card table-container" id="visitas-section" hidden>
+      <h3>Métricas de Visitas / Conversão</h3>
+      <table class="table" id="visitas-table">
+        <thead>
+          <tr>
+            <th data-sort="ITEM_ID">Item ID</th>
+            <th data-sort="NOME_ITEM">Nome</th>
+            <th data-sort="SKU">SKU</th>
+            <th data-sort="VISITAS">Visitas</th>
+            <th data-sort="CLIQUES">Cliques</th>
+            <th data-sort="IMPRESSOES">Impressões</th>
+            <th data-sort="CONVERSAO">Conversão</th>
+            <th data-sort="DATA">Data</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="pagination" id="pagination-visitas"></div>
+    </div>
+  </div>
+</template>
+<script>
+  (function () {
+    if (customElements.get('shopee-ads-widget')) return;
+
+    var PAGE_SIZE = 25;
+    var _sortState = { field: null, asc: true };
+    var _currentPage = 0;
+    var _allRows = [];
+    var _listenersAttached = false;
+    var _currentView = 'campanhas';
+    var _campanhas = [];
+    var _visitas = [];
+
+    function esc(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtBRL(v) {
+      if (v === '' || v == null || isNaN(v)) return '-';
+      return typeof FormatterService !== 'undefined'
+        ? FormatterService.formatCurrency(v)
+        : 'R$ ' + Number(v).toFixed(2);
+    }
+
+    function fmtNum(v) {
+      if (v === '' || v == null || isNaN(v)) return '-';
+      return Number(v).toLocaleString('pt-BR');
+    }
+
+    function fmtPct(v) {
+      if (v === '' || v == null || isNaN(v)) return '-';
+      return Number(v).toFixed(2) + '%';
+    }
+
+    function roasBadge(v) {
+      var n = Number(v) || 0;
+      var cls = n > 2 ? 'roas-good' : n >= 1 ? 'roas-warn' : 'roas-bad';
+      return '<span class="roas-badge ' + cls + '">' + n.toFixed(2) + '</span>';
+    }
+
+    function statusBadge(s) {
+      var st = String(s || '').toUpperCase();
+      var cls = st === 'ACTIVE' ? 'status-active' : st === 'PAUSED' ? 'status-paused' : 'status-terminated';
+      var label = st === 'ACTIVE' ? 'Ativo' : st === 'PAUSED' ? 'Pausado' : st === 'TERMINATED' ? 'Encerrado' : st;
+      return '<span class="status-badge ' + cls + '">' + label + '</span>';
+    }
+
+    function saldoHtml(saldo) {
+      if (!saldo) return '';
+      var s = Number(saldo.saldo) || 0;
+      var cls = s === 0 ? 'saldo-zero' : s < 50 ? 'saldo-low' : 'saldo-ok';
+      return '<div class="saldo-alert ' + cls + '">Saldo: R$ ' + s.toFixed(2) + ' (' + saldo.moeda + ') | Atualizado: ' + esc(saldo.atualizadoEm || '-') + '</div>';
+    }
+
+    function sortRows(rows) {
+      if (!_sortState.field) return rows;
+      var f = _sortState.field;
+      var sorted = rows.slice();
+      sorted.sort(function (a, b) {
+        var va = a[f], vb = b[f];
+        if (va == null) return 1;
+        if (vb == null) return -1;
+        if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
+        return va < vb ? -1 : va > vb ? 1 : 0;
+      });
+      return _sortState.asc ? sorted : sorted.reverse();
+    }
+
+    function filterRows(rows) {
+      var rows = rows || [];
+      if (_currentView === 'campanhas') {
+        var nome = (document.querySelector('#filter-nome') || {}).value || '';
+        nome = nome.toLowerCase().trim();
+        var status = (document.querySelector('#filter-status') || {}).value || 'all';
+        return rows.filter(function (r) {
+          if (status !== 'all' && String(r.STATUS || '').toUpperCase() !== status) return false;
+          if (nome && String(r.NOME || '').toLowerCase().indexOf(nome) === -1) return false;
+          return true;
+        });
+      } else {
+        var itemId = (document.querySelector('#filter-item-id') || {}).value || '';
+        itemId = itemId.trim();
+        return rows.filter(function (r) {
+          if (itemId && String(r.ITEM_ID || '').indexOf(itemId) === -1) return false;
+          return true;
+        });
+      }
+    }
+
+    function updateArrows(tableEl) {
+      var ths = tableEl.querySelectorAll('th[data-sort]');
+      for (var i = 0; i < ths.length; i++) {
+        var th = ths[i];
+        var f = th.getAttribute('data-sort');
+        th.classList.remove('sort-asc', 'sort-desc');
+        var arrow = th.querySelector('.sort-arrow');
+        if (!arrow) { arrow = document.createElement('span'); arrow.className = 'sort-arrow'; th.appendChild(arrow); }
+        arrow.classList.remove('sort-asc', 'sort-desc');
+        if (_sortState.field === f) arrow.classList.add(_sortState.asc ? 'sort-asc' : 'sort-desc');
+      }
+    }
+
+    function buildCampanhaRow(r) {
+      var acoes = '';
+      var st = String(r.STATUS || '').toUpperCase();
+      if (st === 'ACTIVE') {
+        acoes += '<button class="btn btn-secondary" data-act="pause" data-id="' + esc(r.CAMPANHA_ID) + '">Pausar</button> ';
+      } else if (st === 'PAUSED') {
+        acoes += '<button class="btn btn-secondary" data-act="resume" data-id="' + esc(r.CAMPANHA_ID) + '">Retomar</button> ';
+      }
+      if (st !== 'TERMINATED') {
+        acoes += '<button class="btn btn--danger" data-act="terminate" data-id="' + esc(r.CAMPANHA_ID) + '" data-nome="' + esc(r.NOME) + '">Encerrar</button>';
+      }
+      return '<tr>' +
+        '<td>' + esc(r.NOME) + '</td>' +
+        '<td>' + esc(r.TIPO) + '</td>' +
+        '<td>' + statusBadge(r.STATUS) + '</td>' +
+        '<td>' + fmtBRL(r.ORCAMENTO_DIARIO) + '</td>' +
+        '<td>' + fmtBRL(r.GASTO_TOTAL) + '</td>' +
+        '<td>' + fmtNum(r.IMPRESSOES) + '</td>' +
+        '<td>' + fmtNum(r.CLIQUES) + '</td>' +
+        '<td>' + fmtPct(r.CTR) + '</td>' +
+        '<td>' + roasBadge(r.ROAS) + '</td>' +
+        '<td>' + fmtBRL(r.VENDAS) + '</td>' +
+        '<td>' + acoes + '</td>' +
+        '</tr>';
+    }
+
+    function buildVisitaRow(r) {
+      return '<tr>' +
+        '<td>' + esc(r.ITEM_ID) + '</td>' +
+        '<td>' + esc(r.NOME_ITEM) + '</td>' +
+        '<td>' + esc(r.SKU) + '</td>' +
+        '<td>' + fmtNum(r.VISITAS) + '</td>' +
+        '<td>' + fmtNum(r.CLIQUES) + '</td>' +
+        '<td>' + fmtNum(r.IMPRESSOES) + '</td>' +
+        '<td>' + fmtPct(r.CONVERSAO) + '</td>' +
+        '<td>' + esc(r.DATA) + '</td>' +
+        '</tr>';
+    }
+
+    function renderPage(shadow) {
+      var tableEl, tbodyEl, paginationEl;
+      if (_currentView === 'campanhas') {
+        tableEl = shadow.querySelector('#campanhas-table');
+        tbodyEl = tableEl.querySelector('tbody');
+        paginationEl = shadow.querySelector('#pagination');
+      } else {
+        tableEl = shadow.querySelector('#visitas-table');
+        tbodyEl = tableEl.querySelector('tbody');
+        paginationEl = shadow.querySelector('#pagination-visitas');
+      }
+
+      var filtered = sortRows(filterRows(_currentView === 'campanhas' ? _campanhas : _visitas));
+      var totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+      if (_currentPage >= totalPages) _currentPage = totalPages - 1;
+      if (_currentPage < 0) _currentPage = 0;
+      var start = _currentPage * PAGE_SIZE;
+      var page = filtered.slice(start, start + PAGE_SIZE);
+
+      var buildFn = _currentView === 'campanhas' ? buildCampanhaRow : buildVisitaRow;
+      var html = '';
+      for (var i = 0; i < page.length; i++) html += buildFn(page[i]);
+      if (!html) html = '<tr><td colspan="11" style="text-align:center;padding:var(--space-lg);color:var(--color-text-tertiary)">Nenhum registro encontrado.</td></tr>';
+      tbodyEl.innerHTML = html;
+      updateArrows(tableEl);
+
+      var pHtml = '<span>Página ' + (_currentPage + 1) + ' de ' + totalPages + '</span>';
+      pHtml += '<button data-page="prev"' + (_currentPage === 0 ? ' disabled' : '') + '>&#9664;</button>';
+      pHtml += '<button data-page="next"' + (_currentPage >= totalPages - 1 ? ' disabled' : '') + '>&#9654;</button>';
+      paginationEl.innerHTML = pHtml;
+    }
+
+    function renderStats(shadow) {
+      var grid = shadow.querySelector('#stat-grid');
+      if (_currentView === 'campanhas') {
+        var ativas = 0, pausadas = 0, encerradas = 0, gasto = 0, somaRoas = 0;
+        for (var i = 0; i < _campanhas.length; i++) {
+          var st = String(_campanhas[i].STATUS || '').toUpperCase();
+          if (st === 'ACTIVE') ativas++;
+          else if (st === 'PAUSED') pausadas++;
+          else if (st === 'TERMINATED') encerradas++;
+          gasto += Number(_campanhas[i].GASTO_TOTAL) || 0;
+          somaRoas += Number(_campanhas[i].ROAS) || 0;
+        }
+        var roasMedio = _campanhas.length > 0 ? (somaRoas / _campanhas.length).toFixed(2) : '-';
+        grid.innerHTML =
+          '<div class="stat"><div class="stat-value">' + ativas + '</div><div class="stat-label">Ativas</div></div>' +
+          '<div class="stat"><div class="stat-value">' + pausadas + '</div><div class="stat-label">Pausadas</div></div>' +
+          '<div class="stat"><div class="stat-value">' + encerradas + '</div><div class="stat-label">Encerradas</div></div>' +
+          '<div class="stat"><div class="stat-value">' + fmtBRL(gasto) + '</div><div class="stat-label">Gasto Total</div></div>' +
+          '<div class="stat stat-sep"><div class="stat-value">' + roasMedio + '</div><div class="stat-label">ROAS Médio</div></div>';
+      } else {
+        var totalVisitas = 0;
+        for (var i = 0; i < _visitas.length; i++) totalVisitas += Number(_visitas[i].VISITAS) || 0;
+        grid.innerHTML =
+          '<div class="stat"><div class="stat-value">' + fmtNum(totalVisitas) + '</div><div class="stat-label">Total Visitas</div></div>' +
+          '<div class="stat"><div class="stat-value">' + _visitas.length + '</div><div class="stat-label">Itens Rastreados</div></div>';
+      }
+    }
+
+    function attachListeners(shadow) {
+      if (_listenersAttached) return;
+      _listenersAttached = true;
+
+      shadow.querySelector('#btn-sync').addEventListener('click', function () {
+        runSync(shadow);
+      });
+
+      shadow.querySelector('#view-toggle').addEventListener('click', function (e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        var view = btn.getAttribute('data-view');
+        if (view === _currentView) return;
+        _currentView = view;
+        _currentPage = 0;
+        _sortState = { field: null, asc: true };
+
+        shadow.querySelectorAll('#view-toggle button').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+
+        shadow.querySelector('#campanhas-section').hidden = view !== 'campanhas';
+        shadow.querySelector('#visitas-section').hidden = view !== 'visitas';
+        shadow.querySelector('#filter-bar-campanhas').hidden = view !== 'campanhas';
+        shadow.querySelector('#filter-bar-visitas').hidden = view !== 'visitas';
+
+        renderStats(shadow);
+        renderPage(shadow);
+      });
+
+      var campanhasTable = shadow.querySelector('#campanhas-table');
+      campanhasTable.querySelector('thead').addEventListener('click', function (e) {
+        var th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        var field = th.getAttribute('data-sort');
+        if (_sortState.field === field) _sortState.asc = !_sortState.asc;
+        else { _sortState.field = field; _sortState.asc = true; }
+        renderPage(shadow);
+      });
+
+      var visitasTable = shadow.querySelector('#visitas-table');
+      visitasTable.querySelector('thead').addEventListener('click', function (e) {
+        var th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        var field = th.getAttribute('data-sort');
+        if (_sortState.field === field) _sortState.asc = !_sortState.asc;
+        else { _sortState.field = field; _sortState.asc = true; }
+        renderPage(shadow);
+      });
+
+      shadow.querySelector('#pagination').addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-page]');
+        if (!btn || btn.disabled) return;
+        _currentPage += btn.getAttribute('data-page') === 'prev' ? -1 : 1;
+        renderPage(shadow);
+      });
+
+      shadow.querySelector('#pagination-visitas').addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-page]');
+        if (!btn || btn.disabled) return;
+        _currentPage += btn.getAttribute('data-page') === 'prev' ? -1 : 1;
+        renderPage(shadow);
+      });
+
+      shadow.querySelector('#filter-nome').addEventListener('input', function () {
+        _currentPage = 0;
+        renderPage(shadow);
+      });
+      shadow.querySelector('#filter-status').addEventListener('change', function () {
+        _currentPage = 0;
+        renderPage(shadow);
+      });
+      shadow.querySelector('#filter-item-id').addEventListener('input', function () {
+        _currentPage = 0;
+        renderPage(shadow);
+      });
+      shadow.querySelector('#filter-days').addEventListener('change', function () {
+        loadVisitMetrics(shadow);
+      });
+
+      campanhasTable.querySelector('tbody').addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-act]');
+        if (!btn) return;
+        var act = btn.getAttribute('data-act');
+        var id = btn.getAttribute('data-id');
+        if (act === 'terminate') {
+          var nome = btn.getAttribute('data-nome');
+          if (!confirm('Encerrar permanentemente a campanha "' + nome + '"?')) return;
+        }
+        withLoading(function () {
+          return apiDispatch('shopeeAds.' + (act === 'pause' ? 'pauseCampaign' : act === 'resume' ? 'resumeCampaign' : 'terminateCampaign'), { campaignId: id });
+        }).then(function (result) {
+          if (result && result.success) {
+            runSync(shadow);
+          }
+        });
+      });
+    }
+
+    function loadVisitMetrics(shadow) {
+      var days = Number((shadow.querySelector('#filter-days') || {}).value) || 7;
+      withLoading(function () {
+        return apiDispatch('shopeeAds.getVisitMetrics', { days: days });
+      }).then(function (result) {
+        _visitas = (result && result.dados) || [];
+        renderStats(shadow);
+        renderPage(shadow);
+      }).catch(function (err) {
+        showError(shadow, 'Erro ao carregar métricas de visitas: ' + (err.message || err));
+      });
+    }
+
+    function loadCampanhas(shadow, forceFresh) {
+      var params = forceFresh ? { forceFresh: true } : {};
+      return withLoading(function () {
+        return apiDispatch('shopeeAds.getCampaigns', params);
+      }).then(function (result) {
+        _campanhas = (result && result.campanhas) || [];
+        var badge = shadow.querySelector('#cache-badge');
+        if (result && result.atualizadoEm) {
+          badge.hidden = false;
+          badge.textContent = 'Atualizado: ' + result.atualizadoEm;
+        }
+        renderStats(shadow);
+        renderPage(shadow);
+      }).catch(function (err) {
+        showError(shadow, 'Erro ao carregar campanhas: ' + (err.message || err));
+      });
+    }
+
+    function loadBalance(shadow) {
+      withLoading(function () {
+        return apiDispatch('shopeeAds.getBalance', {});
+      }).then(function (saldo) {
+        shadow.querySelector('#saldo-box').innerHTML = saldoHtml(saldo);
+      }).catch(function () {});
+    }
+
+    function runSync(shadow) {
+      var btn = shadow.querySelector('#btn-sync');
+      btn.disabled = true;
+      btn.textContent = 'Sincronizando...';
+
+      withLoading(function () {
+        return apiDispatch('shopeeAds.syncCampaigns', { forceFresh: true });
+      }).then(function () {
+        return loadCampanhas(shadow, true);
+      }).then(function () {
+        loadBalance(shadow);
+        if (_currentView === 'visitas') loadVisitMetrics(shadow);
+      }).then(function () {
+        btn.disabled = false;
+        btn.textContent = 'Sincronizar Campanhas';
+      }).catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Sincronizar Campanhas';
+        showError(shadow, 'Erro na sincronização: ' + (err.message || err));
+      });
+    }
+
+    function showError(shadow, msg) {
+      var box = shadow.querySelector('#error-box');
+      box.textContent = msg;
+      box.hidden = false;
+      setTimeout(function () { box.hidden = true; }, 8000);
+    }
+
+    function withLoading(fn) {
+      return new Promise(function (resolve, reject) {
+        try {
+          var result = fn();
+          if (result && typeof result.then === 'function') {
+            result.then(resolve).catch(reject);
+          } else {
+            resolve(result);
+          }
+        } catch (e) { reject(e); }
+      });
+    }
+
+    function apiDispatch(action, params) {
+      return new Promise(function (resolve, reject) {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)
+          .apiDispatch(action, params || {});
+      });
+    }
+
+    customElements.define('shopee-ads-widget', class extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        var tpl = document.getElementById('shopee-ads-template');
+        if (tpl) this.shadowRoot.appendChild(tpl.content.cloneNode(true));
+        if (window.__DESIGN_SHEET__) this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+      }
+
+      connectedCallback() {
+        var shadow = this.shadowRoot;
+        attachListeners(shadow);
+
+        shadow.querySelector('#btn-sync').disabled = true;
+        shadow.querySelector('#btn-sync').textContent = 'Carregando...';
+
+        loadCampanhas(shadow).then(function () {
+          shadow.querySelector('#btn-sync').disabled = false;
+          shadow.querySelector('#btn-sync').textContent = 'Sincronizar Campanhas';
+        });
+
+        loadBalance(shadow);
+      }
+
+      disconnectedCallback() {
+        _listenersAttached = false;
+      }
+    });
+  })();
+</script>
