@@ -114,6 +114,19 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > prejuízo real. Ver `specs/pricing.md`, `specs/estoque.md`,
 > `specs/estoque-preco-update.md`.
 >
+> **Botão "Recalcular Preços de Venda" (antes "Sincronizar Preços
+> Catálogo", 09/08/2026):** pedido do usuário para o motor "sempre
+> recalcular com base no PRECO_CUSTO_ORIGINAL". Antes, o botão copiava o
+> preço já calculado pelo Catálogo (que agrega por "custo mais recente por
+> código de produto") — divergente do custo real de um item específico se
+> ele veio de um lote/NFe mais antigo. Agora `EstoqueService.sincronizarPrecosCatalogo`
+> chama `PricingService.calculateSuggestedPrice` direto, item por item, com
+> o `PRECO_CUSTO_ORIGINAL` daquele item. Achado um terceiro ponto do motor
+> ainda no modelo Shopee flat 20% antigo nesta mesma revisão:
+> `CatalogService.getCalculationMemory` (sidebar "Histórico" do Catálogo)
+> tinha sua própria cópia da fórmula, divergindo do preço real mostrado na
+> linha do produto — corrigido para delegar também.
+>
 > **Webhook Shopee:** código implementado e testado (PushNotificationService,
 > specs/push-notification.md), mas **inativo** — a Tiops detém as credenciais
 > de API da loja, logo os pushes vão para a callback URL da Tiops, não para

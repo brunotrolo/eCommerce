@@ -104,9 +104,13 @@ var EstoqueService = (function () {
           returns: { precoShopee: 'number', precoMercadoLivre: 'number' }
         },
         sincronizarPrecosCatalogo: {
-          description: 'Preenche/atualiza preços Shopee e ML de TODOS os itens do estoque a partir dos preços do catálogo.',
+          description:
+            'Recalcula os preços Shopee e ML de TODOS os itens do estoque ' +
+            'diretamente a partir do PRECO_CUSTO_ORIGINAL de cada item ' +
+            '(PricingService.calculateSuggestedPrice, margem alvo padrão), ' +
+            'nunca de um preço cacheado do Catálogo.',
           params: {},
-          returns: { success: 'boolean', atualizados: 'number', semPrecoCatalogo: 'number', total: 'number' }
+          returns: { success: 'boolean', atualizados: 'number', semCusto: 'number', total: 'number' }
         },
         getEstoqueAtualPorProduto: {
           description: 'Resume estoque por código de produto.',
@@ -806,6 +810,15 @@ var EstoqueService = (function () {
     return { precoShopee: 0, precoMercadoLivre: 0 };
   }
 
+  /**
+   * Recalcula PRECO_VENDA_SHOPEE/PRECO_VENDA_MERCADO_LIVRE de TODOS os
+   * items DISPONÍVEL do estoque, sempre a partir do PRECO_CUSTO_ORIGINAL de
+   * cada item individual — nunca de um preço cacheado do Catálogo (que
+   * agrega por "custo mais recente" por código de produto, podendo divergir
+   * do custo real de um lote específico ainda em estoque). Motor único:
+   * PricingService.calculateSuggestedPrice, mesma função usada por
+   * CatalogService.getProducts e pela calculadora. Ver specs/pricing.md.
+   */
   function sincronizarPrecosCatalogo(params) {
     var startTime = Date.now();
     var sheetId = getSheetId_();
@@ -818,44 +831,55 @@ var EstoqueService = (function () {
       var items = EstoqueRepository.getRows(sheetId);
       if (!items || items.length === 0) {
         trace_('sincronizarPrecosCatalogo', '0 itens no estoque, nada a fazer', { total: 0 });
-        return { success: true, atualizados: 0, semPrecoCatalogo: 0, total: 0 };
+        return { success: true, atualizados: 0, semCusto: 0, total: 0 };
       }
 
-      var result = CatalogService.getProducts({ sortBy: 'code', sortOrder: 'asc' });
-      var products = (result && result.data) ? result.data : [];
-      var priceMap = {};
-      for (var i = 0; i < products.length; i++) {
-        var cod = String(products[i].codigoProduto || '').trim();
-        if (!cod) continue;
-        priceMap[cod] = {
-          precoShopee: products[i].precoShopee || 0,
-          precoMercadoLivre: products[i].precoMercadoLivre || 0
+      var targetMargin = ConfigService.getDefaultMargin();
+      var priceCache = {};
+
+      function precosParaCusto_(custo) {
+        var key = custo.toFixed(2);
+        if (priceCache[key]) return priceCache[key];
+        var shopeeResult = PricingService.calculateSuggestedPrice({
+          unitCost: custo,
+          targetMarginPct: targetMargin,
+          marketplace: 'shopee'
+        });
+        var mlResult = PricingService.calculateSuggestedPrice({
+          unitCost: custo,
+          targetMarginPct: targetMargin,
+          marketplace: 'mercado_livre'
+        });
+        var computed = {
+          precoShopee: shopeeResult.suggestedPrice || 0,
+          precoMercadoLivre: mlResult.suggestedPrice || 0
         };
+        priceCache[key] = computed;
+        return computed;
       }
 
       var atualizados = 0;
-      var semPreco = 0;
+      var semCusto = 0;
       var pendingUpdates = [];
       for (var j = 0; j < items.length; j++) {
         var item = items[j];
-        var codItem = String(item.CODIGO_PRODUTO || '').trim();
-        var preco = priceMap[codItem];
-        if (!preco) {
-          semPreco++;
+        var custo = parseFloat(item.PRECO_CUSTO_ORIGINAL) || 0;
+        if (custo <= 0) {
+          semCusto++;
           continue;
         }
 
+        var preco = precosParaCusto_(custo);
         var updates = {};
-        var custo = parseFloat(item.PRECO_CUSTO_ORIGINAL) || 0;
 
-        var atualShopee = item.PRECO_VENDA_SHOPEE === '' || item.PRECO_VENDA_SHOPEE == null ? 0 : parseFloat(item.PRECO_VENDA_SHOPEE) || 0;
-        if (preco.precoShopee > 0 && Math.abs(atualShopee - preco.precoShopee) > 0.001) {
+        var atualShopee = item.PRECO_VENDA_SHOPEE === '' || item.PRECO_VENDA_SHOPEE == null ? null : parseFloat(item.PRECO_VENDA_SHOPEE);
+        if (atualShopee === null || Math.abs(atualShopee - preco.precoShopee) > 0.001) {
           updates.precoVendaShopee = preco.precoShopee;
           updates.margemShopee = calcularMargem_(preco.precoShopee, custo, 'shopee');
         }
 
-        var atualML = item.PRECO_VENDA_MERCADO_LIVRE === '' || item.PRECO_VENDA_MERCADO_LIVRE == null ? 0 : parseFloat(item.PRECO_VENDA_MERCADO_LIVRE) || 0;
-        if (preco.precoMercadoLivre > 0 && Math.abs(atualML - preco.precoMercadoLivre) > 0.001) {
+        var atualML = item.PRECO_VENDA_MERCADO_LIVRE === '' || item.PRECO_VENDA_MERCADO_LIVRE == null ? null : parseFloat(item.PRECO_VENDA_MERCADO_LIVRE);
+        if (atualML === null || Math.abs(atualML - preco.precoMercadoLivre) > 0.001) {
           updates.precoVendaMercadoLivre = preco.precoMercadoLivre;
           updates.margemMercadoLivre = calcularMargem_(preco.precoMercadoLivre, custo, 'mercado_livre');
         }
@@ -871,17 +895,18 @@ var EstoqueService = (function () {
       }
 
       var duration = Date.now() - startTime;
-      trace_('sincronizarPrecosCatalogo', atualizados + ' item(ns) atualizado(s), ' + semPreco + ' sem preço no catálogo (total ' + items.length + ')', {
+      trace_('sincronizarPrecosCatalogo', atualizados + ' item(ns) recalculado(s) a partir do PRECO_CUSTO_ORIGINAL, ' + semCusto + ' sem custo definido (total ' + items.length + ')', {
         total: items.length,
         atualizados: atualizados,
-        semPrecoCatalogo: semPreco,
+        semCusto: semCusto,
+        margemAlvo: targetMargin,
         durationMs: duration
       });
 
-      return { success: true, atualizados: atualizados, semPrecoCatalogo: semPreco, total: items.length };
+      return { success: true, atualizados: atualizados, semCusto: semCusto, total: items.length };
     } catch (e) {
       traceError_('sincronizarPrecosCatalogo', 'Erro: ' + e.message, {});
-      return { error: 'Erro ao sincronizar preços do catálogo: ' + e.message };
+      return { error: 'Erro ao recalcular preços de venda: ' + e.message };
     }
   }
 
