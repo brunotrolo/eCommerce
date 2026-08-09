@@ -365,28 +365,22 @@ var ShopeeAdsService = (function () {
     return result;
   }
 
-  function dispatch(action, params) {
-    params = params || {};
-    switch (action) {
-      case 'getBalance': return getBalance();
-      case 'syncCampaigns': return syncCampaigns(params);
-      case 'getCampaigns': return getCampaigns(params);
-      case 'getDailyPerformance': return getDailyPerformance(params);
-      case 'getHourlyPerformance': return getHourlyPerformance(params);
-      case 'pauseCampaign': return pauseCampaign(params);
-      case 'resumeCampaign': return resumeCampaign(params);
-      case 'terminateCampaign': return terminateCampaign(params);
-      case 'getKeywords': return getKeywords(params);
-      case 'updateKeywords': return updateKeywords(params);
-      case 'deleteKeywords': return deleteKeywords(params);
-      case 'getItems': return getItems(params);
-      case 'getRecommendedItems': return getRecommendedItems();
-      case 'setRoiTarget': return setRoiTarget(params);
-      case 'getVisitMetrics': return getVisitMetrics(params);
-      default:
-        throw new Error('AÇÃO_DESCONHECIDA: ' + action);
-    }
-  }
-
-  return { describe: describe, dispatch: dispatch };
+  return {
+    describe: describe,
+    getBalance: getBalance,
+    syncCampaigns: syncCampaigns,
+    getCampaigns: getCampaigns,
+    getDailyPerformance: getDailyPerformance,
+    getHourlyPerformance: getHourlyPerformance,
+    pauseCampaign: pauseCampaign,
+    resumeCampaign: resumeCampaign,
+    terminateCampaign: terminateCampaign,
+    getKeywords: getKeywords,
+    updateKeywords: updateKeywords,
+    deleteKeywords: deleteKeywords,
+    getItems: getItems,
+    getRecommendedItems: getRecommendedItems,
+    setRoiTarget: setRoiTarget,
+    getVisitMetrics: getVisitMetrics
+  };
 })();
