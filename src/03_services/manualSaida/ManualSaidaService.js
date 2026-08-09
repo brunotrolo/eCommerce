@@ -139,9 +139,9 @@ var ManualSaidaService = (function () {
 
     var result = ManualSaidaProdutosRepository.appendRow(sheetId, rowData);
 
-    CacheRepository.invalidateByPattern('frontend.');
+    CacheRepository.invalidateByPattern('frontend_');
     CacheRepository.invalidateByPattern('catalog_');
-    CacheRepository.invalidateByPattern('estoque.');
+    CacheRepository.invalidateByPattern('estoque_');
     CacheRepository.invalidateByPattern('dashboard_');
 
     var estoqueRestante = _getEstoqueDisponivel(sheetId, params.codigoProduto);

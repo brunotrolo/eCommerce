@@ -7,6 +7,18 @@
  */
 var LoggingService = (function () {
   var _logBuffer = [];
+  // Coalescing de flush (DIAGNOSTICO_ARQUITETURA.md, P1): o Google Apps
+  // Script agrupa chamadas simultâneas do google.script.run numa única
+  // execução — no preload do Shell isso significava N mini-gravações na aba
+  // LOGS (1 linha cada). Hoje o buffer acumula e só grava quando atinge
+  // MIN_BATCH_SIZE (1 setValues) ou quando o flush é forçado (webhook HTTP,
+  // logging.getLogs, fim do preFetch). Pendências pequenas ficam em
+  // CacheService (TTL 6h) e são drenadas no próximo flush — nunca perdidas
+  // dentro da janela e com custo de planilha ~N/5 vezes menor.
+  var MIN_BATCH_SIZE = 5;
+  var PENDING_KEY = '__LOG_PENDING__';
+  var PENDING_TTL_SECONDS = 21600; // 6h (máx do CacheService)
+
   function describe() {
     return {
       name: 'logging',
@@ -34,6 +46,12 @@ var LoggingService = (function () {
             service: { type: 'string', required: false },
             status: { type: 'string', required: false },
             limit: { type: 'number', required: false }
+          }
+        },
+        flushLogs: {
+          description: 'Força o dreno do buffer de logs na aba LOGS (1 setValues).',
+          params: {
+            force: { type: 'boolean', required: false }
           }
         },
         clearOldLogs: {
@@ -116,6 +134,11 @@ var LoggingService = (function () {
     var sheetId = ConfigService.getSheetId();
     if (!sheetId) return { logs: [] };
 
+    // Drena pendências antes de ler para não "sumir" logs recém-bufferizados.
+    try {
+      flushLogs({ force: true });
+    } catch (e) { /* best effort */ }
+
     try {
       var logs = LoggingRepository.getLogs({
         service: params.service || '',
@@ -169,33 +192,80 @@ var LoggingService = (function () {
     });
   }
 
-  function flushLogs() {
-    if (_logBuffer.length === 0) return;
-    var sheetId = ConfigService.getSheetId();
-    if (!sheetId) { _logBuffer = []; return; }
-    try {
-      var sheet = SheetsRepository.getOrCreateSheet('LOGS', [
-        'updatedAt', 'service', 'action', 'status', 'caller', 'summary',
-        'durationMs', 'errorMessage', 'context', 'environment', 'logId'
-      ]);
-      var rows = [];
-      for (var i = 0; i < _logBuffer.length; i++) {
-        var entry = _logBuffer[i];
-        rows.push([
-          nowBR_(),
-          entry.service, entry.action, entry.status, entry.caller,
-          entry.summary, entry.durationMs, entry.errorMessage,
-          JSON.stringify(entry.context), getEnvironment_(), generateLogId_()
-        ]);
+  function flushLogs(opts) {
+    var force = !!(opts && opts.force);
+    var pending = getPending_();
+
+    // Forçado: drena pendências antigas + buffer atual num único setValues.
+    if (force) {
+      if (_logBuffer.length > 0) {
+        pending = pending.concat(_logBuffer);
+        _logBuffer = [];
       }
-      if (rows.length > 0) {
-        var startRow = sheet.getLastRow() + 1;
-        sheet.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
-      }
-    } catch (e) {
-      console.error('[LoggingService] Failed to flush logs: ' + e.message);
+      if (pending.length === 0) return;
+      writeRows_(pending);
+      clearPending_();
+      return;
     }
-    _logBuffer = [];
+
+    // Não-forçado (coalescing): só grava se o acumulado atingir o lote.
+    // Pendências menores ficam no cache até o próximo flush forçado.
+    if (_logBuffer.length > 0) {
+      pending = pending.concat(_logBuffer);
+      _logBuffer = [];
+    }
+    if (pending.length >= MIN_BATCH_SIZE) {
+      writeRows_(pending);
+      clearPending_();
+      return;
+    }
+    if (pending.length > 0) {
+      setPending_(pending);
+    }
+  }
+
+  function getPending_() {
+    try {
+      var raw = CacheRepository.get(PENDING_KEY);
+      return (raw && Array.isArray(raw)) ? raw : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function setPending_(pending) {
+    try {
+      CacheRepository.set(PENDING_KEY, pending, PENDING_TTL_SECONDS);
+    } catch (e) { /* best effort — perde só a pendência, nunca derruba ação */ }
+  }
+
+  function clearPending_() {
+    try {
+      CacheRepository.remove(PENDING_KEY);
+    } catch (e) { /* best effort */ }
+  }
+
+  function writeRows_(pending) {
+    var sheetId = ConfigService.getSheetId();
+    if (!sheetId) return;
+    var sheet = SheetsRepository.getOrCreateSheet('LOGS', [
+      'updatedAt', 'service', 'action', 'status', 'caller', 'summary',
+      'durationMs', 'errorMessage', 'context', 'environment', 'logId'
+    ]);
+    var rows = [];
+    for (var i = 0; i < pending.length; i++) {
+      var entry = pending[i];
+      rows.push([
+        nowBR_(),
+        entry.service, entry.action, entry.status, entry.caller,
+        entry.summary, entry.durationMs, entry.errorMessage,
+        JSON.stringify(entry.context), getEnvironment_(), generateLogId_()
+      ]);
+    }
+    if (rows.length > 0) {
+      var startRow = sheet.getLastRow() + 1;
+      sheet.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+    }
   }
 
   function sanitizeContext_(obj) {

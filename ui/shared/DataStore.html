@@ -61,7 +61,14 @@
           promises.push(getOrFetch(e.key, e.action, e.params));
         }
       }
-      return Promise.allSettled(promises);
+      return Promise.allSettled(promises).then(function (results) {
+        // Fim determinístico da rajada: drena o buffer de logs (possivelmente
+        // < MIN_BATCH) na planilha em 1 chamada, para nada ficar pendente.
+        try {
+          google.script.run.apiDispatch('logging.flushLogs', { force: true });
+        } catch (e) { /* best effort */ }
+        return results;
+      });
     }
 
     window.__DataStore = {

@@ -124,8 +124,8 @@ var ManualEntradaService = (function () {
         estoqueImportado = EstoqueService.importarDeManualEntrada({ logId: logId });
         if (estoqueImportado && estoqueImportado.success && estoqueImportado.itemsImported > 0) {
           CacheRepository.invalidateByPattern('catalog_');
-          CacheRepository.invalidateByPattern('estoque.');
-          CacheRepository.invalidateByPattern('dashboard.');
+          CacheRepository.invalidateByPattern('estoque_');
+          CacheRepository.invalidateByPattern('dashboard_');
         }
       } catch (e) {
         estoqueImportado = { error: 'Falha ao incluir no estoque: ' + (e.message || String(e)) };

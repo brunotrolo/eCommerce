@@ -49,14 +49,15 @@ var EstoqueService = (function () {
           returns: { success: 'boolean', itemsImported: 'number', estoque_ids: 'array', errors: 'array' }
         },
         getItems: {
-          description: 'Lista items com filtros e ordenação.',
+          description: 'Lista items com filtros e ordenação. Cache server-side de 60s quando sem filtros; use limit para capar o retorno (total reflete o total real).',
           params: {
             codigoProduto: { type: 'string', required: false },
             status: { type: 'string', required: false },
             sortBy: { type: 'string', required: false },
-            sortOrder: { type: 'string', required: false }
+            sortOrder: { type: 'string', required: false },
+            limit: { type: 'number', required: false, min: 1 }
           },
-          returns: { items: 'array' }
+          returns: { items: 'array', total: 'number', fromCache: 'boolean' }
         },
         updateStatusBulk: {
           description: 'Atualiza status de múltiplos items.',
@@ -182,7 +183,7 @@ var EstoqueService = (function () {
 
   function invalidarCachesFluxo_() {
     CacheRepository.invalidateByPattern('catalog_');
-    CacheRepository.invalidateByPattern('estoque.');
+    CacheRepository.invalidateByPattern('estoque_');
     CacheRepository.invalidateByPattern('dashboard_');
   }
 
@@ -412,10 +413,49 @@ var EstoqueService = (function () {
     if (params.codigoProduto) filters.codigoProduto = params.codigoProduto;
     if (params.status) filters.status = params.status;
 
-    var items = EstoqueRepository.getRows(sheetId, Object.keys(filters).length > 0 ? filters : undefined);
-
     var sortBy = params.sortBy || 'data_entrada';
     var sortOrder = params.sortOrder || 'asc';
+
+    // Cache server-side (60s): só para a leitura "limpa" (sem filtro), que é
+    // a consulta pesada e repetida pela UI. Consultas filtradas são pontuais.
+    var cacheKey = null;
+    if (Object.keys(filters).length === 0) {
+      cacheKey = 'estoque_items_' + sortBy + '_' + sortOrder;
+    }
+
+    var items;
+    var fromCache = false;
+    if (cacheKey) {
+      var cached = CacheRepository.getOrCompute(cacheKey, 60, function () {
+        return buildItems_(sheetId, filters, sortBy, sortOrder);
+      });
+      items = cached.value;
+      fromCache = cached.fromCache;
+    } else {
+      items = buildItems_(sheetId, filters, sortBy, sortOrder);
+    }
+
+    var total = items.length;
+    if (params.limit && params.limit > 0) {
+      items = items.slice(0, params.limit);
+    }
+
+    trace_('getItems', total + ' item(s) (limit ' + (params.limit || 'none') + ')', {
+      filters: filters,
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+      count: items.length,
+      total: total,
+      fromCache: fromCache
+    });
+
+    var result = { items: items, total: total };
+    if (fromCache) result.fromCache = true;
+    return result;
+  }
+
+  function buildItems_(sheetId, filters, sortBy, sortOrder) {
+    var items = EstoqueRepository.getRows(sheetId, Object.keys(filters).length > 0 ? filters : undefined);
 
     var sortMap = {
       data_entrada: 'DATA_ENTRADA',
@@ -438,14 +478,7 @@ var EstoqueService = (function () {
       return sortOrder === 'asc' ? valA - valB : valB - valA;
     });
 
-    trace_('getItems', items.length + ' item(s) encontrado(s)', {
-      filters: filters,
-      sortBy: sortBy,
-      sortOrder: sortOrder,
-      count: items.length
-    });
-
-    return { items: items };
+    return items;
   }
 
   function updateStatusBulk(params) {

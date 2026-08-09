@@ -84,6 +84,33 @@ todas elas, e teste com `clasp push` — a skill `gas-ops` valida
 automaticamente que `filePushOrder` existe e cobre todo `.js` do projeto
 antes de cada push, bloqueando se faltar algo.
 
+### DAG de dependências entre serviços (verificada em 09/08/2026)
+
+A DAG abaixo é a fonte de verdade do acoplamento **permitido** entre
+domínios. Uma dependência não listada aqui é proibida sem decisão explícita
+— se um fluxo novo precisar de outra, atualize esta tabela (e o
+`filePushOrder`) no mesmo commit. Regra geral em `AGENTS.md`:
+**domínio só consome repos próprios + utilitários** (`Logging`, `Pricing`,
+`Sku`, `Formatter`) **+ motores designados explicitamente** (`EstoqueBaixa`
+= motor FIFO de baixa).
+
+| Domínio (consumidor) | Depende de (domínios/utilitários) | Tipo |
+|---|---|---|
+| `catalog` | `PricingService`, `SkuService` | utilitários (motor único de margem) |
+| `estoque` | `PricingService`, `CatalogService` | utilitário + leitura de catálogo |
+| `manualEntrada` | `SkuService`, `EstoqueService`, `CatalogService` | utilitário + motores designados |
+| `manualSaida` | `EstoqueBaixaService`, `CatalogService`, `SkuService` | motor FIFO + leitura catálogo |
+| `ordersImport` | `EstoqueBaixaService` | motor FIFO (baixa/reverter) |
+| `dashboard` | `OrdersService` | leitura de pedidos |
+| `pushNotification` | `OrdersImportService` | orquestração de sync (unidirecional) |
+| `estoqueBaixa` | — (motor puro + repos) | — |
+| `anunciosShopee`, `carteiraShopee`, `shopeeAds` | — (Tiops + repos) | — |
+
+**Importante:** não há ciclos hoje. `ordersImport ↔ pushNotification` é
+unidirecional (`push → sync`); a referência comentada a
+`PushNotificationService` dentro de `OrdersImportService` é só comentário
+de explicação, não chamada real.
+
 ---
 
 ## 2. Arquitetura de micro-frontends

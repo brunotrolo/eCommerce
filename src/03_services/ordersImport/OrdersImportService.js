@@ -521,7 +521,7 @@ var OrdersImportService = (function () {
       // muda aqui via baixa automática logo abaixo — sem isso, ambos ficam até
       // 5min desatualizados após um import real.
       CacheRepository.invalidateByPattern('dashboard_');
-      CacheRepository.invalidateByPattern('estoque.');
+      CacheRepository.invalidateByPattern('estoque_');
     }
 
     // Process stock baixa for new orders, status changes, and unprocessed orders

@@ -27,24 +27,30 @@ marketplace diretamente.
 
 ## Divisão de papéis entre os dois agentes
 
-- **Claude Code = guia.** Revisa e aprova specs, decide arquitetura, gera os
-  prompts de execução (skill `handoff-prompt`), revisa o diff pronto.
-- **OpenCode = executor.** Cria e edita arquivos em `src/` e `ui/`, roda
-  `clasp`, commita — seguindo o prompt recebido e as regras deste arquivo.
+- **Claude Code e OpenCode = agentes plenos.** Ambos escrevem specs, criam e
+  editam arquivos em `src/` e `ui/`, rodam `clasp` e committam — seguindo
+  este arquivo e fazendo o commit direto na `main` (ver *Workflow clasp / CI*).
+  Feedback humano é bem-vindo (avisos, revisão pós-hoc), mas nenhum agente
+  fica bloqueado esperando aprovação: **autonomia total**, sempre com
+  comunicação clara do que foi feito no commit/PR description.
 
-Nenhum dos dois altera arquitetura, taxas de marketplace, `.clasp.json`,
-`.claspignore` ou o workflow de deploy sem decisão explícita do
-usuário. Aprovar spec (`Draft` → `Approved`) é decisão do usuário, nunca do
-agente. Detalhes em `PLANO.md`, seção 2.
+Nenhum agente altera arquitetura, taxas de marketplace, `.clasp.json`,
+`.claspignore` ou o workflow de deploy sem decisão explícita do usuário.
+Detalhes em `PLANO.md`, seção 2.
 
 ## Regra nº 1: Spec-Driven Development
 
 **Nenhum arquivo de serviço (`src/03_services/**`) ou de UI (`ui/**`) é
-criado ou alterado para um domínio sem que `specs/<dominio>.md` exista com
-`Status: Approved` ou `Implemented`.** Se a spec não existir, escreva-a a
-partir de `specs/_TEMPLATE.md` primeiro e peça aprovação antes de codar.
-Isso vale igualmente para sessões de Claude Code e de OpenCode — nenhuma das
-duas ferramentas tem passe livre para pular a spec.
+criado ou alterado para um domínio sem que `specs/<dominio>.md` exista.** Se
+a spec não existir, escreva-a a partir de `specs/_TEMPLATE.md` **no mesmo
+fluxo de trabalho, antes de codar** — é o único requisito. O status da spec
+avança sozinho junto com a implementação:
+
+- `Draft` → `Approved` → `Implemented` é responsabilidade do próprio agente
+  que está implementando: escreve a spec, implementa e marca `Implemented`
+  no mesmo commit/sessão. **Nenhuma etapa espera aprovação humana.**
+- O usuário pode reverter/corrigir depois — mas o agente nunca fica travado.
+- Vale igualmente para sessões de Claude Code e de OpenCode.
 
 ## Arquitetura
 
@@ -70,6 +76,19 @@ GAS/V8 não tem ES modules — todo arquivo cai no mesmo escopo global. Regras:
   melhor.
 - Nunca chame outro namespace dentro da IIFE de topo — só dentro dos
   métodos retornados.
+
+### Acoplamento entre domínios (regra obrigatória)
+
+Acoplamento de domínio→domínio é permitido **apenas** nos casos listados na
+DAG de dependências em `specs/ARQUITETURA.md` §1 (verificada em 09/08/2026).
+Regra geral: domínio só consome **repos próprios** + **utilitários**
+(`Logging`, `Pricing`, `Sku`, `Formatter`) + **motores designados
+explicitamente** (`EstoqueBaixaService` = motor FIFO de baixa de estoque).
+Criar uma nova dependência cruzada fora dessa tabela exige decisão explícita
+do usuário e a atualização da DAG + `filePushOrder` no mesmo commit.
+`EstoqueBaixaService` é motor compartilhado por 3 fluxos (manualSaida,
+ordersImport, estoqueBaixa) — mudanças no FIFO afetam todos; teste os três
+fluxos em qualquer alteração.
 
 ### Ordem de Carregamento (CRÍTICO para Microsserviços)
 
@@ -275,7 +294,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 **Antes de criar uma nova página, verifique:**
 
 #### Server-side (GAS)
-- [ ] Spec aprovada em `specs/<dominio>.md` com `Status: Approved`
+- [ ] Spec em `specs/<dominio>.md` (escrever a partir do template no mesmo fluxo, se não existir)
 - [ ] Criar `src/03_services/<dominio>/<Nome>Service.js` com `describe()`
 - [ ] Criar `src/03_services/<dominio>/<Nome>Repository.js` se necessário
 - [ ] Registrar em `ServiceRegistry.js` usando **sempre** `safeRef_()` pattern
@@ -333,12 +352,16 @@ Resumo crítico:
 
 - **REGRA OBRIGATÓRIA: SEMPRE commitar no GitHub ANTES de fazer `clasp push`.**
   O repositório GitHub é a fonte de verdade. Nunca altere o Apps Script
-  diretamente sem que o código esteja versionado. Sequência correta:
-  1. `git add -A && git commit -m "msg"`
-  2. `git push origin main`
-  3. `npx @google/clasp push --force`
-- `clasp push` para enviar o código ao projeto Apps Script
-  (`1zU9zBb8QeqWr-m2YORwyKx-6ypK4JrQhqZ29M3FJs8BmWhkO1VErKy3w`).
+  diretamente sem que o código esteja versionado.
+- **REGRA DE BRANCH: agentes trabalham SEMPRE na `main`, nunca criam branch
+  nem PR.** Commit direto na `main` + `git push origin main`. O push dispara
+  o CI (`.github/workflows/ci.yml`), e o `.github/workflows/deploy.yml` faz o
+  `clasp push --force` automático no GitHub Actions — o código chega ao
+  projeto Apps Script sem nenhuma ação manual. Qualquer necessidade de
+  revisão humana acontece pós-hoc, nunca bloqueando o fluxo.
+- `clasp push` local (opcional) para enviar o código ao projeto Apps Script
+  (`1zU9zBb8QeqWr-m2YORwyKx-6ypK4JrQhqZ29M3FJs8BmWhkO1VErKy3w`) — o CI já
+  faz isso sozinho; local só quando quiser acelerar teste manual.
 - **NUNCA rode `clasp deploy`.** O deploy para produção é automático: todo
   push na branch `main` dispara `.github/workflows/deploy.yml`, que roda
   `clasp push --force` no GitHub Actions. **Não há mais o passo `clasp deploy`
@@ -375,7 +398,7 @@ mesmos arquivos são acionados pelos comandos `/nome` definidos em
 
 ## Definition of Done (vale para qualquer tarefa)
 
-1. Existe spec correspondente com `Status: Approved` ou `Implemented`.
+1. Existe spec correspondente (`specs/<dominio>.md`) com `Status: Implemented` (ou o status foi atualizado no mesmo commit).
 2. O código respeita as camadas: nada de `UrlFetchApp`/`PropertiesService`/
    `CacheService`/`SpreadsheetApp` fora de `01_adapters` e `02_repositories`.
 3. Nenhuma cor, espaçamento, raio ou sombra hard-coded fora de `Styles.html`.

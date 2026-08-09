@@ -6,7 +6,9 @@
 function doGet(e) {
   if (e && e.parameter && e.parameter.action) {
     var params = e.parameter.params ? JSON.parse(e.parameter.params) : {};
-    return ContentService.createTextOutput(JSON.stringify(apiDispatch(e.parameter.action, params))).setMimeType(
+    var result = apiDispatch(e.parameter.action, params);
+    flushLogsForced_();
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(
       ContentService.MimeType.JSON
     );
   }
@@ -37,9 +39,25 @@ function doPost(e) {
     ).setMimeType(ContentService.MimeType.JSON);
   }
 
-  return ContentService.createTextOutput(JSON.stringify(apiDispatch(body.action, body.params))).setMimeType(
+  var result = apiDispatch(body.action, body.params);
+  flushLogsForced_();
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(
     ContentService.MimeType.JSON
   );
+}
+
+/**
+ * HTTP externo = execução isolada do GAS: a rajadinha de logs deste request
+ * não terá outro flush por perto, então drena na hora (1 setValues).
+ * Chamadas vindas de google.script.run NÃO passam por aqui — o coalescing
+ * do preload fica intacto no finally do ServiceRegistry.dispatch.
+ */
+function flushLogsForced_() {
+  try {
+    if (typeof LoggingService !== 'undefined' && LoggingService.flushLogs) {
+      LoggingService.flushLogs({ force: true });
+    }
+  } catch (e) { /* ignore */ }
 }
 
 /**
@@ -69,6 +87,7 @@ function handlePushResponse_(body, e) {
     if (result && result.error) {
       throw new Error(result.error);
     }
+    flushLogsForced_();
     return ContentService.createTextOutput('ACK').setMimeType(ContentService.MimeType.TEXT);
   } catch (err) {
     throw new Error('Push handler falhou: ' + err.message);
