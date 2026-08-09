@@ -4,7 +4,7 @@
 Reference — documento de dados/metodologia, não é um contrato de API. O
 contrato formal vive em `specs/pricing.md` (`pricing.calculateSuggestedPrice`),
 que foi atualizado a partir dos achados aqui. Casos de aceite específicos de
-ESTOQUE vivem em `specs/estoque.md` e `specs/estoque-preco-update.md`,
+ESTOQUE vivem em `specs/estoque.md` e `docs/historico/specs-estoque-preco-update.md`,
 também já atualizados.
 
 **Data da análise:** 08/08/2026 (atualizado com 3 pedidos adicionais em 08/08/2026)
@@ -33,7 +33,7 @@ contra os próprios pedidos (backtest), e serve de base factual para a
 correção já aplicada em:
 
 1. **`specs/pricing.md`** — contrato de `pricing.calculateSuggestedPrice`, novo modelo de taxa Shopee (comissão por cenário + taxa de serviço). Mercado Livre não foi alterado.
-2. **`specs/estoque.md`** e **`specs/estoque-preco-update.md`** — fórmula de `MARGEM_SHOPEE` corrigida para descontar taxas reais, e um bug adicional encontrado no alerta de prejuízo (comparava preço bruto vs. custo, não o valor líquido pós-taxas).
+2. **`specs/estoque.md`** e **`docs/historico/specs-estoque-preco-update.md`** — fórmula de `MARGEM_SHOPEE` corrigida para descontar taxas reais, e um bug adicional encontrado no alerta de prejuízo (comparava preço bruto vs. custo, não o valor líquido pós-taxas).
 
 A implementação de código correspondente (`ConfigService.js`,
 `PricingService.js`, `EstoquePrecoService.js`, `EstoqueService.js`,
@@ -231,10 +231,10 @@ liquido_previsto = preco - cupom_vendedor - (preco * comissao_pct) - taxa_servic
 > `src/00_config/ConfigService.js`, `src/03_services/estoque/EstoquePrecoService.js`,
 > `src/03_services/estoque/EstoqueService.js`, `src/03_services/catalog/CatalogService.js`)
 > e os specs formais que já existiam (`specs/pricing.md`, `specs/estoque.md`,
-> `specs/estoque-preco-update.md`) — a versão original falava genericamente
+> `docs/historico/specs-estoque-preco-update.md`) — a versão original falava genericamente
 > em "calculator.calculateML" e "aba ESTOQUE" como se a lógica de preço
 > Shopee não existisse em lugar nenhum. Ela existe, e **já foi corrigida**
-> em `specs/pricing.md`/`specs/estoque.md`/`specs/estoque-preco-update.md`
+> em `specs/pricing.md`/`specs/estoque.md`/`docs/historico/specs-estoque-preco-update.md`
 > neste mesmo PR. O que falta é só a implementação de código, que segue a
 > convenção deste projeto (`CLAUDE.md`) de ser feita via handoff para o
 > OpenCode, não diretamente por esta sessão. O pseudocódigo abaixo continua
@@ -365,7 +365,7 @@ function calculateShopee(params) {
 |---|---|
 | `specs/pricing.md` | Seção "Taxas por canal" e as duas fórmulas (`marginBasis: price`/`cost`) para Shopee reescritas com o modelo de 2 componentes. Novos params opcionais `itemCount`/`paymentScenario` no contrato de `pricing.calculateSuggestedPrice`. Mercado Livre inalterado. Novos critérios de aceite (Given/When/Then) com os valores corretos. |
 | `specs/estoque.md` | Fórmula de `MARGEM_SHOPEE` (coluna e regra de negócio §7) corrigida para descontar comissão+taxa de serviço, com `itemCount=1` (cada linha ESTOQUE = 1 unidade). Cenário 5 dos critérios de aceite recalculado. |
-| `specs/estoque-preco-update.md` | 3 cenários recalculados. Scenario 3 agora demonstra um caso real de **prejuízo disfarçado de "margem baixa"** — preço R$110 com custo R$100 parecia ter 9% de margem positiva na fórmula antiga, mas na real é -19% de prejuízo, porque o líquido pós-taxas (R$84) fica abaixo do custo mesmo com preço de venda nominal acima dele. |
+| `docs/historico/specs-estoque-preco-update.md` | 3 cenários recalculados. Scenario 3 agora demonstra um caso real de **prejuízo disfarçado de "margem baixa"** — preço R$110 com custo R$100 parecia ter 9% de margem positiva na fórmula antiga, mas na real é -19% de prejuízo, porque o líquido pós-taxas (R$84) fica abaixo do custo mesmo com preço de venda nominal acima dele. |
 
 ### 9.3 O que falta implementar em código (via handoff OpenCode)
 
@@ -378,8 +378,14 @@ antiga (flat ou bruta) e precisam mudar para bater com os specs corrigidos:
 | `src/03_services/pricing/PricingService.js` | `calculateSuggestedPrice` | Usa `ConfigService.getMarketplaceFee(marketplace)` uniformemente para os 2 canais | Branch por `marketplace`: ML mantém a lógica atual; Shopee passa a usar `getShopeeFeeModel` + a fórmula fechada da seção 9.1. Novos params `itemCount`/`paymentScenario` (default `1`/`cartao_avista`). Expor `commission`/`serviceFee` separados no retorno, além do total em `marketplaceFee`, para auditoria. |
 | `src/03_services/catalog/CatalogService.js` | trecho que chama `ConfigService.getMarketplaceFee(marketplace)` (por volta da linha 350) | Reimplementa a mesma fórmula de preço sugerido **duplicada** de `PricingService`, com o mesmo modelo flat para Shopee | Idealmente, parar de duplicar e chamar `PricingService.calculateSuggestedPrice` diretamente. Se não for viável nesta fase, no mínimo replicar a correção Shopee aqui também — nunca deixar duas fórmulas divergentes no mesmo código. |
 | `src/03_services/estoque/EstoquePrecoService.js` | `calcularMargem_(precoVenda, precoCusto)` (usada em `updatePrecoVenda`, `simularMudancaPreco`, `getUltimosPrecosPorProduto`) | `(precoVenda-precoCusto)/precoVenda` bruto, sem marketplace, mesma fórmula para os 2 canais | Passa a receber `marketplace` e delegar para uma função pura de `PricingService` (não duplicar a fórmula aqui) — Shopee com `itemCount=1`/`paymentScenario=cartao_avista`, ML inalterado. |
-| `src/03_services/estoque/EstoquePrecoService.js` | `gerarAlertas_(precoCusto, precoNovo, marketplace)` | Alerta `prejuizo` compara `precoNovo < precoCusto` (preço bruto) — não pega o caso do Scenario 3 de `specs/estoque-preco-update.md` (preço acima do custo, mas líquido pós-taxas abaixo) | Comparar `liquido < precoCusto` (usando o valor líquido já calculado por `calcularMargem_`/`PricingService`), não o preço de venda bruto. Isso é uma correção de **bug real de alerta**, não só de exibição de margem — hoje o sistema pode deixar passar sem aviso severo um preço que na prática dá prejuízo. |
+| `src/03_services/estoque/EstoquePrecoService.js` | `gerarAlertas_(precoCusto, precoNovo, marketplace)` | Alerta `prejuizo` compara `precoNovo < precoCusto` (preço bruto) — não pega o caso do Scenario 3 de `docs/historico/specs-estoque-preco-update.md` (preço acima do custo, mas líquido pós-taxas abaixo) | Comparar `liquido < precoCusto` (usando o valor líquido já calculado por `calcularMargem_`/`PricingService`), não o preço de venda bruto. Isso é uma correção de **bug real de alerta**, não só de exibição de margem — hoje o sistema pode deixar passar sem aviso severo um preço que na prática dá prejuízo. |
 | `src/03_services/estoque/EstoqueService.js` | `calcularMargem_` (linhas ~137, usada em 676/684/818/824/911/912) | **Cópia duplicada e idêntica** da mesma função de `EstoquePrecoService.js`, mesmo bug | Mesma correção — idealmente eliminar a duplicação chamando a mesma função compartilhada de `PricingService` que `EstoquePrecoService.js` vai usar, em vez de manter 2 cópias do cálculo de margem no projeto. |
+
+> **Nota (09/08/2026):** `EstoquePrecoService.js` (linhas 380-381 acima) foi
+> **removido do projeto** — nunca esteve conectado à UI (widget fantasma,
+> ver `docs/historico/specs-estoque-preco-update.md`). A correção de margem
+> descrita nessas duas linhas acabou sendo aplicada só em
+> `EstoqueService.calcularMargem_` (linha 382), que é o código real em uso.
 
 ### 9.4 Fora do escopo desta correção (não confundir com o que foi corrigido)
 

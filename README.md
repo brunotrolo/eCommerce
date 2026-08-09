@@ -42,8 +42,10 @@ Claude Code e OpenCode — estão em **[AGENTS.md](./AGENTS.md)**.
 src/00_config       → ConfigService + FormatterService
 src/01_adapters     → TiopsClient (único cliente HTTP para a Tiops), DriveAdapter
 src/02_repositories → Properties/Cache/Sheets/Config (únicos que tocam serviços nativos do GAS)
-src/03_services     → Pricing, Orders, Listings, Dashboard,
-                      Catalog, NFeEntrada, NFeEntradaProdutos, Calculator, Status
+src/03_services     → Pricing, Orders, OrdersImport, Dashboard, Catalog,
+                      NFeEntrada, NFeEntradaProdutos, ManualEntrada, ManualSaida,
+                      Estoque, EstoqueBaixa, CarteiraShopee, AnunciosShopee,
+                      ShopeeAds, Calculator, Sku, PushNotification (inativo), Status
 src/04_gateway      → ServiceRegistry + Router (doGet/doPost/apiDispatch)
 ui/shared           → Design tokens, DataStore (cache client-side), UiHelpers,
                       Formatter, DebugConsole, DesignSystemLoader

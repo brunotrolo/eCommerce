@@ -252,7 +252,7 @@ DATA_SINCRONIZACAO | LOG_ID
    - **Alerta de prejuízo compara o líquido pós-taxas ao custo, nunca o
      preço bruto** — um preço nominalmente acima do custo pode gerar
      prejuízo real depois de descontar comissão+taxa (ver Scenario 3 de
-     `specs/estoque-preco-update.md`).
+     `docs/historico/specs-estoque-preco-update.md`, spec arquivada).
 
 8. **Rastreabilidade:**
    - REFERENCIA_ORIGEM: identifica se veio de NF ou entrada manual.

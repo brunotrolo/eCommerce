@@ -180,57 +180,21 @@ Pedido real de cada canal conferindo, Dashboard sem regressão, lista vazia
 tratada.
 ```
 
-### Fase 4 — Validar Anúncios
+### Fase 4 — ~~Validar Anúncios~~ (Removida 09/08/2026)
 
-```
-CONTEXTO
-Fase 4 do PLANO.md. ListingsService (listUnified, getDetail, pause, activate)
-e ListingsView.html já escritos, conforme specs/listings.md.
+`ListingsService`/`ListingsView.html` foram excluídos do projeto — página
+sem utilidade, decisão do usuário. Spec arquivada em
+`docs/historico/specs-listings.md`. Não use o prompt desta fase; a
+funcionalidade equivalente hoje é o domínio **Anúncios Shopee**
+(`specs/anuncios-shopee.md`, `AnunciosShopeeService`/`AnunciosShopeeView.html`,
+já implementado e validado).
 
-SKILL
-Ative /tiops-contract. As regras de payload dos dois canais estão em
-docs/referencia/SHOPEE_CRIAR_ANUNCIO.md e
-docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md — leia antes, não redescubra.
+### Fase 5 — ~~Validar Preço & Estoque~~ (Removida)
 
-TAREFA
-1. Confirme que pause/activate usam os nomes e o casing corretos por canal
-   (ML: itemId camelCase; Shopee: conforme o playbook).
-2. Verifique que TODA operação de escrita relê o item depois
-   (get_item / shopee_get_item) e só reporta sucesso se a releitura
-   confirmar o estado novo.
-3. Pause e reative um anúncio de teste real em cada canal.
-4. Teste um itemId inexistente e confirme erro tratado na UI.
-
-RESTRIÇÕES
-- NUNCA confie na resposta do update/pause/activate como confirmação.
-- Não envie `title` para o Mercado Livre (usa family_name).
-- Não use `logistics_channel_id` na Shopee (é `logistic_id`).
-
-ACEITE
-Pause e activate confirmados por releitura nos dois canais; item inexistente
-com erro tratado.
-```
-
-### Fase 5 — Validar Preço & Estoque
-
-```
-CONTEXTO
-Fase 5 do PLANO.md. InventoryPricingService (applySuggestedPrice,
-updateStock) já escrito, conforme specs/inventory-pricing.md. Ele liga
-PricingService (fase 1) e ListingsService (fase 4).
-
-SKILL
-Ative /spec-first e /tiops-contract.
-
-TAREFA
-1. Confirme que applySuggestedPrice REUSA PricingService.calculateSuggestedPrice
-   e não reimplementa a fórmula.
-2. Confirme que shopee_update_price usa price_list e que a Shopee recebe
-   original_price + seller_stock quando exigido.
-3. Rode o fluxo completo num item de teste: calcular → aplicar → reler →
-   confirmar. Cole o valor antes e depois.
-4. Confirme no app oficial do canal que o preço novo apareceu.
-5. Teste item inexistente e preço inválido; confirme erro tratado na UI.
+`InventoryPricingService` foi excluído do projeto junto com `ListingsService`
+(dependia dele). Spec arquivada como `Removed` em `specs/inventory-pricing.md`
+(mantida em `specs/`, não movida para `docs/historico/`, porque ainda serve
+de referência de regras de preço/estoque). Não use o prompt desta fase.
 
 RESTRIÇÕES
 - Fórmula de preço existe em um lugar só: PricingService.

@@ -23,7 +23,6 @@
     "src/03_services/estoque/EstoqueRepository.js",
     "src/03_services/estoque/EstoqueService.js",
     "src/03_services/estoque/EstoqueBaixaService.js",
-    "src/03_services/estoque/EstoquePrecoService.js",
     "src/03_services/manualSaida/ManualSaidaProdutosRepository.js",
     "src/03_services/manualSaida/ManualSaidaService.js",
     "src/03_services/pricing/PricingService.js",

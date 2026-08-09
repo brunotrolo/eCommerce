@@ -18,8 +18,11 @@ conta conectada: toda ação precisa receber explicitamente `meliUserId` ou
 
 `ConfigService.getAccountId()` já devolve exatamente esses dois IDs, e os
 serviços já passam o nome de param correto por canal — verificado em
-`OrdersService`, `ListingsService`, `InventoryPricingService` e
-`DashboardService`. Dados lidos direto da Google Sheets, sem dependência externa.
+`OrdersService` e `DashboardService` (ambos lêem direto da Google Sheets,
+sem dependência externa) e, para chamadas reais à Tiops, em
+`AnunciosShopeeService`, `ShopeeAdsService` e `CarteiraShopeeService`
+(sucessores de `ListingsService`/`InventoryPricingService`, removidos em
+09/08/2026 — ver `docs/historico/specs-listings.md`).
 
 ## Observações do catálogo — confirmado em 2026-08-02
 
@@ -106,14 +109,14 @@ sombrando `broad_gmv`+`direct_gmv` (receita) e `broad_order`+`direct_order`
 ## Ainda não confirmados
 
 Estas ações são usadas pelo código mas **não** tiveram nome e schema
-verificados contra o catálogo. Confirme na Fase correspondente do `PLANO.md`:
+verificados contra o catálogo (`list_actions`/`describe_action`):
 
-| Ação | Usada em | Fase |
-|---|---|---|
-| `list_orders`, `get_order` (ML) | `OrdersService` | 3 |
-| `shopee_list_orders`, `shopee_get_order_detail` | `OrdersService` | 3 |
-| `shopee_get_shop_income` | `DashboardService` | 2 |
-| `low_stock_items` | `DashboardService` | 2 |
-| `list_items`, `shopee_list_items` | `ListingsService` | 4 |
-| `pause_item`, `activate_item` | `ListingsService` | 4 |
-| `shopee_update_price`, `shopee_update_stock` | `InventoryPricingService` | 5 |
+| Ação | Usada em |
+|---|---|
+| `list_orders`, `get_order` (ML) | `OrdersService` |
+| `shopee_list_orders`, `shopee_get_order_detail` | `OrdersService` |
+| `shopee_get_shop_income` | `DashboardService` |
+| `low_stock_items` | `DashboardService` |
+| `list_items`, `shopee_list_items` | `AnunciosShopeeService` (sucessor de `ListingsService`, removido 09/08/2026) |
+| `pause_item`, `activate_item` | `AnunciosShopeeService` (idem) |
+| `shopee_update_price`, `shopee_update_stock` | `AnunciosShopeeService` (sucessor de `InventoryPricingService`, removido) |

@@ -45,17 +45,53 @@ Ciclo padrão de uma fase:
 
 ---
 
-## 3. Escopo funcional v1 — 8 domínios
+## 3. Escopo funcional v1 — domínios
+
+Numeração 1-8 abaixo é o registro histórico do escopo fundador do projeto
+(mantida por rastreabilidade). O app cresceu bem além disso — a segunda
+tabela lista os domínios adicionados depois, todos com spec
+`Approved`/`Implemented` e código rodando em produção hoje (auditoria de
+09/08/2026, ver "Estado real de hoje" abaixo).
 
 | # | Domínio | Spec | O que entrega |
 |---|---|---|---|
-| 1 | **Precificação** | `specs/pricing.md` | Preço sugerido por canal a partir de custo + margem, descontando taxa. Comparativo Shopee × ML lado a lado. |
+| 1 | **Precificação** | `specs/pricing.md` | Preço sugerido por canal a partir de custo + margem, descontando taxa. Comparativo Shopee × ML lado a lado. Motor interno (sem página própria), consumido por Calculadora/Catálogo/Estoque. |
 | 2 | **Dashboard** | `specs/dashboard.md` | Visão única: pedidos recentes, receita, estoque baixo. Cache de 5 min. |
 | 3 | **Pedidos** | `specs/orders.md` | Lista unificada dos dois canais em shape normalizado + detalhe do pedido. |
-| 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. Consultável antes de criar/editar anúncios. |
-| 5 | ~~**Anúncios**~~ | ~~`specs/listings.md`~~ | ~~Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação.~~ **Removida 09/08/2026** — página sem utilidade excluída do projeto; spec arquivada em `docs/historico/specs-listings.md`. |
+| 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. |
+| 5 | ~~**Anúncios**~~ | ~~`specs/listings.md`~~ | ~~Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação.~~ **Removida 09/08/2026** — página sem utilidade excluída do projeto; spec arquivada em `docs/historico/specs-listings.md`. Substituída na prática pelo domínio **Anúncios Shopee** da tabela abaixo. |
 | 6 | ~~Preço & Estoque~~ | `specs/inventory-pricing.md` | ~~Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo.~~ **Removida** — página e serviço legacy excluídos; regras de preço/estoque seguem em `specs/pricing.md` e `estoque.md`. |
 | 8 | **Calculadora PrecificaPro** | `specs/calculator.md` | Calculadora interativa **única** do app (Shopee + Mercado Livre) com widget flutuante (modal), botão 🧮 no topo. Dois seletores: canal (Shopee/ML) e modo (Formador de Preço custo→preço, ou Receita Líquida preço→líquido). Shopee usa o modelo de taxa validado por engenharia reversa de pedidos reais (`specs/calculator-shopee.md`); ML mantém sua tabela por faixa/regime, inalterada. |
+
+### Domínios adicionados após o escopo inicial (todos ativos em produção)
+
+| Domínio | Spec | O que entrega |
+|---|---|---|
+| **Estoque (unidades FIFO)** | `specs/estoque.md` (Implemented) | Rastreamento unitário FIFO por unidade, alimentado por NFe/Manual, preços/margens recalculáveis via motor único. **Fluxo funcional central do app hoje.** |
+| Baixa de Estoque | `specs/estoque-baixa.md` (Approved) | Motor interno: dá baixa FIFO nas unidades vendidas a partir de pedidos importados/reprocessados; sem página própria. |
+| NFe Entrada | `specs/nfe-entrada.md` (Approved) | Sincroniza NFes do Drive, marca como processadas. |
+| NFe Entrada Produtos | `specs/nfe-entrada-produtos.md` (Approved) | Extrai produtos de cada NFe (com rateio de desconto/outros via `specs/discount-rateio.md`), alimenta Catálogo e Estoque. |
+| Manual Entrada | `specs/manual-entrada.md` (Implemented) | Entrada de estoque sem NFe (compra direta, brinde, ajuste). |
+| Manual Saída | `specs/manual-saida.md` (Approved) | Saída de estoque sem venda (perda, brinde, ajuste), com baixa FIFO automática. |
+| Carteira Shopee | `specs/carteira-shopee.md` (Approved) | Saldo, extrato e histórico de repasses da carteira Shopee. |
+| Anúncios Shopee | `specs/anuncios-shopee.md` (Implemented) | Sincroniza, lista, atualiza preço/estoque de anúncios Shopee direto pela Tiops. |
+| Shopee Ads | `specs/shopee-ads.md` (Approved) | Gestão de campanhas de anúncios pagos: saldo, campanhas, performance, pausar/retomar/encerrar, visitas/conversão. |
+
+### Motores internos (sem página própria)
+
+- `specs/pricing.md` (Implemented) — `PricingService`, motor único de sugestão de preço e margem.
+- `specs/sku.md` (Approved) — `SkuService`, categoria/label de produto.
+- `specs/push-notification.md` (Approved, mas **INATIVO**) — webhook Shopee, aguarda app próprio na Shopee Open Platform (Tiops detém as credenciais hoje).
+
+### Specs em Draft, sem código ainda
+
+- `specs/estoque-baixa-shopee.md`, `specs/produto-anuncio-map.md` — auto-declaradas Draft, sem implementação. Não pular a aprovação antes de codar (regra nº 1 do `AGENTS.md`).
+
+### Removidos
+
+- **Anúncios** (`specs/listings.md` → `docs/historico/specs-listings.md`, Removido 09/08/2026).
+- **Preço & Estoque** (`specs/inventory-pricing.md`, Removido).
+- **Atualização de Preço em Estoque em lote** (`specs/estoque-preco-update.md` → `docs/historico/`, Removido 09/08/2026) — `EstoquePrecoBulkView.html` nunca foi conectado ao Shell (widget fantasma, mesmo problema do `PricingView.html` original) e tinha um bug de prefixo de ação que a impediria de funcionar mesmo se estivesse acessível. Funcionalidade equivalente (propagação de preço/margem pra todos os itens `DISPONÍVEL` do produto) já existe em `estoque.updateItem`.
 
 ---
 
@@ -112,7 +148,8 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > também corrigido: alerta de prejuízo comparava preço bruto vs. custo, não
 > o líquido pós-taxas — um preço nominalmente acima do custo podia esconder
 > prejuízo real. Ver `specs/pricing.md`, `specs/estoque.md`,
-> `specs/estoque-preco-update.md`.
+> `docs/historico/specs-estoque-preco-update.md` (spec arquivada, feature
+> removida em 09/08/2026 — ver nota acima).
 >
 > **Botão "Recalcular Preços de Venda" (antes "Sincronizar Preços
 > Catálogo", 09/08/2026):** pedido do usuário para o motor "sempre
@@ -132,6 +169,38 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > de API da loja, logo os pushes vão para a callback URL da Tiops, não para
 > nós. Para ativar, o usuário precisa criar app próprio na Shopee Open
 > Platform e migrar as credenciais (ver seção "Refatoração Futura" na spec).
+>
+> **Otimização de performance (09/08/2026, PR #28):** auditoria de
+> performance encontrou 3 classes de problema, todas corrigidas. (1) Bugs de
+> invalidação de cache: `CarteiraShopeeService`/`ManualSaidaService`/`EstoqueService`
+> invalidavam o cache do Dashboard com o padrão `'dashboard.'` (ponto), mas a
+> chave real é `'dashboard_summary'` (underscore) — nunca casava, cache só
+> expirava pelo TTL de 5min; `ShopeeAdsService` chamava `CacheService` direto
+> (viola a camada de `02_repositories`) com chaves fixas que não batiam com
+> as reais (`campanhas_raw` vs `campanhas`; `performance_<id>` dinâmico vs
+> literal `performance`) — cache de performance nunca era limpo após
+> pausar/retomar/encerrar campanha; `NFeEntradaProdutosService`/
+> `OrdersImportService` nunca invalidavam `catalog_`/`dashboard_` ao gravar
+> dados novos. (2) Escrita em loop: `EstoqueService.updateItem`/
+> `atualizarAlertas_`/`atualizarAlertasBulk_` faziam 1 leitura + 1 escrita
+> **por item** num loop, em vez de 1 leitura + 1 escrita pro lote inteiro
+> (helpers `updateRowsBulk`/`updateRowsBulkPerRow` já existiam, só não eram
+> usados aqui). (3) Preload/cache client-side inconsistente: `Shell.html` já
+> pré-carrega ~10 domínios em paralelo ao abrir o app
+> (`window.__DataStore.preFetch`), mas Carteira Shopee e Shopee Ads nunca
+> entravam na lista, e Pedidos mostrava o cache por um instante mas sempre
+> refazia a chamada ao backend de qualquer jeito (preload desperdiçado) —
+> agora as 4 páginas seguem o mesmo padrão de skip-fetch real de
+> Catálogo/Estoque.
+>
+> **Limpeza de código morto (09/08/2026):** auditoria completa não achou
+> arquivo órfão em `src/**` (bate 1:1 com `filePushOrder` do `.clasp.json`),
+> mas achou um segundo caso de widget fantasma
+> (`EstoquePrecoBulkView.html`/`EstoquePrecoService.js`, ver seção 3
+> "Removidos" acima) e várias referências mortas em documentação (spec
+> arquivada sem marcar `Status: Removed`, links pra `listings.md` num
+> caminho que não existe mais, `README.md` citando "Listings" como serviço
+> ativo) — todas corrigidas nesta mesma revisão.
 
 ### Fase 0 — Fundação + pipeline de sincronização (/dev)
 
@@ -302,4 +371,4 @@ Contratos da Tiops já verificados contra a API real ficam em
 | API key vazar em commit | só em Script Properties; skill `gas-ops` checa antes do push |
 | Fonte externa (vídeo/artigo) sobre taxa de marketplace desatualizada ou errada | sempre validar contra pedidos `COMPLETED` reais da conta antes de mudar a calculadora — caso concreto: vídeo alegando tabela Shopee escalonada (idêntica à do ML) foi contradito por 11 pedidos reais, ver `specs/calculator-shopee.md` |
 | `[hidden]` não esconder elemento com `display` explícito na mesma classe | sempre adicionar `.classe[hidden] { display: none; }` (maior especificidade) ao criar `.form-row`/`.field` que alterna visibilidade — bug real encontrado na calculadora (PR #21) |
-| Widget novo criado mas nunca montado no Shell (`<tag>` ausente) | conferir `ui/shell/Shell.html` tem tanto o `include()` quanto a tag `<widget-x>` antes de considerar uma UI "pronta" — aconteceu com `PricingView.html` (PR #18), ficou órfão até o usuário reportar confusão |
+| Widget novo criado mas nunca montado no Shell (`<tag>` ausente) | conferir `ui/shell/Shell.html` tem tanto o `include()` quanto a tag `<widget-x>` antes de considerar uma UI "pronta" — aconteceu duas vezes: `PricingView.html` (PR #18) e `EstoquePrecoBulkView.html` (achado e removido em auditoria de 09/08/2026, ficou com include mas sem `<tag>` desde a criação; tinha ainda um bug de prefixo de ação — `estoque.simularMudancaPreco` em vez de `estoquePreco.simularMudancaPreco` — nunca teria funcionado mesmo se estivesse acessível) |
