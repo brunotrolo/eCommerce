@@ -1,7 +1,7 @@
 # Spec: Entrada Manual de Produtos (MANUAL_ENTRADA_PRODUTOS)
 
 ## Status
-Approved
+Implemented
 
 ## Objetivo
 
@@ -45,6 +45,11 @@ Resolve o problema: usuário compra produtos sem NF mas precisa registrar entrad
     processedAt: string,       // ISO 8601
     row: {
       codigo, descricao, quantidade, valorUnitario, valorLiquido, ...
+    },
+    estoqueImportado: {         // resultado da importação automática para ESTOQUE
+      success: boolean,
+      itemsImported: number,
+      erro?: string             // presente apenas se a importação falhou (não derruba a entrada)
     },
     errors: []
   }
@@ -171,6 +176,19 @@ VALOR_LIQUIDO_ITEM | VALOR_UNITARIO_LIQUIDO | EMITENTE_NOME | DATA_COMPRA | OBSE
    - Ambas contribuem para estoque agregado
    - Entrada manual marcada com TIPO_MOVIMENTACAO="Entrada Manual" para auditoria
 
+7b. **Importação automática para ESTOQUE (desde 09/08/2026):**
+   - Ao registrar com sucesso, `addEntry` dispara imediatamente
+     `EstoqueService.importarDeManualEntrada({logId})` — a entrada vai para a aba
+     ESTOQUE na hora, sem depender do botão "Sincronizar" da aba Estoque.
+   - O resultado é devolvido em `estoqueImportado` no retorno de `addEntry`.
+   - Se a importação falhar, a entrada manual é mantida (não é desfeita) e o erro
+     é devolvido em `estoqueImportado.erro` — a sincronização manual continua
+     disponível como fallback.
+   - Itens importados já nascem com `PRECO_VENDA_SHOPEE`/`PRECO_VENDA_MERCADO_LIVRE`
+     calculados do `PRECO_CUSTO_ORIGINAL` (mesmo motor do Catálogo), e os caches
+     `catalog_*`, `estoque.*` e `dashboard.*` são invalidados para a UI refletir
+     na hora.
+
 8. **Produto customizável:** Não é obrigado que o produto já exista em NFE_ENTRADA_PRODUTOS.
    Usuário pode criar entrada manual de um produto novo que ainda não recebeu por NF.
    Warning se produto não encontrado em NFE_ENTRADA_PRODUTOS (informativo, não bloqueante).
@@ -267,6 +285,16 @@ When: `manualEntrada.getSupplierHistory()`
 Then:
   - Retorna ["Supplier ABC", "Supplier XYZ"] (ordenado alfabeticamente)
   - Campo de fornecedor mostra dropdown com sugestões ao digitar
+```
+
+### Scenario 7: Entrada manual vai direto para o estoque
+```
+Given: Estoque vazio e usuário registra entrada manual de 2 unidades
+When: `manualEntrada.addEntry({quantidade: 2, ...})` com sucesso
+Then:
+  - Retorna {success: true, estoqueImportado: {success: true, itemsImported: 2}}
+  - Aba ESTOQUE ganha 2 linhas com REFERENCIA_ORIGEM = "MAN#<logId>"
+  - As linhas já vêm com PRECO_VENDA_SHOPEE/PRECO_VENDA_MERCADO_LIVRE e margens calculadas
 ```
 
 ---

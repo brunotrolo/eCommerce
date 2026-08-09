@@ -1,7 +1,7 @@
 # Spec: Controle de Estoque (ESTOQUE)
 
 ## Status
-Approved
+Implemented
 
 ## Objetivo
 
@@ -36,6 +36,11 @@ Diferenças de NFE/MANUAL:
     errors: [{productCode, reason}]
   }
   ```
+- **Nota (desde 09/08/2026):** os items criados já nascem com
+  `PRECO_VENDA_SHOPEE`/`PRECO_VENDA_MERCADO_LIVRE` e margens calculadas do
+  `PRECO_CUSTO_ORIGINAL` via `PricingService.calculateSuggestedPrice` (mesma
+  margem default do Catálogo); e os caches `catalog_*`, `estoque.*` e
+  `dashboard.*` são invalidados quando há importação.
 
 ### `estoque.importarDeManualEntrada`
 - **Descrição:** Lê items de MANUAL_ENTRADA_PRODUTOS e cria linhas unitárias em ESTOQUE
@@ -88,6 +93,8 @@ Diferenças de NFE/MANUAL:
     itemsSincronizados: number
   }
   ```
+- **Nota (desde 09/08/2026):** ao final, se algo foi importado, invalida os
+  caches `catalog_*`, `estoque.*` e `dashboard.*` para a UI refletir na hora.
 
 ### `estoque.getEstoqueAtualPorProduto`
 - **Descrição:** Resume estoque por código de produto (para Dashboard/Catálogo)

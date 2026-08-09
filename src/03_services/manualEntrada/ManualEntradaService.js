@@ -21,7 +21,7 @@ var ManualEntradaService = (function () {
             observacoes: { type: 'string', required: false },
             ncm: { type: 'string', required: false }
           },
-          returns: { success: 'boolean', entryId: 'string', processedAt: 'string', row: 'object', errors: 'array' }
+          returns: { success: 'boolean', entryId: 'string', processedAt: 'string', row: 'object', estoqueImportado: 'object', errors: 'array' }
         },
         listEntries: {
           description: 'Lista entradas manuais ou filtra por código de produto.',
@@ -118,12 +118,27 @@ var ManualEntradaService = (function () {
 
     var result = ManualEntradaProdutosRepository.appendRow(sheetId, rowData);
 
+    var estoqueImportado = null;
+    if (result.success) {
+      try {
+        estoqueImportado = EstoqueService.importarDeManualEntrada({ logId: logId });
+        if (estoqueImportado && estoqueImportado.success && estoqueImportado.itemsImported > 0) {
+          CacheRepository.invalidateByPattern('catalog_');
+          CacheRepository.invalidateByPattern('estoque.');
+          CacheRepository.invalidateByPattern('dashboard.');
+        }
+      } catch (e) {
+        estoqueImportado = { error: 'Falha ao incluir no estoque: ' + (e.message || String(e)) };
+      }
+    }
+
     return {
       success: result.success,
       entryId: logId,
       processedAt: Utilities.formatDate(now, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
       row: rowData,
       warnings: warnings,
+      estoqueImportado: estoqueImportado,
       errors: []
     };
   }

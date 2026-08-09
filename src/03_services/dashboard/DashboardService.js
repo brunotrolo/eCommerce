@@ -64,17 +64,39 @@ var DashboardService = (function () {
     };
   }
 
+  var DEFAULT_SYNC_STEPS = [
+    'nfeEntrada.syncAndUpdateSheets',
+    'estoque.sincronizar',
+    'estoque.sincronizarPrecosCatalogo',
+    'anunciosShopee.syncListings',
+    'ordersImport.importShopeeOrders',
+    'carteiraShopee.syncWallet'
+  ];
+
   function getSyncOrder() {
     var raw = ConfigService.get('sincronizar');
-    if (!raw) {
-      return { steps: [] };
+    var steps = [];
+    if (raw) {
+      try {
+        var parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed)) steps = parsed;
+      } catch (e) {
+        steps = [];
+      }
     }
-    try {
-      var steps = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      return { steps: Array.isArray(steps) ? steps : [] };
-    } catch (e) {
-      return { steps: [] };
+
+    if (steps.length === 0) {
+      return { steps: DEFAULT_SYNC_STEPS.slice() };
     }
+
+    var hasPedidos = steps.indexOf('ordersImport.importShopeeOrders') !== -1;
+    if (!hasPedidos) {
+      var idx = steps.indexOf('estoque.sincronizarPrecosCatalogo');
+      var insertAt = idx >= 0 ? idx + 1 : steps.length;
+      steps.splice(insertAt, 0, 'ordersImport.importShopeeOrders');
+    }
+
+    return { steps: steps };
   }
 
   return { describe: describe, getSummary: getSummary, getSyncOrder: getSyncOrder };

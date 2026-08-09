@@ -156,6 +156,37 @@ var EstoqueService = (function () {
     return Math.round(result.netMarginPct * 10000) / 100;
   }
 
+  /**
+   * Preços sugeridos de venda para um custo unitário — motor único
+   * PricingService.calculateSuggestedPrice (mesma base de sincronizarPrecosCatalogo
+   * e do Catálogo). Usado no import automático de NF/entrada manual para que o
+   * estoque já nasça precificado. Retorna { precoShopee, precoMercadoLivre }.
+   */
+  function calcularPrecosSugeridos_(custo) {
+    if (!custo || custo <= 0) return { precoShopee: '', precoMercadoLivre: '' };
+    var targetMargin = ConfigService.getDefaultMargin();
+    var shopeeResult = PricingService.calculateSuggestedPrice({
+      unitCost: custo,
+      targetMarginPct: targetMargin,
+      marketplace: 'shopee'
+    });
+    var mlResult = PricingService.calculateSuggestedPrice({
+      unitCost: custo,
+      targetMarginPct: targetMargin,
+      marketplace: 'mercado_livre'
+    });
+    return {
+      precoShopee: shopeeResult && !shopeeResult.error ? shopeeResult.suggestedPrice : '',
+      precoMercadoLivre: mlResult && !mlResult.error ? mlResult.suggestedPrice : ''
+    };
+  }
+
+  function invalidarCachesFluxo_() {
+    CacheRepository.invalidateByPattern('catalog_');
+    CacheRepository.invalidateByPattern('estoque.');
+    CacheRepository.invalidateByPattern('dashboard.');
+  }
+
   function verificarAlertaEstoqueBaixo_(sheetId, codigoProduto) {
     var items = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto);
     return items.length === 1;
@@ -232,6 +263,7 @@ var EstoqueService = (function () {
 
       var qty = parseInt(r.QUANTIDADE) || 1;
       var custo = parseFloat(r.VALOR_UNITARIO_LIQUIDO) || parseFloat(r.VALOR_UNITARIO) || 0;
+      var precosSugeridos = calcularPrecosSugeridos_(custo);
 
       for (var u = 0; u < qty; u++) {
         var estoqueId = gerarEstoqueId_(sheetId, seqCounter++);
@@ -243,10 +275,10 @@ var EstoqueService = (function () {
           dataEntrada: r.DATA_ENTRADA || now,
           referenciaOrigem: 'NF#' + numeroNf,
           precoCustoOriginal: custo,
-          precoVendaShopee: '',
-          precoVendaMercadoLivre: '',
-          margemShopee: '',
-          margemMercadoLivre: '',
+          precoVendaShopee: precosSugeridos.precoShopee,
+          precoVendaMercadoLivre: precosSugeridos.precoMercadoLivre,
+          margemShopee: precosSugeridos.precoShopee !== '' ? calcularMargem_(precosSugeridos.precoShopee, custo, 'shopee') : '',
+          margemMercadoLivre: precosSugeridos.precoMercadoLivre !== '' ? calcularMargem_(precosSugeridos.precoMercadoLivre, custo, 'mercado_livre') : '',
           status: 'DISPONÍVEL',
           alertaEstoqueBaixo: false,
           dataSincronizacao: now,
@@ -265,6 +297,10 @@ var EstoqueService = (function () {
       }
       var itemsByProductMap = EstoqueRepository.buildItemsByProductMap(sheetId);
       atualizarAlertasBulk_(sheetId, itemsByProductMap, Object.keys(produtos));
+    }
+
+    if (rowsToInsert.length > 0) {
+      invalidarCachesFluxo_();
     }
 
     var duration = Date.now() - startTime;
@@ -310,6 +346,7 @@ var EstoqueService = (function () {
 
       var qty = parseInt(r.QUANTIDADE) || 1;
       var custo = parseFloat(r.VALOR_UNITARIO_LIQUIDO) || parseFloat(r.VALOR_UNITARIO) || 0;
+      var precosSugeridos = calcularPrecosSugeridos_(custo);
 
       for (var u = 0; u < qty; u++) {
         var estoqueId = gerarEstoqueId_(sheetId, seqCounter++);
@@ -321,10 +358,10 @@ var EstoqueService = (function () {
           dataEntrada: r.DATA_ENTRADA || now,
           referenciaOrigem: 'MAN#' + (r.LOG_ID || ''),
           precoCustoOriginal: custo,
-          precoVendaShopee: '',
-          precoVendaMercadoLivre: '',
-          margemShopee: '',
-          margemMercadoLivre: '',
+          precoVendaShopee: precosSugeridos.precoShopee,
+          precoVendaMercadoLivre: precosSugeridos.precoMercadoLivre,
+          margemShopee: precosSugeridos.precoShopee !== '' ? calcularMargem_(precosSugeridos.precoShopee, custo, 'shopee') : '',
+          margemMercadoLivre: precosSugeridos.precoMercadoLivre !== '' ? calcularMargem_(precosSugeridos.precoMercadoLivre, custo, 'mercado_livre') : '',
           status: 'DISPONÍVEL',
           alertaEstoqueBaixo: false,
           dataSincronizacao: now,
@@ -343,6 +380,10 @@ var EstoqueService = (function () {
       }
       var itemsByProductMap = EstoqueRepository.buildItemsByProductMap(sheetId);
       atualizarAlertasBulk_(sheetId, itemsByProductMap, Object.keys(produtos));
+    }
+
+    if (rowsToInsert.length > 0) {
+      invalidarCachesFluxo_();
     }
 
     var duration = Date.now() - startTime;
@@ -525,6 +566,7 @@ var EstoqueService = (function () {
 
       var qty = parseInt(rm.QUANTIDADE) || 1;
       var custo = parseFloat(rm.VALOR_UNITARIO_LIQUIDO) || parseFloat(rm.VALOR_UNITARIO) || 0;
+      var precosSugeridos = calcularPrecosSugeridos_(custo);
       var now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
       var rowsToInsert = [];
       var seqCounter = EstoqueRepository.getProximoSequencial(sheetId, Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd'));
@@ -536,10 +578,10 @@ var EstoqueService = (function () {
           dataEntrada: rm.DATA_ENTRADA || now,
           referenciaOrigem: refMan,
           precoCustoOriginal: custo,
-          precoVendaShopee: '',
-          precoVendaMercadoLivre: '',
-          margemShopee: '',
-          margemMercadoLivre: '',
+          precoVendaShopee: precosSugeridos.precoShopee,
+          precoVendaMercadoLivre: precosSugeridos.precoMercadoLivre,
+          margemShopee: precosSugeridos.precoShopee !== '' ? calcularMargem_(precosSugeridos.precoShopee, custo, 'shopee') : '',
+          margemMercadoLivre: precosSugeridos.precoMercadoLivre !== '' ? calcularMargem_(precosSugeridos.precoMercadoLivre, custo, 'mercado_livre') : '',
           status: 'DISPONÍVEL',
           alertaEstoqueBaixo: false,
           dataSincronizacao: now,
@@ -553,6 +595,10 @@ var EstoqueService = (function () {
         existingRefs[refMan] = true;
         manualImportadas.push(refMan + '(' + rowsToInsert.length + ')');
       }
+    }
+
+    if (totalImportados > 0) {
+      invalidarCachesFluxo_();
     }
 
     var duration = Date.now() - startTime;
@@ -762,6 +808,10 @@ var EstoqueService = (function () {
       atualizarAlertas_(sheetId, codigoProduto);
     }
 
+    if (precosChanged || updates.status) {
+      invalidarCachesFluxo_();
+    }
+
     var duration = Date.now() - startTime;
     var changes = [];
     if (updates.precoVendaShopee !== undefined) changes.push('Shopee=' + updates.precoVendaShopee);
@@ -898,6 +948,7 @@ var EstoqueService = (function () {
       // Batch write: single sheet read + single setValues
       if (pendingUpdates.length > 0) {
         EstoqueRepository.updateRowsBulkPerRow(sheetId, pendingUpdates);
+        invalidarCachesFluxo_();
       }
 
       var duration = Date.now() - startTime;

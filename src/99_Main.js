@@ -37,6 +37,7 @@ function onOpen() {
           .addItem('Carteira Shopee', 'runCarteiraShopeeSmokeTests_')
           .addItem('Anúncios Shopee', 'runAnunciosShopeeSmokeTests_')
           .addItem('Estoque Baixa', 'runEstoqueBaixaSmokeTests_')
+          .addItem('Dashboard', 'runDashboardSmokeTests_')
           .addItem('Backfill Estoque IDs+Cost', 'runBackfillEstoqueIdsAndCosts_')
           .addItem('Write Audit', 'runWriteAuditSmokeTests_')
       )
@@ -991,6 +992,42 @@ function syncAnunciosShopeeDaily() {
     ' atualizados=' + (result.synced ? result.synced.itemsAtualizados : 0) +
     ' novos=' + (result.synced ? result.synced.novosCriados : 0) +
     ' erros=' + result.errors.length);
+}
+
+function runDashboardSmokeTests_() {
+  var failures = [];
+
+  function expectTrue(label, condition) {
+    if (!condition) failures.push(label + ': esperado true, obtido false');
+  }
+
+  // Cenário 1: serviço existe e descreve getSummary/getSyncOrder
+  expectTrue('DashboardService existe', typeof DashboardService !== 'undefined');
+  var desc = DashboardService.describe();
+  expectTrue('describe.name', desc.name === 'dashboard');
+  expectTrue('ação getSummary', !!desc.actions.getSummary);
+  expectTrue('ação getSyncOrder', !!desc.actions.getSyncOrder);
+
+  // Cenário 2: getSyncOrder sempre devolve array de steps válidos, contendo a
+  // etapa de Pedidos Shopee (garantia contra config antiga sem ordersImport),
+  // sem duplicatas.
+  var result = DashboardService.getSyncOrder();
+  expectTrue('getSyncOrder devolve objeto', result && typeof result === 'object');
+  expectTrue('getSyncOrder devolve steps array', result && Array.isArray(result.steps));
+  if (result && Array.isArray(result.steps)) {
+    expectTrue('steps contém ordersImport.importShopeeOrders', result.steps.indexOf('ordersImport.importShopeeOrders') !== -1);
+    for (var i = 0; i < result.steps.length; i++) {
+      expectTrue('step ' + i + ' não é vazio', typeof result.steps[i] === 'string' && result.steps[i].length > 0);
+      expectTrue('step ' + i + ' não duplicado', result.steps.lastIndexOf(result.steps[i]) === i);
+    }
+  }
+
+  if (failures.length) {
+    Logger.log('FALHOU DASHBOARD:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' Dashboard smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — todos os smoke tests de Dashboard passaram.');
 }
 
 function runEstoqueBaixaSmokeTests_() {
