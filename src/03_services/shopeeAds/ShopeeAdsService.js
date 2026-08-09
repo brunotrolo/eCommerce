@@ -117,8 +117,7 @@ var ShopeeAdsService = (function () {
   }
 
   function getSheetId_() {
-    var props = PropertiesService.getScriptProperties();
-    return props.getProperty('SPREADSHEET_ID') || SpreadsheetApp.getActiveSpreadsheet().getId();
+    return ConfigService.getSheetId();
   }
 
   function cacheKey_(name) {
@@ -286,7 +285,6 @@ var ShopeeAdsService = (function () {
     var sheetId = getSheetId_();
     var filtro = params && params.status ? { status: params.status } : null;
     var campanhas = ShopeeAdsRepository.getCampanhas(sheetId, filtro);
-    console.log('[ShopeeAdsService] getCampaigns: sheetId=%s, forceFresh=%s, campanhas.length=%s', sheetId, params.forceFresh, campanhas.length);
 
     var resumo = {
       total: campanhas.length,

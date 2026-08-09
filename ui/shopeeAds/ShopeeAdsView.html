@@ -501,9 +501,7 @@
       return withLoading(function () {
         return apiDispatch('shopeeAds.getCampaigns', params);
       }).then(function (result) {
-        console.log('[ShopeeAds] loadCampanhas result:', JSON.stringify(result).substring(0, 500));
         _campanhas = (result && result.campanhas) || [];
-        console.log('[ShopeeAds] _campanhas.length:', _campanhas.length);
         var badge = shadow.querySelector('#cache-badge');
         if (result && result.atualizadoEm) {
           badge.hidden = false;
