@@ -139,15 +139,17 @@ var EstoqueBaixaService = (function () {
         };
       }
 
-      // 3. Update ESTOQUE status → VENDIDO
+      // 3. Batch update ESTOQUE status → VENDIDO
       var estoqueIds = [];
       var custoTotal = 0;
       for (var i = 0; i < toBaixar.length; i++) {
         estoqueIds.push(toBaixar[i].ESTOQUE_ID);
         custoTotal += Number(toBaixar[i].PRECO_CUSTO_ORIGINAL) || 0;
-        EstoqueRepository.updateRow(sheetId, toBaixar[i].ESTOQUE_ID, { status: 'VENDIDO', baixado: 'S' });
       }
       custoTotal = Math.round(custoTotal * 100) / 100;
+      if (estoqueIds.length > 0) {
+        EstoqueRepository.updateRowsBulk(sheetId, estoqueIds, { status: 'VENDIDO', baixado: 'S' });
+      }
 
       // 4. Insert ESTOQUE_BAIXAS row
       var baixaId = generateBaixaId_();
@@ -225,10 +227,10 @@ var EstoqueBaixaService = (function () {
       // Determine target status
       var targetStatus = motivo === 'CANCELADO' ? 'DISPONÍVEL' : 'DEVOLVIDO';
 
-      // Update ESTOQUE rows
+      // Update ESTOQUE rows (batch)
       var estoqueIds = (existing.ESTOQUE_IDS || '').split(',').filter(Boolean);
-      for (var i = 0; i < estoqueIds.length; i++) {
-        EstoqueRepository.updateRow(sheetId, estoqueIds[i], { status: targetStatus, baixado: 'N' });
+      if (estoqueIds.length > 0) {
+        EstoqueRepository.updateRowsBulk(sheetId, estoqueIds, { status: targetStatus, baixado: 'N' });
       }
 
       // Update ESTOQUE_BAIXAS row

@@ -417,19 +417,39 @@ var OrdersImportService = (function () {
 
     var details = {};
     var detailErrors = 0;
-    for (var d = 0; d < toFetchDetail.length; d++) {
-      var sn = toFetchDetail[d];
+
+    // Batch detail fetches via UrlFetchApp.fetchAll (1 round-trip for N orders)
+    var BATCH_SIZE = 50;
+    for (var d = 0; d < toFetchDetail.length; d += BATCH_SIZE) {
+      var batchSns = toFetchDetail.slice(d, d + BATCH_SIZE);
+      var batchItems = batchSns.map(function (sn) {
+        return { action: 'shopee_get_order_detail', params: { order_sn: sn } };
+      });
       try {
-        var detail = getOrderDetail_(sn);
-        if (detail) {
-          details[sn] = detail;
-        } else {
-          detailErrors++;
-          errors.push({ order_sn: sn, reason: 'detail not found' });
+        var batchResults = TiopsClient.callBatch(batchItems);
+        for (var b = 0; b < batchResults.length; b++) {
+          var sn = batchSns[b];
+          var res = batchResults[b];
+          if (res && res.error) {
+            detailErrors++;
+            errors.push({ order_sn: sn, reason: res.error });
+          } else {
+            var response = (res && res.data) ? (res.data.response || res.data) : (res ? (res.response || res) : null);
+            var orderList = response ? (response.order_list || []) : [];
+            var detail = orderList.length > 0 ? orderList[0] : null;
+            if (detail) {
+              details[sn] = detail;
+            } else {
+              detailErrors++;
+              errors.push({ order_sn: sn, reason: 'detail not found' });
+            }
+          }
         }
       } catch (e) {
-        detailErrors++;
-        errors.push({ order_sn: sn, reason: e.message });
+        detailErrors += batchSns.length;
+        for (var errIdx = 0; errIdx < batchSns.length; errIdx++) {
+          errors.push({ order_sn: batchSns[errIdx], reason: e.message });
+        }
       }
     }
 

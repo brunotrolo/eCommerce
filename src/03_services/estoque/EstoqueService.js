@@ -824,6 +824,7 @@ var EstoqueService = (function () {
 
       var atualizados = 0;
       var semPreco = 0;
+      var pendingUpdates = [];
       for (var j = 0; j < items.length; j++) {
         var item = items[j];
         var codItem = String(item.CODIGO_PRODUTO || '').trim();
@@ -849,9 +850,13 @@ var EstoqueService = (function () {
         }
 
         if (Object.keys(updates).length > 0) {
-          EstoqueRepository.updateRow(sheetId, item.ESTOQUE_ID, updates);
+          pendingUpdates.push({ id: item.ESTOQUE_ID, updates: updates });
           atualizados++;
         }
+      }
+      // Batch write: single sheet read + single setValues
+      if (pendingUpdates.length > 0) {
+        EstoqueRepository.updateRowsBulkPerRow(sheetId, pendingUpdates);
       }
 
       var duration = Date.now() - startTime;

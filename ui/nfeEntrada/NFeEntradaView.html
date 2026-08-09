@@ -293,6 +293,8 @@
                   return;
                 }
                 self._showResult(result);
+                var ds = window.__DataStore;
+                if (ds) ds.invalidate('nfeEntrada.recent');
                 self._loadRecent();
               })
               .withFailureHandler(function (err) {

@@ -272,6 +272,7 @@
         this._viewMode = 'completo';
         this._consolidatedSortField = 'qtd';
         this._consolidatedSortOrder = 'desc';
+        this._filterDebounceTimer = null;
 
         var self = this;
         shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(); });
@@ -287,9 +288,9 @@
         shadow.getElementById('btn-sync-close').addEventListener('click', function () {
           shadow.getElementById('sync-overlay').classList.remove('open');
         });
-        shadow.getElementById('filter-codigo').addEventListener('input', function () { self._applyFilters(); });
-        shadow.getElementById('filter-nome').addEventListener('input', function () { self._applyFilters(); });
-        shadow.getElementById('filter-categoria').addEventListener('input', function () { self._applyFilters(); });
+        shadow.getElementById('filter-codigo').addEventListener('input', function () { self._debouncedApplyFilters(); });
+        shadow.getElementById('filter-nome').addEventListener('input', function () { self._debouncedApplyFilters(); });
+        shadow.getElementById('filter-categoria').addEventListener('input', function () { self._debouncedApplyFilters(); });
         shadow.getElementById('filter-status').addEventListener('change', function () { self._applyFilters(); });
 
         var toggleBtns = shadow.querySelectorAll('#view-toggle button');
@@ -531,6 +532,14 @@
             showError(self._shadow, 'Erro ao sincronizar preços: ' + (err.message || err));
           })
           .apiDispatch('estoque.sincronizarPrecosCatalogo', {});
+      }
+
+      _debouncedApplyFilters() {
+        var self = this;
+        clearTimeout(self._filterDebounceTimer);
+        self._filterDebounceTimer = setTimeout(function () {
+          self._applyFilters();
+        }, 300);
       }
 
       _applyFilters() {

@@ -72,16 +72,13 @@ var LoggingService = (function () {
   }
 
   // ─── log ────────────────────────────────────────────────────────────
+  /**
+   * Bufferiza entrada de log. O flush real acontece em flushLogs(),
+   * chamado no finally do ServiceRegistry.dispatch.
+   */
   function log(params) {
-    var sheetId = ConfigService.getSheetId();
-    if (!sheetId) {
-      console.error('[LoggingService] Sheet ID not configured');
-      return { success: false, logId: '' };
-    }
-
     var logId = generateLogId_();
-    var entry = {
-      updatedAt: nowBR_(),
+    _logBuffer.push({
       service: params.service || '',
       action: params.action || '',
       status: params.status || 'OK',
@@ -92,15 +89,8 @@ var LoggingService = (function () {
       context: params.context || {},
       environment: getEnvironment_(),
       logId: logId
-    };
-
-    try {
-      LoggingRepository.insertLog(entry, sheetId);
-      return { success: true, logId: logId };
-    } catch (e) {
-      console.error('[LoggingService] Failed to write log: ' + (e.message || e));
-      return { success: false, logId: logId };
-    }
+    });
+    return { success: true, logId: logId };
   }
 
   // ─── init ───────────────────────────────────────────────────────────

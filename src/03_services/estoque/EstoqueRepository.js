@@ -436,6 +436,69 @@ var EstoqueRepository = (function () {
     return { success: true, updated: updateRows.length };
   }
 
+  /**
+   * Atualiza múltiplas linhas com updates DIFERENTES por linha.
+   * Uma única leitura + uma única escrita setValues.
+   * @param {Array<{id: string, updates: Object}>} pending - array de {id, updates}
+   */
+  function updateRowsBulkPerRow(sheetId, pending) {
+    if (!pending || pending.length === 0) return { success: true, updated: 0 };
+    var sheet = getOrCreateSheet(sheetId);
+    var colMap = getColumnMap_(sheet);
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { success: false, error: 'No data rows' };
+
+    var lastCol = sheet.getLastColumn();
+    var idCol = colMap['ESTOQUE_ID'];
+    if (!idCol) return { success: false, error: 'ESTOQUE_ID column not found' };
+
+    // Build id → rowIndex map
+    var allIds = sheet.getRange(2, idCol, lastRow - 1, 1).getValues();
+    var idToRowIdx = {};
+    for (var i = 0; i < allIds.length; i++) {
+      idToRowIdx[String(allIds[i][0]).trim()] = i;
+    }
+
+    // Single read of all data
+    var allRows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    var fieldToHeader = {
+      status: 'STATUS', baixado: 'BAIXADO', alertaEstoqueBaixo: 'ALERTA_ESTOQUE_BAIXO',
+      precoVendaShopee: 'PRECO_VENDA_SHOPEE', precoVendaMercadoLivre: 'PRECO_VENDA_MERCADO_LIVRE',
+      margemShopee: 'MARGEM_SHOPEE', margemMercadoLivre: 'MARGEM_MERCADO_LIVRE',
+      dataSincronizacao: 'DATA_SINCRONIZACAO'
+    };
+
+    var rowNumbers = [];
+    for (var p = 0; p < pending.length; p++) {
+      var rowIdx = idToRowIdx[String(pending[p].id).trim()];
+      if (rowIdx === undefined) continue;
+      var row = allRows[rowIdx];
+      var keys = Object.keys(pending[p].updates);
+      for (var k = 0; k < keys.length; k++) {
+        var header = fieldToHeader[keys[k]];
+        if (header && colMap[header]) {
+          row[colMap[header] - 1] = pending[p].updates[keys[k]];
+        }
+      }
+      rowNumbers.push(rowIdx + 2);
+    }
+
+    if (rowNumbers.length === 0) return { success: true, updated: 0 };
+
+    var updateRows = rowNumbers.map(function (rn) { return allRows[rn - 2]; });
+    var firstRow = Math.min.apply(null, rowNumbers);
+    sheet.getRange(firstRow, 1, updateRows.length, lastCol).setValues(updateRows);
+
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
+      stats: { rows: updateRows.length, updated: updateRows.length },
+      caller: 'EstoqueRepository', detail: 'updateRowsBulkPerRow'
+    });
+
+    return { success: true, updated: updateRows.length };
+  }
+
   function countByStatus(sheetId, codigoProduto) {    var rows = getRows(sheetId, { codigoProduto: codigoProduto });
     var counts = { DISPONÍVEL: 0, VENDIDO: 0, DEVOLVIDO: 0, QUEBRADO: 0, COM_DEFEITO: 0 };
     for (var i = 0; i < rows.length; i++) {
@@ -478,6 +541,7 @@ var EstoqueRepository = (function () {
     appendRows: appendRows,
     updateRow: updateRow,
     updateRowsBulk: updateRowsBulk,
+    updateRowsBulkPerRow: updateRowsBulkPerRow,
     countByStatus: countByStatus,
     getProximoSequencial: getProximoSequencial
   };

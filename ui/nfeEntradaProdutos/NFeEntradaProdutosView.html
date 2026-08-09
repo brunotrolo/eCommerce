@@ -450,10 +450,15 @@ self._showResult(html);
 
         _updateStatus(numeroNf, codigoProduto, status) {
           google.script.run
-            .withSuccessHandler(function (result) {
-              var data = result.data || result;
-              if (data.error) console.error('[NFeProdutos] updateStatus error:', data.error);
-            })
+              .withSuccessHandler(function (result) {
+                var data = result.data || result;
+                if (data.error) {
+                  console.error('[NFeProdutos] updateStatus error:', data.error);
+                } else {
+                  var ds = window.__DataStore;
+                  if (ds) ds.invalidate('nfeEntradaProdutos.produtos');
+                }
+              })
             .withFailureHandler(function (err) {
               console.error('[NFeProdutos] updateStatus failure:', err);
             })
