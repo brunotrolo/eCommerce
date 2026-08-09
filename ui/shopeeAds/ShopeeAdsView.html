@@ -3,16 +3,22 @@
     /* Filtros sempre em 1 linha mesmo em card estreito (widget-grid 280px).
        .filter-bar compartilhado usa wrap + max-width 280px no input[text],
        o que quebra em 2 linhas nesta página. */
+    [hidden] { display: none !important; }
     .filter-bar {
       flex-wrap: nowrap;
     }
     .filter-bar input[type="text"] {
-      flex: 1 1 130px;
+      flex: 1 1 90px;
+      min-width: 0;
       max-width: none;
-      min-width: 90px;
+    }
+    .filter-bar select {
+      flex: 0 1 auto;
+      min-width: 0;
     }
     .filter-bar input[type="number"] {
       flex: 0 0 60px;
+      min-width: 0;
     }
     th[data-sort] {
       cursor: pointer;
