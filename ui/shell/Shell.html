@@ -127,6 +127,22 @@
         shopeeAds: 'shopee-ads-widget'
       };
 
+      // Preload lazy por aba (P2): disparado no navigate(), fire-and-forget.
+      // Chaves confirmadas como as que cada view lê (specs/shell.md).
+      var ROUTE_PREFETCH = {
+        orders: [{ key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } }],
+        nfeEntrada: [{ key: 'nfeEntrada.recent', action: 'nfeEntrada.getRecent', params: { limit: 20 } }],
+        nfeEntradaProdutos: [{ key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: {} }],
+        manualEntrada: [{ key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } }],
+        manualSaida: [{ key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500 } }],
+        carteiraShopee: [{ key: 'carteiraShopee.snapshot', action: 'carteiraShopee.getWalletSnapshot', params: {} }],
+        anunciosShopee: [{ key: 'anunciosShopee.listings', action: 'anunciosShopee.getListings', params: {} }],
+        shopeeAds: [
+          { key: 'shopeeAds.campanhas', action: 'shopeeAds.getCampaigns', params: {} },
+          { key: 'shopeeAds.balance', action: 'shopeeAds.getBalance', params: {} }
+        ]
+      };
+
       function navigate(route) {
         var view = document.getElementById('app-view');
         view.innerHTML = '';
@@ -136,6 +152,9 @@
         document.querySelectorAll('.app-nav button[data-route]').forEach(function (btn) {
           btn.classList.toggle('btn-active', btn.dataset.route === tag);
         });
+        if (window.__DataStore && ROUTE_PREFETCH[tag]) {
+          window.__DataStore.preFetch(ROUTE_PREFETCH[tag]);
+        }
       }
 
       function applyTheme(theme) {
@@ -304,20 +323,14 @@
       performance.mark('shell-first-view-mounted');
 
       if (window.__DataStore) {
+        // Preload crítico mínimo (P2): só telas da primeira dobra; o resto
+        // é lazy por aba via ROUTE_PREFETCH no navigate().
         window.__DataStore.preFetch([
           { key: 'config.config', action: 'config.getConfig', params: {} },
           { key: 'dashboard.summary', action: 'dashboard.getSummary', params: {} },
-          { key: 'nfeEntrada.recent', action: 'nfeEntrada.getRecent', params: { limit: 20 } },
-          { key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: {} },
-          { key: 'catalog.products.code.asc', action: 'catalog.getProducts', params: { sortBy: 'code', sortOrder: 'asc' } },
-          { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } },
           { key: 'estoque.Items.TODOS', action: 'estoque.getItems', params: {} },
-          { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } },
-          { key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500 } },
-          { key: 'anunciosShopee.listings', action: 'anunciosShopee.getListings', params: {} },
-          { key: 'carteiraShopee.snapshot', action: 'carteiraShopee.getWalletSnapshot', params: {} },
-          { key: 'shopeeAds.campanhas', action: 'shopeeAds.getCampaigns', params: {} },
-          { key: 'shopeeAds.balance', action: 'shopeeAds.getBalance', params: {} }
+          { key: 'catalog.products.code.asc', action: 'catalog.getProducts', params: { sortBy: 'code', sortOrder: 'asc' } },
+          { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } }
         ]);
       }
 

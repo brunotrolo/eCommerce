@@ -25,10 +25,13 @@ function onOpen() {
       )
       .addSeparator()
       .addSubMenu(
-        SpreadsheetApp.getUi().createMenu('Testes (Smoke Tests)')
+        SpreadsheetApp.getUi().createMenu('Testes (Seguros)')
+          .addItem('Rodar Todos (Seguros)', 'runSafeSmokeTests_')
+          .addSeparator()
           .addItem('Pricing', 'runSmokeTests_')
           .addItem('NFe Entrada', 'runNfeSmokeTests_')
           .addItem('NFe Produtos', 'runNfeProdutosSmokeTests_')
+          .addItem('Anti-Drift Catálogo×Pricing', 'runAntiDriftSmokeTests_')
           .addItem('Formatter', 'runFormatterSmokeTests_')
           .addItem('Catalog', 'runCatalogSmokeTests_')
           .addItem('Calculator', 'runCalculatorSmokeTests_')
@@ -38,8 +41,11 @@ function onOpen() {
           .addItem('Anúncios Shopee', 'runAnunciosShopeeSmokeTests_')
           .addItem('Estoque Baixa', 'runEstoqueBaixaSmokeTests_')
           .addItem('Dashboard', 'runDashboardSmokeTests_')
+      )
+      .addSubMenu(
+        SpreadsheetApp.getUi().createMenu('Testes (Destrutivos)')
+          .addItem('Write Audit', 'runDestructiveSmokeTests_')
           .addItem('Backfill Estoque IDs+Cost', 'runBackfillEstoqueIdsAndCosts_')
-          .addItem('Write Audit', 'runWriteAuditSmokeTests_')
       )
       .addToUi();
   } catch (e) {
@@ -106,6 +112,164 @@ function syncNfeFromMenu_() {
 
 function setup_() {
   Logger.log('Setup: Integração Tiops desativada. Dados lidos do Google Sheets.');
+}
+
+/**
+ * Orquestrador dos smoke tests SEGUROS. Nunca escreve em planilha real:
+ * só lógica pura + leituras. Cada suíte é isolada (try/catch) — uma falha
+ * não derruba as demais; o resumo completo vai para o Logger.
+ */
+function runSafeSmokeTests_() {
+  var suites = [
+    { name: 'Pricing', run: runSmokeTests_ },
+    { name: 'NFe Entrada', run: runNfeSmokeTests_ },
+    { name: 'NFe Produtos', run: runNfeProdutosSmokeTests_ },
+    { name: 'Anti-Drift Catálogo×Pricing', run: runAntiDriftSmokeTests_ },
+    { name: 'Formatter', run: runFormatterSmokeTests_ },
+    { name: 'Catalog', run: runCatalogSmokeTests_ },
+    { name: 'Calculator', run: runCalculatorSmokeTests_ },
+    { name: 'Push Notification', run: runPushSmokeTests_ },
+    { name: 'Saída Manual', run: runManualSaidaSmokeTests_ },
+    { name: 'Carteira Shopee', run: runCarteiraShopeeSmokeTests_ },
+    { name: 'Anúncios Shopee', run: runAnunciosShopeeSmokeTests_ },
+    { name: 'Estoque Baixa', run: runEstoqueBaixaSmokeTests_ },
+    { name: 'Dashboard', run: runDashboardSmokeTests_ }
+  ];
+
+  var results = [];
+  var failedCount = 0;
+  for (var i = 0; i < suites.length; i++) {
+    try {
+      suites[i].run();
+      results.push('OK: ' + suites[i].name);
+    } catch (e) {
+      failedCount++;
+      results.push('FALHOU: ' + suites[i].name + ' — ' + e.message);
+    }
+  }
+
+  Logger.log('Smoke Tests (Seguros) — resumo:\n' + results.join('\n'));
+  if (failedCount > 0) {
+    throw new Error(failedCount + ' suíte(s) segura(s) falharam — ver log para detalhes.');
+  }
+  Logger.log('OK — todas as ' + suites.length + ' suítes seguras passaram.');
+}
+
+/**
+ * Smoke test DESTRUTIVO — escreve dados na planilha. Exige confirmação
+ * explícita via UI quando disponível; com testSheetId informado, grava na
+ * planilha de TESTE em vez da real (isolamento de escrita).
+ * @param {string} [testSheetId] Sheet ID de planilha de teste (opcional).
+ */
+function runDestructiveSmokeTests_(testSheetId) {
+  var aviso =
+    'Smoke test DESTRUTIVO: vai ESCREVER na aba LOGS' +
+    (testSheetId ? ' da planilha de TESTE (' + testSheetId + ').' : ' da planilha REAL (produção).');
+  Logger.log('AVISO: ' + aviso);
+
+  var confirmado = false;
+  try {
+    var ui = SpreadsheetApp.getUi();
+    var resposta = ui.alert('Smoke Test Destrutivo', aviso + '\n\nContinuar?', ui.ButtonSet.YES_NO);
+    confirmado = resposta === ui.Button.YES;
+  } catch (e) {
+    // Sem UI (trigger/cron): aborta por padrão quando não há testSheetId;
+    // com testSheetId (planilha de teste explícita) prossegue sem prompt.
+    confirmado = !!testSheetId;
+  }
+
+  if (!confirmado) {
+    Logger.log('ABORTADO: smoke test destrutivo cancelado — nenhuma escrita realizada.');
+    return { aborted: true };
+  }
+
+  return runWriteAuditSmokeTests_(testSheetId);
+}
+
+/**
+ * Anti-drift CatalogService × EstoqueService × CalculatorService ×
+ * PricingService (DIAGNOSTICO_ARQUITETURA.md, S2): verifica que os preços
+ * sugeridos/margens expostos pelos domínios batem com o motor único
+ * PricingService para os mesmos inputs. Qualquer divergência sinaliza um
+ * fluxo que redescobriu a fórmula fora do motor.
+ */
+function runAntiDriftSmokeTests_() {
+  var failures = [];
+
+  function expectClose(label, actual, expected, tolerance) {
+    tolerance = tolerance || 0.01;
+    if (Math.abs(actual - expected) > tolerance) {
+      failures.push(label + ': esperado ~' + expected + ', obtido ' + actual);
+    }
+  }
+
+  // Given catálogo com dados reais (default targetMargin 0.25 nos dois canais),
+  // Then preço e margem de cada produto devem ser iguais à sugestão do motor.
+  var cat = CatalogService.getProducts({ sortBy: 'code', sortOrder: 'asc' });
+  if (cat.error || !cat.data || cat.data.length === 0) {
+    Logger.log('SKIP anti-drift catálogo: planilha não configurada ou sem produtos.');
+  } else {
+    var checked = 0;
+    for (var i = 0; i < cat.data.length && checked < 5; i++) {
+      var p = cat.data[i];
+      var custo = parseFloat(p.valorUnitarioLiquido) || 0;
+      if (custo <= 0) continue;
+      var recShopee = PricingService.calculateSuggestedPrice({ unitCost: custo, targetMarginPct: 0.25, marketplace: 'shopee' });
+      var recMl = PricingService.calculateSuggestedPrice({ unitCost: custo, targetMarginPct: 0.25, marketplace: 'mercado_livre' });
+      expectClose('catalog preço shopee ' + p.codigoProduto, p.precoShopee, recShopee.suggestedPrice, 0.05);
+      expectClose('catalog margem shopee ' + p.codigoProduto, p.margemCalculadaShopee, recShopee.netMarginPct, 0.005);
+      expectClose('catalog preço mercadolivre ' + p.codigoProduto, p.precoMercadoLivre, recMl.suggestedPrice, 0.05);
+      expectClose('catalog margem mercadolivre ' + p.codigoProduto, p.margemCalculadaMercadoLivre, recMl.netMarginPct, 0.005);
+      checked++;
+    }
+    if (checked === 0) Logger.log('SKIP anti-drift catálogo: nenhum produto com custo válido.');
+  }
+
+  // Given item de estoque real, Then margemShopee/ML do item deve bater com
+  // calculateNetMargin do motor (calcularMargem_ já usa o motor — regressão
+  // sinalizaria redescobrimento de fórmula dentro do EstoqueService).
+  var est = EstoqueService.getItems({});
+  if (est.error || !est.data || est.data.length === 0) {
+    Logger.log('SKIP anti-drift estoque: planilha não configurada ou sem itens.');
+  } else {
+    var checkedE = 0;
+    for (var j = 0; j < est.data.length && checkedE < 5; j++) {
+      var item = est.data[j];
+      var itemCusto = parseFloat(item.precoCustoMaisRecente) || 0;
+      if (itemCusto <= 0 || !item.precoVendaShopee) continue;
+      var rec = PricingService.calculateNetMargin({ salePrice: parseFloat(item.precoVendaShopee), unitCost: itemCusto, marketplace: 'shopee' });
+      var margemEsperada = rec.error ? 0 : Math.round(rec.netMarginPct * 10000) / 100;
+      expectClose('estoque margem shopee ' + item.codigoProduto, parseFloat(item.margemShopee) || 0, margemEsperada, 0.05);
+      checkedE++;
+    }
+    if (checkedE === 0) Logger.log('SKIP anti-drift estoque: nenhum item com custo/preço válidos.');
+  }
+
+  // Given Calculator shopee (mesmo modelo de 2 componentes via ConfigService),
+  // Then deve bater com o motor — cenários fixos de custo/margem.
+  var c1 = CalculatorService.calculate({ marketplace: 'shopee', custoProduto: 50, margem: 0.20 });
+  var p1 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.20, marketplace: 'shopee' });
+  expectClose('calculator×pricing shopee 50/20% cartao', c1.data.precoVenda, p1.suggestedPrice, 0.01);
+
+  var c2 = CalculatorService.calculate({ marketplace: 'shopee', custoProduto: 50, margem: 0.20, paymentScenario: 'pix_ou_parcelado' });
+  var p2 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.20, marketplace: 'shopee', paymentScenario: 'pix_ou_parcelado' });
+  expectClose('calculator×pricing shopee 50/20% pix', c2.data.precoVenda, p2.suggestedPrice, 0.01);
+
+  // Given Calculator ML: usa tabela de faixas própria do serviço (não o R$6
+  // flat do PricingService) — divergência CONHECIDA, reportada como aviso.
+  var c3 = CalculatorService.calculate({ marketplace: 'mercado_livre', custoProduto: 100, margem: 0.25 });
+  var p3 = PricingService.calculateSuggestedPrice({ unitCost: 100, targetMarginPct: 0.25, marketplace: 'mercado_livre' });
+  if (Math.abs(c3.data.precoVenda - p3.suggestedPrice) > 0.01) {
+    console.warn('[anti-drift] Calculator ML diverge do PricingService por design (tabela de faixas): calc=' +
+      c3.data.precoVenda + ' vs motor=' + p3.suggestedPrice + ' — requer decisão do usuário.');
+  }
+
+  if (failures.length) {
+    Logger.log('FALHOU ANTI-DRIFT:\n' + failures.join('\n'));
+    throw new Error(failures.length + ' anti-drift smoke test(s) falharam — ver log.');
+  }
+
+  Logger.log('OK — anti-drift: catálogo, estoque e calculator shopee batem com o motor PricingService.');
 }
 
 function runSmokeTests_() {
@@ -311,8 +475,15 @@ function runNfeProdutosSmokeTests_() {
   var r2 = NFeEntradaProdutosService.processarNf({ numeroNf: '999' });
   if (!r2.error) failures.push('processarNf sem chaveNf deveria retornar erro');
 
-  var r3 = NFeEntradaProdutosService.processarTodasNfs();
-  if (!r3.error && !r3.totalNfProcessed) failures.push('processarTodasNfs sem sheetId deveria retornar erro ou 0');
+  // r3 é DESTRUTIVO quando planilha real configurada: processaria todas as
+  // NFs. Skippado nesse caso (B1); sem sheetId, garante erro/0 sem efeito.
+  var nfeSheetId = ConfigService.getNfeEntradaSheetId();
+  if (!nfeSheetId || (typeof nfeSheetId === 'object' && nfeSheetId.error)) {
+    var r3 = NFeEntradaProdutosService.processarTodasNfs();
+    if (!r3.error && !r3.totalNfProcessed) failures.push('processarTodasNfs sem sheetId deveria retornar erro ou 0');
+  } else {
+    console.warn('SKIP processarTodasNfs: planilha NFE_ENTRADA_PRODUTOS configurada (' + nfeSheetId + ') — rodar via Testes (Destrutivos).');
+  }
 
   if (failures.length) {
     Logger.log('FALHOU NFE PRODUTOS:\n' + failures.join('\n'));
@@ -916,7 +1087,13 @@ function runAnunciosShopeeSmokeTests_() {
   Logger.log('OK — todos os smoke tests de Anúncios Shopee passaram.');
 }
 
-function runWriteAuditSmokeTests_() {
+/**
+ * Smoke test de escrita na aba LOGS (DESTRUTIVO quando sem testSheetId).
+ * Com testSheetId, escreve/ler em uma planilha de TESTE via
+ * LoggingRepository (isolamento de escrita — nunca toca a planilha real).
+ * @param {string} [testSheetId] Sheet ID da planilha de teste (opcional).
+ */
+function runWriteAuditSmokeTests_(testSheetId) {
   var failures = [];
 
   function expectTrue(label, condition) {
@@ -940,20 +1117,40 @@ function runWriteAuditSmokeTests_() {
   expectTrue('logId retornado', !!logRes.success && !!logRes.logId);
   expectTrue('logId formato', /^\d{14}-[0-9a-f]{8}$/.test(logRes.logId));
 
-  // Cenário 3: flushLogs grava na aba LOGS com a estrutura nova
-  LoggingService.flushLogs();
-  var sheetId = ConfigService.getSheetId();
-  var sheet = SpreadsheetApp.openById(sheetId).getSheetByName('LOGS');
-  if (sheet) {
-    var lastRow = sheet.getLastRow();
-    var values = sheet.getRange(lastRow, 1, 1, 11).getValues()[0];
-    expectTrue('SERVICE igual', values[1] === 'TESTE_AUDIT');
-    expectTrue('ACTION igual', values[2] === 'APPEND');
-    expectTrue('STATUS igual', values[3] === 'OK');
-    expectTrue('CALLER igual', values[4] === 'smokeTest');
-    expectTrue('LOG_ID presente', String(values[10]).length > 0);
+  // Cenário 3: escrita + releitura da estrutura nova (11 colunas)
+  if (testSheetId) {
+    // Isolado: LoggingRepository com planilha de TESTE — sem flushLogs na real.
+    LoggingRepository.insertLog({
+      service: 'TESTE_AUDIT', action: 'APPEND', status: 'OK',
+      caller: 'smokeTest', summary: 'inserção em planilha de teste',
+      context: { smoke: true, origin: 'runWriteAuditSmokeTests_' },
+      logId: logRes.logId
+    }, testSheetId);
+    var reread = LoggingRepository.getLogs({ service: 'TESTE_AUDIT', limit: 1 }, testSheetId);
+    expectTrue('leitura de teste retornou log', reread.length > 0);
+    if (reread.length > 0) {
+      expectTrue('SERVICE igual', reread[0].SERVICE === 'TESTE_AUDIT');
+      expectTrue('ACTION igual', reread[0].ACTION === 'APPEND');
+      expectTrue('STATUS igual', reread[0].STATUS === 'OK');
+      expectTrue('CALLER igual', reread[0].CALLER === 'smokeTest');
+      expectTrue('LOG_ID presente', String(reread[0].LOG_ID).length > 0);
+    }
   } else {
-    failures.push('Aba LOGS não encontrada');
+    // Produção: flush real + leitura da aba LOGS da planilha principal.
+    LoggingService.flushLogs();
+    var sheetId = ConfigService.getSheetId();
+    var sheet = SpreadsheetApp.openById(sheetId).getSheetByName('LOGS');
+    if (sheet) {
+      var lastRow = sheet.getLastRow();
+      var values = sheet.getRange(lastRow, 1, 1, 11).getValues()[0];
+      expectTrue('SERVICE igual', values[1] === 'TESTE_AUDIT');
+      expectTrue('ACTION igual', values[2] === 'APPEND');
+      expectTrue('STATUS igual', values[3] === 'OK');
+      expectTrue('CALLER igual', values[4] === 'smokeTest');
+      expectTrue('LOG_ID presente', String(values[10]).length > 0);
+    } else {
+      failures.push('Aba LOGS não encontrada');
+    }
   }
 
   // Cenário 4: chamada sem parâmetros não lança (falha vira warn)
@@ -965,7 +1162,8 @@ function runWriteAuditSmokeTests_() {
     Logger.log('FALHOU WRITE AUDIT:\n' + failures.join('\n'));
     throw new Error(failures.length + ' Write Audit smoke test(s) falharam — ver log.');
   }
-  Logger.log('OK — todos os smoke tests de Write Audit passaram (LoggingService).');
+  Logger.log('OK — todos os smoke tests de Write Audit passaram' +
+    (testSheetId ? ' (planilha de teste ' + testSheetId + ').' : ' (produção).'));
 }
 
 function setupAnunciosShopeeTrigger_() {
