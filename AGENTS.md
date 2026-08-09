@@ -97,7 +97,11 @@ push` falha se o arquivo referenciado não estiver no disco; adicione a
 entrada só no mesmo commit que cria o arquivo.
 
 **Validação:** Skill `gas-ops` verifica que `filePushOrder` existe e contém
-todos os arquivos `.js` antes de cada `clasp push`.
+todos os arquivos `.js` antes de cada `clasp push`. Desde 09/08/2026 isso
+também é validado automaticamente por CI (`.github/workflows/ci.yml` em
+todo PR para `main`; `.github/workflows/deploy.yml` roda a mesma validação
+antes do `clasp push` real) — scripts em `.github/scripts/`, junto com
+checagem de sintaxe JS e de JSON de `.clasp.json`/`appsscript.json`.
 
 ### Exceção: `ServiceRegistry.js` (agregador central)
 
