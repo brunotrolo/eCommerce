@@ -1,7 +1,7 @@
 /**
  * ManualEntradaService — registro de entrada de produtos sem Nota Fiscal.
  * Aba complementar a NFE_ENTRADA_PRODUTOS para compras diretas, fornecedores
- * sem documentação formal, etc. Regras completas em specs/manual-entrada.md.
+ * sem documentação formal, etc. Regras de negócio documentadas no código abaixo.
  */
 var ManualEntradaService = (function () {
   function describe() {

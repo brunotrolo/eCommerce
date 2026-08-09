@@ -1,7 +1,7 @@
 /**
  * EstoqueBaixasRepository — leitura/escrita na aba ESTOQUE_BAIXAS do Google Sheets.
  * Log de negócio para baixas/reversões de estoque (FIFO).
- * Regras completas em specs/estoque-baixa.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var EstoqueBaixasRepository = (function () {
   var SHEET_NAME = 'ESTOQUE_BAIXAS';

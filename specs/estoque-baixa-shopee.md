@@ -3,13 +3,20 @@
 ## Status
 Draft
 
+> Nota (09/08/2026): as specs de domínio já implementadas
+> (`orders-import.md`, `anuncios-shopee.md`, `estoque-baixa.md`,
+> `estoque.md`) foram consolidadas/removidas — ver `specs/ARQUITETURA.md`.
+> As referências de "amendment" abaixo foram atualizadas para apontar ao
+> serviço real; o texto original do amendment (se precisar) está no
+> histórico do git.
+
 ## ⚠️ Depende de duas premissas não confirmadas
 
 1. Amendment "Captura de Itens por Pedido (ITEMS_JSON)" em
-   `specs/orders-import.md`, que assume — **sem confirmação contra o catálogo real
+   `src/03_services/ordersImport/OrdersImportService.js`, que assume — **sem confirmação contra o catálogo real
    da Tiops** — que `shopee_get_order_detail.item_list[]` traz `item_id` por item
    (necessário para saber qual anúncio cada linha do pedido representa).
-2. Amendment "Campo ITEM_SKU e ação `updateSku`" em `specs/anuncios-shopee.md`, que
+2. Amendment "Campo ITEM_SKU e ação `updateSku`" em `src/03_services/anunciosShopee/AnunciosShopeeService.js`, que
    assume que dá para escrever `item_sku` via Tiops — se não der, o pareamento
    ainda funciona (usuário edita manualmente na Shopee), mas o dado de
    `ANUNCIOS_SHOPEE.ITEM_SKU` sincronizado por leitura (`syncListings`/
@@ -24,9 +31,9 @@ cada item pertence.
 ## Objetivo
 
 Integrar as peças já especificadas — captura de item por pedido
-(`specs/orders-import.md`, amendment), campo `ITEM_SKU` em `ANUNCIOS_SHOPEE`
-(`specs/anuncios-shopee.md`, amendment) e motor central de baixa
-(`specs/estoque-baixa.md`) — para que **todo pedido Shopee novo dê baixa automática
+(`src/03_services/ordersImport/OrdersImportService.js`, amendment), campo `ITEM_SKU` em `ANUNCIOS_SHOPEE`
+(`src/03_services/anunciosShopee/AnunciosShopeeService.js`, amendment) e motor central de baixa
+(`src/03_services/estoque/EstoqueBaixaService.js`) — para que **todo pedido Shopee novo dê baixa automática
 no estoque unitário (`ESTOQUE`)**, sem intervenção manual, com reversão automática
 em caso de cancelamento e tratamento visível/auditável para devoluções e itens sem
 SKU definido. Esta é a peça que resolve, de ponta a ponta, o pedido original do
@@ -37,7 +44,7 @@ a chave escolhida é o `item_sku` nativo da Shopee, com `CODIGO_PRODUTO` como va
 
 Não cria ações novas — estende o comportamento de
 `ordersImport.importShopeeOrders` e `ordersImport.syncOrderBySn` (já existentes em
-`specs/orders-import.md`), adicionando efeitos colaterais de baixa/reversão de
+`src/03_services/ordersImport/OrdersImportService.js`), adicionando efeitos colaterais de baixa/reversão de
 estoque e novos campos no retorno.
 
 ### Retorno estendido de `ordersImport.importShopeeOrders`
@@ -88,7 +95,7 @@ quantidade — para o usuário resolver via `specs/produto-anuncio-map.md` (ou
     sincronizar a NFe pendente) e ser reprocessado depois via
     `estoqueBaixa.reprocessarPendentes()` — que hoje roda automaticamente como
     passo final do botão "Sincronizar" da aba Controle de Estoque (ver
-    Scenario 6.1 de `specs/estoque.md`).
+    Scenario 6.1 de `src/03_services/estoque/EstoqueService.js`).
 4. **`ITEM_SKU` corresponde a um `CODIGO_PRODUTO` real em `ESTOQUE`** → chamar
    `estoqueBaixa.baixarPorProduto({ codigoProduto: ITEM_SKU, quantidade:
    model_quantity_purchased, origem: 'PEDIDO_SHOPEE', referenciaOrigem: 'SHOPEE#' +
@@ -124,7 +131,7 @@ Quando um pedido **já existente** (upsert com `updated=1`) muda de status:
 
 Nenhuma lógica de idempotência nova aqui — `estoqueBaixa.baixarPorProduto` e
 `reverterBaixa` já garantem isso por `idempotencyKey`/`referenciaOrigem` (ver
-`specs/estoque-baixa.md`). Rodar `importShopeeOrders` várias vezes sobre o mesmo
+`src/03_services/estoque/EstoqueBaixaService.js`). Rodar `importShopeeOrders` várias vezes sobre o mesmo
 pedido, no mesmo status, não gera baixa nem reversão duplicada.
 
 ### 4. Pedidos anteriores à ativação desta automação
@@ -161,7 +168,7 @@ baixar histórico) é obrigatório.
   derruba o import dos demais pedidos/itens.
 - **Webhook (`syncOrderBySn`) e import manual (`importShopeeOrders`) processando o
   mesmo pedido quase ao mesmo tempo** → protegido pelo lock dentro de
-  `estoqueBaixa.baixarPorProduto`/`reverterBaixa` (ver `specs/estoque-baixa.md`)
+  `estoqueBaixa.baixarPorProduto`/`reverterBaixa` (ver `src/03_services/estoque/EstoqueBaixaService.js`)
   mais a idempotência por `referenciaOrigem`; nenhuma baixa duplicada.
 - **Pedido muda de `CANCELLED` de volta para um status ativo** (raro, mas possível
   em teoria) — fora de escopo v1; se a Shopee reportar isso, a unidade já revertida
@@ -234,14 +241,14 @@ baixar histórico) é obrigatório.
 
 ## Dependências
 
-- `specs/orders-import.md` (amendment ITEMS_JSON) — **premissa não confirmada, ver
+- `src/03_services/ordersImport/OrdersImportService.js` (amendment ITEMS_JSON) — **premissa não confirmada, ver
   aviso no topo**.
-- `specs/anuncios-shopee.md` (amendment `ITEM_SKU`/`updateSku`) —
+- `src/03_services/anunciosShopee/AnunciosShopeeService.js` (amendment `ITEM_SKU`/`updateSku`) —
   `AnunciosShopeeRepository.getItem()` para ler `ITEM_SKU` por `item_id`.
 - `specs/produto-anuncio-map.md` — ferramenta que o usuário usa para popular
   `ITEM_SKU` (não é uma dependência de código desta spec, é o processo que garante
   que os SKUs existam antes da baixa funcionar).
-- `specs/estoque-baixa.md` — `estoqueBaixa.baixarPorProduto`/`reverterBaixa`/
+- `src/03_services/estoque/EstoqueBaixaService.js` — `estoqueBaixa.baixarPorProduto`/`reverterBaixa`/
   `reprocessarPendentes`.
 - `src/02_repositories/EstoqueRepository.js` — checar se `CODIGO_PRODUTO` (=
   `ITEM_SKU`) existe de fato em `ESTOQUE` antes de considerar "mapeado".

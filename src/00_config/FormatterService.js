@@ -4,7 +4,7 @@
  * Todos os valores (moeda, data, hora, percentual, número, CNPJ, CPF, telefone, CEP)
  * seguem o mesmo padrão pt-BR.
  *
- * Regras completas em specs/formatter.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var FormatterService = (function () {
 

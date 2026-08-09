@@ -1,7 +1,7 @@
 /**
  * OrdersRepository — leitura/escrita na aba PEDIDOS do Google Sheets.
  * Usado para importação de pedidos Shopee via Tiops.
- * Regras completas em specs/orders-import.md.
+ * Regras de negócio documentadas no código abaixo.
  *
  * Logging: operações de upsert/insert/update são auditadas via LoggingService
  * com timing, contadores e detalhes de cada operação.

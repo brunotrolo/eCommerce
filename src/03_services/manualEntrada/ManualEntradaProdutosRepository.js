@@ -3,7 +3,7 @@
  * MANUAL_ENTRADA_PRODUTOS do Google Sheets. Estrutura idêntica a
  * NFE_ENTRADA_PRODUTOS, exceto campos de NF (NUMERO_NF, CHAVE_NF, etc.)
  * substituídos por campos manuais (EMITENTE_NOME, DATA_COMPRA, OBSERVACOES).
- * Regras completas em specs/manual-entrada.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var ManualEntradaProdutosRepository = (function () {
   var SHEET_NAME = 'MANUAL_ENTRADA_PRODUTOS';

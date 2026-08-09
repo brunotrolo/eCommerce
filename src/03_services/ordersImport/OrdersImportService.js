@@ -4,7 +4,7 @@
  * também em COMPLETED/CANCELLED para manter histórico atualizado.
  * Escrow via batch (1 chamada para N pedidos) — economiza ações.
  * Faz upsert: insere novos e atualiza status dos existentes.
- * Regras completas em specs/orders-import.md.
+ * Regras de negócio documentadas no código abaixo.
  *
  * Logging: toda etapa é auditada via LoggingService (sync).
  */

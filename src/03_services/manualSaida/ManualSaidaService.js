@@ -2,7 +2,7 @@
  * ManualSaidaService — registro de saídas de produtos sem integração com
  * marketplace (vendas diretas, devoluções, perdas, ajustes, brindes).
  * Aba complementar a Catálogo para manter estoque agregado atualizado.
- * Regras completas em specs/manual-saida.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var ManualSaidaService = (function () {
   var VALID_TYPES = ['Venda', 'Devolução', 'Perda', 'Ajuste', 'Brinde'];

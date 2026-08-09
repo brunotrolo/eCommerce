@@ -18,7 +18,7 @@
  *   - shopee_delete_item: item_id (IRREVERSÍVEL)
  *   - shopee_sales_by_item: item_id + period -> total_orders/total_quantity
  *
- * Regras completas em specs/anuncios-shopee.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var AnunciosShopeeService = (function () {
   var CACHE_KEY = 'anuncios_shopee_listings';

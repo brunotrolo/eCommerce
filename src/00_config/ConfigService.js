@@ -17,10 +17,10 @@ var ConfigService = (function () {
   };
 
   // Modelo de dois componentes da Shopee (comissão + taxa de serviço),
-  // derivado por engenharia reversa de 11 pedidos COMPLETED reais — ver
-  // specs/calculator-shopee.md e specs/pricing.md. Substitui, só para
-  // Shopee, o modelo flat de FALLBACK_FEES.shopee (mantido por
-  // compatibilidade com getMarketplaceFee, ainda usado por outros pontos).
+  // derivado por engenharia reversa de 11 pedidos COMPLETED reais.
+  // Substitui, só para Shopee, o modelo flat de FALLBACK_FEES.shopee
+  // (mantido por compatibilidade com getMarketplaceFee, ainda usado por
+  // outros pontos).
   var FALLBACK_SHOPEE_FEE_MODEL = {
     commissionPctCartao: 0.18,
     commissionPctPix: 0.12,
@@ -110,9 +110,9 @@ var ConfigService = (function () {
   }
 
   /**
-   * Modelo de taxa Shopee de dois componentes (comissão + taxa de serviço),
-   * conforme specs/pricing.md — usado por PricingService para Shopee em vez
-   * de getMarketplaceFee (que segue flat, para ML e compatibilidade).
+   * Modelo de taxa Shopee de dois componentes (comissão + taxa de serviço) —
+   * usado por PricingService para Shopee em vez de getMarketplaceFee (que
+   * segue flat, para ML e compatibilidade).
    * @param {string} paymentScenario 'cartao_avista' (default, pior caso) | 'pix_ou_parcelado'
    * @param {number} itemCount nº de itens no pedido, mínimo 1 (default 1)
    * @return {{commissionPct:number, serviceFeeBasePct:number, serviceFeeFixed:number}}

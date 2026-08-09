@@ -22,7 +22,7 @@ serviços já passam o nome de param correto por canal — verificado em
 sem dependência externa) e, para chamadas reais à Tiops, em
 `AnunciosShopeeService`, `ShopeeAdsService` e `CarteiraShopeeService`
 (sucessores de `ListingsService`/`InventoryPricingService`, removidos em
-09/08/2026 — ver `docs/historico/specs-listings.md`).
+09/08/2026 — ver `PLANO.md`, seção "Removidos").
 
 ## Observações do catálogo — confirmado em 2026-08-02
 

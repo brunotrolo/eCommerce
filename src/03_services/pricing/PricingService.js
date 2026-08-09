@@ -1,7 +1,7 @@
 /**
  * PricingService — Calculadora de Precificação. Generaliza a planilha manual
  * de custo/preço sugerido (Shopee 20% flat, Mercado Livre 14% + R$6/item).
- * Cálculo puro, sem chamadas Tiops. Regras completas em specs/pricing.md.
+ * Cálculo puro, sem chamadas Tiops. Regras de negócio documentadas no código abaixo.
  */
 var PricingService = (function () {
   function describe() {
@@ -204,7 +204,8 @@ var PricingService = (function () {
   }
 
   /**
-   * Motor único de margem — ver specs/pricing.md e specs/estoque.md.
+   * Motor único de margem — reaproveitado por EstoqueService e demais
+   * consumidores para nunca duplicar a fórmula.
    * Margem sempre sobre o preço de venda (netProfit/salePrice), mesma
    * convenção de calculateSuggestedPrice — nunca sobre o líquido recebido.
    */

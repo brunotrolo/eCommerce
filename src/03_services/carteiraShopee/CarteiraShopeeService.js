@@ -13,7 +13,7 @@
  *   - shopee_get_escrow_list: release_time_from/to (epoch SECONDS) + page_size -> escrow_list[]
  * payout_info/payout_detail NÃO usar (Cross Border only).
  *
- * Regras completas em specs/carteira-shopee.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var CarteiraShopeeService = (function () {
   var CACHE_KEY = 'carteira_shopee_snapshot';

@@ -3,11 +3,17 @@
 ## Status
 Draft
 
+> Nota (09/08/2026): as specs de domínio já implementadas
+> (`anuncios-shopee.md`, `estoque.md`) foram consolidadas/removidas — ver
+> `specs/ARQUITETURA.md`. As referências de "amendment" abaixo foram
+> atualizadas para apontar ao serviço real; o texto original do amendment
+> (se precisar) está no histórico do git.
+
 ## Objetivo
 
 Acelerar o pareamento único entre os anúncios da Shopee (`ANUNCIOS_SHOPEE`) e os
 produtos do estoque (`ESTOQUE`), usando o campo nativo `item_sku` da Shopee como
-chave (ver amendment em `specs/anuncios-shopee.md`) — em vez de manter uma tabela de
+chave (ver amendment em `src/03_services/anunciosShopee/AnunciosShopeeService.js`) — em vez de manter uma tabela de
 mapeamento interna paralela, que exigiria lógica própria de sincronização e poderia
 divergir do dado real na Shopee.
 
@@ -17,7 +23,7 @@ declarar que o anúncio não tem controle de estoque unitário — ex. os itens 
 casa/cozinha "Art House"/"Casita" sem NFe correspondente). Esta spec cobre **só a
 ferramenta de apoio a essa decisão** (sugestão por similaridade de texto + tela de
 confirmação) — a escrita em si do SKU na Shopee é `anunciosShopee.updateSku`
-(já especificada no amendment de `specs/anuncios-shopee.md`); esta spec não
+(já especificada no amendment de `src/03_services/anunciosShopee/AnunciosShopeeService.js`); esta spec não
 reimplementa isso.
 
 Depois do pareamento inicial, o fluxo deixa de precisar desta ferramenta para os
@@ -60,7 +66,7 @@ própria.
    `ANUNCIOS_SHOPEE.ITEM_SKU` (Shopee é a fonte única de verdade). Esta spec só lê
    `ANUNCIOS_SHOPEE` e `ESTOQUE` para calcular sugestões — não persiste nada.
 2. **Convenção do SKU sentinela:** `ITEM_SKU = 'SEM_ESTOQUE'` (literal, definida no
-   amendment de `specs/anuncios-shopee.md`) marca um anúncio como intencionalmente
+   amendment de `src/03_services/anunciosShopee/AnunciosShopeeService.js`) marca um anúncio como intencionalmente
    sem controle de estoque unitário. Uma vez marcado assim, o item some da lista de
    `getSugestoes()` (deixa de ter `ITEM_SKU` vazio) e a baixa automática
    (`specs/estoque-baixa-shopee.md`) ignora silenciosamente pedidos desse item —
@@ -99,7 +105,7 @@ própria.
   ferramenta pode oferecer isso mostrando também os já marcados `'SEM_ESTOQUE'` com
   opção de re-parear, mas o essencial já está coberto pela ação existente, sem
   necessidade de ação nova).
-- **`anunciosShopee.updateSku` falha na releitura** (ver `specs/anuncios-shopee.md`)
+- **`anunciosShopee.updateSku` falha na releitura** (ver `src/03_services/anunciosShopee/AnunciosShopeeService.js`)
   → a UI exibe o erro (`withLoading`/`showError`, padrão único do projeto) e o item
   continua aparecendo em `getSugestoes()` na próxima chamada, sem meio-termo
   (SKU só muda de fato se a releitura confirmar).
@@ -144,7 +150,7 @@ própria.
 ## Dependências
 
 - **Services:**
-  - `anunciosShopee.updateSku` (amendment em `specs/anuncios-shopee.md`) — única
+  - `anunciosShopee.updateSku` (amendment em `src/03_services/anunciosShopee/AnunciosShopeeService.js`) — única
     ação de escrita usada por esta ferramenta.
   - `AnunciosShopeeRepository.getAll()` (já existe) — fonte dos anúncios pendentes.
   - `EstoqueRepository.getRows()` (já existe) — fonte dos candidatos por
@@ -180,6 +186,6 @@ própria.
 5. **Rota em `Shell.html`:** grupo "Produtos" do dropdown de navegação (mesmo grupo
    de "Preço e Estoque" e "Catálogo" — é tela de configuração/manutenção, não de
    operação diária).
-6. **Depende do amendment de `specs/anuncios-shopee.md` estar implementado
+6. **Depende do amendment de `src/03_services/anunciosShopee/AnunciosShopeeService.js` estar implementado
    primeiro** (`ITEM_SKU` na aba + ação `updateSku`) — sem isso, não há nada para
    esta ferramenta ler nem escrever.

@@ -13,7 +13,7 @@
  *   shopee_ads_recommended_items / gms_items — itens
  *   shopee_ads_roi_target — meta de ROAS
  *
- * Regras em specs/shopee-ads.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var ShopeeAdsService = (function () {
   var CACHE_TTL_CAMPANHAS = 300;   // 5min

@@ -2,7 +2,7 @@
  * EstoqueService — motor de controle de estoque unitário com FIFO.
  * Rastreia cada unidade de produto individualmente.
  * Aba alimentada por NFE_ENTRADA_PRODUTOS e MANUAL_ENTRADA_PRODUTOS.
- * Regras completas em specs/estoque.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var EstoqueService = (function () {
 
@@ -141,7 +141,7 @@ var EstoqueService = (function () {
 
   /**
    * Motor único de margem — sempre via PricingService.calculateNetMargin,
-   * nunca (preço-custo)/preço bruto. Ver specs/pricing.md.
+   * nunca (preço-custo)/preço bruto.
    * @param {string} marketplace 'shopee' | 'mercado_livre'
    */
   function calcularMargem_(precoVenda, precoCusto, marketplace) {
@@ -875,7 +875,7 @@ var EstoqueService = (function () {
    * agrega por "custo mais recente" por código de produto, podendo divergir
    * do custo real de um lote específico ainda em estoque). Motor único:
    * PricingService.calculateSuggestedPrice, mesma função usada por
-   * CatalogService.getProducts e pela calculadora. Ver specs/pricing.md.
+   * CatalogService.getProducts e pela calculadora.
    */
   function sincronizarPrecosCatalogo(params) {
     var startTime = Date.now();
