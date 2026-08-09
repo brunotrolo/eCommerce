@@ -68,10 +68,20 @@ própria.
 2. **Convenção do SKU sentinela:** `ITEM_SKU = 'SEM_ESTOQUE'` (literal, definida no
    amendment de `src/03_services/anunciosShopee/AnunciosShopeeService.js`) marca um anúncio como intencionalmente
    sem controle de estoque unitário. Uma vez marcado assim, o item some da lista de
-   `getSugestoes()` (deixa de ter `ITEM_SKU` vazio) e a baixa automática
-   (`specs/estoque-baixa-shopee.md`) ignora silenciosamente pedidos desse item —
-   sem gerar pendência, porque a ausência de estoque ali é deliberada, não um
+   `getSugestoes()` (deixa de ter `ITEM_SKU` vazio) e a baixa automática por
+   pedido Shopee (`OrdersImportService.processBaixaForOrder_`, já implementada
+   — ver nota abaixo) ignora silenciosamente pedidos desse item — sem gerar
+   pendência, porque a ausência de estoque ali é deliberada, não um
    esquecimento.
+
+   **⚠️ Atenção ao retomar esta spec:** a baixa automática já foi implementada
+   (09/08/2026) por um caminho diferente do assumido acima —
+   `OrdersImportService` resolve os SKUs via `AnunciosShopeeRepository.getItemSkuMap`
+   num campo `ITEM_SKUS` por pedido, e `ANUNCIOS_SHOPEE` usa uma coluna `SKU`
+   somente-leitura (reescrita a cada `syncListings` a partir do `item_sku` real
+   da Shopee, sem write-back). Não existe hoje sentinela `SEM_ESTOQUE` nem
+   `anunciosShopee.updateSku`. Confirme o mecanismo real antes de implementar
+   esta ferramenta — as premissas acima podem estar desatualizadas.
 3. **Algoritmo de similaridade (mesmo da versão anterior desta spec, reaproveitado
    sem mudança):**
    - Normalizar ambos os textos: lowercase, remover acentuação, remover palavras

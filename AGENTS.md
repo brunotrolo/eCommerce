@@ -22,6 +22,7 @@ marketplace diretamente.
 | `docs/HANDOFF_OPENCODE.md` | Prompts prontos de execução, por fase |
 | `specs/ARQUITETURA.md` | Arquitetura de micro-serviços, micro-frontends, performance/integração e design system |
 | `specs/<dominio>.md` | Contrato de um domínio **novo**, enquanto não implementado — depois de implementado, o código-fonte (`describe()` de cada serviço) é a fonte de verdade |
+| `DESIGN.md` | Tokens brutos do design system (análise Mintlify) — `ui/shared/Styles.html` deriva diretamente daqui; ver também `specs/ARQUITETURA.md` §4 |
 | `docs/referencia/` | Playbooks de payload validados e análise da API Tiops |
 
 ## Divisão de papéis entre os dois agentes

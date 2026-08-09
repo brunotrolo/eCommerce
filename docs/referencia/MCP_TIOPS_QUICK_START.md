@@ -83,6 +83,15 @@ POST https://mcp.tiops.com.br
 
 ## Referência de Ações
 
+> ⚠️ **Tabela digitada manualmente em 2026-07-10, nunca reconciliada contra o
+> catálogo real** — pelo menos um nome já foi confirmado errado
+> (`shopee_sales_summary` **não existe**, ver
+> `docs/referencia/CONTRATOS_CONFIRMADOS.md`). Trate esta seção como ponto de
+> partida, nunca como fonte de verdade: sempre rode `list_actions`/
+> `describe_action` antes de confiar num nome daqui, especialmente nas
+> seções Shopee Ads/Chat/Devoluções/Olist/Afiliados abaixo. Ações já
+> verificadas contra a API real ficam em `CONTRATOS_CONFIRMADOS.md`.
+
 ### Sistema
 | Action | Descrição | Params |
 |--------|-----------|--------|
@@ -160,8 +169,7 @@ POST https://mcp.tiops.com.br
 | `shopee_get_order` | Detalhes do pedido |
 | `shopee_ship_order` | Gerar etiqueta/envio |
 | `shopee_get_tracking_number` | Rastrear pedido |
-| `shopee_sales_summary` | Resumo de vendas (dias, status) |
-| `shopee_sales_by_item` | Vendas por produto |
+| `shopee_sales_by_item` | Vendas por produto — **não existe** um `shopee_sales_summary` agregado; para totais, somar `shopee_sales_by_item` por item ou usar `shopee_get_income_overview` (confirmado em `CONTRATOS_CONFIRMADOS.md`) |
 | `shopee_search_orders` | Buscar pedidos |
 
 ### Shopee — Financeiro

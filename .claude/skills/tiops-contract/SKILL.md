@@ -60,6 +60,9 @@ que a próxima sessão não precise consultar de novo.
 
 Payloads já validados na prática estão em
 `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
-`docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md`. O catálogo geral e as
-limitações mapeadas estão em `docs/referencia/TIOPS_MCP_Analysis.md`. Leia
-antes de redescobrir na marra.
+`docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md`. Ações já confirmadas
+contra a API real estão em `docs/referencia/CONTRATOS_CONFIRMADOS.md` —
+para qualquer ação ainda não confirmada lá, rode `list_actions`/
+`describe_action`, nunca confie de memória (nem na tabela de
+`docs/referencia/MCP_TIOPS_QUICK_START.md`, que tem nomes desatualizados).
+Leia antes de redescobrir na marra.
