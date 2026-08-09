@@ -230,26 +230,60 @@ var ShopeeAdsRepository = (function () {
   }
 
   function syncVisitas(sheetId, dados) {
-    if (!dados || dados.length === 0) return { inserted: 0 };
+    if (!dados || dados.length === 0) return { novos: 0, atualizados: 0, errors: [] };
     var sheet = getOrCreateSheet_(sheetId, VISITAS_SHEET, VISITAS_HEADERS);
+    var colMap = getColumnMap_(sheet);
     var now = nowBR_();
-    var rows = [];
-    for (var i = 0; i < dados.length; i++) {
-      var d = dados[i] || {};
-      rows.push([
-        d.ITEM_ID || d.item_id || '',
-        d.NOME_ITEM || d.item_name || '',
-        d.SKU || d.sku || '',
-        d.VISITAS || d.visits || 0,
-        d.CONVERSAO || d.conversion_rate || 0,
-        d.CLIQUES || d.clicks || 0,
-        d.IMPRESSOES || d.impressions || 0,
-        d.DATA || d.date || '',
-        now
-      ]);
+    var idMap = {};
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
+    if (lastRow > 1 && lastCol > 0) {
+      var existing = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+      for (var i = 0; i < existing.length; i++) {
+        var chave = String(existing[i][0] || '') + '|' + String(existing[i][7] || '');
+        if (chave !== '|') idMap[chave] = i + 2;
+      }
     }
-    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, VISITAS_HEADERS.length).setValues(rows);
-    return { inserted: rows.length };
+    var novos = 0, atualizados = 0, errors = [];
+    for (var j = 0; j < dados.length; j++) {
+      var d = dados[j] || {};
+      try {
+        var itemId = String(d.ITEM_ID || d.item_id || '');
+        if (!itemId) continue;
+        var data = d.DATA || d.date || '';
+        var chave = itemId + '|' + data;
+        var rowIdx = idMap[chave];
+        var isNew = !rowIdx;
+        if (isNew) {
+          rowIdx = sheet.getLastRow() + 1;
+          idMap[chave] = rowIdx;
+          novos++;
+        } else {
+          atualizados++;
+        }
+        var row = new Array((colMap['DATA_REGISTRO'] || VISITAS_HEADERS.length)).fill('');
+        var fields = {
+          ITEM_ID: itemId,
+          NOME_ITEM: d.NOME_ITEM || d.item_name || '',
+          SKU: d.SKU || d.sku || '',
+          VISITAS: d.VISITAS || d.visits || 0,
+          CONVERSAO: d.CONVERSAO || d.conversion_rate || 0,
+          CLIQUES: d.CLIQUES || d.clicks || 0,
+          IMPRESSOES: d.IMPRESSOES || d.impressions || 0,
+          DATA: data,
+          DATA_REGISTRO: now
+        };
+        var keys = Object.keys(fields);
+        for (var k = 0; k < keys.length; k++) {
+          var col = colMap[keys[k]];
+          if (col) row[col - 1] = fields[keys[k]];
+        }
+        sheet.getRange(rowIdx, 1, 1, row.length).setValues([row]);
+      } catch (e) {
+        errors.push({ itemId: itemId, error: e.message });
+      }
+    }
+    return { novos: novos, atualizados: atualizados, errors: errors };
   }
 
   function getVisitas(sheetId, itemId) {

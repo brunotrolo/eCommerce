@@ -82,9 +82,16 @@ Inclui toggle para métricas de visita/conversão por item.
 - Retorno: `{ success: boolean }`
 
 ### `shopeeAds.getVisitMetrics`
-- Descrição: Métricas de visita/conversão por item (via Shopee Ads ou ML visits).
+- Descrição: Métricas de visita/conversão por item (leitura da planilha).
 - Params: `{ itemId: string, days: number }`
 - Retorno: `{ visitas: number, conversao: number, dados: array }`
+
+### `shopeeAds.syncVisitMetrics`
+- Descrição: Busca visitas (`get_visits`) e pedidos (`search_orders_by_item`) por
+  item do Mercado Livre, calcula conversão e faz upsert em SHOPEE_ADS_VISITAS
+  (chave ITEM_ID+DATA). Invalida cache e loga via SheetsRepository.
+- Params: `{ itemId: string (opcional), days: number (default 7, max 90) }`
+- Retorno: `{ visitas: number, atualizadoEm: string, sincronizados: number, dados: array }`
 
 ## Regras de Negócio
 - Saldo de créditos: exibe alerta visual quando < R$ 50
@@ -122,7 +129,12 @@ Inclui toggle para métricas de visita/conversão por item.
   shopee_ads_hourly_performance, shopee_ads_campaign_daily, shopee_ads_recommended_keywords,
   shopee_ads_edit_keywords, shopee_ads_delete_keywords, shopee_ads_recommended_items,
   shopee_ads_gms_items, shopee_ads_roi_target, shopee_ads_budget_suggestion,
-  shopee_get_visits (item visits), shopee_ads_create_auto, shopee_ads_edit_auto
+  list_items (ML), get_visits (ML visits), search_orders_by_item (ML orders),
+  shopee_ads_create_auto, shopee_ads_edit_auto
+- **Nota de divergência:** `shopee_get_visits` NÃO existe na Tiops (confirmado via
+  describe_action 09/08/2026). Visitas/Conversão usam ações do Mercado Livre
+  (`get_visits`, `search_orders_by_item`) sobre os itens MLB — a aba Visitas da
+  página Shopee Ads é alimentada por dados ML, não Shopee.
 
 ## Aba Google Sheets
 - `SHOPEE_ADS` — já criada pelo usuário

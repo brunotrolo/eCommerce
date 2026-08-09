@@ -102,6 +102,11 @@ var ShopeeAdsService = (function () {
           description: 'Métricas de visita/conversão por item.',
           params: { itemId: { type: 'string', required: false }, days: { type: 'number', required: false, default: 7 } },
           returns: { visitas: 'number', conversao: 'number', dados: 'array' }
+        },
+        syncVisitMetrics: {
+          description: 'Sincroniza visitas/pedidos por item (get_visits + search_orders_by_item) para a planilha.',
+          params: { itemId: { type: 'string', required: false }, days: { type: 'number', required: false, default: 7 } },
+          returns: { visitas: 'number', atualizadoEm: 'string', dados: 'array' }
         }
       }
     };
@@ -442,6 +447,38 @@ var ShopeeAdsService = (function () {
     return { success: true };
   }
 
+  function getItensML_(limit) {
+    var itemsRes = callTiops_('list_items', { limit: limit || 50 });
+    var raw = itemsRes || {};
+    var list = [];
+    if (Array.isArray(raw)) {
+      list = raw;
+    } else if (raw.results && Array.isArray(raw.results)) {
+      list = raw.results.map(function (r) { return r.body || r; });
+    } else if (Array.isArray(raw.items)) {
+      list = raw.items;
+    } else if (Array.isArray(raw.data)) {
+      list = raw.data;
+    }
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i] || {};
+      var id = String(it.id || it.ITEM_ID || '');
+      if (!id) continue;
+      out.push({
+        ITEM_ID: id,
+        NOME_ITEM: it.title || it.item_name || it.NOME_ITEM || '',
+        SKU: it.seller_sku || it.item_sku || it.SKU || ''
+      });
+    }
+    return out;
+  }
+
+  function dateStr_(daysAgo) {
+    var d = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+    return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
   function getVisitMetrics(params) {
     var cacheKey = cacheKey_('visitas_' + (params.itemId || 'all'));
     var cached = getFromCache_(cacheKey, CACHE_TTL_PERFORMANCE);
@@ -463,6 +500,83 @@ var ShopeeAdsService = (function () {
     return result;
   }
 
+  function syncVisitMetrics(params) {
+    params = params || {};
+    var days = Math.min(Number(params.days) || 7, 90);
+    var itemIdFilter = params.itemId ? String(params.itemId) : '';
+
+    var itens = getItensML_(50);
+    if (itemIdFilter) {
+      itens = itens.filter(function (it) { return it.ITEM_ID === itemIdFilter; });
+    }
+
+    var batch = [];
+    for (var i = 0; i < itens.length; i++) {
+      batch.push({ action: 'get_visits', params: { item_id: itens[i].ITEM_ID, days: days } });
+      batch.push({ action: 'search_orders_by_item', params: { item_id: itens[i].ITEM_ID, date_from: dateStr_(days), date_to: dateStr_(0) } });
+    }
+
+    var dados = [];
+    var visitas = 0;
+    var comDados = 0, semDados = 0, erros = 0;
+    if (batch.length > 0) {
+      var resBatch = TiopsClient.callBatch(batch);
+      for (var j = 0; j < itens.length; j++) {
+        var it = itens[j];
+        var vr = resBatch[j * 2] || {};
+        var or = resBatch[j * 2 + 1] || {};
+        if (vr.error || or.error) { erros++; continue; }
+        var vData = vr.data || {};
+        var oData = or.data || {};
+        var totalVisitas = Number(vData.total_visits || vData.visits || 0);
+        var results = vData.results || [];
+        if (totalVisitas === 0 && Array.isArray(results)) {
+          var vis = 0;
+          for (var k = 0; k < results.length; k++) vis += Number(results[k].total || 0);
+          totalVisitas = vis;
+        }
+        var totalPedidos = Number(oData.paging && oData.paging.total) || 0;
+        if (!totalPedidos && Array.isArray(oData.results)) totalPedidos = oData.results.length;
+        if (totalVisitas > 0 || totalPedidos > 0) comDados++; else semDados++;
+        var conversao = totalVisitas > 0 ? Math.round((totalPedidos / totalVisitas) * 10000) / 100 : 0;
+        dados.push({
+          ITEM_ID: it.ITEM_ID,
+          NOME_ITEM: it.NOME_ITEM,
+          SKU: it.SKU,
+          VISITAS: totalVisitas,
+          CONVERSAO: conversao,
+          CLIQUES: 0,
+          IMPRESSOES: 0,
+          DATA: dateStr_(days) + ' a ' + dateStr_(0)
+        });
+        visitas += totalVisitas;
+      }
+    }
+
+    var sheetId = getSheetId_();
+    var syncResult = { novos: 0, atualizados: 0, errors: [] };
+    if (dados.length > 0) {
+      syncResult = ShopeeAdsRepository.syncVisitas(sheetId, dados);
+    }
+
+    SheetsRepository.logWriteAudit({
+      sheet: 'SHOPEE_ADS_VISITAS', operation: 'SYNC', status: erros > 0 ? 'PARTIAL' : 'OK',
+      caller: 'ShopeeAdsService',
+      detail: 'syncVisitMetrics: itens=' + itens.length + ', comDados=' + comDados + ', semDados=' + semDados + ', erros=' + erros + ', novos=' + syncResult.novos + ', atualizados=' + syncResult.atualizados,
+      stats: { itens: itens.length, comDados: comDados, semDados: semDados, erros: erros, novos: syncResult.novos, atualizados: syncResult.atualizados }
+    });
+
+    invalidateCache_();
+    var result = {
+      visitas: visitas,
+      atualizadoEm: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
+      sincronizados: itens.length,
+      dados: dados
+    };
+    setCache_(cacheKey_('visitas_' + (itemIdFilter || 'all')), result, CACHE_TTL_PERFORMANCE);
+    return result;
+  }
+
   return {
     describe: describe,
     getBalance: getBalance,
@@ -479,6 +593,7 @@ var ShopeeAdsService = (function () {
     getItems: getItems,
     getRecommendedItems: getRecommendedItems,
     setRoiTarget: setRoiTarget,
-    getVisitMetrics: getVisitMetrics
+    getVisitMetrics: getVisitMetrics,
+    syncVisitMetrics: syncVisitMetrics
   };
 })();

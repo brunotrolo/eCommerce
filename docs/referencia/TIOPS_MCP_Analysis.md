@@ -87,7 +87,7 @@
 #### F. Métricas de Vendas
 - `shopee_sales_summary` - Resumo de vendas
 - `shopee_sales_by_item` - Vendas por produto
-- `shopee_get_visits` - Visitas à loja
+- ~~`shopee_get_visits`~~ - **NÃO EXISTE** (confirmado via describe_action 09/08/2026) — usar ações ML: `get_visits`/`ml_visits_item`/`ml_visits` (por item) e `ml_visits_user` (por vendedor)
 - `shopee_get_seller_metrics` - Métricas do vendedor
 
 **APLICÁVEL:** ✅ CRÍTICO - Análise de performance
@@ -315,7 +315,9 @@ Margem % = Lucro / Receita
 - ✅ `shopee_ads_campaigns` - Campanhas Shopee
 - ✅ `ml_ads_campaigns` - Campanhas ML
 - ✅ `bling_products` - Todos os produtos (estoque)
-- ✅ `shopee_get_visits` - Visitas/tráfego
+- ✅ `get_visits` / `ml_visits_item` / `ml_visits` (alias) - Visitas/tráfego por item ML (params: `item_id` obrigatório, `days`/`date_from`/`date_to` ISO; retorno `{total_visits, results:[{date, total, visits_detail}]}`)
+- ✅ `ml_visits_user` - Visitas do vendedor (`{user_id, total_visits, results}`)
+- ✅ `search_orders_by_item` / `ml_search_orders` - Pedidos por item (`paging.total` p/ conversão)
 - ✅ `shopee_list_orders` - Histórico de pedidos
 
 **Viável:** ✅ SIM - 85% possível (depende de automação de cálculos)

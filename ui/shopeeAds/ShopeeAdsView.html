@@ -466,6 +466,8 @@
         shadow.querySelector('#filter-bar-campanhas').hidden = view !== 'campanhas';
         shadow.querySelector('#filter-bar-visitas').hidden = view !== 'visitas';
 
+        shadow.querySelector('#btn-sync').textContent = view === 'visitas' ? 'Sincronizar Visitas' : 'Sincronizar Campanhas';
+
         renderStats(shadow);
         renderPage(shadow);
       });
@@ -598,19 +600,33 @@
       btn.disabled = true;
       btn.textContent = 'Sincronizando...';
 
-      withLoading(function () {
-        return apiDispatch('shopeeAds.syncCampaigns', { forceFresh: true });
-      }).then(function () {
-        return loadCampanhas(shadow, true);
-      }).then(function () {
-        loadBalance(shadow);
-        if (_currentView === 'visitas') loadVisitMetrics(shadow);
-      }).then(function () {
+      var acao;
+      if (_currentView === 'visitas') {
+        var dias = Number((shadow.querySelector('#filter-days') || {}).value) || 7;
+        var filtro = (shadow.querySelector('#filter-item-id') || {}).value || '';
+        var nome = btn.getAttribute('data-name');
+        acao = withLoading(function () {
+          return apiDispatch('shopeeAds.syncVisitMetrics', { days: dias, itemId: filtro });
+        }).then(function () {
+          return loadVisitMetrics(shadow);
+        });
+      } else {
+        acao = withLoading(function () {
+          return apiDispatch('shopeeAds.syncCampaigns', { forceFresh: true });
+        }).then(function () {
+          return loadCampanhas(shadow, true);
+        }).then(function () {
+          loadBalance(shadow);
+          if (_currentView === 'visitas') loadVisitMetrics(shadow);
+        });
+      }
+
+      acao.then(function () {
         btn.disabled = false;
-        btn.textContent = 'Sincronizar Campanhas';
+        btn.textContent = _currentView === 'visitas' ? 'Sincronizar Visitas' : 'Sincronizar Campanhas';
       }).catch(function (err) {
         btn.disabled = false;
-        btn.textContent = 'Sincronizar Campanhas';
+        btn.textContent = _currentView === 'visitas' ? 'Sincronizar Visitas' : 'Sincronizar Campanhas';
         showError(shadow, 'Erro na sincronização: ' + (err.message || err));
       });
     }
