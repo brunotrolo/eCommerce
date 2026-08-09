@@ -122,6 +122,7 @@ var TiopsClient = (function () {
     });
     var requests = items.map(function (it, idx) {
       return {
+        url: ENDPOINT,
         method: 'post',
         contentType: 'application/json',
         payload: payloads[idx],
