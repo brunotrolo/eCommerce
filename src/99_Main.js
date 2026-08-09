@@ -923,35 +923,41 @@ function runWriteAuditSmokeTests_() {
     if (!condition) failures.push(label);
   }
 
-  // Cenário 1: logWriteAudit grava entrada e retorna auditId
-  var sheetId = ConfigService.getSheetId();
+  // Cenário 1: logWriteAudit delega para LoggingService (aba LOGS) e retorna success
   var result = SheetsRepository.logWriteAudit({
     sheet: 'TESTE_AUDIT', operation: 'APPEND', status: 'OK',
     stats: { rows: 3, inserted: 3 },
     caller: 'smokeTest', rowId: 'TESTE-001',
     detail: 'smoke test de auditoria'
   });
-  expectTrue('auditId retornado', !!result.success && !!result.auditId);
+  expectTrue('success retornado', !!result.success);
 
-  // Cenário 2: auditId no formato YYYYMMDDHHMMSS-nonce8
-  expectTrue('auditId formato', /^\d{14}-[0-9a-f]{8}$/.test(result.auditId));
+  // Cenário 2: LoggingService.log gera logId no formato YYYYMMDDHHMMSS-nonce8
+  var logRes = LoggingService.log({
+    service: 'TESTE_AUDIT', action: 'APPEND', status: 'OK',
+    caller: 'smokeTest', summary: 'smoke test'
+  });
+  expectTrue('logId retornado', !!logRes.success && !!logRes.logId);
+  expectTrue('logId formato', /^\d{14}-[0-9a-f]{8}$/.test(logRes.logId));
 
-  // Cenário 3: linha gravada na aba com conteúdo esperado
-  var sheet = SpreadsheetApp.openById(sheetId).getSheetByName('AUDIT_LOG');
+  // Cenário 3: flushLogs grava na aba LOGS com a estrutura nova
+  LoggingService.flushLogs();
+  var sheetId = ConfigService.getSheetId();
+  var sheet = SpreadsheetApp.openById(sheetId).getSheetByName('LOGS');
   if (sheet) {
     var lastRow = sheet.getLastRow();
-    var values = sheet.getRange(lastRow, 1, 1, 12).getValues()[0];
-    expectTrue('AUDIT_ID igual', String(values[0]) === result.auditId);
-    expectTrue('SHEET igual', values[1] === 'TESTE_AUDIT');
-    expectTrue('OPERATION igual', values[2] === 'APPEND');
-    expectTrue('INSERTED igual', values[5] === 3);
-    expectTrue('CALLER igual', values[8] === 'smokeTest');
-    expectTrue('CREATED_AT formato BR', /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(String(values[11])));
+    var values = sheet.getRange(lastRow, 1, 1, 11).getValues()[0];
+    expectTrue('SERVICE igual', values[1] === 'TESTE_AUDIT');
+    expectTrue('ACTION igual', values[2] === 'APPEND');
+    expectTrue('STATUS igual', values[3] === 'OK');
+    expectTrue('CALLER igual', values[4] === 'smokeTest');
+    expectTrue('LOG_ID presente', String(values[10]).length > 0);
   } else {
-    failures.push('Aba AUDIT_LOG não criada');
+    failures.push('Aba LOGS não encontrada');
   }
 
-  // Cenário 4: chamada sem planilha não lança (falha vira warn)
+  // Cenário 4: chamada sem parâmetros não lança (falha vira warn)
+  LoggingService.flushLogs();
   var safe = SheetsRepository.logWriteAudit({ sheet: 'X', operation: 'APPEND' });
   expectTrue('não lança exceção', !safe || safe.success === true || safe.success === false);
 
@@ -959,7 +965,7 @@ function runWriteAuditSmokeTests_() {
     Logger.log('FALHOU WRITE AUDIT:\n' + failures.join('\n'));
     throw new Error(failures.length + ' Write Audit smoke test(s) falharam — ver log.');
   }
-  Logger.log('OK — todos os smoke tests de Write Audit passaram.');
+  Logger.log('OK — todos os smoke tests de Write Audit passaram (LoggingService).');
 }
 
 function setupAnunciosShopeeTrigger_() {

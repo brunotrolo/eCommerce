@@ -126,7 +126,7 @@ desafio" de controle de estoque automatizado e auditável pedido pelo usuário.
 
 ## Formato da Aba ESTOQUE_BAIXAS
 
-Log de negócio (não é log técnico genérico como `AUDIT_LOG` — é o registro de que
+Log de negócio (não é log técnico genérico como a aba `LOGS` — é o registro de que
 uma baixa de estoque aconteceu, com semântica própria de reversão).
 
 ```

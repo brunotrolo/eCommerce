@@ -7,12 +7,6 @@
 var SheetsRepository = (function () {
   var _rowsCache = {};
   var ROWS_CACHE_TTL = 120000;
-  var AUDIT_SHEET = 'AUDIT_LOG';
-  var AUDIT_HEADERS = [
-    'AUDIT_ID', 'SHEET', 'OPERATION', 'STATUS', 'ROWS', 'INSERTED',
-    'UPDATED', 'DELETED', 'CALLER', 'ROW_ID', 'DETAIL', 'CREATED_AT'
-  ];
-  var AUDIT_DETAIL_MAX = 5000;
 
   function getSpreadsheet() {
     return SpreadsheetApp.openById(ConfigService.getSheetId());
@@ -92,70 +86,43 @@ var SheetsRepository = (function () {
   }
 
   /**
-   * Audit de operações de escrita. Não lança exceção — falha vira console.warn.
-   * Regras completas em specs/write-audit.md.
+   * Adapter: redireciona para LoggingService.log (aba LOGS).
+   * Mantém a assinatura antiga {sheet, operation, status, stats, caller, detail}
+   * para nao quebrar os 38 callers existentes, mas grava na aba LOGS unificada.
    */
   function logWriteAudit(params) {
     params = params || {};
     try {
-      var entry = {
-        auditId: generateAuditId_(),
-        sheet: String(params.sheet || ''),
-        operation: String(params.operation || ''),
-        status: String(params.status || 'OK'),
-        rows: params.stats && params.stats.rows != null ? params.stats.rows : 0,
-        inserted: params.stats && params.stats.inserted != null ? params.stats.inserted : 0,
-        updated: params.stats && params.stats.updated != null ? params.stats.updated : 0,
-        deleted: params.stats && params.stats.deleted != null ? params.stats.deleted : 0,
-        caller: params.caller || 'system',
+      var stats = params.stats || {};
+      var summary = params.detail || params.operation || '';
+      if (stats.inserted || stats.updated || stats.deleted || stats.rows) {
+        summary = summary + ' [rows=' + (stats.rows || 0) + ', ins=' + (stats.inserted || 0) + ', upd=' + (stats.updated || 0) + ', del=' + (stats.deleted || 0) + ']';
+      }
+      var context = {
+        sheet: params.sheet || '',
+        operation: params.operation || '',
         rowId: params.rowId || '',
-        detail: truncate_(params.detail || '', AUDIT_DETAIL_MAX),
-        createdAt: nowBR_()
+        stats: stats
       };
-      var sheet = getOrCreateSheet(AUDIT_SHEET, AUDIT_HEADERS);
-      sheet.appendRow([
-        entry.auditId, entry.sheet, entry.operation, entry.status,
-        entry.rows, entry.inserted, entry.updated, entry.deleted,
-        entry.caller, entry.rowId, entry.detail, entry.createdAt
-      ]);
-      return { success: true, auditId: entry.auditId };
+      LoggingService.log({
+        service: params.sheet || 'write-audit',
+        action: params.operation || 'WRITE',
+        status: params.status || 'OK',
+        caller: params.caller || 'system',
+        summary: truncate_(summary, 5000),
+        context: context
+      });
+      return { success: true };
     } catch (e) {
-      console.warn('[SheetsRepository] Falha ao registrar audit: ' + (e.message || e));
+      console.warn('[SheetsRepository] Falha ao registrar log: ' + (e.message || e));
       return { success: false, error: e.message || String(e) };
     }
-  }
-
-  function generateAuditId_() {
-    var now = new Date();
-    var ts = now.getFullYear().toString() +
-      pad_(now.getMonth() + 1) +
-      pad_(now.getDate()) +
-      pad_(now.getHours()) +
-      pad_(now.getMinutes()) +
-      pad_(now.getSeconds());
-    var nonce = '';
-    for (var i = 0; i < 8; i++) {
-      nonce += Math.floor(Math.random() * 16).toString(16);
-    }
-    return ts + '-' + nonce;
-  }
-
-  function pad_(n) {
-    return n < 10 ? '0' + n : String(n);
   }
 
   function truncate_(str, max) {
     var s = String(str == null ? '' : str);
     if (s.length <= max) return s;
     return s.substring(0, max) + '...';
-  }
-
-  function nowBR_() {
-    try {
-      return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
-    } catch (e) {
-      return String(new Date());
-    }
   }
 
   return {
