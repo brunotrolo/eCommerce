@@ -249,19 +249,22 @@
       return _sortState.asc ? sorted : sorted.reverse();
     }
 
-    function filterRows(rows) {
+    function filterRows(rows, shadow) {
       var rows = rows || [];
       if (_currentView === 'campanhas') {
-        var nome = (document.querySelector('#filter-nome') || {}).value || '';
+        var nomeEl = shadow ? shadow.querySelector('#filter-nome') : document.querySelector('#filter-nome');
+        var statusEl = shadow ? shadow.querySelector('#filter-status') : document.querySelector('#filter-status');
+        var nome = (nomeEl || {}).value || '';
         nome = nome.toLowerCase().trim();
-        var status = (document.querySelector('#filter-status') || {}).value || 'all';
+        var status = (statusEl || {}).value || 'all';
         return rows.filter(function (r) {
           if (status !== 'all' && String(r.STATUS || '').toUpperCase() !== status) return false;
           if (nome && String(r.NOME || '').toLowerCase().indexOf(nome) === -1) return false;
           return true;
         });
       } else {
-        var itemId = (document.querySelector('#filter-item-id') || {}).value || '';
+        var itemIdEl = shadow ? shadow.querySelector('#filter-item-id') : document.querySelector('#filter-item-id');
+        var itemId = (itemIdEl || {}).value || '';
         itemId = itemId.trim();
         return rows.filter(function (r) {
           if (itemId && String(r.ITEM_ID || '').indexOf(itemId) === -1) return false;
@@ -334,7 +337,7 @@
         paginationEl = shadow.querySelector('#pagination-visitas');
       }
 
-      var filtered = sortRows(filterRows(_currentView === 'campanhas' ? _campanhas : _visitas));
+      var filtered = sortRows(filterRows(_currentView === 'campanhas' ? _campanhas : _visitas, shadow));
       var totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
       if (_currentPage >= totalPages) _currentPage = totalPages - 1;
       if (_currentPage < 0) _currentPage = 0;
@@ -498,7 +501,9 @@
       return withLoading(function () {
         return apiDispatch('shopeeAds.getCampaigns', params);
       }).then(function (result) {
+        console.log('[ShopeeAds] loadCampanhas result:', JSON.stringify(result).substring(0, 500));
         _campanhas = (result && result.campanhas) || [];
+        console.log('[ShopeeAds] _campanhas.length:', _campanhas.length);
         var badge = shadow.querySelector('#cache-badge');
         if (result && result.atualizadoEm) {
           badge.hidden = false;
