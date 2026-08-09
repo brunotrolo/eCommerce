@@ -516,6 +516,14 @@ var OrdersImportService = (function () {
     var imported = upsertResult.inserted || 0;
     var updated = upsertResult.updated || 0;
 
+    if (imported > 0 || updated > 0) {
+      // Dashboard mostra pedidos recentes (dashboard.getSummary); Estoque também
+      // muda aqui via baixa automática logo abaixo — sem isso, ambos ficam até
+      // 5min desatualizados após um import real.
+      CacheRepository.invalidateByPattern('dashboard_');
+      CacheRepository.invalidateByPattern('estoque.');
+    }
+
     // Process stock baixa for new orders, status changes, and unprocessed orders
     var baixasRealizadas = 0, pendentesMapeamento = 0, faltantesEstoque = 0, revertsRealizadas = 0;
     for (var b = 0; b < toUpsert.length; b++) {

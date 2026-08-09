@@ -356,6 +356,10 @@ var NFeEntradaProdutosService = (function () {
     var insertResult = { inserted: 0, errors: [] };
     if (insertedRows.length > 0) {
       insertResult = NFeEntradaProdutosRepository.insertProdutos(insertedRows, nfeProdutosSheetId);
+      // Catálogo lê NFE_ENTRADA_PRODUTOS direto (CatalogService.getProducts); sem
+      // isso, produto novo/custo novo só aparece lá depois de até 5min (TTL do cache).
+      CacheRepository.invalidateByPattern('catalog_');
+      CacheRepository.invalidateByPattern('dashboard_');
     }
 
     NFeEntradaRepository.marcarNfProcessada(sheetId, numeroNf, now);

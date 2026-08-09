@@ -184,7 +184,7 @@ var EstoqueService = (function () {
   function invalidarCachesFluxo_() {
     CacheRepository.invalidateByPattern('catalog_');
     CacheRepository.invalidateByPattern('estoque.');
-    CacheRepository.invalidateByPattern('dashboard.');
+    CacheRepository.invalidateByPattern('dashboard_');
   }
 
   function verificarAlertaEstoqueBaixo_(sheetId, codigoProduto) {
