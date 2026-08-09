@@ -53,7 +53,6 @@ ui/shell            → Shell (navbar + rotas) + StatusView (indicador online)
 ui/<dominio>        → Widgets (Web Components com Shadow DOM)
 specs/              → uma spec por domínio (Spec-Driven Development)
 docs/referencia/    → playbooks de payload validados + análise da API Tiops
-docs/historico/     → planejamento superado, mantido só por histórico
 .claude/skills/     → regras executáveis (fonte única)
 .opencode/command/  → mesmas regras acionáveis por /comando no OpenCode
 ```

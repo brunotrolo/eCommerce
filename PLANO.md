@@ -1,7 +1,8 @@
 # PLANO.md — plano vivo do projeto
 
-> Documento **vivo**: é a única fonte de verdade sobre escopo, fases e status.
-> Substitui o roadmap antigo (arquivado em `docs/historico/`).
+> Documento **vivo**: é a única fonte de verdade sobre escopo, fases e status
+> (inclusive de planos e specs antigos já superados/removidos — não existe
+> pasta de arquivo morto separada, tudo fica registrado direto aqui).
 > Regras de código e convenções ficam em [AGENTS.md](./AGENTS.md).
 > Prompts prontos para executar cada fase ficam em
 > [docs/HANDOFF_OPENCODE.md](./docs/HANDOFF_OPENCODE.md).
@@ -59,7 +60,7 @@ tabela lista os domínios adicionados depois, todos com spec
 | 2 | **Dashboard** | `specs/dashboard.md` | Visão única: pedidos recentes, receita, estoque baixo. Cache de 5 min. |
 | 3 | **Pedidos** | `specs/orders.md` | Lista unificada dos dois canais em shape normalizado + detalhe do pedido. |
 | 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. |
-| 5 | ~~**Anúncios**~~ | ~~`specs/listings.md`~~ | ~~Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação.~~ **Removida 09/08/2026** — página sem utilidade excluída do projeto; spec arquivada em `docs/historico/specs-listings.md`. Substituída na prática pelo domínio **Anúncios Shopee** da tabela abaixo. |
+| 5 | ~~**Anúncios**~~ | ~~`specs/listings.md`~~ | ~~Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação.~~ **Removida 09/08/2026** — página sem utilidade excluída do projeto. Substituída na prática pelo domínio **Anúncios Shopee** da tabela abaixo. |
 | 6 | ~~Preço & Estoque~~ | `specs/inventory-pricing.md` | ~~Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo.~~ **Removida** — página e serviço legacy excluídos; regras de preço/estoque seguem em `specs/pricing.md` e `estoque.md`. |
 | 8 | **Calculadora PrecificaPro** | `specs/calculator.md` | Calculadora interativa **única** do app (Shopee + Mercado Livre) com widget flutuante (modal), botão 🧮 no topo. Dois seletores: canal (Shopee/ML) e modo (Formador de Preço custo→preço, ou Receita Líquida preço→líquido). Shopee usa o modelo de taxa validado por engenharia reversa de pedidos reais (`specs/calculator-shopee.md`); ML mantém sua tabela por faixa/regime, inalterada. |
 
@@ -89,9 +90,9 @@ tabela lista os domínios adicionados depois, todos com spec
 
 ### Removidos
 
-- **Anúncios** (`specs/listings.md` → `docs/historico/specs-listings.md`, Removido 09/08/2026).
-- **Preço & Estoque** (`specs/inventory-pricing.md`, Removido).
-- **Atualização de Preço em Estoque em lote** (`specs/estoque-preco-update.md` → `docs/historico/`, Removido 09/08/2026) — `EstoquePrecoBulkView.html` nunca foi conectado ao Shell (widget fantasma, mesmo problema do `PricingView.html` original) e tinha um bug de prefixo de ação que a impediria de funcionar mesmo se estivesse acessível. Funcionalidade equivalente (propagação de preço/margem pra todos os itens `DISPONÍVEL` do produto) já existe em `estoque.updateItem`.
+- **Anúncios** (era `specs/listings.md`, Removido 09/08/2026) — página sem utilidade excluída; substituída na prática pelo domínio **Anúncios Shopee**.
+- **Preço & Estoque** (`specs/inventory-pricing.md`, Removido) — spec mantida em `specs/` com `Status: Removed` porque ainda serve de referência de regras de preço/estoque (ver arquivo).
+- **Atualização de Preço em Estoque em lote** (era `specs/estoque-preco-update.md`, Removido 09/08/2026) — `EstoquePrecoBulkView.html` nunca foi conectado ao Shell (widget fantasma, mesmo problema do `PricingView.html` original) e tinha um bug de prefixo de ação que a impediria de funcionar mesmo se estivesse acessível. Funcionalidade equivalente (propagação de preço/margem pra todos os itens `DISPONÍVEL` do produto) já existe em `estoque.updateItem`.
 
 ---
 
@@ -147,9 +148,9 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > duas cópias de `calcularMargem_` agora delegam para lá. Bug adjacente
 > também corrigido: alerta de prejuízo comparava preço bruto vs. custo, não
 > o líquido pós-taxas — um preço nominalmente acima do custo podia esconder
-> prejuízo real. Ver `specs/pricing.md`, `specs/estoque.md`,
-> `docs/historico/specs-estoque-preco-update.md` (spec arquivada, feature
-> removida em 09/08/2026 — ver nota acima).
+> prejuízo real. Ver `specs/pricing.md`, `specs/estoque.md` (a spec da
+> feature de atualização de preço em lote foi removida em 09/08/2026 — ver
+> nota acima).
 >
 > **Botão "Recalcular Preços de Venda" (antes "Sincronizar Preços
 > Catálogo", 09/08/2026):** pedido do usuário para o motor "sempre
@@ -201,6 +202,23 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > arquivada sem marcar `Status: Removed`, links pra `listings.md` num
 > caminho que não existe mais, `README.md` citando "Listings" como serviço
 > ativo) — todas corrigidas nesta mesma revisão.
+>
+> **`docs/historico/` eliminada por completo (09/08/2026):** pedido do
+> usuário para deixar o projeto enxuto — planos/specs antigos já
+> superados/removidos não ficam mais guardados numa pasta separada, o
+> resumo de "o que foi removido e por quê" vive só aqui no `PLANO.md`
+> (seção 3, "Removidos", acima) e no `AGENTS.md` (tabela de riscos
+> conhecidos). Removidos: `docs/historico/` inteira (ROADMAP_Executivo.md
+> e Phase1_Implementation_Guide.md — planejamento do MVP antigo em
+> planilha+Bling, arquitetura totalmente diferente da atual; specs
+> arquivadas de Anúncios/Listings e Atualização de Preço em Lote — corpo
+> completo já não agregava nada além do resumo que já está aqui),
+> `docs/DESIGN_SYSTEM.md` (paleta de cores não batia mais com o sistema de
+> tokens real em `ui/shared/Styles.html`, era plano de design anterior já
+> superado) e `docs/referencia/catalogo_mercado_livre.md` (checklist manual
+> de 17 produtos específicos pra listar no ML, tarefa pontual já
+> presumivelmente executada, não é playbook técnico reutilizável como o
+> resto de `docs/referencia/`).
 
 ### Fase 0 — Fundação + pipeline de sincronização (/dev)
 

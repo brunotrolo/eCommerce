@@ -183,18 +183,18 @@ tratada.
 ### Fase 4 — ~~Validar Anúncios~~ (Removida 09/08/2026)
 
 `ListingsService`/`ListingsView.html` foram excluídos do projeto — página
-sem utilidade, decisão do usuário. Spec arquivada em
-`docs/historico/specs-listings.md`. Não use o prompt desta fase; a
-funcionalidade equivalente hoje é o domínio **Anúncios Shopee**
-(`specs/anuncios-shopee.md`, `AnunciosShopeeService`/`AnunciosShopeeView.html`,
-já implementado e validado).
+sem utilidade, decisão do usuário (ver `PLANO.md`, seção "Removidos"). Não
+use o prompt desta fase; a funcionalidade equivalente hoje é o domínio
+**Anúncios Shopee** (`specs/anuncios-shopee.md`,
+`AnunciosShopeeService`/`AnunciosShopeeView.html`, já implementado e
+validado).
 
 ### Fase 5 — ~~Validar Preço & Estoque~~ (Removida)
 
 `InventoryPricingService` foi excluído do projeto junto com `ListingsService`
-(dependia dele). Spec arquivada como `Removed` em `specs/inventory-pricing.md`
-(mantida em `specs/`, não movida para `docs/historico/`, porque ainda serve
-de referência de regras de preço/estoque). Não use o prompt desta fase.
+(dependia dele). Spec mantida como `Status: Removed` em
+`specs/inventory-pricing.md` porque ainda serve de referência de regras de
+preço/estoque. Não use o prompt desta fase.
 
 RESTRIÇÕES
 - Fórmula de preço existe em um lugar só: PricingService.
@@ -382,132 +382,13 @@ consistente; botões desabilitam enquanto processam; nenhuma closure desnecessá
 
 ---
 
-## Design Refactoring Avançado — Visual Hierarchy & Modern Layout
-
-```
-CONTEXTO
-Os widgets usam os tokens corretamente (sem hard-coded colors), MAS o design é
-muito minimalista e falta visual hierarchy. Dashboard é só tabelas. Pricing é
-só inputs. Listings é só tabela. Parece "amador" — sem stats cards, sem cards
-agrupados, sem breathing room, sem visual emphasis. Essa tarefa refatora o
-LAYOUT visual (não tokens) para parecer profissional: hierarquia clara,
-destaques, cards, spacing, visual balance.
-
-SKILL
-Ative /gas-app-designer (para design de layout) + /design-tokens-guard
-(para validar tokens). Esta tarefa é 70% design visual, 30% tokens.
-
-TAREFA — Por widget:
-
-**PricingView:**
-1. Agrupe inputs em cards separados:
-   - Card 1: "Custos" (unitCost, extraCosts)
-   - Card 2: "Margem" (targetMarginPct, marginBasis, marketAveragePrice)
-2. Resultado em cards destacados (um card por marketplace):
-   - Preço sugerido em GRANDE (font-size-lg ou xl, font-weight-bold)
-   - Taxa do canal em subtítulo (font-size-sm, color-text-secondary)
-   - Lucro líquido destaque (cor success, grande)
-3. Use gap: var(--space-lg) entre cards
-
-**DashboardView:**
-1. Substitua tabelas simples por "stat cards" (3 cols):
-   - Card 1: "Pedidos hoje" (número grande, ícone ou badge shopee/ML)
-   - Card 2: "Receita Shopee" (número em BRL grande)
-   - Card 3: "Estoque baixo" (alerta count, cor warning)
-2. Depois as tabelas "Pedidos recentes" e "Estoque baixo" em cards separados
-3. Use grid: 3 cols para stats, depois 1 col para tabelas
-
-**OrdersView + ListingsView:**
-1. Antes da tabela, um "filter bar" card:
-   - Select marketplace, limit/pagination
-   - Aplicado com var(--space-md) padding
-2. Tabelas em card.table-container com overflow-x: auto se necessário
-3. Hover effects nas linhas (background: var(--color-surface-hover))
-
-**InventoryPricingView:**
-1. Form em card.form-container com campos agrupados em sub-sections
-2. Resultado final em grande highlighted card (border-left: 4px success ou error)
-
-RESTRIÇÕES
-- Não adicione HTML elements desnecessários (use CSS Grid/Flex, não tabelas para layout)
-- Todos os espaçamentos DEVEM usar var(--space-*) tokens
-- Cores seguem tokens (success/warning/error semantic)
-- Nenhuma font-size hard-coded, use var(--font-size-*)
-- Shadow e radius também via tokens (var(--shadow-md), var(--radius-lg))
-
-ACEITE
-✓ Dashboard tem stat cards destacados (3 cols, números grandes)
-✓ Pricing tem resultado em cards grandes/destacados por marketplace
-✓ Todas as seções têm breathing room (gap var(--space-lg) ou mais)
-✓ Visual hierarchy clara: títulos grandes, subtítulos menores, dados destacados
-✓ Nenhum elemento solto sem card container
-✓ Hover effects funcionam (tabelas ficam com bg lighter ao passar mouse)
-✓ /design-tokens-guard passa 100% (zero valores hard-coded)
-✓ Ao abrir no navegador, parece "profissional" e "polido", não "amador"
-```
-
----
-
-## Refactoring pré-Fase 0 — Modernização do Sistema de Design
-
-```
-CONTEXTO
-O Design System do projeto foi completamente modernizado em docs/DESIGN_SYSTEM.md
-e ui/shared/Styles.html. Agora existem 90+ tokens de design (cores, tipografia,
-espaçamento, sombras, etc.) que cobrem todo o visual system de forma
-profissional. Os cinco widgets da UI (PricingView, DashboardView, OrdersView,
-ListingsView, InventoryPricingView) ainda têm "cara de vibe coding": cores
-hard-coded, espaçamento inlineado, duplicação de lógica de erro/sucesso,
-falta de loading states. Esta tarefa refatora cada widget para usar o novo
-design system.
-
-SKILL
-Ative /design-tokens-guard antes de começar. Ela vai revisar cada mudança em
-ui/**/*.html e sinalizar qualquer cor/espaçamento que não venha de um token.
-Use também /gas-app-designer se precisar validar que a interface renderiza
-corretamente no navegador após as mudanças.
-
-TAREFA
-Para cada widget em ui/**View.html (PricingView, DashboardView, OrdersView,
-ListingsView, InventoryPricingView):
-
-1. Remova todo inline style (style="...") — migre para classes ou tokens
-2. Remova cores hard-coded (ex: color: "#0d6efd") — use var(--color-primary)
-3. Remova espaçamento hard-coded (ex: margin: 10px) — use var(--space-xs) etc
-4. Aplique classes de componente do novo design:
-   - Botões: sempre .btn, .btn-primary (default), .btn-secondary (alternativo)
-   - Cards de seção: .card com padding: var(--space-lg) via classe, não inline
-   - Campos de entrada: .form-field com label acima, input/select com borders de token
-   - Tabelas (se houver): .table com thead bg, .table td com tabular-nums
-   - Status badges: .badge.badge-success / .badge-warning / .badge-error (etc)
-   - Mensagens: erros em .alert.alert-error, sucessos em .badge.badge-success
-5. Adicione loading state: durante fetch, desabilite botão com .loading class
-   - Mude o texto do botão para "Processando..."
-   - Cursor vira wait
-   - Cliques são ignorados (pointer-events: none é automaticamente aplicado)
-6. Extraia lógica duplicada de error/success em um função auxiliar
-   (ex: `withLoading(fn)` que envolve a função de submit com try/catch)
-7. Rode `clasp push` e confira que não há erros de sintaxe no editor do Apps Script
-
-RESTRIÇÕES
-- Não altere a estrutura HTML ou nomes de elementos (ex: não mude class="submit-btn"
-  para class="btn" se isso quebrar o JS que referencia o elemento)
-- Não mude specs ou contratos das actions nos ServiceRegistry
-- Não adicione dependências externas (sem jQuery, sem frameworks CSS)
-- Todos os tokens já existem em ui/shared/Styles.html; se um token não existir,
-  vire para o Claude Code antes de inventar um novo
-
-ACEITE
-✓ Todos os 5 widgets abrem sem erro na URL do Web App
-✓ Nenhuma cor hard-coded visível no código HTML (git grep color: ou background:
-  retorna zero matches exceto em comentários)
-✓ Nenhum espaçamento inline (git grep 'style="' retorna zero matches ou apenas
-  atributos que não sejam margin/padding)
-✓ Todos os botões têm .loading state durante processamento
-✓ Erros e sucessos renderizam com as classes .alert/.badge apropriadas, não
-  com inline styles de cor
-✓ /design-tokens-guard passa em todos os widgets (zero avisos sobre tokens)
-```
+> **Nota (09/08/2026):** as duas seções de refatoração de design que ficavam
+> aqui (hierarquia visual e modernização de tokens) já foram executadas e
+> citavam widgets removidos do projeto (`PricingView`, `ListingsView`,
+> `InventoryPricingView`) — removidas por não terem mais valor de prompt
+> reutilizável. O sistema de design atual vive só em `ui/shared/Styles.html`
+> (tokens) e `AGENTS.md` (regras de uso); ative `/design-tokens-guard` ao
+> tocar CSS/HTML em `ui/**`.
 
 ---
 

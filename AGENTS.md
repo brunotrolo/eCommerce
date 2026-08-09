@@ -22,7 +22,6 @@ marketplace diretamente.
 | `docs/HANDOFF_OPENCODE.md` | Prompts prontos de execução, por fase |
 | `specs/<dominio>.md` | Contrato de cada domínio — fonte de verdade da implementação |
 | `docs/referencia/` | Playbooks de payload validados e análise da API Tiops |
-| `docs/historico/` | Planejamento superado; valor histórico apenas, **não seguir** |
 
 ## Divisão de papéis entre os dois agentes
 
@@ -312,7 +311,8 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 Ver `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
 `docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md` para a lista completa
-(regras do domínio Anúncios/Listings, arquivado em `docs/historico/specs-listings.md`). Resumo crítico:
+(regras usadas hoje pelo domínio Anúncios Shopee, `specs/anuncios-shopee.md`).
+Resumo crítico:
 - **Nunca confiar na resposta de um update/pause/activate para confirmar
   estado** — sempre reler com `get_item`/`shopee_get_item` depois.
 - Shopee: `shopee_update_price` usa `price_list`, nunca `price` solto.
