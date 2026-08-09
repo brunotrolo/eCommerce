@@ -166,12 +166,15 @@ var ShopeeAdsService = (function () {
     var data;
     if (cached) {
       data = cached;
+      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP1: cached=true, campanhas_raw do cache' });
     } else {
       data = callTiops_('shopee_ads_campaigns', {});
       setCache_(cacheKey_('campanhas_raw'), data, CACHE_TTL_CAMPANHAS);
+      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP1: callTiops shopee_ads_campaigns OK, tipo=' + typeof data + ', keys=' + (data ? Object.keys(data).join(',') : 'null') });
     }
 
     var campanhas = normalizeCampaigns_(data);
+    SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP2: normalizeCampaigns resultado=' + campanhas.length + ' campanhas' });
 
     // Busca métricas de performance para cada campanha em paralelo
     if (campanhas.length > 0) {
@@ -191,32 +194,56 @@ var ShopeeAdsService = (function () {
         };
       });
 
-      var batchResults = TiopsClient.callBatch ? TiopsClient.callBatch(batchItems) : [];
+      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP3: preparando callBatch com ' + batchItems.length + ' itens, callBatchExiste=' + (typeof TiopsClient.callBatch === 'function') });
 
+      var batchResults = typeof TiopsClient.callBatch === 'function' ? TiopsClient.callBatch(batchItems) : [];
+
+      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP4: callBatch retornou ' + batchResults.length + ' resultados' });
+
+      var comPerf = 0, comErro = 0, semData = 0;
       for (var i = 0; i < batchResults.length && i < campanhas.length; i++) {
         var br = batchResults[i];
-        if (br && !br.error && br.data) {
-          var perf = br.data.response || br.data;
-          var perfData = Array.isArray(perf) ? perf : (perf.performance_list || perf.data || []);
-          if (Array.isArray(perfData) && perfData.length > 0) {
-            // Agrega os últimos 7 dias
-            var agg = aggregatePerformance_(perfData);
-            campanhas[i].IMPRESSOES = agg.impressions;
-            campanhas[i].CLIQUES = agg.clicks;
-            campanhas[i].CTR = agg.ctr;
-            campanhas[i].CVR = agg.cvr;
-            campanhas[i].GASTO_TOTAL = agg.cost;
-            campanhas[i].VENDAS = agg.revenue;
-            campanhas[i].ROAS = agg.roas;
-            campanhas[i].CONVERSOES = agg.conversions;
-          }
+        if (br && br.error) {
+          comErro++;
+          continue;
         }
+        if (!br || !br.data) {
+          semData++;
+          continue;
+        }
+        var perf = br.data.response || br.data;
+        var perfData = Array.isArray(perf) ? perf : (perf.performance_list || perf.data || []);
+        if (Array.isArray(perfData) && perfData.length > 0) {
+          var agg = aggregatePerformance_(perfData);
+          campanhas[i].IMPRESSOES = agg.impressions;
+          campanhas[i].CLIQUES = agg.clicks;
+          campanhas[i].CTR = agg.ctr;
+          campanhas[i].CVR = agg.cvr;
+          campanhas[i].GASTO_TOTAL = agg.cost;
+          campanhas[i].VENDAS = agg.revenue;
+          campanhas[i].ROAS = agg.roas;
+          campanhas[i].CONVERSOES = agg.conversions;
+          comPerf++;
+        }
+      }
+
+      SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP5: performance processada: comPerf=' + comPerf + ', comErro=' + comErro + ', semData=' + semData + ', batchResults=' + batchResults.length });
+
+      if (batchResults.length > 0 && comPerf === 0) {
+        var sample = batchResults[0];
+        var sampleStr = JSON.stringify(sample).substring(0, 500);
+        SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'WARN', caller: 'ShopeeAdsService', detail: 'STEP5b: NENHUMA perf processada. Sample[0]=' + sampleStr });
       }
     }
 
     var sheetId = getSheetId_();
+    SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP6: sheetId=' + sheetId + ' (ConfigService.getSheetId=' + ConfigService.getSheetId() + ')' });
     var syncResult = ShopeeAdsRepository.syncCampanhas(sheetId, campanhas);
     invalidateCache_();
+
+    SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP7: syncCampanhas gravou noveos=' + syncResult.novos + ', atualizados=' + syncResult.atualizados + ', errors=' + syncResult.errors.length });
+
+    SheetsRepository.logWriteAudit({ sheet: 'SHOPEE_ADS', operation: 'SYNC_STEP', status: 'OK', caller: 'ShopeeAdsService', detail: 'STEP8: amostra campanha[0]=' + JSON.stringify(campanhas[0]).substring(0, 400) });
 
     LoggingService.logAction('shopeeAds', 'syncCampaigns', {
       synced: campanhas.length,
