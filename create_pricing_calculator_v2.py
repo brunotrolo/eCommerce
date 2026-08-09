@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Shopee Pricing Calculator v2 — Fórmula validada por engenharia reversa
-de 8 pedidos reais (ver specs/calculator.md).
+de 8 pedidos reais.
 
 Diferenças em relação à v1 (create_pricing_calculator.py):
 - Comissão real por cenário (18% cartão 1x / 12% Pix ou parcelado),
@@ -40,7 +40,7 @@ def create_pricing_calculator():
     ws['A1'].font = Font(name='Arial', size=13, bold=True, color="1F4E78")
     ws.merge_cells('A1:C1')
 
-    ws['A2'] = "Fórmula validada em 8 pedidos reais — erro médio de 0,58% (ver specs/calculator.md)"
+    ws['A2'] = "Fórmula validada em 8 pedidos reais — erro médio de 0,58%"
     ws['A2'].font = Font(name='Arial', size=9, italic=True)
     ws.merge_cells('A2:C2')
 
@@ -182,7 +182,7 @@ def create_pricing_calculator():
 
     notes = [
         "Esta calculadora foi refeita a partir de engenharia reversa de 8 pedidos REAIS",
-        "(não estimativas). Ver specs/calculator.md para a análise completa e o backtest.",
+        "(não estimativas). Ver histórico do git (specs/calculator.md, removida em 09/08/2026) para a análise completa e o backtest.",
         "",
         "PRINCIPAIS CORREÇÕES vs. a versão anterior:",
         "1. Pix NÃO custa nada extra ao vendedor — o desconto é pago pela Shopee.",
