@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validar JSON (.clasp.json, appsscript.json)
+        run: node .github/scripts/validate-json.js
+
+      - name: Validar filePushOrder (cobre exatamente src/**/*.js)
+        run: node .github/scripts/validate-file-push-order.js
+
+      - name: Validar sintaxe de src/**/*.js
+        run: node .github/scripts/validate-js-syntax.js

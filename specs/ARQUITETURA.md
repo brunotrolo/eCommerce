@@ -200,17 +200,25 @@ confirme nome e schema contra o catálogo real
 skill `tiops-contract`; contratos já confirmados ficam registrados em
 `docs/referencia/CONTRATOS_CONFIRMADOS.md`.
 
-### Deploy
+### CI e Deploy
+
+Todo PR para `main` roda `.github/workflows/ci.yml`: valida JSON de
+`.clasp.json`/`appsscript.json`, que `filePushOrder` cobre exatamente
+`src/**/*.js` (nem faltando, nem sobrando arquivo deletado) e sintaxe de
+cada `.js` (`node --check`) — scripts em `.github/scripts/`, sem
+dependências externas. Isso pega antes do merge o erro mais comum do
+projeto: arquivo novo sem entrada em `filePushOrder`, que antes só
+quebrava silenciosamente na ordem alfabética do GAS.
 
 Ordem obrigatória: `git commit` → `git push origin main` → CI
-(`.github/workflows/deploy.yml`) roda `clasp push --force`, que só atualiza
-a versão `/dev` (HEAD) do Apps Script. GitHub é a fonte de verdade — nunca
-editar direto no editor do Apps Script. **`clasp deploy` nunca é executado
-por um agente** — criar uma versão pública é ação manual e consciente do
-usuário na UI do Apps Script (isso também é o que torna o rollback fácil:
-o HEAD em `/dev` pode quebrar e ser corrigido por um novo push sem afetar
-quem usa a versão publicada). `clasp login` é OAuth interativo, só humano,
-uma vez.
+(`.github/workflows/deploy.yml`) roda a mesma validação e, se passar,
+`clasp push --force`, que só atualiza a versão `/dev` (HEAD) do Apps
+Script. GitHub é a fonte de verdade — nunca editar direto no editor do
+Apps Script. **`clasp deploy` nunca é executado por um agente** — criar
+uma versão pública é ação manual e consciente do usuário na UI do Apps
+Script (isso também é o que torna o rollback fácil: o HEAD em `/dev` pode
+quebrar e ser corrigido por um novo push sem afetar quem usa a versão
+publicada). `clasp login` é OAuth interativo, só humano, uma vez.
 
 ---
 
