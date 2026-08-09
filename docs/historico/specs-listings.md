@@ -1,7 +1,14 @@
 # Spec: Anúncios / Listings
 
 ## Status
-Approved
+**Removed (09/08/2026)** — arquivada aqui, não é fonte de verdade.
+
+Página, serviço (`ListingsService`) e rotas foram removidos do projeto por
+decisão do usuário (página sem utilidade — ver `PLANO.md`, seção "Escopo
+funcional v1", item 5). Substituída na prática pelo domínio **Anúncios
+Shopee** (`specs/anuncios-shopee.md`), que cobre sincronização, listagem e
+atualização de preço/estoque de anúncios Shopee via Tiops. Conteúdo
+original preservado abaixo por valor histórico.
 
 ## Objetivo
 Listar, detalhar, pausar e ativar anúncios das duas lojas, aplicando as

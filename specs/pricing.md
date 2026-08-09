@@ -16,8 +16,8 @@ Implemented
   adjacente também corrigido no alerta de prejuízo (comparava preço bruto
   vs. custo, não o líquido pós-taxas) e em `getUltimosPrecosPorProduto`
   (ignorava o param `marketplace`, sempre lia o preço Shopee). Ver
-  `specs/estoque.md` e `specs/estoque-preco-update.md` para os cenários
-  recalculados.
+  `specs/estoque.md` e `docs/historico/specs-estoque-preco-update.md`
+  (spec arquivada) para os cenários recalculados.
 - **08/08/2026** — `ui/pricing/PricingView.html` (o widget dedicado criado
   na revisão anterior, nunca chegou a ser montado em `Shell.html`) foi
   **removido**. O usuário pediu explicitamente que só exista uma única

@@ -3,8 +3,9 @@
 ## Status
 Removed — página e serviço (`inventoryPricing.*`) excluídos por decisão do
 usuário (página legacy). O contrato de marketplace abaixo permanece como
-referência de regras de preço/estoque para `pricing.md`, `listings.md` e
-`estoque.md`; não implementar novas ações sob o namespace `inventoryPricing`.
+referência de regras de preço/estoque para `pricing.md`,
+`docs/historico/specs-listings.md` (também removida) e `estoque.md`; não
+implementar novas ações sob o namespace `inventoryPricing`.
 
 ## Objetivo
 Ligar a Calculadora de Precificação a um anúncio real: calcular o preço
@@ -27,7 +28,7 @@ update (regra de ouro herdada dos playbooks).
 - Preço: reaproveita `PricingService.calculateSuggestedPrice` — nunca duplica a fórmula.
 - Shopee: preço via `shopee_update_price` com `price_list: [{original_price}]` — nunca `price` solto (erro `PriceList is required`). Estoque via `shopee_update_stock` com `stock` **e** `seller_stock: [{stock}]`.
 - Mercado Livre: preço via `update_price` com `price`; estoque via `update_stock` com `available_quantity`.
-- Após qualquer update, sempre relê via `ListingsService.getDetail` antes de retornar — a resposta do update não é fonte de verdade (ver `listings.md`).
+- Após qualquer update, sempre relê via `ListingsService.getDetail` antes de retornar — a resposta do update não é fonte de verdade (ver `docs/historico/specs-listings.md`).
 
 ## Casos de Borda
 - Margem alvo inviável (`1 - fee% - m <= 0`) → retorna erro de `PricingService` e **não** chama o Tiops (evita gravar preço errado por engano).

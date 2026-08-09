@@ -44,9 +44,11 @@ depende de B? B carrega antes de A.
 │  │ Negócio (dependem de entrada, pricing)
 │  ├─ PricingService.js
 │  ├─ OrdersService.js
-│  ├─ ListingsService.js
 │  ├─ DashboardService.js
-│  └─ CatalogService.js ← novo
+│  ├─ CatalogService.js
+│  └─ ... (Estoque, ManualEntrada/Saída, CarteiraShopee, AnunciosShopee,
+│      ShopeeAds e demais — mesma regra, ver ordem real completa em
+│      .clasp.json → filePushOrder)
 │
 ├─ Camada 4: Gateway (todos os serviços)
 │  ├─ ServiceRegistry.js (valida + dispatcha)
