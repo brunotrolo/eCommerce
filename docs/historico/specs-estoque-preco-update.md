@@ -1,7 +1,27 @@
 # Spec: Atualização de Preço de Venda em Estoque
 
 ## Status
-Approved
+**Removed (09/08/2026)** — arquivada aqui, não é fonte de verdade.
+
+A feature descrita abaixo nunca funcionou em produção: `EstoquePrecoBulkView.html`
+(a página que chamaria este contrato) nunca foi conectada ao `Shell.html`
+(widget fantasma, mesmo problema do `PricingView.html` original — include
+presente, mas nenhuma tag `<estoque-preco-bulk-widget>` instanciada em lugar
+nenhum), e além disso os nomes de ação usados pela view (`estoque.*`, iguais
+aos deste contrato) nunca bateram com o serviço real
+(`EstoquePrecoService.js`, registrado como `estoquePreco.*` no
+`ServiceRegistry`) — teria dado "Ação desconhecida" mesmo se alguém
+conseguisse abrir o modal. `EstoquePrecoService.js` e `EstoquePrecoBulkView.html`
+foram removidos do projeto nesta auditoria.
+
+A funcionalidade real que este contrato descrevia — atualizar preço de
+venda propagando para todos os itens `DISPONÍVEL` de um produto, com
+recálculo automático de margem — **já existe e funciona**, implementada em
+`estoque.updateItem` (`specs/estoque.md`, `EstoqueService.js`). Se precisar
+de referência sobre o modelo de alertas de margem/prejuízo, veja também
+`specs/estoque.md` e `specs/pricing.md` (motor único `calculateNetMargin`).
+
+Conteúdo original preservado abaixo por valor histórico.
 
 ## Objetivo
 

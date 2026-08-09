@@ -40,7 +40,6 @@ var ServiceRegistry = (function () {
     manualSaida: safeRef_('manualSaida', function () { return typeof ManualSaidaService !== 'undefined' ? ManualSaidaService : undefined; }),
     estoque: safeRef_('estoque', function () { return typeof EstoqueService !== 'undefined' ? EstoqueService : undefined; }),
     estoqueBaixa: safeRef_('estoqueBaixa', function () { return typeof EstoqueBaixaService !== 'undefined' ? EstoqueBaixaService : undefined; }),
-    estoquePreco: safeRef_('estoquePreco', function () { return typeof EstoquePrecoService !== 'undefined' ? EstoquePrecoService : undefined; }),
     ordersImport: safeRef_('ordersImport', function () { return typeof OrdersImportService !== 'undefined' ? OrdersImportService : undefined; }),
     pushNotification: safeRef_('pushNotification', function () { return typeof PushNotificationService !== 'undefined' ? PushNotificationService : undefined; }),
     carteiraShopee: safeRef_('carteiraShopee', function () { return typeof CarteiraShopeeService !== 'undefined' ? CarteiraShopeeService : undefined; }),

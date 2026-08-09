@@ -141,8 +141,7 @@ var EstoqueService = (function () {
 
   /**
    * Motor único de margem — sempre via PricingService.calculateNetMargin,
-   * nunca (preço-custo)/preço bruto. Mesma função de EstoquePrecoService.js
-   * (não duplicar a fórmula, só a chamada). Ver specs/pricing.md.
+   * nunca (preço-custo)/preço bruto. Ver specs/pricing.md.
    * @param {string} marketplace 'shopee' | 'mercado_livre'
    */
   function calcularMargem_(precoVenda, precoCusto, marketplace) {
