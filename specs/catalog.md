@@ -3,6 +3,13 @@
 ## Status
 Implemented
 
+## Changelog
+- **09/08/2026** — `getCalculationMemory` corrigido: usava sua própria
+  cópia da fórmula Shopee flat 20% (`ConfigService.getMarketplaceFee`),
+  divergindo do preço real mostrado na linha do produto (`getProducts`, que
+  já usava `PricingService.calculateSuggestedPrice` corretamente). Agora
+  delega para a mesma função — motor único, ver `specs/pricing.md`.
+
 ## Objetivo
 Exibir um catálogo unificado de produtos recebidos (vindos de NFE_ENTRADA_PRODUTOS),
 agrupados por código de produto, com o custo unitário líquido mais recente e preços
@@ -107,16 +114,28 @@ fonte consultável para gestão de precificação antes de criar/atualizar anún
     valorUnitarioLiquido: number,           // valor inicial
     margemAlvo: number,                     // % da margem (ex. 0.25)
     taxaMarketplace: {
-      percentual: number,                   // ex. 0.20
-      fixo: number,                         // ex. 0
-      descricao: string                     // ex. "Shopee: 20% flat"
+      percentual: number,                   // Shopee: comissão (0.18 cartão à vista); ML: 0.14
+      fixo: number,                         // Shopee: taxa de serviço fixa (R$4/item); ML: R$6
+      comissao: number,                     // [só Shopee] comissão em R$ sobre o preço sugerido
+      taxaServico: number,                  // [só Shopee] taxa de serviço em R$ sobre o preço sugerido
+      descricao: string                     // ex. "Shopee: comissão 18% (cartão à vista) + taxa de serviço 2% + R$4,00"
     },
     precoSugerido: number,                  // resultado final
-    margemLiquida: number,                  // % líquida após todas deduções
+    margemLiquida: number,                  // fração líquida após todas deduções (ex. 0.25 = 25%)
     lucroLiquidoPorUnidade: number          // R$ de lucro por unidade
   }
 }
 ```
+
+> **Correção (09/08/2026 — motor único):** `getCalculationMemory` calculava
+> o preço Shopee com sua própria cópia da fórmula flat 20%
+> (`ConfigService.getMarketplaceFee('shopee')`), **divergindo** do valor
+> real mostrado na linha do produto (que já vinha corretamente de
+> `PricingService.calculateSuggestedPrice` via `getProducts`). Corrigido
+> para delegar para a mesma função — nunca mais duas fórmulas Shopee no
+> mesmo serviço. Ver `specs/pricing.md` para o modelo de 2 componentes
+> (comissão + taxa de serviço) e `specs/calculator-shopee.md` para a
+> engenharia reversa que o validou.
 
 ## Regras de Negócio
 
@@ -236,13 +255,16 @@ Dado um código de produto que aparece em múltiplas NFes:
      - Sidebar mostra: VALOR_UNITARIO_LIQUIDO → aplicar taxas → subtrair comissões → chegar ao preço sugerido
      - Cada passo é uma linha: descrição, valor, fórmula
      - Resumo final com margem líquida e lucro por unidade
-     - Exemplo de fluxo para Shopee:
+     - Exemplo de fluxo para Shopee (corrigido 09/08/2026 — modelo de 2
+       componentes validado, não mais o flat 20% antigo; ver `specs/pricing.md`):
        ```
-       1. Custo Unitário Líquido          R$ 50,00
-       2. Aplicar margem alvo (25%)       → precisa estar em (price * m)
-       3. Taxa Shopee (20% flat)          → (50 + fixed) / (1 - 0.20 - 0.25)
-       4. Preço Sugerido Final            R$ 90,91
-       5. Verificação: Lucro Líquido      R$ 18,18 (20% da venda)
+       1. Custo Unitário Líquido            R$ 50,00
+       2. Margem Alvo (25%)                 25%
+       3. Comissão Shopee (cartão à vista)  18% do preço de venda
+       4. Taxa de Serviço Shopee            2% + R$ 4,00
+       5. Fórmula do Preço                  (50 + 4) / (1 - 18% - 2% - 25%)
+       6. Preço Sugerido Final              R$ 98,18
+       7. Verificação: Lucro Líquido        R$ 24,55 (25,0% do preço)
        ```
 
 ## Instruções de Codificação

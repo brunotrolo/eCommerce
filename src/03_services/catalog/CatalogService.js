@@ -347,19 +347,27 @@ var CatalogService = (function () {
     if (isNaN(unitCost)) unitCost = parseFloat(mostRecent.VALOR_UNITARIO) || 0;
     var descricao = mostRecent.DESCRICAO_PRODUTO || '';
 
-    var fee = ConfigService.getMarketplaceFee(marketplace);
-    var feeDescription = marketplace === 'shopee'
-      ? 'Shopee: ' + (fee.pct * 100).toFixed(0) + '% flat'
-      : 'Mercado Livre: ' + (fee.pct * 100).toFixed(0) + '% + R$ ' + fee.fixed.toFixed(2);
+    // Motor único: mesma PricingService.calculateSuggestedPrice usada pela
+    // listagem principal do Catálogo (getProducts) e por specs/pricing.md —
+    // esta função só reconstrói o passo-a-passo em cima do mesmo resultado,
+    // nunca recalcula com uma fórmula própria (era o bug antes: usava
+    // ConfigService.getMarketplaceFee('shopee') flat 20%, divergindo do
+    // valor real mostrado na linha do produto).
+    var pricingResult = PricingService.calculateSuggestedPrice({
+      unitCost: unitCost,
+      targetMarginPct: targetMargin,
+      marketplace: marketplace
+    });
+    if (pricingResult.error) {
+      return { error: pricingResult.error };
+    }
 
-    var denom = 1 - fee.pct - targetMargin;
-    var suggestedPrice = denom > 0 ? (unitCost + fee.fixed) / denom : 0;
-    suggestedPrice = Math.round(suggestedPrice * 100) / 100;
+    var suggestedPrice = pricingResult.suggestedPrice;
+    var netProfit = pricingResult.netProfit;
+    var netMargin = pricingResult.netMarginPct;
+    var isShopee = marketplace === 'shopee';
 
-    var marketplaceFee = Math.round((suggestedPrice * fee.pct + fee.fixed) * 100) / 100;
-    var netProfit = Math.round((suggestedPrice - marketplaceFee - unitCost) * 100) / 100;
-    var netMargin = suggestedPrice > 0 ? Math.round((netProfit / suggestedPrice) * 10000) / 10000 : 0;
-
+    var feeDescription, resumoTaxa;
     var passos = [];
     var ordem = 1;
 
@@ -381,26 +389,77 @@ var CatalogService = (function () {
     });
     ordem++;
 
-    passos.push({
-      ordem: ordem,
-      descricao: ordem + '. Taxa ' + (marketplace === 'shopee' ? 'Shopee' : 'Mercado Livre'),
-      valor: fee.pct,
-      detalhes: feeDescription,
-      formula: marketplace === 'shopee'
-        ? (fee.pct * 100).toFixed(0) + '% flat'
-        : (fee.pct * 100).toFixed(0) + '% + ' + formatBRL_(fee.fixed)
-    });
-    ordem++;
+    if (isShopee) {
+      var model = ConfigService.getShopeeFeeModel('cartao_avista', 1);
+      feeDescription = 'Shopee: comissão ' + (model.commissionPct * 100).toFixed(0) +
+        '% (cartão à vista) + taxa de serviço ' + (model.serviceFeeBasePct * 100).toFixed(0) +
+        '% + ' + formatBRL_(model.serviceFeeFixed);
 
-    passos.push({
-      ordem: ordem,
-      descricao: ordem + '. Fórmula do Preço',
-      valor: suggestedPrice,
-      detalhes: 'Preço = (Custo + Taxa Fixa) / (1 - Taxa% - Margem%)',
-      formula: '(' + formatBRL_(unitCost) + ' + ' + formatBRL_(fee.fixed) + ') / (1 - ' +
-        (fee.pct * 100).toFixed(0) + '% - ' + (targetMargin * 100).toFixed(0) + '%)'
-    });
-    ordem++;
+      passos.push({
+        ordem: ordem,
+        descricao: ordem + '. Comissão Shopee (cartão à vista)',
+        valor: model.commissionPct,
+        detalhes: 'Pior caso conservador — Pix/parcelado seria menor (12%)',
+        formula: (model.commissionPct * 100).toFixed(0) + '% do preço de venda'
+      });
+      ordem++;
+
+      passos.push({
+        ordem: ordem,
+        descricao: ordem + '. Taxa de Serviço Shopee',
+        valor: model.serviceFeeBasePct,
+        detalhes: 'Base percentual + fixo por item (itemCount=1)',
+        formula: (model.serviceFeeBasePct * 100).toFixed(0) + '% + ' + formatBRL_(model.serviceFeeFixed)
+      });
+      ordem++;
+
+      passos.push({
+        ordem: ordem,
+        descricao: ordem + '. Fórmula do Preço',
+        valor: suggestedPrice,
+        detalhes: 'Preço = (Custo + Taxa de Serviço Fixa) / (1 - Comissão% - Taxa Base% - Margem%)',
+        formula: '(' + formatBRL_(unitCost) + ' + ' + formatBRL_(model.serviceFeeFixed) + ') / (1 - ' +
+          (model.commissionPct * 100).toFixed(0) + '% - ' + (model.serviceFeeBasePct * 100).toFixed(0) +
+          '% - ' + (targetMargin * 100).toFixed(0) + '%)'
+      });
+      ordem++;
+
+      resumoTaxa = {
+        percentual: model.commissionPct,
+        fixo: model.serviceFeeFixed,
+        comissao: pricingResult.commission,
+        taxaServico: pricingResult.serviceFee,
+        descricao: feeDescription
+      };
+    } else {
+      var fee = ConfigService.getMarketplaceFee(marketplace);
+      feeDescription = 'Mercado Livre: ' + (fee.pct * 100).toFixed(0) + '% + ' + formatBRL_(fee.fixed);
+
+      passos.push({
+        ordem: ordem,
+        descricao: ordem + '. Taxa Mercado Livre',
+        valor: fee.pct,
+        detalhes: feeDescription,
+        formula: (fee.pct * 100).toFixed(0) + '% + ' + formatBRL_(fee.fixed)
+      });
+      ordem++;
+
+      passos.push({
+        ordem: ordem,
+        descricao: ordem + '. Fórmula do Preço',
+        valor: suggestedPrice,
+        detalhes: 'Preço = (Custo + Taxa Fixa) / (1 - Taxa% - Margem%)',
+        formula: '(' + formatBRL_(unitCost) + ' + ' + formatBRL_(fee.fixed) + ') / (1 - ' +
+          (fee.pct * 100).toFixed(0) + '% - ' + (targetMargin * 100).toFixed(0) + '%)'
+      });
+      ordem++;
+
+      resumoTaxa = {
+        percentual: fee.pct,
+        fixo: fee.fixed,
+        descricao: feeDescription
+      };
+    }
 
     passos.push({
       ordem: ordem,
@@ -416,7 +475,7 @@ var CatalogService = (function () {
       descricao: ordem + '. Verificação: Lucro Líquido',
       valor: netProfit,
       detalhes: 'Lucro por unidade após deduções',
-      formula: formatBRL_(netProfit) + ' (' + netMargin.toFixed(1) + '% do preço)'
+      formula: formatBRL_(netProfit) + ' (' + (netMargin * 100).toFixed(1) + '% do preço)'
     });
 
     return {
@@ -429,11 +488,7 @@ var CatalogService = (function () {
         resumo: {
           valorUnitarioLiquido: unitCost,
           margemAlvo: targetMargin,
-          taxaMarketplace: {
-            percentual: fee.pct,
-            fixo: fee.fixed,
-            descricao: feeDescription
-          },
+          taxaMarketplace: resumoTaxa,
           precoSugerido: suggestedPrice,
           margemLiquida: netMargin,
           lucroLiquidoPorUnidade: netProfit
