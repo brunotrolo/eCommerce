@@ -226,9 +226,13 @@
 
     function saldoHtml(saldo) {
       if (!saldo) return '';
+      if (saldo.error) {
+        return '<div class="saldo-alert saldo-zero">Saldo indisponível: ' + esc(saldo.error) + '</div>';
+      }
       var s = Number(saldo.saldo) || 0;
+      var moeda = saldo.moeda || 'BRL';
       var cls = s === 0 ? 'saldo-zero' : s < 50 ? 'saldo-low' : 'saldo-ok';
-      return '<div class="saldo-alert ' + cls + '">Saldo: R$ ' + s.toFixed(2) + ' (' + saldo.moeda + ') | Atualizado: ' + esc(saldo.atualizadoEm || '-') + '</div>';
+      return '<div class="saldo-alert ' + cls + '">Saldo: R$ ' + s.toFixed(2) + ' (' + esc(moeda) + ') | Atualizado: ' + esc(saldo.atualizadoEm || '-') + '</div>';
     }
 
     function sortRows(rows) {
