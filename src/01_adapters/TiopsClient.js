@@ -172,5 +172,5 @@ var TiopsClient = (function () {
     };
   }
 
-  return { call: call, describe: describe };
+  return { call: call, callBatch: callBatch, describe: describe };
 })();

@@ -37,20 +37,23 @@ var ShopeeAdsRepository = (function () {
       return sheet;
     }
     var lastCol = sheet.getLastColumn();
-    if (lastCol > 0) {
-      var existing = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-      var headerMap = {};
-      for (var i = 0; i < existing.length; i++) {
-        var h = String(existing[i]).trim();
-        if (h) headerMap[h] = i + 1;
-      }
-      var missing = [];
-      for (var j = 0; j < headers.length; j++) {
-        if (!headerMap[headers[j]]) missing.push(headers[j]);
-      }
-      if (missing.length > 0) {
-        sheet.getRange(1, lastCol + 1, 1, missing.length).setValues([missing]);
-      }
+    if (lastCol === 0) {
+      sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sheet.setFrozenRows(1);
+      return sheet;
+    }
+    var existing = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var headerMap = {};
+    for (var i = 0; i < existing.length; i++) {
+      var h = String(existing[i]).trim();
+      if (h) headerMap[h] = i + 1;
+    }
+    var missing = [];
+    for (var j = 0; j < headers.length; j++) {
+      if (!headerMap[headers[j]]) missing.push(headers[j]);
+    }
+    if (missing.length > 0) {
+      sheet.getRange(1, lastCol + 1, 1, missing.length).setValues([missing]);
     }
     sheet.setFrozenRows(1);
     return sheet;
