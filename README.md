@@ -5,8 +5,10 @@ Mercado Livre: calculadora de precificação, dashboard unificado, pedidos,
 anúncios, catálogo de produtos, NFe Entrada e sincronização de preço/estoque —
 tudo integrado via [MCP Tiops](./docs/referencia/MCP_TIOPS_QUICK_START.md).
 
-**Status:** código das fases 0–6 e 8 escrito; nenhuma fase validada em produção
-ainda (falta o primeiro deploy). Ver [PLANO.md](./PLANO.md).
+**Status:** em produção (Web App atualizado automaticamente a cada merge em
+`main`). Estoque é o fluxo funcional central, com uso real diário; demais
+domínios com código escrito, validação manual pendente em alguns. Ver
+[PLANO.md](./PLANO.md), seção "Fases e status".
 
 ## Por onde começar
 

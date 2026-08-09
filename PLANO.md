@@ -86,7 +86,7 @@ tabela lista os domínios adicionados depois, todos com spec
 
 ### Specs em Draft, sem código ainda
 
-- `specs/estoque-baixa-shopee.md`, `specs/produto-anuncio-map.md` — auto-declaradas Draft, sem implementação (únicas specs de domínio que sobreviveram à consolidação de 09/08/2026 — ver "Estado real de hoje" — por serem trabalho futuro, não histórico). Não pular a aprovação antes de codar (regra nº 1 do `AGENTS.md`).
+- `specs/produto-anuncio-map.md` — Draft, sem implementação (única spec de domínio que sobreviveu à consolidação de 09/08/2026 — ver `specs/ARQUITETURA.md` — por ser trabalho futuro, não histórico). Não pular a aprovação antes de codar (regra nº 1 do `AGENTS.md`). `specs/estoque-baixa-shopee.md` foi removida em 09/08/2026: a baixa automática de estoque por pedido Shopee que ela desenhava já está implementada (`OrdersImportService.processBaixaForOrder_` → `EstoqueBaixaService.baixarPorProduto`/`reverterBaixa`), por um caminho diferente do que a spec assumia.
 
 ### Removidos
 
@@ -121,48 +121,13 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | — | Webhook Shopee (Push) | ✅ | ⬜ |
 | — | Shopee Ads (Gestão de Anúncios Pagos) | ✅ | ⬜ |
 
-> **Estado real de hoje:** o app roda em produção (Web App deployado via
-> `clasp push` automático no merge em `main`, sem passo `clasp deploy`
-> manual). O fluxo funcional ativo é o domínio **Estoque**: 157 unidades
-> rastreadas unitariamente (FIFO), alimentado por NFe + Manual com importação
-> passo a passo (modal de progresso) e preços sincronizáveis com o catálogo.
->
-> **Fórmula de taxa Shopee corrigida (08/08/2026):** o flat 20% antigo foi
-> substituído por um modelo de 2 componentes (comissão 18% cartão-à-vista /
-> 12% Pix-ou-parcelado + taxa de serviço 2%+R$4/item+R$16 promo), derivado
-> por engenharia reversa de **11 pedidos `COMPLETED` reais** da conta,
-> validado com <1% de erro médio. ML segue com sua tabela por faixa/regime,
-> não revisada com dados reais ainda.
-> Fases 0, 1 e 8 foram validadas por cálculos/smoke executados. As demais
-> fases dependem de dado real dos marketplaces via Tiops e/ou de acesso ao
-> editor Apps Script (`runSmokeTests_`) — pendente de validação manual
-> ativa.
->
-> **Motor único de margem (09/08/2026):** usuário reportou que Estoque e
-> Catálogo mostravam margens muito diferentes pro mesmo produto. Causa:
-> `EstoquePrecoService.js`/`EstoqueService.js` tinham cada um sua própria
-> cópia de `calcularMargem_` calculando `(preço-custo)/preço` bruto, sem
-> descontar taxa de marketplace nenhuma (nem Shopee, nem ML), enquanto
-> `CatalogService.js` já usava `PricingService.calculateSuggestedPrice`
-> corretamente. Adicionado `pricing.calculateNetMargin` (motor único); as
-> duas cópias de `calcularMargem_` agora delegam para lá. Bug adjacente
-> também corrigido: alerta de prejuízo comparava preço bruto vs. custo, não
-> o líquido pós-taxas — um preço nominalmente acima do custo podia esconder
-> prejuízo real. Ver `PricingService.js`/`EstoqueService.js` (a feature de
-> atualização de preço em lote foi removida em 09/08/2026 — ver nota acima).
->
-> **Botão "Recalcular Preços de Venda" (antes "Sincronizar Preços
-> Catálogo", 09/08/2026):** pedido do usuário para o motor "sempre
-> recalcular com base no PRECO_CUSTO_ORIGINAL". Antes, o botão copiava o
-> preço já calculado pelo Catálogo (que agrega por "custo mais recente por
-> código de produto") — divergente do custo real de um item específico se
-> ele veio de um lote/NFe mais antigo. Agora `EstoqueService.sincronizarPrecosCatalogo`
-> chama `PricingService.calculateSuggestedPrice` direto, item por item, com
-> o `PRECO_CUSTO_ORIGINAL` daquele item. Achado um terceiro ponto do motor
-> ainda no modelo Shopee flat 20% antigo nesta mesma revisão:
-> `CatalogService.getCalculationMemory` (sidebar "Histórico" do Catálogo)
-> tinha sua própria cópia da fórmula, divergindo do preço real mostrado na
-> linha do produto — corrigido para delegar também.
+> **Estado real de hoje:** o app roda em produção (deploy automático, ver
+> `specs/ARQUITETURA.md` § CI e Deploy). O fluxo funcional ativo é o domínio
+> **Estoque**: 157 unidades rastreadas unitariamente (FIFO), alimentado por
+> NFe + Manual, com preços sincronizáveis com o catálogo via motor único de
+> margem (`PricingService`). Fases 0, 1 e 8 validadas por cálculo/smoke; as
+> demais dependem de dado real dos marketplaces via Tiops e/ou acesso ao
+> editor Apps Script — pendente de validação manual ativa (ver tabela acima).
 >
 > **Webhook Shopee:** código implementado e testado
 > (`PushNotificationService.js`), mas **inativo** — a Tiops detém as
@@ -170,76 +135,22 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > Tiops, não para nós. Para ativar, o usuário precisa criar app próprio na
 > Shopee Open Platform e migrar as credenciais.
 >
-> **Otimização de performance (09/08/2026, PR #28):** auditoria de
-> performance encontrou 3 classes de problema, todas corrigidas. (1) Bugs de
-> invalidação de cache: `CarteiraShopeeService`/`ManualSaidaService`/`EstoqueService`
-> invalidavam o cache do Dashboard com o padrão `'dashboard.'` (ponto), mas a
-> chave real é `'dashboard_summary'` (underscore) — nunca casava, cache só
-> expirava pelo TTL de 5min; `ShopeeAdsService` chamava `CacheService` direto
-> (viola a camada de `02_repositories`) com chaves fixas que não batiam com
-> as reais (`campanhas_raw` vs `campanhas`; `performance_<id>` dinâmico vs
-> literal `performance`) — cache de performance nunca era limpo após
-> pausar/retomar/encerrar campanha; `NFeEntradaProdutosService`/
-> `OrdersImportService` nunca invalidavam `catalog_`/`dashboard_` ao gravar
-> dados novos. (2) Escrita em loop: `EstoqueService.updateItem`/
-> `atualizarAlertas_`/`atualizarAlertasBulk_` faziam 1 leitura + 1 escrita
-> **por item** num loop, em vez de 1 leitura + 1 escrita pro lote inteiro
-> (helpers `updateRowsBulk`/`updateRowsBulkPerRow` já existiam, só não eram
-> usados aqui). (3) Preload/cache client-side inconsistente: `Shell.html` já
-> pré-carrega ~10 domínios em paralelo ao abrir o app
-> (`window.__DataStore.preFetch`), mas Carteira Shopee e Shopee Ads nunca
-> entravam na lista, e Pedidos mostrava o cache por um instante mas sempre
-> refazia a chamada ao backend de qualquer jeito (preload desperdiçado) —
-> agora as 4 páginas seguem o mesmo padrão de skip-fetch real de
-> Catálogo/Estoque.
->
-> **Limpeza de código morto (09/08/2026):** auditoria completa não achou
-> arquivo órfão em `src/**` (bate 1:1 com `filePushOrder` do `.clasp.json`),
-> mas achou um segundo caso de widget fantasma
-> (`EstoquePrecoBulkView.html`/`EstoquePrecoService.js`, ver seção 3
-> "Removidos" acima) e várias referências mortas em documentação (spec
-> arquivada sem marcar `Status: Removed`, links pra `listings.md` num
-> caminho que não existe mais, `README.md` citando "Listings" como serviço
-> ativo) — todas corrigidas nesta mesma revisão.
->
-> **`docs/historico/` eliminada por completo (09/08/2026):** pedido do
-> usuário para deixar o projeto enxuto — planos/specs antigos já
-> superados/removidos não ficam mais guardados numa pasta separada, o
-> resumo de "o que foi removido e por quê" vive só aqui no `PLANO.md`
-> (seção 3, "Removidos", acima) e no `AGENTS.md` (tabela de riscos
-> conhecidos). Removidos: `docs/historico/` inteira (ROADMAP_Executivo.md
-> e Phase1_Implementation_Guide.md — planejamento do MVP antigo em
-> planilha+Bling, arquitetura totalmente diferente da atual; specs
-> arquivadas de Anúncios/Listings e Atualização de Preço em Lote — corpo
-> completo já não agregava nada além do resumo que já está aqui),
-> `docs/DESIGN_SYSTEM.md` (paleta de cores não batia mais com o sistema de
-> tokens real em `ui/shared/Styles.html`, era plano de design anterior já
-> superado) e `docs/referencia/catalogo_mercado_livre.md` (checklist manual
-> de 17 produtos específicos pra listar no ML, tarefa pontual já
-> presumivelmente executada, não é playbook técnico reutilizável como o
-> resto de `docs/referencia/`).
+> Histórico de bugs corrigidos, otimizações de performance e limpezas de
+> código morto/documentação fica no log de commits do git, não aqui —
+> lições que viram regra permanente estão em `AGENTS.md`/`specs/ARQUITETURA.md`;
+> precedentes concretos que valem como aviso ficam na tabela de riscos
+> (seção 6, abaixo).
 
 ### Fase 0 — Fundação + pipeline de sincronização (/dev)
 
-Entregue no código: `.clasp.json`, `appsscript.json`, `ConfigService`,
-repositórios, `ServiceRegistry`, `Router`, Shell + design tokens, `AGENTS.md`,
-workflow do GitHub Actions (apenas push automático, deploy manual).
-
-**Critério de aceite:**
-- [ ] Push na `main` dispara o workflow e ele termina verde.
-- [ ] Você roda `clasp deploy --description "v0 — fundacao"` manualmente.
-- [ ] A URL do Web App abre e o Shell renderiza com os tokens aplicados.
-- [ ] `curl "<url>?action=ping"` devolve `{"pong":true,...}`.
-- [ ] `apiDispatch('ping', {})` funciona pelo console do navegador.
+Validada — `.clasp.json`, `appsscript.json`, `ConfigService`, repositórios,
+`ServiceRegistry`, `Router`, Shell + design tokens, CI/CD (ver
+`specs/ARQUITETURA.md` § CI e Deploy).
 
 ### Fase 1 — Precificação
 
-**Critério de aceite:**
-- [ ] `runSmokeTests_()` roda no editor sem lançar erro.
-- [ ] Shopee, custo 50, margem 25% → R$ 90,91.
-- [ ] Mercado Livre, custo 50, margem 25% → R$ 91,80.
-- [ ] Margem de 85% na Shopee devolve erro de negócio, não preço absurdo.
-- [ ] Os mesmos números batem com a sua planilha manual original.
+Validada — `runSmokeTests_()` (`src/99_Main.js`) cobre os cenários Shopee/ML
+e o caso de margem inviável.
 
 ### Fase 2 — Dashboard
 
@@ -257,15 +168,10 @@ workflow do GitHub Actions (apenas push automático, deploy manual).
 
 ### Fase 4 — Catálogo
 
-**Critério de aceite:**
-- [x] `catalog.getProducts()` retorna produtos únicos de NFE_ENTRADA_PRODUTOS com status='Recebido', agrupados por código.
-- [x] Produto que aparece em 3 NFes mostra 1 linha com custo mais recente (maior DATA_EMISSAO).
-- [x] `catalog.getProductByCode()` retorna histórico completo (todas as 3 entradas).
-- [x] Preço sugerido para cada marketplace bate com PricingService.calculateSuggestedPrice() (mesma margem).
-- [x] Clique no preço sugerido abre sidebar com memória de cálculo passo-a-passo.
-- [x] Ordenação por código, descrição, custo e preço sugerido funciona crescente e decrescente.
-- [x] Margem exibida reflete a retenção real após taxa do marketplace (ex.: 20% Shopee → margem líquida < margem alvo).
-- [x] Aba NFE_ENTRADA_PRODUTOS vazia retorna lista vazia, não erro.
+Critérios de aceite todos cobertos (agrupamento por código, preço sugerido
+via `PricingService`, memória de cálculo, ordenação, margem líquida real,
+lista vazia sem erro) — pendente só marcar "Validado" na tabela acima após
+uso real confirmar.
 
 ### Fase 5 — Anúncios
 
@@ -296,47 +202,11 @@ Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.
 
 ### Fase 8 — Calculadora PrecificaPro
 
-**Como foi desenvolvida (histórico, 08/08/2026):**
-1. Engenharia reversa das taxas Shopee com 11 pedidos `COMPLETED` reais
-   (dados brutos no histórico do git) → correção formal em
-   `ConfigService.getShopeeFeeModel`/`PricingService.calculateSuggestedPrice`.
-2. Primeira tentativa: widget dedicado novo (`PricingView.html`) —
-   descoberto **nunca montado no Shell**, órfão, inacessível ao usuário.
-3. Usuário pediu **uma única calculadora**: o widget novo foi removido; o
-   modelo Shopee validado foi incorporado na calculadora já existente
-   (`CalculatorService.calculate`/`CalculatorView.html`, botão 🧮), que
-   antes só suportava Mercado Livre.
-4. Usuário pediu os dois modos de cálculo explícitos (custo→preço e
-   preço→líquido) — já existiam implicitamente (campo Preço de Venda vazio
-   vs. preenchido), viraram um seletor visível ("Formador de Preço" /
-   "Receita Líquida").
-5. **Bug real encontrado e corrigido**: `.calc-form-row[hidden]` não
-   escondia nada — mesma especificidade CSS que o `[hidden]` padrão do
-   browser, regra de autor vencia. Seções de Shopee e ML apareciam juntas
-   sempre. Confirmado renderizando o widget via Playwright/Chromium
-   headless (não só leitura de código) antes e depois do fix.
-6. Ajustes finos: Imposto Simples default 0% (era 6%), botão Mercado Livre
-   com azul da marca (token `--color-mercado-livre-blue` novo).
-7. **Investigado e descartado**: um vídeo/artigo de terceiros alegando nova
-   tabela de comissão Shopee escalonada por preço (idêntica à tabela ML já
-   existente no projeto) a partir de 01/03/2026 — contradito pelos 11
-   pedidos reais (18%/12% consistente em toda a faixa R$29,99–R$299,00,
-   nunca 20%/14%). Não aplicado à calculadora; retomar em
-   `ConfigService.getShopeeFeeModel` se dados futuros confirmarem a mudança.
-
-**Critério de aceite:**
-- [x] Floater aparece no canto superior direito (botão 🧮), acessível de qualquer página.
-- [x] Clique abre modal calculadora em tela cheia.
-- [x] Seletor de marketplace (Shopee/Mercado Livre) troca as taxas e os campos específicos do canal.
-- [x] Seletor de modo (Formador de Preço/Receita Líquida) troca Margem↔Preço de Venda e o cabeçalho do resultado.
-- [x] Digitar custo + margem → preço sugerido aparece em <500ms.
-- [x] Cenário básico ML (custo R$100, margem 20%, CNPJ, faixa R$100–199): preço confere com cálculo manual.
-- [x] Cenário básico Shopee (custo R$50, margem 20%, cartão à vista): preço R$90,00, confere com o motor de `PricingService`.
-- [x] Vendedor iniciante (ML): sem taxa (0% + R$0).
-- [x] Todos os 10 cenários Given/When/Then (ML + Shopee) cobertos em `runCalculatorSmokeTests_()` (`src/99_Main.js`) passam — pendente rodar no editor real do Apps Script.
-- [x] Avisos aparecem (low margin <10%, negative profit, high ads, margin unreachable).
-- [x] Responsivo em mobile (95vw) e desktop (~600px).
-- [x] Descomposição visual de preço (árvore de deduções) clara, com rótulos dinâmicos por canal.
+Validada — calculadora única (Shopee + ML) via `CalculatorService.calculate`,
+com os 10 cenários Given/When/Then cobertos em `runCalculatorSmokeTests_()`
+(`src/99_Main.js`). Histórico de como chegou a esse formato (tentativa de
+widget dedicado descartada, bug de CSS `[hidden]`) está no log de commits e,
+como lição permanente, na tabela de riscos (seção 6).
 
 ### Shopee Ads — Gestão de Anúncios Pagos
 
@@ -370,8 +240,9 @@ Contratos da Tiops já verificados contra a API real ficam em
 [`docs/referencia/CONTRATOS_CONFIRMADOS.md`](./docs/referencia/CONTRATOS_CONFIRMADOS.md)
 — consulte antes de gastar uma chamada de catálogo.
 
-> ⚠️ O token da conta do **Mercado Livre** na Tiops expira em **02/08/2026**.
-> Se as chamadas de ML falharem com erro de autenticação, reconecte a conta em
+> ⚠️ O token da conta do **Mercado Livre** na Tiops expirou em 02/08/2026 (ver
+> validade atual em `docs/referencia/CONTRATOS_CONFIRMADOS.md`). Se as
+> chamadas de ML falharem com erro de autenticação, reconecte a conta em
 > <https://marketplaces.tiops.com.br> antes de investigar o código.
 
 ---
@@ -382,7 +253,7 @@ Contratos da Tiops já verificados contra a API real ficam em
 |---|---|
 | Agente inventar nome/params de ação da Tiops | skill `tiops-contract` — confirmar em `list_actions`/`describe_action` antes de codar |
 | Dois agentes divergirem de convenção | `AGENTS.md` é fonte única; `CLAUDE.md` só aponta para ele |
-| Update de marketplace "dar OK" sem ter aplicado | releitura obrigatória — regra em `AGENTS.md` e nas specs 4 e 5 |
+| Update de marketplace "dar OK" sem ter aplicado | releitura obrigatória — regra em `AGENTS.md`, aplicada hoje em `AnunciosShopeeService`/`EstoqueService` |
 | Colisão de nome no escopo global do GAS | um `var Namespace` por arquivo, pastas numeradas |
 | API key vazar em commit | só em Script Properties; skill `gas-ops` checa antes do push |
 | Fonte externa (vídeo/artigo) sobre taxa de marketplace desatualizada ou errada | sempre validar contra pedidos `COMPLETED` reais da conta antes de mudar a calculadora — caso concreto: vídeo alegando tabela Shopee escalonada (idêntica à do ML) foi contradito por 11 pedidos reais (ver histórico do git e `ConfigService.js`) |
