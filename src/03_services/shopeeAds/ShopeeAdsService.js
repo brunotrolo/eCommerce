@@ -197,7 +197,7 @@ var ShopeeAdsService = (function () {
         var br = batchResults[i];
         if (br && !br.error && br.data) {
           var perf = br.data.response || br.data;
-          var perfData = perf.performance_list || perf.data || [];
+          var perfData = Array.isArray(perf) ? perf : (perf.performance_list || perf.data || []);
           if (Array.isArray(perfData) && perfData.length > 0) {
             // Agrega os últimos 7 dias
             var agg = aggregatePerformance_(perfData);
@@ -234,9 +234,9 @@ var ShopeeAdsService = (function () {
       var d = perfData[i];
       result.impressions += Number(d.impressions || d.impression || 0);
       result.clicks += Number(d.clicks || d.click || 0);
-      result.cost += Number(d.cost || d.spend || d.total_cost || 0);
-      result.revenue += Number(d.revenue || d.sales || d.gmv || 0);
-      result.conversions += Number(d.conversions || d.conversion || 0);
+      result.cost += Number(d.cost || d.expense || d.spend || d.total_cost || 0);
+      result.revenue += Number(d.revenue || d.broad_gmv || d.direct_gmv || d.gmv || d.sales || 0);
+      result.conversions += Number(d.broad_order || d.direct_order || d.conversions || d.conversion || 0);
     }
     result.ctr = result.impressions > 0 ? Math.round((result.clicks / result.impressions) * 10000) / 100 : 0;
     result.cvr = result.clicks > 0 ? Math.round((result.conversions / result.clicks) * 10000) / 100 : 0;
