@@ -286,6 +286,7 @@ var ShopeeAdsService = (function () {
     var sheetId = getSheetId_();
     var filtro = params && params.status ? { status: params.status } : null;
     var campanhas = ShopeeAdsRepository.getCampanhas(sheetId, filtro);
+    console.log('[ShopeeAdsService] getCampaigns: sheetId=%s, forceFresh=%s, campanhas.length=%s', sheetId, params.forceFresh, campanhas.length);
 
     var resumo = {
       total: campanhas.length,

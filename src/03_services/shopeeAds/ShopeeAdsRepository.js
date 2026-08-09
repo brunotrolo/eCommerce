@@ -111,6 +111,7 @@ var ShopeeAdsRepository = (function () {
     var novos = 0, atualizados = 0;
     var errors = [];
     var now = nowBR_();
+    console.log('[ShopeeAdsRepo] syncCampanhas: sheetName=%s, sheetId=%s, sheetLastRow=%s, campanhas.length=%s, colMap=%s', CAMPANHAS_SHEET, sheetId, sheet.getLastRow(), campanhas.length, JSON.stringify(colMap));
 
     for (var i = 0; i < campanhas.length; i++) {
       var c = campanhas[i] || {};
@@ -168,7 +169,10 @@ var ShopeeAdsRepository = (function () {
 
   function getCampanhas(sheetId, filtro) {
     var sheet = getOrCreateSheet_(sheetId, CAMPANHAS_SHEET, CAMPANHAS_HEADERS);
+    var lastRow = sheet.getLastRow();
+    var lastCol = sheet.getLastColumn();
     var rows = rowsToObjects_(sheet);
+    console.log('[ShopeeAdsRepo] getCampanhas: sheetName=%s, lastRow=%s, lastCol=%s, rowsReturned=%s', CAMPANHAS_SHEET, lastRow, lastCol, rows.length);
     if (filtro && filtro.status && filtro.status !== 'all') {
       var st = filtro.status.toUpperCase();
       rows = rows.filter(function (r) {
