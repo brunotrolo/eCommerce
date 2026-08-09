@@ -129,22 +129,19 @@ var ShopeeAdsService = (function () {
     return 'shopee_ads_' + name;
   }
 
-  function getFromCache_(key, ttl) {
-    var cache = CacheService.getScriptCache();
-    var raw = cache.get(key);
-    if (!raw) return null;
-    try { return JSON.parse(raw); } catch (e) { return null; }
+  function getFromCache_(key) {
+    return CacheRepository.get(key);
   }
 
   function setCache_(key, data, ttl) {
-    var cache = CacheService.getScriptCache();
-    cache.put(key, JSON.stringify(data), ttl);
+    CacheRepository.set(key, data, ttl);
   }
 
   function invalidateCache_() {
-    var cache = CacheService.getScriptCache();
-    var keys = ['shopee_ads_campanhas', 'shopee_ads_balance', 'shopee_ads_performance'];
-    cache.removeAll(keys);
+    // Todas as chaves deste serviço nascem de cacheKey_() ('shopee_ads_' + nome),
+    // inclusive as dinâmicas por campanha/item (performance_<id>, visitas_<id>) —
+    // um único padrão cobre todas, sem precisar listar cada uma.
+    CacheRepository.invalidateByPattern('shopee_ads_');
   }
 
   // --- Ações ---

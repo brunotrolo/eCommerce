@@ -218,12 +218,6 @@
           toggleDetail_(shadow, id);
         });
 
-        var ds = window.__DataStore;
-        var cached = ds && ds.get('orders.all.30');
-        var ordersData = cached && (cached.orders || (cached.data && cached.data.orders));
-        if (ordersData) {
-          renderRows(shadow, ordersData);
-        }
         this._load(shadow, false);
       }
 
@@ -235,6 +229,13 @@
         var self = this;
 
         if (force && ds) ds.invalidate(cacheKey);
+
+        if (!force && ds && ds.has(cacheKey)) {
+          var cached = ds.get(cacheKey);
+          self._orders = (cached && cached.orders) || [];
+          renderRows(shadow, self._orders);
+          return;
+        }
 
         withLoading(
           shadow.getElementById('btn-refresh'),

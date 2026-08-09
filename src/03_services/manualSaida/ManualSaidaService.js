@@ -142,7 +142,7 @@ var ManualSaidaService = (function () {
     CacheRepository.invalidateByPattern('frontend.');
     CacheRepository.invalidateByPattern('catalog_');
     CacheRepository.invalidateByPattern('estoque.');
-    CacheRepository.invalidateByPattern('dashboard.');
+    CacheRepository.invalidateByPattern('dashboard_');
 
     var estoqueRestante = _getEstoqueDisponivel(sheetId, params.codigoProduto);
 

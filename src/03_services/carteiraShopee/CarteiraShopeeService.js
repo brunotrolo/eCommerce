@@ -128,7 +128,7 @@ var CarteiraShopeeService = (function () {
     // Invalida cache e grava snapshot fresco
     CacheRepository.remove(CACHE_KEY);
     CacheRepository.set(CACHE_KEY, { snapshot: dados, computedEm: timestamp }, CACHE_TTL_SECONDS);
-    CacheRepository.invalidateByPattern('dashboard.');
+    CacheRepository.invalidateByPattern('dashboard_');
 
     return { success: errors.length === 0, synced: synced, dados: dados, errors: errors };
   }
