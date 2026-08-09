@@ -194,13 +194,15 @@ var EstoqueService = (function () {
 
   function atualizarAlertas_(sheetId, codigoProduto) {
     var items = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto);
+    var pending = [];
     for (var i = 0; i < items.length; i++) {
       var isLast = items.length === 1;
       if (items[i].ALERTA_ESTOQUE_BAIXO !== isLast) {
-        EstoqueRepository.updateRow(sheetId, items[i].ESTOQUE_ID, {
-          alertaEstoqueBaixo: isLast
-        });
+        pending.push({ id: items[i].ESTOQUE_ID, updates: { alertaEstoqueBaixo: isLast } });
       }
+    }
+    if (pending.length > 0) {
+      EstoqueRepository.updateRowsBulkPerRow(sheetId, pending);
     }
   }
 
@@ -223,10 +225,11 @@ var EstoqueService = (function () {
         }
       }
     }
-    for (var u = 0; u < toUpdate.length; u++) {
-      EstoqueRepository.updateRow(sheetId, toUpdate[u].estoqueId, {
-        alertaEstoqueBaixo: toUpdate[u].alertaEstoqueBaixo
+    if (toUpdate.length > 0) {
+      var pending = toUpdate.map(function (u) {
+        return { id: u.estoqueId, updates: { alertaEstoqueBaixo: u.alertaEstoqueBaixo } };
       });
+      EstoqueRepository.updateRowsBulkPerRow(sheetId, pending);
     }
     return { updated: toUpdate.length };
   }
@@ -786,21 +789,26 @@ var EstoqueService = (function () {
 
     if (precosChanged && codigoProduto) {
       var itemsDisponiveis = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto);
+      var bulkUpdates = {};
+      if (updates.precoVendaShopee !== undefined) {
+        bulkUpdates.precoVendaShopee = updates.precoVendaShopee;
+        bulkUpdates.margemShopee = updates.margemShopee;
+      }
+      if (updates.precoVendaMercadoLivre !== undefined) {
+        bulkUpdates.precoVendaMercadoLivre = updates.precoVendaMercadoLivre;
+        bulkUpdates.margemMercadoLivre = updates.margemMercadoLivre;
+      }
+      var idsParaPropagar = [];
       for (var j = 0; j < itemsDisponiveis.length; j++) {
         var item = itemsDisponiveis[j];
         if (String(item.ESTOQUE_ID || '').trim() === estoqueId) continue;
-
-        var bulkUpdates = {};
-        if (updates.precoVendaShopee !== undefined) {
-          bulkUpdates.precoVendaShopee = updates.precoVendaShopee;
-          bulkUpdates.margemShopee = updates.margemShopee;
-        }
-        if (updates.precoVendaMercadoLivre !== undefined) {
-          bulkUpdates.precoVendaMercadoLivre = updates.precoVendaMercadoLivre;
-          bulkUpdates.margemMercadoLivre = updates.margemMercadoLivre;
-        }
-        EstoqueRepository.updateRow(sheetId, item.ESTOQUE_ID, bulkUpdates);
-        totalUpdated++;
+        idsParaPropagar.push(item.ESTOQUE_ID);
+      }
+      if (idsParaPropagar.length > 0) {
+        // Mesmo update (mesmo preço/margem) para todos os itens DISPONÍVEL do
+        // produto — updateRowsBulk faz 1 leitura + 1 escrita em vez de N.
+        EstoqueRepository.updateRowsBulk(sheetId, idsParaPropagar, bulkUpdates);
+        totalUpdated += idsParaPropagar.length;
       }
     }
 
