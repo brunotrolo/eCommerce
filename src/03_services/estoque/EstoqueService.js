@@ -134,10 +134,21 @@ var EstoqueService = (function () {
     return 'EST-' + date + '-' + String(seq).padStart(3, '0');
   }
 
-  function calcularMargem_(precoVenda, precoCusto) {
+  /**
+   * Motor único de margem — sempre via PricingService.calculateNetMargin,
+   * nunca (preço-custo)/preço bruto. Mesma função de EstoquePrecoService.js
+   * (não duplicar a fórmula, só a chamada). Ver specs/pricing.md.
+   * @param {string} marketplace 'shopee' | 'mercado_livre'
+   */
+  function calcularMargem_(precoVenda, precoCusto, marketplace) {
     if (!precoVenda || precoVenda === 0) return '';
-    var margem = ((precoVenda - precoCusto) / precoVenda) * 100;
-    return Math.round(margem * 100) / 100;
+    var result = PricingService.calculateNetMargin({
+      salePrice: precoVenda,
+      unitCost: precoCusto,
+      marketplace: marketplace
+    });
+    if (result.error) return '';
+    return Math.round(result.netMarginPct * 10000) / 100;
   }
 
   function verificarAlertaEstoqueBaixo_(sheetId, codigoProduto) {
@@ -697,7 +708,7 @@ var EstoqueService = (function () {
       var novoPreco = parseFloat(params.precoVendaShopee) || 0;
       updates.precoVendaShopee = novoPreco;
       var custo = parseFloat(targetItem.PRECO_CUSTO_ORIGINAL) || 0;
-      updates.margemShopee = calcularMargem_(novoPreco, custo);
+      updates.margemShopee = calcularMargem_(novoPreco, custo, 'shopee');
       precosChanged = true;
     }
 
@@ -705,7 +716,7 @@ var EstoqueService = (function () {
       var novoPrecoML = parseFloat(params.precoVendaMercadoLivre) || 0;
       updates.precoVendaMercadoLivre = novoPrecoML;
       var custoML = parseFloat(targetItem.PRECO_CUSTO_ORIGINAL) || 0;
-      updates.margemMercadoLivre = calcularMargem_(novoPrecoML, custoML);
+      updates.margemMercadoLivre = calcularMargem_(novoPrecoML, custoML, 'mercado_livre');
       precosChanged = true;
     }
 
@@ -840,13 +851,13 @@ var EstoqueService = (function () {
         var atualShopee = item.PRECO_VENDA_SHOPEE === '' || item.PRECO_VENDA_SHOPEE == null ? 0 : parseFloat(item.PRECO_VENDA_SHOPEE) || 0;
         if (preco.precoShopee > 0 && Math.abs(atualShopee - preco.precoShopee) > 0.001) {
           updates.precoVendaShopee = preco.precoShopee;
-          updates.margemShopee = calcularMargem_(preco.precoShopee, custo);
+          updates.margemShopee = calcularMargem_(preco.precoShopee, custo, 'shopee');
         }
 
         var atualML = item.PRECO_VENDA_MERCADO_LIVRE === '' || item.PRECO_VENDA_MERCADO_LIVRE == null ? 0 : parseFloat(item.PRECO_VENDA_MERCADO_LIVRE) || 0;
         if (preco.precoMercadoLivre > 0 && Math.abs(atualML - preco.precoMercadoLivre) > 0.001) {
           updates.precoVendaMercadoLivre = preco.precoMercadoLivre;
-          updates.margemMercadoLivre = calcularMargem_(preco.precoMercadoLivre, custo);
+          updates.margemMercadoLivre = calcularMargem_(preco.precoMercadoLivre, custo, 'mercado_livre');
         }
 
         if (Object.keys(updates).length > 0) {
@@ -937,8 +948,8 @@ var EstoqueService = (function () {
     var codes = Object.keys(grouped);
     for (var k = 0; k < codes.length; k++) {
       var g2 = grouped[codes[k]];
-      g2.margemShopee = calcularMargem_(g2.precoVendaShopee, g2.precoCustoMaisRecente);
-      g2.margemMercadoLivre = calcularMargem_(g2.precoVendaMercadoLivre, g2.precoCustoMaisRecente);
+      g2.margemShopee = calcularMargem_(g2.precoVendaShopee, g2.precoCustoMaisRecente, 'shopee');
+      g2.margemMercadoLivre = calcularMargem_(g2.precoVendaMercadoLivre, g2.precoCustoMaisRecente, 'mercado_livre');
       g2.dataUltimaAtualizacao = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
       result.push(g2);
     }
