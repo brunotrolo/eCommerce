@@ -54,45 +54,45 @@ tabela lista os domínios adicionados depois, todos com spec
 `Approved`/`Implemented` e código rodando em produção hoje (auditoria de
 09/08/2026, ver "Estado real de hoje" abaixo).
 
-| # | Domínio | Spec | O que entrega |
+| # | Domínio | Serviço | O que entrega |
 |---|---|---|---|
-| 1 | **Precificação** | `specs/pricing.md` | Preço sugerido por canal a partir de custo + margem, descontando taxa. Comparativo Shopee × ML lado a lado. Motor interno (sem página própria), consumido por Calculadora/Catálogo/Estoque. |
-| 2 | **Dashboard** | `specs/dashboard.md` | Visão única: pedidos recentes, receita, estoque baixo. Cache de 5 min. |
-| 3 | **Pedidos** | `specs/orders.md` | Lista unificada dos dois canais em shape normalizado + detalhe do pedido. |
-| 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. |
-| 5 | ~~**Anúncios**~~ | ~~`specs/listings.md`~~ | ~~Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação.~~ **Removida 09/08/2026** — página sem utilidade excluída do projeto. Substituída na prática pelo domínio **Anúncios Shopee** da tabela abaixo. |
-| 6 | ~~Preço & Estoque~~ | `specs/inventory-pricing.md` | ~~Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo.~~ **Removida** — página e serviço legacy excluídos; regras de preço/estoque seguem em `specs/pricing.md` e `estoque.md`. |
-| 8 | **Calculadora PrecificaPro** | `specs/calculator.md` | Calculadora interativa **única** do app (Shopee + Mercado Livre) com widget flutuante (modal), botão 🧮 no topo. Dois seletores: canal (Shopee/ML) e modo (Formador de Preço custo→preço, ou Receita Líquida preço→líquido). Shopee usa o modelo de taxa validado por engenharia reversa de pedidos reais (`specs/calculator-shopee.md`); ML mantém sua tabela por faixa/regime, inalterada. |
+| 1 | **Precificação** | `src/03_services/pricing/PricingService.js` | Preço sugerido por canal a partir de custo + margem, descontando taxa. Comparativo Shopee × ML lado a lado. Motor interno (sem página própria), consumido por Calculadora/Catálogo/Estoque. |
+| 2 | **Dashboard** | `src/03_services/dashboard/DashboardService.js` | Visão única: pedidos recentes, receita, estoque baixo. Cache de 5 min. |
+| 3 | **Pedidos** | `src/03_services/orders/OrdersService.js` | Lista unificada dos dois canais em shape normalizado + detalhe do pedido. |
+| 4 | **Catálogo** | `src/03_services/catalog/CatalogService.js` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. |
+| 5 | ~~**Anúncios**~~ | — | ~~Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação.~~ **Removida 09/08/2026** — página sem utilidade excluída do projeto. Substituída na prática pelo domínio **Anúncios Shopee** da tabela abaixo. |
+| 6 | ~~Preço & Estoque~~ | — | ~~Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo.~~ **Removida** — página e serviço legacy excluídos; regras de preço/estoque seguem em `PricingService`/`EstoqueService`. |
+| 8 | **Calculadora PrecificaPro** | `src/03_services/calculator/CalculatorService.js` | Calculadora interativa **única** do app (Shopee + Mercado Livre) com widget flutuante (modal), botão 🧮 no topo. Dois seletores: canal (Shopee/ML) e modo (Formador de Preço custo→preço, ou Receita Líquida preço→líquido). Shopee usa o modelo de taxa validado por engenharia reversa de pedidos reais; ML mantém sua tabela por faixa/regime, inalterada. |
 
 ### Domínios adicionados após o escopo inicial (todos ativos em produção)
 
-| Domínio | Spec | O que entrega |
+| Domínio | Serviço | O que entrega |
 |---|---|---|
-| **Estoque (unidades FIFO)** | `specs/estoque.md` (Implemented) | Rastreamento unitário FIFO por unidade, alimentado por NFe/Manual, preços/margens recalculáveis via motor único. **Fluxo funcional central do app hoje.** |
-| Baixa de Estoque | `specs/estoque-baixa.md` (Approved) | Motor interno: dá baixa FIFO nas unidades vendidas a partir de pedidos importados/reprocessados; sem página própria. |
-| NFe Entrada | `specs/nfe-entrada.md` (Approved) | Sincroniza NFes do Drive, marca como processadas. |
-| NFe Entrada Produtos | `specs/nfe-entrada-produtos.md` (Approved) | Extrai produtos de cada NFe (com rateio de desconto/outros via `specs/discount-rateio.md`), alimenta Catálogo e Estoque. |
-| Manual Entrada | `specs/manual-entrada.md` (Implemented) | Entrada de estoque sem NFe (compra direta, brinde, ajuste). |
-| Manual Saída | `specs/manual-saida.md` (Approved) | Saída de estoque sem venda (perda, brinde, ajuste), com baixa FIFO automática. |
-| Carteira Shopee | `specs/carteira-shopee.md` (Approved) | Saldo, extrato e histórico de repasses da carteira Shopee. |
-| Anúncios Shopee | `specs/anuncios-shopee.md` (Implemented) | Sincroniza, lista, atualiza preço/estoque de anúncios Shopee direto pela Tiops. |
-| Shopee Ads | `specs/shopee-ads.md` (Approved) | Gestão de campanhas de anúncios pagos: saldo, campanhas, performance, pausar/retomar/encerrar, visitas/conversão. |
+| **Estoque (unidades FIFO)** | `src/03_services/estoque/EstoqueService.js` | Rastreamento unitário FIFO por unidade, alimentado por NFe/Manual, preços/margens recalculáveis via motor único. **Fluxo funcional central do app hoje.** |
+| Baixa de Estoque | `src/03_services/estoque/EstoqueBaixaService.js` | Motor interno: dá baixa FIFO nas unidades vendidas a partir de pedidos importados/reprocessados; sem página própria. |
+| NFe Entrada | `src/03_services/nfeEntrada/NFeEntradaService.js` | Sincroniza NFes do Drive, marca como processadas. |
+| NFe Entrada Produtos | `src/03_services/nfeEntradaProdutos/NFeEntradaProdutosService.js` | Extrai produtos de cada NFe (com rateio de desconto/outros), alimenta Catálogo e Estoque. |
+| Manual Entrada | `src/03_services/manualEntrada/ManualEntradaService.js` | Entrada de estoque sem NFe (compra direta, brinde, ajuste). |
+| Manual Saída | `src/03_services/manualSaida/ManualSaidaService.js` | Saída de estoque sem venda (perda, brinde, ajuste), com baixa FIFO automática. |
+| Carteira Shopee | `src/03_services/carteiraShopee/CarteiraShopeeService.js` | Saldo, extrato e histórico de repasses da carteira Shopee. |
+| Anúncios Shopee | `src/03_services/anunciosShopee/AnunciosShopeeService.js` | Sincroniza, lista, atualiza preço/estoque de anúncios Shopee direto pela Tiops. |
+| Shopee Ads | `src/03_services/shopeeAds/ShopeeAdsService.js` | Gestão de campanhas de anúncios pagos: saldo, campanhas, performance, pausar/retomar/encerrar, visitas/conversão. |
 
 ### Motores internos (sem página própria)
 
-- `specs/pricing.md` (Implemented) — `PricingService`, motor único de sugestão de preço e margem.
-- `specs/sku.md` (Approved) — `SkuService`, categoria/label de produto.
-- `specs/push-notification.md` (Approved, mas **INATIVO**) — webhook Shopee, aguarda app próprio na Shopee Open Platform (Tiops detém as credenciais hoje).
+- `PricingService` — motor único de sugestão de preço e margem.
+- `SkuService` — categoria/label de produto.
+- `PushNotificationService` (mas **INATIVO**) — webhook Shopee, aguarda app próprio na Shopee Open Platform (Tiops detém as credenciais hoje).
 
 ### Specs em Draft, sem código ainda
 
-- `specs/estoque-baixa-shopee.md`, `specs/produto-anuncio-map.md` — auto-declaradas Draft, sem implementação. Não pular a aprovação antes de codar (regra nº 1 do `AGENTS.md`).
+- `specs/estoque-baixa-shopee.md`, `specs/produto-anuncio-map.md` — auto-declaradas Draft, sem implementação (únicas specs de domínio que sobreviveram à consolidação de 09/08/2026 — ver "Estado real de hoje" — por serem trabalho futuro, não histórico). Não pular a aprovação antes de codar (regra nº 1 do `AGENTS.md`).
 
 ### Removidos
 
-- **Anúncios** (era `specs/listings.md`, Removido 09/08/2026) — página sem utilidade excluída; substituída na prática pelo domínio **Anúncios Shopee**.
-- **Preço & Estoque** (`specs/inventory-pricing.md`, Removido) — spec mantida em `specs/` com `Status: Removed` porque ainda serve de referência de regras de preço/estoque (ver arquivo).
-- **Atualização de Preço em Estoque em lote** (era `specs/estoque-preco-update.md`, Removido 09/08/2026) — `EstoquePrecoBulkView.html` nunca foi conectado ao Shell (widget fantasma, mesmo problema do `PricingView.html` original) e tinha um bug de prefixo de ação que a impediria de funcionar mesmo se estivesse acessível. Funcionalidade equivalente (propagação de preço/margem pra todos os itens `DISPONÍVEL` do produto) já existe em `estoque.updateItem`.
+- **Anúncios** (Removido 09/08/2026) — página sem utilidade excluída; substituída na prática pelo domínio **Anúncios Shopee**.
+- **Preço & Estoque** (Removido) — página e serviço legacy excluídos; regras de preço/estoque seguem em `PricingService`/`EstoqueService`.
+- **Atualização de Preço em Estoque em lote** (Removido 09/08/2026) — `EstoquePrecoBulkView.html` nunca foi conectado ao Shell (widget fantasma, mesmo problema do `PricingView.html` original) e tinha um bug de prefixo de ação que a impediria de funcionar mesmo se estivesse acessível. Funcionalidade equivalente (propagação de preço/margem pra todos os itens `DISPONÍVEL` do produto) já existe em `estoque.updateItem`.
 
 ---
 
@@ -131,8 +131,8 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > substituído por um modelo de 2 componentes (comissão 18% cartão-à-vista /
 > 12% Pix-ou-parcelado + taxa de serviço 2%+R$4/item+R$16 promo), derivado
 > por engenharia reversa de **11 pedidos `COMPLETED` reais** da conta,
-> validado com <1% de erro médio (`specs/calculator-shopee.md`). ML segue
-> com sua tabela por faixa/regime, não revisada com dados reais ainda.
+> validado com <1% de erro médio. ML segue com sua tabela por faixa/regime,
+> não revisada com dados reais ainda.
 > Fases 0, 1 e 8 foram validadas por cálculos/smoke executados. As demais
 > fases dependem de dado real dos marketplaces via Tiops e/ou de acesso ao
 > editor Apps Script (`runSmokeTests_`) — pendente de validação manual
@@ -148,9 +148,8 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > duas cópias de `calcularMargem_` agora delegam para lá. Bug adjacente
 > também corrigido: alerta de prejuízo comparava preço bruto vs. custo, não
 > o líquido pós-taxas — um preço nominalmente acima do custo podia esconder
-> prejuízo real. Ver `specs/pricing.md`, `specs/estoque.md` (a spec da
-> feature de atualização de preço em lote foi removida em 09/08/2026 — ver
-> nota acima).
+> prejuízo real. Ver `PricingService.js`/`EstoqueService.js` (a feature de
+> atualização de preço em lote foi removida em 09/08/2026 — ver nota acima).
 >
 > **Botão "Recalcular Preços de Venda" (antes "Sincronizar Preços
 > Catálogo", 09/08/2026):** pedido do usuário para o motor "sempre
@@ -165,11 +164,11 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > tinha sua própria cópia da fórmula, divergindo do preço real mostrado na
 > linha do produto — corrigido para delegar também.
 >
-> **Webhook Shopee:** código implementado e testado (PushNotificationService,
-> specs/push-notification.md), mas **inativo** — a Tiops detém as credenciais
-> de API da loja, logo os pushes vão para a callback URL da Tiops, não para
-> nós. Para ativar, o usuário precisa criar app próprio na Shopee Open
-> Platform e migrar as credenciais (ver seção "Refatoração Futura" na spec).
+> **Webhook Shopee:** código implementado e testado
+> (`PushNotificationService.js`), mas **inativo** — a Tiops detém as
+> credenciais de API da loja, logo os pushes vão para a callback URL da
+> Tiops, não para nós. Para ativar, o usuário precisa criar app próprio na
+> Shopee Open Platform e migrar as credenciais.
 >
 > **Otimização de performance (09/08/2026, PR #28):** auditoria de
 > performance encontrou 3 classes de problema, todas corrigidas. (1) Bugs de
@@ -298,10 +297,9 @@ Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.
 ### Fase 8 — Calculadora PrecificaPro
 
 **Como foi desenvolvida (histórico, 08/08/2026):**
-1. Engenharia reversa das taxas Shopee com 11 pedidos `COMPLETED` reais →
-   `specs/calculator-shopee.md` (dados brutos) → correção formal em
-   `specs/pricing.md` (`ConfigService.getShopeeFeeModel`,
-   `PricingService.calculateSuggestedPrice`).
+1. Engenharia reversa das taxas Shopee com 11 pedidos `COMPLETED` reais
+   (dados brutos no histórico do git) → correção formal em
+   `ConfigService.getShopeeFeeModel`/`PricingService.calculateSuggestedPrice`.
 2. Primeira tentativa: widget dedicado novo (`PricingView.html`) —
    descoberto **nunca montado no Shell**, órfão, inacessível ao usuário.
 3. Usuário pediu **uma única calculadora**: o widget novo foi removido; o
@@ -323,8 +321,8 @@ Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.
    tabela de comissão Shopee escalonada por preço (idêntica à tabela ML já
    existente no projeto) a partir de 01/03/2026 — contradito pelos 11
    pedidos reais (18%/12% consistente em toda a faixa R$29,99–R$299,00,
-   nunca 20%/14%). Não aplicado à calculadora; ver `specs/calculator-shopee.md`
-   para retomar se dados futuros confirmarem a mudança.
+   nunca 20%/14%). Não aplicado à calculadora; retomar em
+   `ConfigService.getShopeeFeeModel` se dados futuros confirmarem a mudança.
 
 **Critério de aceite:**
 - [x] Floater aparece no canto superior direito (botão 🧮), acessível de qualquer página.
@@ -333,9 +331,9 @@ Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.
 - [x] Seletor de modo (Formador de Preço/Receita Líquida) troca Margem↔Preço de Venda e o cabeçalho do resultado.
 - [x] Digitar custo + margem → preço sugerido aparece em <500ms.
 - [x] Cenário básico ML (custo R$100, margem 20%, CNPJ, faixa R$100–199): preço confere com cálculo manual.
-- [x] Cenário básico Shopee (custo R$50, margem 20%, cartão à vista): preço R$90,00, confere com `specs/pricing.md`.
+- [x] Cenário básico Shopee (custo R$50, margem 20%, cartão à vista): preço R$90,00, confere com o motor de `PricingService`.
 - [x] Vendedor iniciante (ML): sem taxa (0% + R$0).
-- [x] Todos os cenários Given/When/Then de `specs/calculator.md` (10 cenários, ML + Shopee) passam — pendente rodar `runCalculatorSmokeTests_()` no editor real do Apps Script.
+- [x] Todos os 10 cenários Given/When/Then (ML + Shopee) cobertos em `runCalculatorSmokeTests_()` (`src/99_Main.js`) passam — pendente rodar no editor real do Apps Script.
 - [x] Avisos aparecem (low margin <10%, negative profit, high ads, margin unreachable).
 - [x] Responsivo em mobile (95vw) e desktop (~600px).
 - [x] Descomposição visual de preço (árvore de deduções) clara, com rótulos dinâmicos por canal.
@@ -387,6 +385,6 @@ Contratos da Tiops já verificados contra a API real ficam em
 | Update de marketplace "dar OK" sem ter aplicado | releitura obrigatória — regra em `AGENTS.md` e nas specs 4 e 5 |
 | Colisão de nome no escopo global do GAS | um `var Namespace` por arquivo, pastas numeradas |
 | API key vazar em commit | só em Script Properties; skill `gas-ops` checa antes do push |
-| Fonte externa (vídeo/artigo) sobre taxa de marketplace desatualizada ou errada | sempre validar contra pedidos `COMPLETED` reais da conta antes de mudar a calculadora — caso concreto: vídeo alegando tabela Shopee escalonada (idêntica à do ML) foi contradito por 11 pedidos reais, ver `specs/calculator-shopee.md` |
+| Fonte externa (vídeo/artigo) sobre taxa de marketplace desatualizada ou errada | sempre validar contra pedidos `COMPLETED` reais da conta antes de mudar a calculadora — caso concreto: vídeo alegando tabela Shopee escalonada (idêntica à do ML) foi contradito por 11 pedidos reais (ver histórico do git e `ConfigService.js`) |
 | `[hidden]` não esconder elemento com `display` explícito na mesma classe | sempre adicionar `.classe[hidden] { display: none; }` (maior especificidade) ao criar `.form-row`/`.field` que alterna visibilidade — bug real encontrado na calculadora (PR #21) |
 | Widget novo criado mas nunca montado no Shell (`<tag>` ausente) | conferir `ui/shell/Shell.html` tem tanto o `include()` quanto a tag `<widget-x>` antes de considerar uma UI "pronta" — aconteceu duas vezes: `PricingView.html` (PR #18) e `EstoquePrecoBulkView.html` (achado e removido em auditoria de 09/08/2026, ficou com include mas sem `<tag>` desde a criação; tinha ainda um bug de prefixo de ação — `estoque.simularMudancaPreco` em vez de `estoquePreco.simularMudancaPreco` — nunca teria funcionado mesmo se estivesse acessível) |

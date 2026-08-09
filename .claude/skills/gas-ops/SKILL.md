@@ -35,7 +35,7 @@ Wrapper de convenções para operar este projeto via `clasp`
 4. **`filePushOrder` está atualizado** (CRÍTICO para microsserviços):
    - Novos serviços/repositórios devem ser adicionados ao `filePushOrder` em `appsscript.json`
    - Ordem segue dependências topológicas: A depende de B? B carrega **antes** de A.
-   - Consulte `docs/ARQUITETURA_CARREGAMENTO.md` para a ordem esperada.
+   - Consulte `specs/ARQUITETURA.md` §1 para a ordem esperada.
    - Falta um arquivo em `filePushOrder`? Seu serviço pode quebrar silenciosamente.
    - **Nunca adicione uma entrada para um arquivo que ainda não existe** —
      `clasp push` falha se `filePushOrder` referencia um caminho inexistente.

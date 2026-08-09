@@ -20,7 +20,8 @@ marketplace diretamente.
 | `AGENTS.md` (este) | **Como** construir: convenções, arquitetura, regras invioláveis |
 | `PLANO.md` | **O quê** e **quando**: escopo, fases, status, critérios de aceite |
 | `docs/HANDOFF_OPENCODE.md` | Prompts prontos de execução, por fase |
-| `specs/<dominio>.md` | Contrato de cada domínio — fonte de verdade da implementação |
+| `specs/ARQUITETURA.md` | Arquitetura de micro-serviços, micro-frontends, performance/integração e design system |
+| `specs/<dominio>.md` | Contrato de um domínio **novo**, enquanto não implementado — depois de implementado, o código-fonte (`describe()` de cada serviço) é a fonte de verdade |
 | `docs/referencia/` | Playbooks de payload validados e análise da API Tiops |
 
 ## Divisão de papéis entre os dois agentes
@@ -90,7 +91,7 @@ carrega **antes** de A).
 ```
 
 **Regra ao adicionar novo serviço:** insira-o em `filePushOrder` após todas as
-suas dependências. Consulte `docs/ARQUITETURA_CARREGAMENTO.md` para detalhes.
+suas dependências. Consulte `specs/ARQUITETURA.md` §1 para detalhes.
 **Nunca liste em `filePushOrder` um arquivo que ainda não existe** — `clasp
 push` falha se o arquivo referenciado não estiver no disco; adicione a
 entrada só no mesmo commit que cria o arquivo.
@@ -182,7 +183,9 @@ var TiopsClient = (function () {
 | Shopee | 20% flat sobre o preço de venda | R$ 0 |
 | Mercado Livre | 14% sobre o preço de venda | R$ 6,00 por item |
 
-Ver `specs/pricing.md` para as fórmulas completas.
+Ver `src/03_services/pricing/PricingService.js` (`calculateSuggestedPrice`/
+`calculateNetMargin`) para as fórmulas completas — motor único, nunca
+duplicar o cálculo em outro serviço.
 
 ## Micro-frontends (UI)
 
@@ -311,7 +314,8 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 Ver `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
 `docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md` para a lista completa
-(regras usadas hoje pelo domínio Anúncios Shopee, `specs/anuncios-shopee.md`).
+(regras usadas hoje pelo domínio Anúncios Shopee,
+`src/03_services/anunciosShopee/AnunciosShopeeService.js`).
 Resumo crítico:
 - **Nunca confiar na resposta de um update/pause/activate para confirmar
   estado** — sempre reler com `get_item`/`shopee_get_item` depois.

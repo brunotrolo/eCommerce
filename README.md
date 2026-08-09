@@ -15,21 +15,21 @@ ainda (falta o primeiro deploy). Ver [PLANO.md](./PLANO.md).
 | entender escopo, fases e o que falta | [PLANO.md](./PLANO.md) |
 | escrever ou revisar código | [AGENTS.md](./AGENTS.md) |
 | executar uma fase no OpenCode | [docs/HANDOFF_OPENCODE.md](./docs/HANDOFF_OPENCODE.md) |
-| saber o contrato de um domínio | `specs/<dominio>.md` |
+| entender a arquitetura (micro-serviços, micro-frontends, performance, design system) | [specs/ARQUITETURA.md](./specs/ARQUITETURA.md) |
 | montar payload de marketplace | [docs/referencia/](./docs/referencia/) |
 
 ## Funcionalidades
 
-| Módulo | Descrição | Spec |
-|---|---|---|
-| **Dashboard** | Visão unificada: pedidos recentes, receita Shopee, estoque baixo | `specs/dashboard.md` |
-| **Precificação** | Preço sugerido por canal (Shopee × ML) a partir de custo + margem | `specs/pricing.md` |
-| **Pedidos** | Lista unificada dos dois canais com filtro por marketplace | `specs/orders.md` |
-| **Catálogo** | Produtos de NFe agrupados por código com preços sugeridos | `specs/catalog.md` |
-| **NFe Entrada** | Importação de XMLs/PDFs de NFes do Drive para o Sheets | `specs/nfe-entrada.md` |
-| **Entrada Produtos** | Produtos das NFes com busca, filtros e status de recebimento | `specs/nfe-entrada-produtos.md` |
-| **Calculadora PrecificaPro** | Calculadora interativa ML com widget flutuante | `specs/calculator.md` |
-| **Status Online** | Indicador de status + speed meter no nav bar | `specs/system-status.md` |
+| Módulo | Descrição |
+|---|---|
+| **Dashboard** | Visão unificada: pedidos recentes, receita Shopee, estoque baixo |
+| **Precificação** | Preço sugerido por canal (Shopee × ML) a partir de custo + margem |
+| **Pedidos** | Lista unificada dos dois canais com filtro por marketplace |
+| **Catálogo** | Produtos de NFe agrupados por código com preços sugeridos |
+| **NFe Entrada** | Importação de XMLs/PDFs de NFes do Drive para o Sheets |
+| **Entrada Produtos** | Produtos das NFes com busca, filtros e status de recebimento |
+| **Calculadora PrecificaPro** | Calculadora interativa ML com widget flutuante |
+| **Status Online** | Indicador de status + speed meter no nav bar |
 
 ## Arquitetura
 
@@ -51,7 +51,8 @@ ui/shared           → Design tokens, DataStore (cache client-side), UiHelpers,
                       Formatter, DebugConsole, DesignSystemLoader
 ui/shell            → Shell (navbar + rotas) + StatusView (indicador online)
 ui/<dominio>        → Widgets (Web Components com Shadow DOM)
-specs/              → uma spec por domínio (Spec-Driven Development)
+specs/              → ARQUITETURA.md (doc vivo) + spec de domínios novos em
+                      andamento (Spec-Driven Development)
 docs/referencia/    → playbooks de payload validados + análise da API Tiops
 .claude/skills/     → regras executáveis (fonte única)
 .opencode/command/  → mesmas regras acionáveis por /comando no OpenCode
@@ -59,9 +60,12 @@ docs/referencia/    → playbooks de payload validados + análise da API Tiops
 
 ### DataStore — navegação instantânea
 
-O app pré-busca dados pesados ao carregar (`ui/shared/DataStore.html`):
-Dashboard, NFe Entrada, Entrada Produtos, Config e Catálogo ficam em cache
-client-side. Navegar entre páginas é instantânea na segunda visita.
+O app pré-busca em paralelo, ao carregar (`ui/shared/DataStore.html`), os
+dados de praticamente todas as páginas (Config, Dashboard, NFe Entrada,
+Entrada Produtos, Catálogo, Pedidos, Estoque, Manual Entrada/Saída,
+Anúncios Shopee, Carteira Shopee, Shopee Ads) — ver lista completa e
+detalhes em `specs/ARQUITETURA.md` §2. Cada página já mostra dado do cache
+ao ser aberta, sem esperar round-trip.
 
 ### Status Online + Speed Meter
 
@@ -72,11 +76,17 @@ Indicador sticky no nav bar (`ui/shell/StatusView.html`) mostra:
 
 ## Especificações (`specs/`)
 
-Cada módulo tem uma spec em markdown (`specs/<dominio>.md`) com objetivo,
-contrato de API interna, regras de negócio, casos de borda e critérios de
-aceite — escrita **antes** do código, seguindo `specs/_TEMPLATE.md`. Nenhuma
-mudança em `src/03_services/**` ou `ui/**` deve acontecer sem uma spec
-aprovada correspondente (ver `AGENTS.md`).
+`specs/ARQUITETURA.md` é o documento vivo de arquitetura (micro-serviços,
+micro-frontends, performance/integração, design system) — mantenha-o
+atualizado conforme a arquitetura muda. Contrato de API e regra de negócio
+por domínio vivem no próprio código (`describe()` de cada serviço).
+
+Ao começar um domínio **novo**, o gate de Spec-Driven Development continua
+valendo: escreva `specs/<dominio>.md` a partir de `specs/_TEMPLATE.md` com
+objetivo, contrato de API interna, regras de negócio, casos de borda e
+critérios de aceite **antes** do código, e peça aprovação. Nenhuma mudança
+em `src/03_services/**` ou `ui/**` para um domínio novo acontece sem essa
+spec aprovada (ver `AGENTS.md`).
 
 ## Setup (passo manual, uma única vez)
 
