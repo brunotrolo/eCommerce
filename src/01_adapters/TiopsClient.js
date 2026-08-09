@@ -52,7 +52,7 @@ var TiopsClient = (function () {
         if (data === undefined) {
           data = body;
         }
-        var totalMs = Date.now() - startTime;
+        var totalMs = Date.now() - attemptStart;
 
         return data;
       }
