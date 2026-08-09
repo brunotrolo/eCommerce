@@ -570,10 +570,11 @@
     }
 
     function loadCampanhas(shadow, forceFresh) {
-      var params = forceFresh ? { forceFresh: true } : {};
-      return withLoading(function () {
-        return apiDispatch('shopeeAds.getCampaigns', params);
-      }).then(function (result) {
+      var ds = window.__DataStore;
+      var cacheKey = 'shopeeAds.campanhas';
+      if (forceFresh && ds) ds.invalidate(cacheKey);
+
+      function render(result) {
         _campanhas = (result && result.campanhas) || [];
         var badge = shadow.querySelector('#cache-badge');
         if (result && result.atualizadoEm) {
@@ -582,15 +583,37 @@
         }
         renderStats(shadow);
         renderPage(shadow);
+      }
+
+      if (!forceFresh && ds && ds.has(cacheKey)) {
+        render(ds.get(cacheKey));
+        return Promise.resolve();
+      }
+
+      return withLoading(function () {
+        return apiDispatch('shopeeAds.getCampaigns', forceFresh ? { forceFresh: true } : {});
+      }).then(function (result) {
+        if (ds) ds.set(cacheKey, result);
+        render(result);
       }).catch(function (err) {
         showError(shadow, 'Erro ao carregar campanhas: ' + (err.message || err));
       });
     }
 
-    function loadBalance(shadow) {
+    function loadBalance(shadow, forceFresh) {
+      var ds = window.__DataStore;
+      var cacheKey = 'shopeeAds.balance';
+      if (forceFresh && ds) ds.invalidate(cacheKey);
+
+      if (!forceFresh && ds && ds.has(cacheKey)) {
+        shadow.querySelector('#saldo-box').innerHTML = saldoHtml(ds.get(cacheKey));
+        return;
+      }
+
       withLoading(function () {
         return apiDispatch('shopeeAds.getBalance', {});
       }).then(function (saldo) {
+        if (ds) ds.set(cacheKey, saldo);
         shadow.querySelector('#saldo-box').innerHTML = saldoHtml(saldo);
       }).catch(function () {});
     }
@@ -616,7 +639,7 @@
         }).then(function () {
           return loadCampanhas(shadow, true);
         }).then(function () {
-          loadBalance(shadow);
+          loadBalance(shadow, true);
           if (_currentView === 'visitas') loadVisitMetrics(shadow);
         });
       }
