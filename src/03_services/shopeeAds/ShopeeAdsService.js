@@ -150,9 +150,11 @@ var ShopeeAdsService = (function () {
     if (cached) return cached;
 
     var result = callTiops_('shopee_ads_balance', {});
+    // TiopsClient retorna body.data = { response: { total_balance, data_timestamp } }
+    var resp = result.response || result;
     var balance = {
-      saldo: result.saldo || result.balance || 0,
-      moeda: result.moeda || result.currency || 'BRL',
+      saldo: resp.total_balance || resp.saldo || resp.balance || 0,
+      moeda: resp.currency || 'BRL',
       atualizadoEm: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss')
     };
     setCache_(cacheKey_('balance'), balance, CACHE_TTL_BALANCE);
@@ -171,6 +173,48 @@ var ShopeeAdsService = (function () {
     }
 
     var campanhas = normalizeCampaigns_(data);
+
+    // Busca métricas de performance para cada campanha em paralelo
+    if (campanhas.length > 0) {
+      var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd-MM-yyyy');
+      var sevenDaysAgo = Utilities.formatDate(
+        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), Session.getScriptTimeZone(), 'dd-MM-yyyy'
+      );
+
+      var batchItems = campanhas.map(function (c) {
+        return {
+          action: 'shopee_ads_daily_performance',
+          params: {
+            campaign_id: Number(c.CAMPANHA_ID),
+            start_date: sevenDaysAgo,
+            end_date: today
+          }
+        };
+      });
+
+      var batchResults = TiopsClient.callBatch ? TiopsClient.callBatch(batchItems) : [];
+
+      for (var i = 0; i < batchResults.length && i < campanhas.length; i++) {
+        var br = batchResults[i];
+        if (br && !br.error && br.data) {
+          var perf = br.data.response || br.data;
+          var perfData = perf.performance_list || perf.data || [];
+          if (Array.isArray(perfData) && perfData.length > 0) {
+            // Agrega os últimos 7 dias
+            var agg = aggregatePerformance_(perfData);
+            campanhas[i].IMPRESSOES = agg.impressions;
+            campanhas[i].CLIQUES = agg.clicks;
+            campanhas[i].CTR = agg.ctr;
+            campanhas[i].CVR = agg.cvr;
+            campanhas[i].GASTO_TOTAL = agg.cost;
+            campanhas[i].VENDAS = agg.revenue;
+            campanhas[i].ROAS = agg.roas;
+            campanhas[i].CONVERSOES = agg.conversions;
+          }
+        }
+      }
+    }
+
     var sheetId = getSheetId_();
     var syncResult = ShopeeAdsRepository.syncCampanhas(sheetId, campanhas);
     invalidateCache_();
@@ -185,18 +229,34 @@ var ShopeeAdsService = (function () {
     return { success: true, synced: syncResult };
   }
 
+  function aggregatePerformance_(perfData) {
+    var result = { impressions: 0, clicks: 0, cost: 0, revenue: 0, conversions: 0 };
+    for (var i = 0; i < perfData.length; i++) {
+      var d = perfData[i];
+      result.impressions += Number(d.impressions || d.impression || 0);
+      result.clicks += Number(d.clicks || d.click || 0);
+      result.cost += Number(d.cost || d.spend || d.total_cost || 0);
+      result.revenue += Number(d.revenue || d.sales || d.gmv || 0);
+      result.conversions += Number(d.conversions || d.conversion || 0);
+    }
+    result.ctr = result.impressions > 0 ? Math.round((result.clicks / result.impressions) * 10000) / 100 : 0;
+    result.cvr = result.clicks > 0 ? Math.round((result.conversions / result.clicks) * 10000) / 100 : 0;
+    result.roas = result.cost > 0 ? Math.round((result.revenue / result.cost) * 100) / 100 : 0;
+    return result;
+  }
+
   function normalizeCampaigns_(data) {
-    var list = [];
-    if (data && data.campaigns) list = data.campaigns;
-    else if (data && data.data && data.data.campaigns) list = data.data.campaigns;
-    else if (Array.isArray(data)) list = data;
+    // TiopsClient retorna body.data = { response: { campaign_list: [...] } }
+    var resp = (data && data.response) || data || {};
+    var list = resp.campaign_list || resp.campaigns || [];
+    if (!Array.isArray(list)) list = [];
 
     return list.map(function (c) {
       return {
         CAMPANHA_ID: String(c.campaign_id || c.id || ''),
         NOME: c.campaign_name || c.name || '',
-        TIPO: c.campaign_type || c.type || '',
-        STATUS: c.status || '',
+        TIPO: adTypeLabel_(c.ad_type || c.campaign_type || ''),
+        STATUS: c.status || 'ACTIVE',
         ORCAMENTO_DIARIO: c.daily_budget || c.budget || 0,
         GASTO_TOTAL: c.total_spend || c.spend || 0,
         IMPRESSOES: c.impressions || 0,
@@ -204,13 +264,18 @@ var ShopeeAdsService = (function () {
         CTR: c.ctr || 0,
         CVR: c.cvr || 0,
         ROAS: c.roas || 0,
-        VENDAS: c.sales || 0,
+        VENDAS: c.sales || c.revenue || 0,
         CONVERSOES: c.conversions || c.conversion || 0,
         ITENS_ANUNCADOS: c.item_count || 0,
         DATA_CRIACAO: c.create_time || '',
         DATA_ATUALIZACAO: c.update_time || ''
       };
     });
+  }
+
+  function adTypeLabel_(adType) {
+    var map = { '0': 'Todos', '1': 'Busca', '2': 'Sugestão de Produto', '3': 'Flash Sale', '4': 'Landing Page' };
+    return map[String(adType)] || String(adType);
   }
 
   function getCampaigns(params) {
