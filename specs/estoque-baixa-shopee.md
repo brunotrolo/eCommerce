@@ -84,9 +84,11 @@ consulta direta em `ANUNCIOS_SHOPEE`, já sincronizada separadamente):
    `ESTOQUE` — ex. NFe ainda não sincronizada). **Não bloqueia o pedido nem os
    outros itens.** Grava uma linha em `ESTOQUE_BAIXAS` com
    `STATUS='PENDENTE_MAPEAMENTO'` contendo `item_id`, `referenciaOrigem`,
-   quantidade — para o usuário resolver via `specs/produto-anuncio-map.md` (ou
-   sincronizar a NFe pendente) e ser reprocessado depois via
-   `estoqueBaixa.reprocessarPendentes()`.
+quantidade — para o usuário resolver via `specs/produto-anuncio-map.md` (ou
+    sincronizar a NFe pendente) e ser reprocessado depois via
+    `estoqueBaixa.reprocessarPendentes()` — que hoje roda automaticamente como
+    passo final do botão "Sincronizar" da aba Controle de Estoque (ver
+    Scenario 6.1 de `specs/estoque.md`).
 4. **`ITEM_SKU` corresponde a um `CODIGO_PRODUTO` real em `ESTOQUE`** → chamar
    `estoqueBaixa.baixarPorProduto({ codigoProduto: ITEM_SKU, quantidade:
    model_quantity_purchased, origem: 'PEDIDO_SHOPEE', referenciaOrigem: 'SHOPEE#' +

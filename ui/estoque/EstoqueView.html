@@ -107,7 +107,6 @@
           <button class="active" data-view="completo">Completo</button>
           <button data-view="consolidado">Consolidado</button>
         </div>
-        <button class="btn btn-secondary" id="btn-reprocess" title="Lê todos os pedidos da aba PEDIDOS e aplica baixa FIFO para os que ainda não foram baixados">Reprocessar Pendentes</button>
         <label class="filter-label" for="margin-input">Margem %:</label>
         <input type="number" id="margin-input" value="10" min="0" max="99" step="1" title="Margem alvo usada pelo Recalcular Preços de Venda" />
         <button class="btn btn-secondary" id="btn-sync-prices" title="Recalcula os preços Shopee e ML de TODOS os itens a partir do PRECO_CUSTO_ORIGINAL de cada um, usando a margem definida ao lado">Recalcular Preços de Venda</button>
@@ -284,7 +283,6 @@
           var val = parseFloat(shadow.getElementById('margin-input').value);
           self._margin = isNaN(val) ? 0 : val / 100;
         });
-        shadow.getElementById('btn-reprocess').addEventListener('click', function () { self._reprocessar(); });
         shadow.getElementById('btn-baixa-close').addEventListener('click', function () {
           shadow.getElementById('baixa-overlay').classList.remove('open');
         });
@@ -432,6 +430,7 @@
         var totalPassos = 0;
         var passoAtual = 0;
         var totalImportado = 0;
+        var totalBaixados = 0;
         var fila = [];
         var encerrado = false;
 
@@ -465,14 +464,16 @@
           if (encerrado) return;
           if (passoAtual >= totalPassos) {
             setStatus('Sincronização concluída');
-            concluir(totalImportado + ' unidade(s) importada(s).');
+            var msg = totalImportado + ' unidade(s) importada(s)';
+            if (totalBaixados > 0) msg += ', ' + totalBaixados + ' pedido(s) baixado(s)';
+            concluir(msg + '.');
             return;
           }
           var item = fila[passoAtual];
           setStatus(item.label);
           setProgress(Math.round((passoAtual / totalPassos) * 100));
 
-          google.script.run
+          var run = google.script.run
             .withSuccessHandler(function (resp) {
               var data = self._unwrap(resp);
               if (data && data.error) {
@@ -480,8 +481,8 @@
                 concluir(data.error, true);
                 return;
               }
-              var imp = (data && data.itemsImported) ? data.itemsImported : 0;
-              totalImportado += imp;
+              if (data && data.itemsImported) totalImportado += data.itemsImported;
+              if (data && data.baixados) totalBaixados += data.baixados;
               passoAtual++;
               setStage('Passo ' + passoAtual + ' de ' + totalPassos);
               proximo();
@@ -489,8 +490,12 @@
             .withFailureHandler(function (err) {
               setStatus('Erro');
               concluir('Erro no passo ' + item.label + ': ' + (err.message || err), true);
-            })
-            .apiDispatch('estoque.sincronizarPasso', item.acoes);
+            });
+          if (item.acao === 'baixas') {
+            run.apiDispatch('estoqueBaixa.reprocessarPendentes', {});
+          } else {
+            run.apiDispatch('estoque.sincronizarPasso', item.acoes);
+          }
         }
 
         abrir();
@@ -507,12 +512,6 @@
             var manuais = (data && data.manuais) ? data.manuais : [];
             totalPassos = nfes.length + manuais.length;
 
-            if (totalPassos === 0) {
-              setStatus('Nada novo para sincronizar');
-              concluir('Tudo em dia — nenhuma NF ou entrada manual pendente.');
-              return;
-            }
-
             for (var i = 0; i < nfes.length; i++) {
               fila.push({
                 label: 'Sincronizando NF ' + nfes[i].numeroNf + '...',
@@ -526,7 +525,14 @@
               });
             }
 
-            setStage('Encontrado(s) ' + totalPassos + ' passo(s) pendente(s)');
+            fila.push({
+              label: 'Aplicando baixas de pedidos pendentes...',
+              acao: 'baixas',
+              acoes: {}
+            });
+            totalPassos++;
+
+            setStage('Encontrado(s) ' + (totalPassos - 1) + ' passo(s) pendente(s)');
             proximo();
           })
           .withFailureHandler(function (err) {
@@ -1128,35 +1134,6 @@
             showError(self._shadow, 'Erro ao buscar catalogo: ' + (err.message || err));
           })
           .apiDispatch('estoque.getPrecosCatalogo', { codigoProduto: codigoProduto });
-      }
-
-      _reprocessar() {
-        var self = this;
-        var btn = this._el('btn-reprocess');
-        var originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = 'Reprocessando...';
-
-        google.script.run
-          .withSuccessHandler(function (resp) {
-            btn.disabled = false;
-            btn.textContent = originalText;
-            var data = self._unwrap(resp);
-            if (data && data.error) {
-              showError(self._shadow, data.error);
-            } else if (data) {
-              var msg = 'Reprocessados: ' + (data.baixados || 0) + ' baixados, ' + (data.aindaPendentes || 0) + ' ainda pendentes.';
-              showSuccess(self._shadow, msg);
-              self._invalidateCache();
-              self._load();
-            }
-          })
-          .withFailureHandler(function (err) {
-            btn.disabled = false;
-            btn.textContent = originalText;
-            showError(self._shadow, 'Erro ao reprocessar: ' + (err.message || err));
-          })
-          .apiDispatch('estoqueBaixa.reprocessarPendentes', {});
       }
 
       _darBaixa(codigoProduto) {

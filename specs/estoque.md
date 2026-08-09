@@ -350,6 +350,20 @@ Then:
   - Retorna {itemsImportados: 15, itemsSincronizados: 15}
 ```
 
+### Scenario 6.1: Sincronizar também roda baixas de pedidos pendentes
+```
+Given: Pedidos já importados em PEDIDOS com BAIXADO diferente de 'BAIXADO'/'S'
+When: Clica botão "Sincronizar" na UI
+Then:
+  - Após importar NFs/manuais pendentes, o fluxo chama
+    `estoqueBaixa.reprocessarPendentes` como passo final (sempre, mesmo sem NFs/manuais)
+  - Baixa FIFO é aplicada aos pedidos elegíveis
+  - Resumo final reporta unidades importadas + pedidos baixados
+```
+> Nota: o botão dedicado "Reprocessar Pendentes" foi removido (08/2026) — a
+> automação de baixas de pedidos passou a ser garantida pelo botão
+> "Sincronizar" da aba Controle de Estoque.
+
 ---
 
 ## Fora de Escopo (v1)
