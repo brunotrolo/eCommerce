@@ -123,6 +123,12 @@ function runSmokeTests_() {
     }
   }
 
+  function expectTrue(label, condition) {
+    if (!condition) {
+      failures.push(label + ': esperado true, obtido false');
+    }
+  }
+
   // Given unitCost=50, targetMarginPct=0.25, marketplace=shopee (modelo 2 componentes,
   // default cartao_avista/itemCount=1) -> (50+4)/(1-0.18-0.02-0.25) = 54/0.55 = 98.18
   var r1 = PricingService.calculateSuggestedPrice({ unitCost: 50, targetMarginPct: 0.25, marketplace: 'shopee' });
@@ -161,6 +167,32 @@ function runSmokeTests_() {
   expectClose('shopee price@20% itemCount=3', r7.suggestedPrice, 45.00);
   expectClose('shopee commission@20% itemCount=3', r7.commission, 8.10);
   expectClose('shopee serviceFee@20% itemCount=3', r7.serviceFee, 12.90);
+
+  // Motor único de margem (pricing.calculateNetMargin) — Estoque/Catálogo
+  // consomem esta função, nunca duplicam a fórmula. Casos batem com os
+  // cenários recalculados em specs/estoque-preco-update.md.
+
+  // Given salePrice=180, unitCost=100, shopee -> líquido 140, lucro 40, margem 22.22% (não 28.57% líquido-basis)
+  var m1 = PricingService.calculateNetMargin({ salePrice: 180, unitCost: 100, marketplace: 'shopee' });
+  expectClose('netMargin shopee 180/100 netReceived', m1.netReceived, 140.00);
+  expectClose('netMargin shopee 180/100 netProfit', m1.netProfit, 40.00);
+  expectClose('netMargin shopee 180/100 pct', m1.netMarginPct * 100, 22.22, 0.01);
+
+  // Given salePrice=110, unitCost=100, shopee -> líquido 84 < custo 100 -> prejuízo real, margem negativa
+  var m2 = PricingService.calculateNetMargin({ salePrice: 110, unitCost: 100, marketplace: 'shopee' });
+  expectClose('netMargin shopee 110/100 netReceived', m2.netReceived, 84.00);
+  expectTrue('netMargin shopee 110/100 é prejuízo (netReceived < custo)', m2.netReceived < 100);
+  expectClose('netMargin shopee 110/100 pct', m2.netMarginPct * 100, -14.55, 0.01);
+
+  // Given salePrice=160, unitCost=100, mercado_livre (14%+R$6) -> líquido 131.60, margem 19.75%
+  var m3 = PricingService.calculateNetMargin({ salePrice: 160, unitCost: 100, marketplace: 'mercado_livre' });
+  expectClose('netMargin ML 160/100 netReceived', m3.netReceived, 131.60);
+  expectClose('netMargin ML 160/100 pct', m3.netMarginPct * 100, 19.75, 0.01);
+
+  // Given salePrice=90, unitCost=50, shopee, cartão à vista -> deve bater com o forward de calculateSuggestedPrice (round-trip)
+  var m4 = PricingService.calculateNetMargin({ salePrice: 90, unitCost: 50, marketplace: 'shopee' });
+  expectClose('netMargin round-trip shopee netProfit', m4.netProfit, 18.00);
+  expectClose('netMargin round-trip shopee pct', m4.netMarginPct * 100, 20.00, 0.01);
 
   // Given escrow=120 → escrow JÁ É o valor líquido (taxas já descontadas pela Shopee)
   var netShopee = OrdersService.calculateNet({ escrowAmount: 120, netCommissionFee: 24, netServiceFee: 6, pixDiscount: 0, total: 120 });

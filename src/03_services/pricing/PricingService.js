@@ -57,6 +57,37 @@ var PricingService = (function () {
             paymentScenario: { type: 'string', required: false, default: 'cartao_avista', enum: ['cartao_avista', 'pix_ou_parcelado'] }
           },
           returns: { shopee: 'object', mercado_livre: 'object' }
+        },
+        calculateNetMargin: {
+          description:
+            'Motor único de margem: dado um preço de venda já definido (ex.: ' +
+            'sincronizado do Catálogo para o Estoque), calcula quanto sobra ' +
+            'líquido após a taxa real do canal e a margem real resultante. ' +
+            'Único ponto de cálculo de margem do projeto — Estoque e Catálogo ' +
+            'devem sempre passar por aqui, nunca duplicar a fórmula.',
+          params: {
+            salePrice: { type: 'number', required: true, description: 'Preço de venda já definido (R$)' },
+            unitCost: { type: 'number', required: true, description: 'Custo unitário (R$)' },
+            extraCosts: { type: 'number', required: false, default: 0, description: 'Custos adicionais por unidade' },
+            marketplace: { type: 'string', required: true, enum: ['shopee', 'mercado_livre'] },
+            itemCount: { type: 'number', required: false, default: 1, description: '[Shopee] nº de itens no pedido' },
+            paymentScenario: {
+              type: 'string',
+              required: false,
+              default: 'cartao_avista',
+              enum: ['cartao_avista', 'pix_ou_parcelado'],
+              description: '[Shopee] cenário de pagamento assumido; default é o pior caso'
+            }
+          },
+          returns: {
+            salePrice: 'number',
+            marketplaceFee: 'number',
+            commission: 'number',
+            serviceFee: 'number',
+            netReceived: 'number',
+            netProfit: 'number',
+            netMarginPct: 'number'
+          }
         }
       }
     };
@@ -172,6 +203,60 @@ var PricingService = (function () {
     return result;
   }
 
+  /**
+   * Motor único de margem — ver specs/pricing.md e specs/estoque.md.
+   * Margem sempre sobre o preço de venda (netProfit/salePrice), mesma
+   * convenção de calculateSuggestedPrice — nunca sobre o líquido recebido.
+   */
+  function calculateNetMargin(params) {
+    var salePrice = params.salePrice;
+    var marketplace = params.marketplace;
+    var unitCost = params.unitCost;
+    var extraCosts = params.extraCosts || 0;
+
+    if (typeof salePrice !== 'number' || salePrice <= 0) {
+      return { error: 'salePrice deve ser um número maior que zero.' };
+    }
+    if (typeof unitCost !== 'number' || unitCost < 0) {
+      return { error: 'unitCost deve ser um número maior ou igual a zero.' };
+    }
+
+    var cost = unitCost + extraCosts;
+    var marketplaceFee, commission, serviceFee;
+
+    if (marketplace === 'shopee') {
+      var paymentScenario = params.paymentScenario || 'cartao_avista';
+      if (paymentScenario !== 'cartao_avista' && paymentScenario !== 'pix_ou_parcelado') {
+        return { error: 'paymentScenario deve ser "cartao_avista" ou "pix_ou_parcelado".' };
+      }
+      var itemCount = params.itemCount && params.itemCount >= 1 ? params.itemCount : 1;
+      var model = ConfigService.getShopeeFeeModel(paymentScenario, itemCount);
+      commission = Math.round(salePrice * model.commissionPct * 100) / 100;
+      serviceFee = Math.round((salePrice * model.serviceFeeBasePct + model.serviceFeeFixed) * 100) / 100;
+      marketplaceFee = Math.round((commission + serviceFee) * 100) / 100;
+    } else {
+      var fee = ConfigService.getMarketplaceFee(marketplace);
+      marketplaceFee = Math.round((salePrice * fee.pct + fee.fixed) * 100) / 100;
+    }
+
+    var netReceived = Math.round((salePrice - marketplaceFee) * 100) / 100;
+    var netProfit = Math.round((netReceived - cost) * 100) / 100;
+    var netMarginPct = salePrice > 0 ? Math.round((netProfit / salePrice) * 10000) / 10000 : 0;
+
+    var result = {
+      salePrice: salePrice,
+      marketplaceFee: marketplaceFee,
+      netReceived: netReceived,
+      netProfit: netProfit,
+      netMarginPct: netMarginPct
+    };
+    if (marketplace === 'shopee') {
+      result.commission = commission;
+      result.serviceFee = serviceFee;
+    }
+    return result;
+  }
+
   function compareMarketplaces(params) {
     var marketplaces = ConfigService.listMarketplaces();
     var out = {};
@@ -193,6 +278,7 @@ var PricingService = (function () {
   return {
     describe: describe,
     calculateSuggestedPrice: calculateSuggestedPrice,
-    compareMarketplaces: compareMarketplaces
+    compareMarketplaces: compareMarketplaces,
+    calculateNetMargin: calculateNetMargin
   };
 })();

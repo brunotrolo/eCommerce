@@ -166,22 +166,27 @@ Integração natural com `estoque.md`: após atualizar preço, recalcular margen
 
 ## Critérios de Aceite (Given/When/Then)
 
-> **Nota de correção (08/08/2026):** os exemplos abaixo foram recalculados
-> com o modelo de taxa Shopee corrigido (comissão 18% cenário cartão à vista
-> + taxa de serviço 2%+R$4/item — ver `specs/pricing.md` e
-> `specs/calculator-shopee.md`). Os valores antigos usavam
-> `(preço-custo)/preço` bruto, sem descontar taxa nenhuma — ver Scenario 3
-> para o caso mais grave: um preço que parecia "margem baixa mas positiva"
-> na fórmula antiga é na verdade **prejuízo real**.
+> **Nota de correção (09/08/2026 — motor único):** os exemplos abaixo foram
+> recalculados usando `PricingService.calculateNetMargin` (a mesma função
+> que `CatalogService` usa para sugerir preço), chamada agora por
+> `EstoquePrecoService`/`EstoqueService` em vez de duas cópias próprias e
+> divergentes de `calcularMargem_`. Duas correções em relação à revisão
+> anterior desta nota: (1) margem é medida sobre o **preço de venda**
+> (`netProfit/salePrice`), não sobre o líquido recebido — mesma convenção de
+> `specs/pricing.md`; (2) **Mercado Livre também passou a descontar a taxa
+> real** (14%+R$6) — antes ficava "inalterada" com a fórmula bruta
+> `(preço-custo)/preço`, o mesmo bug que a Shopee tinha. Ver Scenario 3 para
+> o caso mais grave: um preço que parece "margem baixa mas positiva" na
+> fórmula bruta é na verdade **prejuízo real**.
 
 ### Scenario 1: Atualizar preço Shopee de 1 produto
 ```
 Given: ESTOQUE tem 3 items DISPONÍVEL de "Maison Delilah" (cód 0000000006231)
-       - Cada um: PRECO_CUSTO_ORIGINAL=100, PRECO_VENDA_SHOPEE=150 (margem real 13.79%)
+       - Cada um: PRECO_CUSTO_ORIGINAL=100, PRECO_VENDA_SHOPEE=150 (margem real 10,67%)
 When: updatePrecoVenda({codigoProduto: "0000000006231", precoVendaShopee: 180})
 Then:
   - Retorna {success: true, itemsAtualizados: 3}
-  - Todos 3 items: PRECO_VENDA_SHOPEE=180, MARGEM_SHOPEE=28.57% (comissão 32.40 + taxa serviço 7.60 → líquido 140; (140-100)/140*100)
+  - Todos 3 items: PRECO_VENDA_SHOPEE=180, MARGEM_SHOPEE=22,22% (comissão R$32,40 + taxa serviço R$7,60 → líquido R$140,00; lucro R$40,00; 40/180*100)
   - PRECO_VENDA_MERCADO_LIVRE não alterado
   - Confirmação: "3 items atualizados. Novo preço Shopee: R$180"
 ```
@@ -195,8 +200,8 @@ When: updatePrecoVenda({
         precoVendaMercadoLivre: 160
       })
 Then:
-  - PRECO_VENDA_SHOPEE=150, MARGEM_SHOPEE=13.79% (comissão 27.00 + taxa serviço 7.00 → líquido 116)
-  - PRECO_VENDA_MERCADO_LIVRE=160, MARGEM_MERCADO_LIVRE=37.5% (inalterada — modelo ML não muda nesta revisão)
+  - PRECO_VENDA_SHOPEE=150, MARGEM_SHOPEE=10,67% (comissão R$27,00 + taxa serviço R$7,00 → líquido R$116,00; lucro R$16,00)
+  - PRECO_VENDA_MERCADO_LIVRE=160, MARGEM_MERCADO_LIVRE=19,75% (taxa 14%+R$6=R$28,40 → líquido R$131,60; lucro R$31,60 — não os 37,5% brutos de antes, que ignoravam a taxa ML)
   - Retorna ambas as margens calculadas
 ```
 
@@ -205,10 +210,10 @@ Then:
 Given: Item com PRECO_CUSTO_ORIGINAL=100
 When: updatePrecoVenda({codigoProduto: "XXX", precoVendaShopee: 110})
 Then:
-  - comissão = 110*0.18 = 19.80; taxa serviço = 110*0.02+4 = 6.20; líquido = 110-19.80-6.20 = 84.00
-  - MARGEM_SHOPEE = (84.00-100)/84.00*100 = **-19.05%** — isto é PREJUÍZO real, não "margem baixa"
+  - comissão = 110*0.18 = 19,80; taxa serviço = 110*0.02+4 = 6,20; líquido = 110-19,80-6,20 = 84,00
+  - lucro = 84,00-100 = -16,00; MARGEM_SHOPEE = -16/110*100 = **-14,55%** — isto é PREJUÍZO real, não "margem baixa"
   - Retorna alertasGerados: ["Prejuízo Shopee: líquido R$84.00 abaixo do custo R$100.00"] (tipo `prejuizo`, não `margem_baixa`)
-  - **Bug corrigido aqui:** `gerarAlertas_` hoje compara `precoNovo < precoCusto` (110 > 100 → não dispara prejuízo, só o aviso fraco de "margem baixa" com o valor errado de 9.09%). A comparação correta é `liquido < precoCusto` — usando o valor **líquido pós-taxas**, não o preço bruto de venda. Com preço 110, líquido é 84, abaixo do custo 100 → é prejuízo de verdade, mesmo o preço de venda sendo nominalmente maior que o custo.
+  - **Bug corrigido:** `gerarAlertas_` comparava `precoNovo < precoCusto` (110 > 100 → não disparava prejuízo, só o aviso fraco de "margem baixa" com o valor errado da fórmula bruta). A comparação correta é `netReceived < precoCusto` — usando o valor **líquido pós-taxas**, não o preço bruto de venda. Com preço 110, líquido é 84, abaixo do custo 100 → é prejuízo de verdade, mesmo o preço de venda sendo nominalmente maior que o custo.
   - Atualização é feita, mas o alerta agora é o mais severo (`prejuizo`), não o mais brando (`margem_baixa`)
 ```
 
@@ -217,22 +222,23 @@ Then:
 Given: Item com PRECO_CUSTO_ORIGINAL=100
 When: updatePrecoVenda({codigoProduto: "XXX", precoVendaMercadoLivre: 80})
 Then:
-  - MARGEM_MERCADO_LIVRE = -20% (negativo)
-  - Retorna alertasGerados: ["Prejuízo: preço R$80 abaixo do custo R$100"]
+  - taxa ML = 80*0.14+6 = R$17,20; líquido = R$62,80; lucro = 62,80-100 = -R$37,20
+  - MARGEM_MERCADO_LIVRE = -37,20/80*100 = **-46,5%** (negativo — não os -20% da fórmula bruta antiga)
+  - Retorna alertasGerados: ["Prejuízo: líquido R$62.80 abaixo do custo R$100.00"]
   - Atualização é feita mesmo assim (permitir decisão consciente)
 ```
 
 ### Scenario 5: Simulação sem aplicar
 ```
-Given: Preço atual Shopee R$150
+Given: Preço atual Shopee R$150 (custo R$100)
 When: simularMudancaPreco({codigoProduto: "XXX", novoPrecoShopee: 120})
 Then:
   - Retorna simulação:
     * precoAtualShopee: 150
     * precoSimuladoShopee: 120
-    * margemAtualShopee: 33.3%
-    * margemSimuladaShopee: 20%
-    * alertas: ["Redução de R$150 para R$120 (margem cai de 33% para 20%)"]
+    * margemAtualShopee: 10,67% (líquido R$116,00, lucro R$16,00)
+    * margemSimuladaShopee: -6,67% (comissão R$21,60 + taxa serviço R$6,40 → líquido R$92,00; lucro -R$8,00 — **a redução de preço vira prejuízo**, não é só "margem menor")
+    * alertas: ["Prejuízo Shopee: líquido R$92.00 abaixo do custo R$100.00"]
   - Nada é alterado no ESTOQUE
 ```
 
@@ -255,8 +261,16 @@ When: getUltimosPrecosPorProduto({codigoProduto: "0000000006231", marketplace: "
 Then:
   - Retorna array com últimas 3 atualizações (mais recente primeiro)
   - precoAtual = 180
-  - margemAtual = 44.4%
+  - margemAtual = 22,22% (custo R$100 — não os 44,4% da fórmula bruta antiga)
   - precosHistorico com datas + margens de cada mudança
+  - **Nota de implementação:** `precosHistorico` e o retorno "ambos os
+    marketplaces quando `marketplace` for omitido" descritos no contrato
+    (topo desta spec) nunca foram implementados — a implementação real de
+    `getUltimosPrecosPorProduto` retorna só o preço/margem atuais de **um**
+    marketplace por chamada (default `shopee`, corrigido em 09/08/2026 para
+    respeitar o param `marketplace` em vez de sempre ler Shopee — bug
+    separado do de margem, também corrigido). Rastreamento de histórico de
+    preço fica para uma iteração futura, fora do escopo desta correção.
 ```
 
 ---

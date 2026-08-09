@@ -101,6 +101,19 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > editor Apps Script (`runSmokeTests_`) — pendente de validação manual
 > ativa.
 >
+> **Motor único de margem (09/08/2026):** usuário reportou que Estoque e
+> Catálogo mostravam margens muito diferentes pro mesmo produto. Causa:
+> `EstoquePrecoService.js`/`EstoqueService.js` tinham cada um sua própria
+> cópia de `calcularMargem_` calculando `(preço-custo)/preço` bruto, sem
+> descontar taxa de marketplace nenhuma (nem Shopee, nem ML), enquanto
+> `CatalogService.js` já usava `PricingService.calculateSuggestedPrice`
+> corretamente. Adicionado `pricing.calculateNetMargin` (motor único); as
+> duas cópias de `calcularMargem_` agora delegam para lá. Bug adjacente
+> também corrigido: alerta de prejuízo comparava preço bruto vs. custo, não
+> o líquido pós-taxas — um preço nominalmente acima do custo podia esconder
+> prejuízo real. Ver `specs/pricing.md`, `specs/estoque.md`,
+> `specs/estoque-preco-update.md`.
+>
 > **Webhook Shopee:** código implementado e testado (PushNotificationService,
 > specs/push-notification.md), mas **inativo** — a Tiops detém as credenciais
 > de API da loja, logo os pushes vão para a callback URL da Tiops, não para

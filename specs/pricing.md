@@ -4,6 +4,20 @@
 Implemented
 
 ## Changelog
+- **09/08/2026** — Adicionado `pricing.calculateNetMargin`, o motor único de
+  margem do projeto. Usuário reportou que as páginas Estoque e Catálogo
+  mostravam margens muito diferentes para o mesmo tipo de produto — causa
+  raiz: `EstoquePrecoService.js`/`EstoqueService.js` tinham cada um sua
+  própria função `calcularMargem_` duplicada e idêntica, calculando
+  `(preço-custo)/preço` **bruto**, sem descontar nenhuma taxa de
+  marketplace (nem Shopee, nem ML) — enquanto `CatalogService.js` já usava
+  `PricingService.calculateSuggestedPrice` corretamente. Corrigido: as duas
+  cópias de `calcularMargem_` agora delegam para `calculateNetMargin`; bug
+  adjacente também corrigido no alerta de prejuízo (comparava preço bruto
+  vs. custo, não o líquido pós-taxas) e em `getUltimosPrecosPorProduto`
+  (ignorava o param `marketplace`, sempre lia o preço Shopee). Ver
+  `specs/estoque.md` e `specs/estoque-preco-update.md` para os cenários
+  recalculados.
 - **08/08/2026** — `ui/pricing/PricingView.html` (o widget dedicado criado
   na revisão anterior, nunca chegou a ser montado em `Shell.html`) foi
   **removido**. O usuário pediu explicitamente que só exista uma única
@@ -77,6 +91,30 @@ preço→líquido, é `CalculatorService`/`CalculatorView.html`, ver
 - Descrição: roda `calculateSuggestedPrice` para todos os marketplaces configurados, lado a lado.
 - Params: mesmos de `calculateSuggestedPrice`, exceto `marketplace`.
 - Retorno: `{ shopee: <shape acima>, mercado_livre: <shape acima> }`.
+
+### `pricing.calculateNetMargin`
+- Descrição: **motor único de margem do projeto** (09/08/2026). Dado um
+  preço de venda já definido (não um alvo a resolver), calcula o líquido
+  recebido após a taxa real do canal e a margem real resultante. Consumido
+  por `EstoquePrecoService`/`EstoqueService` (colunas `MARGEM_SHOPEE`/
+  `MARGEM_MERCADO_LIVRE` da aba ESTOQUE) — nenhum outro lugar do projeto
+  deve reimplementar `(preço-custo)/preço` bruto; sempre chamar esta função.
+- Params:
+
+| nome | tipo | obrigatório | default | descrição |
+|---|---|---|---|---|
+| salePrice | number | sim | — | preço de venda já definido (R$) |
+| unitCost | number | sim | — | custo unitário (R$) |
+| extraCosts | number | não | 0 | custos adicionais por unidade |
+| marketplace | string (`shopee`\|`mercado_livre`) | sim | — | canal |
+| itemCount | number | não | 1 | só Shopee — nº de itens no pedido (na aba ESTOQUE, sempre 1: cada linha = 1 unidade) |
+| paymentScenario | string (`cartao_avista`\|`pix_ou_parcelado`) | não | `cartao_avista` | só Shopee — mesmo default conservador (pior caso) de `calculateSuggestedPrice` |
+
+- Retorno: `{ salePrice, marketplaceFee, commission?, serviceFee?, netReceived, netProfit, netMarginPct }`
+  — `commission`/`serviceFee` só aparecem para Shopee. `netMarginPct =
+  netProfit/salePrice`, mesma convenção de `calculateSuggestedPrice`
+  (margem sobre o **preço de venda**, nunca sobre o líquido recebido).
+- Erros esperados: `salePrice` inválido (`<= 0`); `unitCost` inválido (`< 0`); `paymentScenario` fora do enum.
 
 ## Regras de Negócio
 
@@ -201,5 +239,10 @@ price = (cost*(1+m) + fixedFee) / (1 - c - 0.02)
   tentar unificar os dois.
 
 ## Dependências
-- `ConfigService.getMarketplaceFee`, `ConfigService.listMarketplaces`.
+- `ConfigService.getMarketplaceFee`, `ConfigService.getShopeeFeeModel`, `ConfigService.listMarketplaces`.
 - Nenhuma chamada Tiops (cálculo puro).
+
+## Consumidores conhecidos
+- `CatalogService.getProducts` → `calculateSuggestedPrice` (preços sugeridos do Catálogo).
+- `EstoquePrecoService.js`, `EstoqueService.js` → `calculateNetMargin` (colunas MARGEM_SHOPEE/MARGEM_MERCADO_LIVRE e alertas de prejuízo/margem baixa/alta da aba ESTOQUE).
+- `CalculatorService.js` (widget 🧮) → modelo Shopee via `ConfigService.getShopeeFeeModel` diretamente (não via `PricingService`, porque também precisa camadas de Ads/Imposto Simples que não fazem parte deste contrato — ver `specs/calculator.md`).

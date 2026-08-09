@@ -140,8 +140,8 @@ DATA_SINCRONIZACAO | LOG_ID
 | PRECO_CUSTO_ORIGINAL | number | Custo unitário imutável (VALOR_UNITARIO_LIQUIDO) |
 | PRECO_VENDA_SHOPEE | number | Preço de venda Shopee (mutável, default=null) |
 | PRECO_VENDA_MERCADO_LIVRE | number | Preço de venda ML (mutável, default=null) |
-| MARGEM_SHOPEE | number | % — via `pricing.calculateSuggestedPrice`/modelo de taxa Shopee (ver `specs/pricing.md`), **não** `(preço-custo)/preço` bruto. Ver nota de correção abaixo. |
-| MARGEM_MERCADO_LIVRE | number | % = (PRECO_VENDA_ML - PRECO_CUSTO) / PRECO_VENDA_ML * 100 |
+| MARGEM_SHOPEE | number | % — via `PricingService.calculateNetMargin` (motor único, ver `specs/pricing.md`), **não** `(preço-custo)/preço` bruto. Ver nota de correção abaixo. |
+| MARGEM_MERCADO_LIVRE | number | % — via `PricingService.calculateNetMargin` (mesmo motor, taxa ML real 14%+R$6), **não** `(preço-custo)/preço` bruto. Ver nota de correção abaixo. |
 | STATUS | string | DISPONÍVEL, VENDIDO, DEVOLVIDO, QUEBRADO, COM_DEFEITO |
 | ALERTA_ESTOQUE_BAIXO | boolean | true quando é o último item DISPONÍVEL do produto |
 | DATA_SINCRONIZACAO | ISO 8601 | Timestamp quando foi importado de NFE/MANUAL |
@@ -182,29 +182,45 @@ DATA_SINCRONIZACAO | LOG_ID
    - Ao atualizar preço via Web App, altera para **todos items DISPONÍVEL** daquele produto.
    - Não altera items já VENDIDO/DEVOLVIDO (histórico imutável).
 
-7. **Cálculo de margem:**
-   - MARGEM_MERCADO_LIVRE = (PRECO_VENDA_ML - PRECO_CUSTO_ORIGINAL) / PRECO_VENDA_ML * 100 (inalterada)
-   - **MARGEM_SHOPEE (corrigida em 08/08/2026 — ver `specs/calculator-shopee.md`):**
-     a fórmula `(preço-custo)/preço` bruta **ignora comissão e taxa de
-     serviço da Shopee**, então superestimava a margem real em todos os
-     produtos (observado entre 30% e 49% de margem "aparente" quando a
-     margem líquida real, descontando taxas, era bem menor). Fórmula correta:
-     ```
-     comissao      = PRECO_VENDA_SHOPEE * 0.18   // cenário cartão à vista — pior caso, conservador
-     taxaServico   = PRECO_VENDA_SHOPEE * 0.02 + 4   // 2% + R$4 (itemCount=1, cada linha ESTOQUE = 1 unidade)
-     liquido       = PRECO_VENDA_SHOPEE - comissao - taxaServico
-     MARGEM_SHOPEE = (liquido - PRECO_CUSTO_ORIGINAL) / liquido * 100
-     ```
-     Implementação: reusar `PricingService` (não duplicar a fórmula em
-     `EstoquePrecoService.js`/`EstoqueService.js` — ambos têm hoje uma
-     função `calcularMargem_` própria e idêntica, que deve passar a delegar
-     para uma função pura compartilhada de `PricingService`; ver
-     `specs/calculator-shopee.md` seção 9 para o plano de refatoração).
-     `itemCount=1` e `paymentScenario=cartao_avista` são os defaults corretos
-     aqui porque cada linha ESTOQUE representa 1 unidade vendida
-     isoladamente — não um pedido multi-item.
+7. **Cálculo de margem — motor único (corrigido em 09/08/2026):**
+   `EstoquePrecoService.calcularMargem_`/`EstoqueService.calcularMargem_`
+   (Estoque) e `CatalogService.getProducts` (Catálogo) **todos** delegam
+   para `PricingService.calculateNetMargin` — nunca duplicam a fórmula.
+   Antes da correção, ambos `calcularMargem_` de Estoque tinham sua própria
+   cópia idêntica de `(preço-custo)/preço` bruto, **ignorando comissão e
+   taxa de serviço dos dois canais**, então superestimava a margem real em
+   todos os produtos (observado entre 30% e 49% de margem "aparente" na
+   Shopee quando a margem real, descontando taxas, era bem menor; ML também
+   afetado, mesmo bug).
+
+   ```
+   // Shopee — comissao 18% (cartao_avista) ou 12% (pix/parcelado) + taxa
+   // de servico 2%+R$4/item (itemCount=1: cada linha ESTOQUE = 1 unidade)
+   comissao       = PRECO_VENDA_SHOPEE * 0.18
+   taxaServico    = PRECO_VENDA_SHOPEE * 0.02 + 4
+   liquido        = PRECO_VENDA_SHOPEE - comissao - taxaServico
+   lucro          = liquido - PRECO_CUSTO_ORIGINAL
+   MARGEM_SHOPEE  = lucro / PRECO_VENDA_SHOPEE * 100   // sobre o preço de venda, NAO sobre o líquido
+
+   // Mercado Livre — taxa flat 14% + R$6 (ConfigService.getMarketplaceFee)
+   liquidoML          = PRECO_VENDA_MERCADO_LIVRE - (PRECO_VENDA_MERCADO_LIVRE*0.14 + 6)
+   lucroML            = liquidoML - PRECO_CUSTO_ORIGINAL
+   MARGEM_MERCADO_LIVRE = lucroML / PRECO_VENDA_MERCADO_LIVRE * 100
+   ```
+
+   Margem sempre medida sobre o **preço de venda** (`netProfit/salePrice`),
+   mesma convenção de `pricing.calculateSuggestedPrice` — nunca sobre o
+   líquido recebido (definição usada num rascunho anterior desta spec,
+   corrigida para bater com `specs/pricing.md`). `itemCount=1` e
+   `paymentScenario=cartao_avista` são os defaults corretos aqui porque cada
+   linha ESTOQUE representa 1 unidade vendida isoladamente — não um pedido
+   multi-item.
    - Se preço de venda = null → margem = não aplicável
    - Se margem < 0 → prejuízo (alertar no UI)
+   - **Alerta de prejuízo compara o líquido pós-taxas ao custo, nunca o
+     preço bruto** — um preço nominalmente acima do custo pode gerar
+     prejuízo real depois de descontar comissão+taxa (ver Scenario 3 de
+     `specs/estoque-preco-update.md`).
 
 8. **Rastreabilidade:**
    - REFERENCIA_ORIGEM: identifica se veio de NF ou entrada manual.
@@ -285,8 +301,8 @@ Then:
 Given: Item em ESTOQUE de "Maison Delilah" (PRECO_CUSTO_ORIGINAL=100)
 When: Web App atualiza PRECO_VENDA_SHOPEE=150, PRECO_VENDA_MERCADO_LIVRE=160
 Then:
-  - MARGEM_SHOPEE = 13.79% (comissão 18% + taxa serviço 2%+R$4 sobre 150 → líquido 116; (116-100)/116*100 — **não** os 33.3% do cálculo bruto antigo)
-  - MARGEM_MERCADO_LIVRE = (160-100)/160*100 = 37.5% (inalterada)
+  - MARGEM_SHOPEE = 10.67% (comissão R$27,00 + taxa serviço R$7,00 sobre 150 → líquido R$116,00; lucro R$16,00; 16/150*100 — **não** os 33,3% do cálculo bruto antigo nem os 13,79% de uma versão anterior desta spec que media a margem sobre o líquido em vez do preço de venda)
+  - MARGEM_MERCADO_LIVRE = 19,75% (taxa 14%+R$6 sobre 160 → líquido R$131,60; lucro R$31,60; 31,60/160*100 — **não** os 37,5% do cálculo bruto antigo, que ignorava a taxa ML)
   - Ambos refletem imediatamente na UI
   - Todos items DISPONÍVEL do produto recebem mesmos preços
 ```

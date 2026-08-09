@@ -59,39 +59,63 @@ var EstoquePrecoService = (function () {
     return sheetId;
   }
 
-  function calcularMargem_(precoVenda, precoCusto) {
+  var MARKETPLACE_LABELS_ = { shopee: 'Shopee', mercado_livre: 'Mercado Livre' };
+
+  /**
+   * Motor único de margem — sempre via PricingService.calculateNetMargin,
+   * nunca (preço-custo)/preço bruto. Ver specs/pricing.md e specs/estoque.md.
+   * @param {string} marketplace 'shopee' | 'mercado_livre'
+   * @return {number|string} margem em % (ex.: 10.67), ou '' se preço inválido
+   */
+  function calcularMargem_(precoVenda, precoCusto, marketplace) {
     if (!precoVenda || precoVenda === 0) return '';
-    var margem = ((precoVenda - precoCusto) / precoVenda) * 100;
-    return Math.round(margem * 100) / 100;
+    var result = PricingService.calculateNetMargin({
+      salePrice: precoVenda,
+      unitCost: precoCusto,
+      marketplace: marketplace
+    });
+    if (result.error) return '';
+    return Math.round(result.netMarginPct * 10000) / 100;
   }
 
   function gerarAlertas_(precoCusto, precoNovo, marketplace) {
+    var label = MARKETPLACE_LABELS_[marketplace] || marketplace;
     var alertas = [];
     if (precoNovo <= 0) {
-      alertas.push({ tipo: 'preco_zero', marketplace: marketplace, msg: 'Preço zero ou negativo' });
+      alertas.push({ tipo: 'preco_zero', marketplace: label, msg: 'Preço zero ou negativo' });
       return alertas;
     }
-    var margem = ((precoNovo - precoCusto) / precoNovo) * 100;
-    margem = Math.round(margem * 100) / 100;
 
-    if (precoNovo < precoCusto) {
+    var result = PricingService.calculateNetMargin({
+      salePrice: precoNovo,
+      unitCost: precoCusto,
+      marketplace: marketplace
+    });
+    if (result.error) {
+      alertas.push({ tipo: 'erro_calculo', marketplace: label, msg: result.error });
+      return alertas;
+    }
+
+    var margem = Math.round(result.netMarginPct * 10000) / 100;
+
+    if (result.netReceived < precoCusto) {
       alertas.push({
         tipo: 'prejuizo',
-        marketplace: marketplace,
-        msg: 'Prejuízo: preço R$' + precoNovo.toFixed(2) + ' abaixo do custo R$' + precoCusto.toFixed(2)
+        marketplace: label,
+        msg: 'Prejuízo ' + label + ': líquido R$' + result.netReceived.toFixed(2) + ' abaixo do custo R$' + precoCusto.toFixed(2)
       });
     }
     if (margem >= 0 && margem < 10) {
       alertas.push({
         tipo: 'margem_baixa',
-        marketplace: marketplace,
-        msg: 'Margem ' + marketplace + ' será ' + margem.toFixed(1) + '%, abaixo de 10%'
+        marketplace: label,
+        msg: 'Margem ' + label + ' será ' + margem.toFixed(1) + '%, abaixo de 10%'
       });
     }
     if (margem > 80) {
       alertas.push({
         tipo: 'margem_alta',
-        marketplace: marketplace,
+        marketplace: label,
         msg: 'Margem muito alta (' + margem.toFixed(1) + '%), verificar'
       });
     }
@@ -137,20 +161,20 @@ var EstoquePrecoService = (function () {
       if (precoShopee <= 0) {
         return { error: 'Preço deve ser > 0.' };
       }
-      var margemS = calcularMargem_(precoShopee, precoCusto);
+      var margemS = calcularMargem_(precoShopee, precoCusto, 'shopee');
       updates.precoVendaShopee = precoShopee;
       updates.margemShopee = margemS;
-      alertas = alertas.concat(gerarAlertas_(precoCusto, precoShopee, 'Shopee'));
+      alertas = alertas.concat(gerarAlertas_(precoCusto, precoShopee, 'shopee'));
     }
 
     if (precoML !== null) {
       if (precoML <= 0) {
         return { error: 'Preço deve ser > 0.' };
       }
-      var margemML = calcularMargem_(precoML, precoCusto);
+      var margemML = calcularMargem_(precoML, precoCusto, 'mercado_livre');
       updates.precoVendaMercadoLivre = precoML;
       updates.margemMercadoLivre = margemML;
-      alertas = alertas.concat(gerarAlertas_(precoCusto, precoML, 'Mercado Livre'));
+      alertas = alertas.concat(gerarAlertas_(precoCusto, precoML, 'mercado_livre'));
     }
 
     var result = EstoqueRepository.updateRowsBulk(sheetId, estoqueIds, updates);
@@ -165,8 +189,8 @@ var EstoquePrecoService = (function () {
         mercadoLivre: precoML
       },
       margensNovas: {
-        shopee: precoShopee !== null ? calcularMargem_(precoShopee, precoCusto) : '',
-        mercadoLivre: precoML !== null ? calcularMargem_(precoML, precoCusto) : ''
+        shopee: precoShopee !== null ? calcularMargem_(precoShopee, precoCusto, 'shopee') : '',
+        mercadoLivre: precoML !== null ? calcularMargem_(precoML, precoCusto, 'mercado_livre') : ''
       },
       alertasGerados: alertas
     };
@@ -196,14 +220,14 @@ var EstoquePrecoService = (function () {
 
     var margemSimS = '';
     if (novoPrecoS !== null) {
-      margemSimS = calcularMargem_(novoPrecoS, precoCusto);
-      alertas = alertas.concat(gerarAlertas_(precoCusto, novoPrecoS, 'Shopee'));
+      margemSimS = calcularMargem_(novoPrecoS, precoCusto, 'shopee');
+      alertas = alertas.concat(gerarAlertas_(precoCusto, novoPrecoS, 'shopee'));
     }
 
     var margemSimML = '';
     if (novoPrecoML !== null) {
-      margemSimML = calcularMargem_(novoPrecoML, precoCusto);
-      alertas = alertas.concat(gerarAlertas_(precoCusto, novoPrecoML, 'Mercado Livre'));
+      margemSimML = calcularMargem_(novoPrecoML, precoCusto, 'mercado_livre');
+      alertas = alertas.concat(gerarAlertas_(precoCusto, novoPrecoML, 'mercado_livre'));
     }
 
     return {
@@ -232,10 +256,13 @@ var EstoquePrecoService = (function () {
       return { error: 'Produto não encontrado em ESTOQUE.' };
     }
 
+    var marketplace = params.marketplace === 'mercado_livre' ? 'mercado_livre' : 'shopee';
     var item = items[0];
     var precoCusto = parseFloat(item.PRECO_CUSTO_ORIGINAL) || 0;
-    var precoVenda = parseFloat(item.PRECO_VENDA_SHOPEE) || 0;
-    var margem = calcularMargem_(precoVenda, precoCusto);
+    var precoVenda = marketplace === 'shopee'
+      ? (parseFloat(item.PRECO_VENDA_SHOPEE) || 0)
+      : (parseFloat(item.PRECO_VENDA_MERCADO_LIVRE) || 0);
+    var margem = calcularMargem_(precoVenda, precoCusto, marketplace);
 
     return {
       codigoProduto: codigoProduto,
