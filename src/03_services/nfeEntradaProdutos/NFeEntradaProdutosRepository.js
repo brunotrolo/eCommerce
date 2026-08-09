@@ -4,7 +4,7 @@
  * referência aos dados da NF original (auditoria cruzada com NFE_ENTRADA).
  * Colunas são lidas/escritas por NOME (não por posição), permitindo
  * reordenar colunas na planilha sem quebrar o script.
- * Regras completas em specs/nfe-entrada-produtos.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var NFeEntradaProdutosRepository = (function () {
   var SHEET_NAME = 'NFE_ENTRADA_PRODUTOS';

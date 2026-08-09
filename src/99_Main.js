@@ -1,7 +1,7 @@
 /**
  * Funções utilitárias para rodar manualmente pelo editor do Apps Script
  * (nunca por trigger/Web App). setup_() configura a API key uma única vez;
- * runSmokeTests_() cobre os critérios de aceite de specs/pricing.md.
+ * runSmokeTests_() cobre os cenários de precificação recalculados abaixo.
  * onOpen() cria o menu customizado no editor GAS.
  * initLogging_() cria aba LOGS e configura triggers diário de limpeza.
  */
@@ -170,8 +170,7 @@ function runSmokeTests_() {
   expectClose('shopee serviceFee@20% itemCount=3', r7.serviceFee, 12.90);
 
   // Motor único de margem (pricing.calculateNetMargin) — Estoque/Catálogo
-  // consomem esta função, nunca duplicam a fórmula. Casos batem com os
-  // cenários recalculados em specs/estoque-preco-update.md.
+  // consomem esta função, nunca duplicam a fórmula.
 
   // Given salePrice=180, unitCost=100, shopee -> líquido 140, lucro 40, margem 22.22% (não 28.57% líquido-basis)
   var m1 = PricingService.calculateNetMargin({ salePrice: 180, unitCost: 100, marketplace: 'shopee' });
@@ -747,7 +746,7 @@ function runCalculatorSmokeTests_() {
     expectTrue('cenário6 margin_low warning', hasLowMargin);
   }
 
-  // Cenário 7: Shopee básico, cartão à vista — deve bater com specs/pricing.md
+  // Cenário 7: Shopee básico, cartão à vista
   var r7 = CalculatorService.calculate({ marketplace: 'shopee', custoProduto: 50, margem: 0.20 });
   expectTrue('cenário7 success', !!r7.success);
   if (r7.data) {

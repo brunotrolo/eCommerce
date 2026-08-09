@@ -2,9 +2,9 @@
  * CalculatorService — Calculadora de Precificação (PrecificaPro). Suporta
  * Mercado Livre (tabela por faixa de preço/regime, própria deste serviço) e
  * Shopee (modelo de comissão + taxa de serviço validado por engenharia
- * reversa de pedidos reais — ver specs/calculator-shopee.md e
- * ConfigService.getShopeeFeeModel). Cálculo puro (sem I/O), sem chamadas
- * Tiops/Sheets. Regras em specs/calculator.md.
+ * reversa de pedidos reais — ver ConfigService.getShopeeFeeModel).
+ * Cálculo puro (sem I/O), sem chamadas Tiops/Sheets. Regras de negócio
+ * documentadas no código abaixo.
  */
 var CalculatorService = (function () {
 
@@ -224,14 +224,12 @@ var CalculatorService = (function () {
 
   /**
    * Shopee usa o modelo validado de 2 componentes (comissão + taxa de
-   * serviço, ConfigService.getShopeeFeeModel — ver specs/calculator-shopee.md
-   * seções 3-7). Ads/Imposto Simples são deduções genéricas de vendedor,
-   * fora do escopo da engenharia reversa, aplicadas aqui do mesmo jeito que
-   * já eram para Mercado Livre (specs/calculator.md), reduzindo o fator
-   * `k` antes de resolver o preço — mesma extensão documentada em
-   * specs/calculator-shopee.md §9.1 (kAjustado = k - ads% - imposto%).
+   * serviço — ver ConfigService.getShopeeFeeModel). Ads/Imposto Simples são
+   * deduções genéricas de vendedor, fora do escopo da engenharia reversa,
+   * aplicadas aqui do mesmo jeito que já eram para Mercado Livre, reduzindo
+   * o fator `k` antes de resolver o preço (kAjustado = k - ads% - imposto%).
    * Margem sempre sobre o preço de venda (marginBasis: price), consistente
-   * com specs/pricing.md.
+   * com PricingService.calculateSuggestedPrice.
    */
   function _calculateShopee(params, custoProduto, custosAdicionais, custoTotal, margemAlvo, adsPercent, impostoSimples, precoVendaManual) {
     var paymentScenario = params.paymentScenario || 'cartao_avista';

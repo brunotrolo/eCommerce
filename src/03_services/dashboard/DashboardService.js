@@ -1,7 +1,7 @@
 /**
  * DashboardService — visão unificada de vendas/pedidos das duas lojas.
  * Consome OrdersService (lê do Google Sheets),
- * com cache curto (CacheRepository) para não sobrecarregar. Regras em specs/dashboard.md.
+ * com cache curto (CacheRepository) para não sobrecarregar. Regras de negócio documentadas no código abaixo.
  */
 var DashboardService = (function () {
   var CACHE_KEY = 'dashboard_summary';

@@ -2,7 +2,7 @@
  * EstoqueBaixaService — motor central de baixa de estoque (FIFO).
  * Seleciona unidades DISPONÍVEIS mais antigas de um codigoProduto e marca
  * VENDIDO, registrando a operação em ESTOQUE_BAIXAS.
- * Regras completas em specs/estoque-baixa.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var EstoqueBaixaService = (function () {
   var LOCK_TIMEOUT_MS = 5000;

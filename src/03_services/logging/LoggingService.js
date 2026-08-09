@@ -3,7 +3,7 @@
  * Registra ações na aba LOGS do Google Sheets. Logging é assíncrono:
  * nunca bloqueia a ação principal.
  *
- * Regras completas em specs/logging.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var LoggingService = (function () {
   var _logBuffer = [];

@@ -3,7 +3,7 @@
  * em linhas individuais na aba NFE_ENTRADA_PRODUTOS, uma linha por produto,
  * com referência completa aos dados da NF de origem para auditoria cruzada.
  *
- * Regras completas em specs/nfe-entrada-produtos.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var NFeEntradaProdutosService = (function () {
 

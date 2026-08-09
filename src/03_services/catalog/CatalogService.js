@@ -1,7 +1,7 @@
 /**
  * CatalogService — Catálogo unificado de produtos recebidos (status='Recebido'),
  * agrupados por código, com custo unitário líquido mais recente e preços
- * sugeridos para Shopee e Mercado Livre. Regras completas em specs/catalog.md.
+ * sugeridos para Shopee e Mercado Livre. Regras de negócio documentadas no código abaixo.
  */
 var CatalogService = (function () {
   function describe() {
@@ -348,8 +348,8 @@ var CatalogService = (function () {
     var descricao = mostRecent.DESCRICAO_PRODUTO || '';
 
     // Motor único: mesma PricingService.calculateSuggestedPrice usada pela
-    // listagem principal do Catálogo (getProducts) e por specs/pricing.md —
-    // esta função só reconstrói o passo-a-passo em cima do mesmo resultado,
+    // listagem principal do Catálogo (getProducts) — esta função só
+    // reconstrói o passo-a-passo em cima do mesmo resultado,
     // nunca recalcula com uma fórmula própria (era o bug antes: usava
     // ConfigService.getMarketplaceFee('shopee') flat 20%, divergindo do
     // valor real mostrado na linha do produto).

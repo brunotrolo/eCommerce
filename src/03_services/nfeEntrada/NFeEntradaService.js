@@ -4,7 +4,7 @@
  * por numero_nf (XML tem prioridade sobre PDF).
  *
  * Todas as ações são logadas detalhadamente na aba LOGS (service='nfeEntrada.trace').
- * Regras completas em specs/nfe-entrada.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var NFeEntradaService = (function () {
   var NFE_NS = XmlService.getNamespace('nfe', 'http://www.portalfiscal.inf.br/nfe');

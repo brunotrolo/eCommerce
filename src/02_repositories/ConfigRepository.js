@@ -2,7 +2,7 @@
  * ConfigRepository — leitura da aba CONFIG do Google Sheets.
  * Estrutura: CHAVE | VALOR | DESCRIÇÃO
  * Cada linha é uma propriedade parametrizável (taxas, margens, IDs, etc.).
- * Regras completas em specs/config.md (quando existir).
+ * Regras de negócio documentadas no código abaixo.
  */
 var ConfigRepository = (function () {
   var SHEET_NAME = 'CONFIG';

@@ -1,7 +1,7 @@
 /**
  * EstoqueRepository — leitura/escrita na aba ESTOQUE do Google Sheets.
  * Cada linha = 1 unidade de produto (rastreamento unitário FIFO).
- * Regras completas em specs/estoque.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var EstoqueRepository = (function () {
   var SHEET_NAME = 'ESTOQUE';

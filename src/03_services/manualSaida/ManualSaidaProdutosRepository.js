@@ -2,7 +2,7 @@
  * ManualSaidaProdutosRepository — leitura/escrita na aba
  * MANUAL_SAIDA_PRODUTOS do Google Sheets. Cada linha é uma saída manual
  * de produto (venda direta, devolução, perda, ajuste, brinde).
- * Regras completas em specs/manual-saida.md.
+ * Regras de negócio documentadas no código abaixo.
  */
 var ManualSaidaProdutosRepository = (function () {
   var SHEET_NAME = 'MANUAL_SAIDA_PRODUTOS';

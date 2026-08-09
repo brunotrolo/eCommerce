@@ -9,8 +9,7 @@
  * Segurança: GAS doPost(e) não expõe headers de requisição, então a
  * assinatura Authorization da Shopee não pode ser verificada aqui. A
  * mitigação é um secret em query param da callback URL (?secret=...),
- * comparado com SHOPEE_WEBHOOK_SECRET em Script Properties. Ver
- * specs/push-notification.md.
+ * comparado com SHOPEE_WEBHOOK_SECRET em Script Properties.
  */
 var PushNotificationService = (function () {
   var SECRET_KEY = 'SHOPEE_WEBHOOK_SECRET';

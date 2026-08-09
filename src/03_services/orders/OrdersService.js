@@ -1,6 +1,6 @@
 /**
  * OrdersService — pedidos normalizados lidos da aba PEDIDOS do Google Sheets.
- * Regras completas em specs/orders.md.
+ * Regras de negócio documentadas no código abaixo.
  * Lê tanto formato normalizado (legacy) quanto formato Shopee raw (ordersImport).
  */
 var OrdersService = (function () {
