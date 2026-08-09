@@ -12,7 +12,7 @@ escrever qualquer chamada nova à Tiops.
 | `catalogo_mercado_livre.md` | Levantamento de oportunidades de produto (insumo de negócio, não técnico) |
 
 Regras extraídas daqui que viraram lei do projeto estão resumidas em
-`AGENTS.md` e detalhadas em `specs/listings.md` e
-`specs/inventory-pricing.md`. Se encontrar divergência entre um documento
-daqui e uma spec, **a spec vence** — e a divergência deve ser corrigida no
-mesmo commit.
+`AGENTS.md` e detalhadas em `specs/inventory-pricing.md` (spec do domínio
+Anúncios/Listings foi arquivada em `docs/historico/specs-listings.md`).
+Se encontrar divergência entre um documento daqui e uma spec, **a spec vence** —
+e a divergência deve ser corrigida no mesmo commit.

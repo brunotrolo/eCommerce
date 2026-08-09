@@ -29,7 +29,6 @@ var ServiceRegistry = (function () {
     config: safeRef_('config', function () { return typeof ConfigService !== 'undefined' ? ConfigService : undefined; }),
     pricing: safeRef_('pricing', function () { return typeof PricingService !== 'undefined' ? PricingService : undefined; }),
     orders: safeRef_('orders', function () { return typeof OrdersService !== 'undefined' ? OrdersService : undefined; }),
-    listings: safeRef_('listings', function () { return typeof ListingsService !== 'undefined' ? ListingsService : undefined; }),
     dashboard: safeRef_('dashboard', function () { return typeof DashboardService !== 'undefined' ? DashboardService : undefined; }),
     nfeEntrada: safeRef_('nfeEntrada', function () { return typeof NFeEntradaService !== 'undefined' ? NFeEntradaService : undefined; }),
     nfeEntradaProdutos: safeRef_('nfeEntradaProdutos', function () { return typeof NFeEntradaProdutosService !== 'undefined' ? NFeEntradaProdutosService : undefined; }),

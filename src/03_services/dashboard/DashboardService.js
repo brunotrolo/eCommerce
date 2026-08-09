@@ -1,6 +1,6 @@
 /**
  * DashboardService — visão unificada de vendas/pedidos das duas lojas.
- * Consome OrdersService e ListingsService (ambos lêem do Google Sheets),
+ * Consome OrdersService (lê do Google Sheets),
  * com cache curto (CacheRepository) para não sobrecarregar. Regras em specs/dashboard.md.
  */
 var DashboardService = (function () {
@@ -12,12 +12,11 @@ var DashboardService = (function () {
       name: 'dashboard',
       actions: {
         getSummary: {
-          description: 'Resumo unificado: pedidos recentes, vendas por canal e alertas de estoque baixo. Cacheado por 5 min.',
+          description: 'Resumo unificado: pedidos recentes e vendas por canal. Cacheado por 5 min.',
           params: {},
           returns: {
             orders: 'array',
             salesByChannel: 'object',
-            lowStock: 'array',
             fromCache: 'boolean'
           }
         },
@@ -39,15 +38,10 @@ var DashboardService = (function () {
 
   function computeSummary_() {
     var recentOrders = OrdersService.listUnified({ marketplace: 'all', limit: 10 }).orders;
-    var allListings = ListingsService.listUnified({ marketplace: 'all' }).listings;
     var salesByChannel = computeSalesByChannel_(recentOrders);
-    var lowStock = allListings.filter(function (item) {
-      return typeof item.stock === 'number' && item.stock <= 3;
-    });
     return {
       orders: recentOrders,
-      salesByChannel: salesByChannel,
-      lowStock: lowStock
+      salesByChannel: salesByChannel
     };
   }
 

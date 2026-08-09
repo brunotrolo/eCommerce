@@ -25,7 +25,6 @@ ainda (falta o primeiro deploy). Ver [PLANO.md](./PLANO.md).
 | **Dashboard** | Visão unificada: pedidos recentes, receita Shopee, estoque baixo | `specs/dashboard.md` |
 | **Precificação** | Preço sugerido por canal (Shopee × ML) a partir de custo + margem | `specs/pricing.md` |
 | **Pedidos** | Lista unificada dos dois canais com filtro por marketplace | `specs/orders.md` |
-| **Anúncios** | Listar, pausar e reativar anúncios com releitura obrigatória | `specs/listings.md` |
 | **Catálogo** | Produtos de NFe agrupados por código com preços sugeridos | `specs/catalog.md` |
 | **NFe Entrada** | Importação de XMLs/PDFs de NFes do Drive para o Sheets | `specs/nfe-entrada.md` |
 | **Entrada Produtos** | Produtos das NFes com busca, filtros e status de recebimento | `specs/nfe-entrada-produtos.md` |

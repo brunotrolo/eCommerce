@@ -310,9 +310,9 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 ## Regras conhecidas dos marketplaces (não redescobrir na marra)
 
-Ver `specs/listings.md` e `specs/inventory-pricing.md` para a lista completa
-extraída de `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
-`docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md`. Resumo crítico:
+Ver `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
+`docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md` para a lista completa
+(regras do domínio Anúncios/Listings, arquivado em `docs/historico/specs-listings.md`). Resumo crítico:
 - **Nunca confiar na resposta de um update/pause/activate para confirmar
   estado** — sempre reler com `get_item`/`shopee_get_item` depois.
 - Shopee: `shopee_update_price` usa `price_list`, nunca `price` solto.

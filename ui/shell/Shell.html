@@ -58,9 +58,6 @@
               <button class="nav-dropdown-item" data-route="orders" role="menuitem">Pedidos</button>
             </li>
             <li role="none">
-              <button class="nav-dropdown-item" data-route="listings" role="menuitem">Anúncios</button>
-            </li>
-            <li role="none">
               <button class="nav-dropdown-item" data-route="manualSaida" role="menuitem">Saída Manual</button>
             </li>
             <li role="none">
@@ -95,7 +92,6 @@
     <?!= include('ui/shell/StatusView'); ?>
     <?!= include('ui/dashboard/DashboardView'); ?>
     <?!= include('ui/orders/OrdersView'); ?>
-    <?!= include('ui/listings/ListingsView'); ?>
     <?!= include('ui/nfeEntrada/NFeEntradaView'); ?>
     <?!= include('ui/nfeEntradaProdutos/NFeEntradaProdutosView'); ?>
     <?!= include('ui/catalog/CatalogView'); ?>
@@ -121,7 +117,6 @@
       var ROUTES = {
         dashboard: 'dashboard-widget',
         orders: 'orders-widget',
-        listings: 'listings-widget',
         nfeEntrada: 'nfe-entrada-widget',
         nfeEntradaProdutos: 'nfe-entrada-produtos-widget',
         catalog: 'catalog-widget',
@@ -317,7 +312,6 @@
           { key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: {} },
           { key: 'catalog.products.code.asc', action: 'catalog.getProducts', params: { sortBy: 'code', sortOrder: 'asc' } },
           { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } },
-          { key: 'listings.all', action: 'listings.listUnified', params: { marketplace: 'all' } },
           { key: 'estoque.Items.TODOS', action: 'estoque.getItems', params: {} },
           { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } },
           { key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500 } },

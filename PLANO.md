@@ -53,8 +53,8 @@ Ciclo padrão de uma fase:
 | 2 | **Dashboard** | `specs/dashboard.md` | Visão única: pedidos recentes, receita, estoque baixo. Cache de 5 min. |
 | 3 | **Pedidos** | `specs/orders.md` | Lista unificada dos dois canais em shape normalizado + detalhe do pedido. |
 | 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. Consultável antes de criar/editar anúncios. |
-| 5 | **Anúncios** | `specs/listings.md` | Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação. |
-| 6 | ~~Preço & Estoque~~ | `specs/inventory-pricing.md` | ~~Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo.~~ **Removida** — página e serviço legacy excluídos; regras de preço/estoque seguem em `specs/pricing.md`, `listings.md` e `estoque.md`. |
+| 5 | ~~**Anúncios**~~ | ~~`specs/listings.md`~~ | ~~Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação.~~ **Removida 09/08/2026** — página sem utilidade excluída do projeto; spec arquivada em `docs/historico/specs-listings.md`. |
+| 6 | ~~Preço & Estoque~~ | `specs/inventory-pricing.md` | ~~Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo.~~ **Removida** — página e serviço legacy excluídos; regras de preço/estoque seguem em `specs/pricing.md` e `estoque.md`. |
 | 8 | **Calculadora PrecificaPro** | `specs/calculator.md` | Calculadora interativa **única** do app (Shopee + Mercado Livre) com widget flutuante (modal), botão 🧮 no topo. Dois seletores: canal (Shopee/ML) e modo (Formador de Preço custo→preço, ou Receita Líquida preço→líquido). Shopee usa o modelo de taxa validado por engenharia reversa de pedidos reais (`specs/calculator-shopee.md`); ML mantém sua tabela por faixa/regime, inalterada. |
 
 ---
