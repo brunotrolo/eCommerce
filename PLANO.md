@@ -55,7 +55,7 @@ Ciclo padrão de uma fase:
 | 4 | **Catálogo** | `specs/catalog.md` | Produtos recebidos (NFe) agrupados por código, com custo mais recente e preços sugeridos para ambos canais. Consultável antes de criar/editar anúncios. |
 | 5 | **Anúncios** | `specs/listings.md` | Listar, ver detalhe, pausar e reativar anúncios, com releitura obrigatória de confirmação. |
 | 6 | ~~Preço & Estoque~~ | `specs/inventory-pricing.md` | ~~Liga Precificação + Anúncios: calcula, aplica no canal, confirma relendo.~~ **Removida** — página e serviço legacy excluídos; regras de preço/estoque seguem em `specs/pricing.md`, `listings.md` e `estoque.md`. |
-| 8 | **Calculadora PrecificaPro** | `specs/calculator.md` | Calculadora interativa de precificação Mercado Livre com widget flutuante (modal). Simula custos, taxas, imposto, margem em tempo real. |
+| 8 | **Calculadora PrecificaPro** | `specs/calculator.md` | Calculadora interativa **única** do app (Shopee + Mercado Livre) com widget flutuante (modal), botão 🧮 no topo. Dois seletores: canal (Shopee/ML) e modo (Formador de Preço custo→preço, ou Receita Líquida preço→líquido). Shopee usa o modelo de taxa validado por engenharia reversa de pedidos reais (`specs/calculator-shopee.md`); ML mantém sua tabela por faixa/regime, inalterada. |
 
 ---
 
@@ -84,15 +84,22 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | — | Webhook Shopee (Push) | ✅ | ⬜ |
 | — | Shopee Ads (Gestão de Anúncios Pagos) | ✅ | ⬜ |
 
-> **Estado real de hoje:** o app roda em produção (Web App deployado, última
-> versão @146). O fluxo funcional ativo é o domínio **Estoque**: 157 unidades
+> **Estado real de hoje:** o app roda em produção (Web App deployado via
+> `clasp push` automático no merge em `main`, sem passo `clasp deploy`
+> manual). O fluxo funcional ativo é o domínio **Estoque**: 157 unidades
 > rastreadas unitariamente (FIFO), alimentado por NFe + Manual com importação
 > passo a passo (modal de progresso) e preços sincronizáveis com o catálogo.
-> Fases 0, 1 e 8 foram validadas por cálculos/smoke executados (fórmulas de
-> taxa: Shopee 20% → R$90,91; ML 14%+R$6 → R$91,80; calculadora 6 cenários
-> GWT). As demais fases dependem de dado real dos marketplaces via Tiops e/
-> ou de acesso ao editor Apps Script (`runSmokeTests_`) — pendente de
-> validação manual ativa.
+>
+> **Fórmula de taxa Shopee corrigida (08/08/2026):** o flat 20% antigo foi
+> substituído por um modelo de 2 componentes (comissão 18% cartão-à-vista /
+> 12% Pix-ou-parcelado + taxa de serviço 2%+R$4/item+R$16 promo), derivado
+> por engenharia reversa de **11 pedidos `COMPLETED` reais** da conta,
+> validado com <1% de erro médio (`specs/calculator-shopee.md`). ML segue
+> com sua tabela por faixa/regime, não revisada com dados reais ainda.
+> Fases 0, 1 e 8 foram validadas por cálculos/smoke executados. As demais
+> fases dependem de dado real dos marketplaces via Tiops e/ou de acesso ao
+> editor Apps Script (`runSmokeTests_`) — pendente de validação manual
+> ativa.
 >
 > **Webhook Shopee:** código implementado e testado (PushNotificationService,
 > specs/push-notification.md), mas **inativo** — a Tiops detém as credenciais
@@ -177,16 +184,48 @@ Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.
 
 ### Fase 8 — Calculadora PrecificaPro
 
+**Como foi desenvolvida (histórico, 08/08/2026):**
+1. Engenharia reversa das taxas Shopee com 11 pedidos `COMPLETED` reais →
+   `specs/calculator-shopee.md` (dados brutos) → correção formal em
+   `specs/pricing.md` (`ConfigService.getShopeeFeeModel`,
+   `PricingService.calculateSuggestedPrice`).
+2. Primeira tentativa: widget dedicado novo (`PricingView.html`) —
+   descoberto **nunca montado no Shell**, órfão, inacessível ao usuário.
+3. Usuário pediu **uma única calculadora**: o widget novo foi removido; o
+   modelo Shopee validado foi incorporado na calculadora já existente
+   (`CalculatorService.calculate`/`CalculatorView.html`, botão 🧮), que
+   antes só suportava Mercado Livre.
+4. Usuário pediu os dois modos de cálculo explícitos (custo→preço e
+   preço→líquido) — já existiam implicitamente (campo Preço de Venda vazio
+   vs. preenchido), viraram um seletor visível ("Formador de Preço" /
+   "Receita Líquida").
+5. **Bug real encontrado e corrigido**: `.calc-form-row[hidden]` não
+   escondia nada — mesma especificidade CSS que o `[hidden]` padrão do
+   browser, regra de autor vencia. Seções de Shopee e ML apareciam juntas
+   sempre. Confirmado renderizando o widget via Playwright/Chromium
+   headless (não só leitura de código) antes e depois do fix.
+6. Ajustes finos: Imposto Simples default 0% (era 6%), botão Mercado Livre
+   com azul da marca (token `--color-mercado-livre-blue` novo).
+7. **Investigado e descartado**: um vídeo/artigo de terceiros alegando nova
+   tabela de comissão Shopee escalonada por preço (idêntica à tabela ML já
+   existente no projeto) a partir de 01/03/2026 — contradito pelos 11
+   pedidos reais (18%/12% consistente em toda a faixa R$29,99–R$299,00,
+   nunca 20%/14%). Não aplicado à calculadora; ver `specs/calculator-shopee.md`
+   para retomar se dados futuros confirmarem a mudança.
+
 **Critério de aceite:**
-- [ ] Floater aparece no canto inferior direito de qualquer página.
-- [ ] Clique abre modal calculadora em tela cheia.
-- [ ] Digitar custo + margem → preço sugerido aparece em <500ms.
-- [ ] Cenário básico (custo R$100, margem 20%, CNPJ, faixa R$100–199): preço confere com cálculo manual.
-- [ ] Vendedor iniciante: sem taxa de ML (0% + R$0).
-- [ ] Todos 6 cenários Given/When/Then (spec linhas 160–212) passam.
-- [ ] Avisos aparecem (low margin <10%, negative profit, high ads).
-- [ ] Responsivo em mobile (95vw) e desktop (~600px).
-- [ ] Descomposição visual de preço (árvore de deduções) clara.
+- [x] Floater aparece no canto superior direito (botão 🧮), acessível de qualquer página.
+- [x] Clique abre modal calculadora em tela cheia.
+- [x] Seletor de marketplace (Shopee/Mercado Livre) troca as taxas e os campos específicos do canal.
+- [x] Seletor de modo (Formador de Preço/Receita Líquida) troca Margem↔Preço de Venda e o cabeçalho do resultado.
+- [x] Digitar custo + margem → preço sugerido aparece em <500ms.
+- [x] Cenário básico ML (custo R$100, margem 20%, CNPJ, faixa R$100–199): preço confere com cálculo manual.
+- [x] Cenário básico Shopee (custo R$50, margem 20%, cartão à vista): preço R$90,00, confere com `specs/pricing.md`.
+- [x] Vendedor iniciante (ML): sem taxa (0% + R$0).
+- [x] Todos os cenários Given/When/Then de `specs/calculator.md` (10 cenários, ML + Shopee) passam — pendente rodar `runCalculatorSmokeTests_()` no editor real do Apps Script.
+- [x] Avisos aparecem (low margin <10%, negative profit, high ads, margin unreachable).
+- [x] Responsivo em mobile (95vw) e desktop (~600px).
+- [x] Descomposição visual de preço (árvore de deduções) clara, com rótulos dinâmicos por canal.
 
 ### Shopee Ads — Gestão de Anúncios Pagos
 
@@ -235,3 +274,6 @@ Contratos da Tiops já verificados contra a API real ficam em
 | Update de marketplace "dar OK" sem ter aplicado | releitura obrigatória — regra em `AGENTS.md` e nas specs 4 e 5 |
 | Colisão de nome no escopo global do GAS | um `var Namespace` por arquivo, pastas numeradas |
 | API key vazar em commit | só em Script Properties; skill `gas-ops` checa antes do push |
+| Fonte externa (vídeo/artigo) sobre taxa de marketplace desatualizada ou errada | sempre validar contra pedidos `COMPLETED` reais da conta antes de mudar a calculadora — caso concreto: vídeo alegando tabela Shopee escalonada (idêntica à do ML) foi contradito por 11 pedidos reais, ver `specs/calculator-shopee.md` |
+| `[hidden]` não esconder elemento com `display` explícito na mesma classe | sempre adicionar `.classe[hidden] { display: none; }` (maior especificidade) ao criar `.form-row`/`.field` que alterna visibilidade — bug real encontrado na calculadora (PR #21) |
+| Widget novo criado mas nunca montado no Shell (`<tag>` ausente) | conferir `ui/shell/Shell.html` tem tanto o `include()` quanto a tag `<widget-x>` antes de considerar uma UI "pronta" — aconteceu com `PricingView.html` (PR #18), ficou órfão até o usuário reportar confusão |
