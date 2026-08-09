@@ -553,7 +553,11 @@
         try {
           var result = fn();
           if (result && typeof result.then === 'function') {
-            result.then(resolve).catch(reject);
+            result.then(function (response) {
+              if (response && response.error) { reject(new Error(response.error)); return; }
+              var data = response ? response.data : null;
+              resolve(data);
+            }).catch(reject);
           } else {
             resolve(result);
           }
