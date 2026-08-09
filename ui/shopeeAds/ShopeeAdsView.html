@@ -1,14 +1,13 @@
 <template id="shopee-ads-template">
   <style>
-    /* Filtros sempre em 1 linha mesmo em card estreito (widget-grid 280px).
-       .filter-bar compartilhado usa wrap + max-width 280px no input[text],
-       o que quebra em 2 linhas nesta página. */
+    /* Filtros em linhas organizadas — nunca estourar o card.
+       Os campos são encolhíveis; barra quebra apenas se necessário. */
     [hidden] { display: none !important; }
     .filter-bar {
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
     }
     .filter-bar input[type="text"] {
-      flex: 1 1 90px;
+      flex: 1 1 120px;
       min-width: 0;
       max-width: none;
     }
@@ -17,7 +16,7 @@
       min-width: 0;
     }
     .filter-bar input[type="number"] {
-      flex: 0 0 60px;
+      flex: 0 1 96px;
       min-width: 0;
     }
     th[data-sort] {
@@ -132,12 +131,24 @@
 
       <div class="filter-bar" id="filter-bar-campanhas">
         <input type="text" id="filter-nome" placeholder="Nome..." />
+        <select id="filter-tipo">
+          <option value="all">Tipo: Todos</option>
+          <option value="manual">Manual</option>
+          <option value="auto">Automática</option>
+        </select>
         <select id="filter-status">
           <option value="all">Status: Todos</option>
           <option value="ACTIVE">Ativo</option>
           <option value="PAUSED">Pausado</option>
           <option value="TERMINATED">Encerrado</option>
         </select>
+        <input type="number" id="filter-orcamento" placeholder="Orç. mín" min="0" step="any" title="Orçamento diário mínimo" />
+        <input type="number" id="filter-gasto" placeholder="Gasto mín" min="0" step="any" title="Gasto total mínimo" />
+        <input type="number" id="filter-impressoes" placeholder="Impr. mín" min="0" step="any" title="Impressões mínimas" />
+        <input type="number" id="filter-cliques" placeholder="Cliques mín" min="0" step="any" title="Cliques mínimos" />
+        <input type="number" id="filter-ctr" placeholder="CTR mín" min="0" step="any" title="CTR mínimo (%)" />
+        <input type="number" id="filter-roas" placeholder="ROAS mín" min="0" step="any" title="ROAS mínimo" />
+        <input type="number" id="filter-vendas" placeholder="Vendas mín" min="0" step="any" title="Vendas mínimas" />
       </div>
 
       <div class="filter-bar" id="filter-bar-visitas" hidden>
@@ -208,6 +219,17 @@
     var _campanhas = [];
     var _visitas = [];
 
+    // Filtros numéricos: coluna da campanha -> id do input (valor mínimo)
+    var _numericFilters = [
+      { field: 'ORCAMENTO_DIARIO', el: 'filter-orcamento' },
+      { field: 'GASTO_TOTAL', el: 'filter-gasto' },
+      { field: 'IMPRESSOES', el: 'filter-impressoes' },
+      { field: 'CLIQUES', el: 'filter-cliques' },
+      { field: 'CTR', el: 'filter-ctr' },
+      { field: 'ROAS', el: 'filter-roas' },
+      { field: 'VENDAS', el: 'filter-vendas' }
+    ];
+
     function esc(v) {
       return String(v == null ? '' : v)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -273,13 +295,27 @@
       var rows = rows || [];
       if (_currentView === 'campanhas') {
         var nomeEl = shadow ? shadow.querySelector('#filter-nome') : document.querySelector('#filter-nome');
+        var tipoEl = shadow ? shadow.querySelector('#filter-tipo') : document.querySelector('#filter-tipo');
         var statusEl = shadow ? shadow.querySelector('#filter-status') : document.querySelector('#filter-status');
         var nome = (nomeEl || {}).value || '';
         nome = nome.toLowerCase().trim();
+        var tipo = (tipoEl || {}).value || 'all';
         var status = (statusEl || {}).value || 'all';
+        var mins = {};
+        for (var f = 0; f < _numericFilters.length; f++) {
+          var nf = _numericFilters[f];
+          var el = shadow ? shadow.querySelector('#' + nf.el) : document.querySelector('#' + nf.el);
+          var v = (el || {}).value;
+          mins[nf.field] = v !== '' && v != null && !isNaN(Number(v)) ? Number(v) : null;
+        }
         return rows.filter(function (r) {
           if (status !== 'all' && String(r.STATUS || '').toUpperCase() !== status) return false;
+          if (tipo !== 'all' && String(r.TIPO || '').toLowerCase() !== tipo) return false;
           if (nome && String(r.NOME || '').toLowerCase().indexOf(nome) === -1) return false;
+          for (var k in mins) {
+            if (mins[k] == null) continue;
+            if (Number(r[k]) < mins[k]) return false;
+          }
           return true;
         });
       } else {
@@ -472,10 +508,25 @@
         _currentPage = 0;
         renderPage(shadow);
       });
+      shadow.querySelector('#filter-tipo').addEventListener('change', function () {
+        _currentPage = 0;
+        renderPage(shadow);
+      });
       shadow.querySelector('#filter-status').addEventListener('change', function () {
         _currentPage = 0;
         renderPage(shadow);
       });
+      for (var nfIdx = 0; nfIdx < _numericFilters.length; nfIdx++) {
+        var nfEl = shadow.querySelector('#' + _numericFilters[nfIdx].el);
+        if (nfEl) {
+          (function (el) {
+            el.addEventListener('input', function () {
+              _currentPage = 0;
+              renderPage(shadow);
+            });
+          })(nfEl);
+        }
+      }
       shadow.querySelector('#filter-item-id').addEventListener('input', function () {
         _currentPage = 0;
         renderPage(shadow);
