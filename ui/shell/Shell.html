@@ -326,14 +326,24 @@
 
       var startupDs = window.__DataClient || window.__DataStore;
       if (startupDs) {
-        // Preload crítico mínimo (P2): só telas da primeira dobra; o resto
-        // é lazy por aba via ROUTE_PREFETCH no navigate().
+        // Preload total no boot: TODAS as rotas com dados de Sheets são
+        // aquecidas em paralelo na abertura do app (fire-and-forget com
+        // allSettled). Ao navegar, a view encontra o cache pronto e renderiza
+        // instantâneo; o refresh em background (SWR) mantém a frescura.
         startupDs.preFetch([
           { key: 'config.config', action: 'config.getConfig', params: {} },
           { key: 'dashboard.summary', action: 'dashboard.getSummary', params: {} },
           { key: 'estoque.Items.TODOS', action: 'estoque.getItems', params: {} },
           { key: 'catalog.products.code.asc', action: 'catalog.getProducts', params: { sortBy: 'code', sortOrder: 'asc' } },
-          { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } }
+          { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } },
+          { key: 'nfeEntrada.recent', action: 'nfeEntrada.getRecent', params: { limit: 20 } },
+          { key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: {} },
+          { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } },
+          { key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500 } },
+          { key: 'carteiraShopee.snapshot', action: 'carteiraShopee.getWalletSnapshot', params: {} },
+          { key: 'anunciosShopee.listings', action: 'anunciosShopee.getListings', params: {} },
+          { key: 'shopeeAds.campanhas', action: 'shopeeAds.getCampaigns', params: {} },
+          { key: 'shopeeAds.balance', action: 'shopeeAds.getBalance', params: {} }
         ]);
       }
 

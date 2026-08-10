@@ -146,12 +146,18 @@ por view:
    repetir efeito colateral.
 7. **Escrita invalida o domínio inteiro**: `mutateData` → `invalidateByPrefix`
    automático; dados velhos nunca sobrevivem a uma escrita.
-8. **preFetch paralelo tolerante**: startup/rota dispara N leituras em
-   paralelo (`allSettled`) — 1 domínio falho não bloqueia o preload dos
-   outros. `logging.flushLogs` roda 1x no fim da rajada.
+8. **preFetch total no boot**: o Shell dispara no startup TODAS as rotas
+   com dados de Sheets em paralelo (`allSettled`) — ao navegar, a view
+   encontra o cache pronto e renderiza instantâneo; o SWR mantém a
+   frescura. `ROUTE_PREFETCH` por aba continua como segurança quando o
+   usuário navega antes do boot terminar (dedupe torna o re-fetch livre).
+   `logging.flushLogs` roda 1x no fim da rajada.
 9. **Server-side cache é otimização, não requisito**: `CacheRepository.set`
-   tem guard de 100KB (skip silencioso, nunca lança) — resposta grande
-   simplesmente não é cacheada no servidor; o cliente (memória) cobre.
+   tem guard de 100KB (skip silencioso, nunca lança). Payload grande
+   (catálogo, estoque, produtos) é comprimido com **gzip + base64**
+   (`GZ1:` prefix) para caber nos 100KB do CacheService — sem isso,
+   conjuntos grandes furariam o guard e bateriam no Sheets em todo load.
+   O cliente (memória) cobre o resto.
 10. **Erro nunca vira lista vazia e nunca trava a tela**: erro de leitura
     primária rejeita + `#error-box`; erro de background é silencioso com
     stale preservado.

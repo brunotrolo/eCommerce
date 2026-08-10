@@ -8,18 +8,47 @@ var CacheRepository = (function () {
   var KEY_REGISTRY_PROPS = '__CACHE_ACTIVE_KEYS__';
   var KEY_REGISTRY_TTL = 86400; // 24h
 
+  var MAX_BYTES = 90 * 1024; // CacheService limita a 100KB por item; margem p/ overhead do JSON
+  var GZIP_MAGIC = 'GZ1:';
+
   function get(key) {
     var raw = CacheService.getScriptCache().get(key);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    if (raw.indexOf(GZIP_MAGIC) === 0) {
+      try {
+        var bytes = Utilities.base64Decode(raw.substring(GZIP_MAGIC.length));
+        var json = Utilities.gunzip(Utilities.newBlob(bytes)).getDataAsString();
+        return JSON.parse(json);
+      } catch (e) {
+        return null; // entrada corrompida -> vira cache miss, computeFn roda de novo
+      }
+    }
+    return JSON.parse(raw);
   }
 
-  var MAX_BYTES = 90 * 1024; // CacheService limita a 100KB por item; margem p/ overhead do JSON
+  function compress_(json) {
+    try {
+      var blob = Utilities.gzip(Utilities.newBlob(json, 'application/json'));
+      var b64 = Utilities.base64Encode(blob.getBytes());
+      if (b64.length > MAX_BYTES) return null;
+      return GZIP_MAGIC + b64;
+    } catch (e) {
+      return null;
+    }
+  }
 
   function set(key, value, ttlSeconds) {
     try {
       var json = JSON.stringify(value);
-      if (json.length * 2 > MAX_BYTES) return; // UTF-16: ~2 bytes/char — skip silencioso, não quebra o fluxo
-      CacheService.getScriptCache().put(key, json, ttlSeconds || DEFAULT_TTL_SECONDS);
+      var stored = json;
+      if (json.length * 2 > MAX_BYTES) {
+        // Payload grande (UTF-16: ~2 bytes/char): gzip + base64 para caber
+        // nos 100KB do CacheService — sem isso, conjuntos grandes (catálogo,
+        // estoque, produtos) furariam o guard e buscariam no Sheets toda vez.
+        stored = compress_(json);
+        if (stored === null) return; // incompressível e grande demais — skip silencioso
+      }
+      CacheService.getScriptCache().put(key, stored, ttlSeconds || DEFAULT_TTL_SECONDS);
       trackKey_(key);
     } catch (e) {
       // Payload acima do limite do CacheService (100KB) ou falha de quota:

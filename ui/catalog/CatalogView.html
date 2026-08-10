@@ -483,21 +483,18 @@
           return;
         }
 
-        withLoading(
-          shadow.getElementById('btn-load-hidden'),
-          function (success, failure) {
-            dc.run('catalog.getProducts', {
-              sortBy: sortBy,
-              sortOrder: sortOrder
-            }, { success: success, failure: failure });
-          },
-          function (data) {
-            self._products = data.data || [];
-            dc.set(cacheKey, self._products);
+        // fetchData: cache aquecido no boot resolve sem rede; em miss faz
+        // dedupe + timeout + retry e retorna o data já desembrulhado.
+        dc.fetchData('catalog.getProducts', { sortBy: sortBy, sortOrder: sortOrder }, { key: cacheKey })
+          .then(function (data) {
+            self._products = data || [];
             self._recalcAndRender(shadow);
-          },
-          null
-        );
+          })
+          .catch(function (err) {
+            showError(shadow, (err && err.message) || 'Erro ao carregar produtos.');
+            self._products = [];
+            self._recalcAndRender(shadow);
+          });
       }
 
       _recalcAndRender(shadow) {

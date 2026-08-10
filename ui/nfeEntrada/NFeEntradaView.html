@@ -348,19 +348,11 @@
           var recentCard = this.shadowRoot.getElementById('recent-card');
           var hint = this.shadowRoot.getElementById('recent-hint');
 
-          var cached = dc.get('nfeEntrada.recent');
-          if (cached) {
-            var crows = cached.data || cached;
-            if (Array.isArray(crows) && crows.length > 0) {
-              recentCard.hidden = false;
-              self._rawRows = crows;
-              self._renderTable(crows);
-            }
-          }
-
-          dc.run('nfeEntrada.getRecent', { limit: 20 }, {
-            success: function (resp) {
-              var env = (resp && resp.data) || resp || {};
+          // fetchData: resolve na hora do cache aquecido no boot (zero rede)
+          // ou faz dedupe/SWR se estiver em voo/velho.
+          dc.fetchData('nfeEntrada.getRecent', { limit: 20 }, { key: 'nfeEntrada.recent' })
+            .then(function (env) {
+              env = env || {};
               hint.hidden = true;
 
               if (env.sheetIdConfigured === false) {
@@ -371,7 +363,6 @@
               }
 
               var rows = env.data || [];
-              dc.set('nfeEntrada.recent', env);
               if (rows.length === 0) {
                 recentCard.hidden = false;
                 hint.textContent = 'Nenhuma NF-e importada ainda. Clique em "Sincronizar com Drive".';
@@ -382,14 +373,13 @@
               recentCard.hidden = false;
               self._rawRows = rows;
               self._renderTable(rows);
-            },
-            failure: function (err) {
+            })
+            .catch(function (err) {
               console.error('[NFeEntrada] getRecent failure:', err);
               recentCard.hidden = false;
               hint.textContent = 'Falha ao ler as últimas NFes: ' + ((err && err.message) || String(err));
               hint.hidden = false;
-            }
-          });
+            });
         }
 
         _renderTable(rows) {
