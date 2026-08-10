@@ -702,6 +702,7 @@ var OrdersImportService = (function () {
 
   var CANCELLED_STATUSES = ['CANCELLED', 'IN_CANCEL'];
   var RETURN_STATUSES = ['TO_RETURN', 'RETURNED'];
+  var UNPAID_STATUS = 'UNPAID';
 
   /**
    * Processa baixa de estoque para um pedido recém-inserido ou revertido.
@@ -736,9 +737,12 @@ var OrdersImportService = (function () {
       var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
       var idempKey = refOrigem;
 
-      // Skip baixa for cancelled/returned orders
+      // Regra de negócio: pedido cancelado, devolvido OU NÃO PAGO (UNPAID)
+      // nunca baixa estoque (o item só sai do estoque quando há pagamento).
       var orderStatusU = String(order.STATUS || '').trim().toUpperCase();
-      if (CANCELLED_STATUSES.indexOf(orderStatusU) !== -1 || RETURN_STATUSES.indexOf(orderStatusU) !== -1) {
+      if (CANCELLED_STATUSES.indexOf(orderStatusU) !== -1 ||
+          RETURN_STATUSES.indexOf(orderStatusU) !== -1 ||
+          orderStatusU === UNPAID_STATUS) {
         continue;
       }
 

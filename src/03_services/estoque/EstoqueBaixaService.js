@@ -303,6 +303,7 @@ var EstoqueBaixaService = (function () {
       estoqueCostMap[allEstoque[em].ESTOQUE_ID] = allEstoque[em];
     }
     var CANCELLED_STATUSES = ['CANCELLED', 'CANCELADO'];
+    var UNPAID_STATUSES = ['UNPAID'];
     var RETURN_STATUSES = ['TO_RETURN', 'RETURNED', 'DEVOLVIDO'];
 
     var processados = 0, baixados = 0, erros = 0, jaProcessados = 0;
@@ -333,24 +334,16 @@ var EstoqueBaixaService = (function () {
       if (jaCompleto) { jaProcessados++; continue; }
 
       var isCancelled = CANCELLED_STATUSES.indexOf(status) !== -1;
+      var isUnpaid = UNPAID_STATUSES.indexOf(status) !== -1;
       var isReturned = RETURN_STATUSES.indexOf(status) !== -1;
 
-      if (isCancelled) {
+      // Regra de negócio: NÃO baixar estoque para pedidos cancelados
+      // (CANCELLED), não pagos (UNPAID) ou devolvidos (TO_RETURN).
+      if (isCancelled || isUnpaid || isReturned) {
         LoggingService.log({
           service: 'EstoqueBaixa', action: 'backfill.skip', status: 'SKIP',
           caller: 'EstoqueBaixaService',
-          summary: 'Pedido ' + orderSn + ' pulado — CANCELLED',
-          durationMs: 0,
-          context: { orderSn: orderSn, status: status }
-        });
-        continue;
-      }
-
-      if (isReturned) {
-        LoggingService.log({
-          service: 'EstoqueBaixa', action: 'backfill.skip', status: 'SKIP',
-          caller: 'EstoqueBaixaService',
-          summary: 'Pedido ' + orderSn + ' pulado — ' + status,
+          summary: 'Pedido ' + orderSn + ' pulado — ' + (isCancelled ? 'CANCELLED' : isUnpaid ? 'UNPAID' : status),
           durationMs: 0,
           context: { orderSn: orderSn, status: status }
         });
