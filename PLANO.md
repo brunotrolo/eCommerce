@@ -74,9 +74,9 @@ tabela lista os domínios adicionados depois, todos com spec
 | NFe Entrada Produtos | `src/03_services/nfeEntradaProdutos/NFeEntradaProdutosService.js` | Extrai produtos de cada NFe (com rateio de desconto/outros), alimenta Catálogo e Estoque. |
 | Manual Entrada | `src/03_services/manualEntrada/ManualEntradaService.js` | Entrada de estoque sem NFe (compra direta, brinde, ajuste). |
 | Manual Saída | `src/03_services/manualSaida/ManualSaidaService.js` | Saída de estoque sem venda (perda, brinde, ajuste), com baixa FIFO automática. |
-| Carteira Shopee | `src/03_services/carteiraShopee/CarteiraShopeeService.js` | Saldo, extrato e histórico de repasses da carteira Shopee. |
-| Anúncios Shopee | `src/03_services/anunciosShopee/AnunciosShopeeService.js` | Sincroniza, lista, atualiza preço/estoque de anúncios Shopee direto pela Tiops. |
-| Shopee Ads | `src/03_services/shopeeAds/ShopeeAdsService.js` | Gestão de campanhas de anúncios pagos: saldo, campanhas, performance, pausar/retomar/encerrar, visitas/conversão. |
+| Carteira Shopee | ~~`src/03_services/carteiraShopee/CarteiraShopeeService.js`~~ | **Removida 10/08/2026** — página e automações excluídas (decisão do usuário). |
+| Anúncios Shopee (contraído) | `src/03_services/anunciosShopee/AnunciosShopeeService.js` | **Contraído 10/08/2026** — a página foi removida; restam só as ações de sustentação: `syncListings` (sincroniza aba `ANUNCIOS_SHOPEE`) e `updateSku` (pareamento + sentinela `SEM_ESTOQUE`), com `AnunciosShopeeRepository` mantido como fonte de `item_sku` para baixa/custo de pedidos. |
+| Shopee Ads | ~~`src/03_services/shopeeAds/ShopeeAdsService.js`~~ | **Removida 10/08/2026** — página e automações excluídas (decisão do usuário). |
 | Pareamento SKU (Anúncio Shopee ↔ Estoque) | `src/03_services/produtoSkuMap/ProdutoSkuMapService.js` | Sugere produtos de estoque para anúncios Shopee sem SKU (score por similaridade), pareia individualmente via `shopee_update_item` (`AnunciosShopeeService.updateSku`), marcador `SEM_ESTOQUE` respeitado na baixa FIFO. |
 
 ### Motores internos (sem página própria)
@@ -123,7 +123,9 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | — | DataStore (cache client-side) | ✅ | ⬜ |
 | — | Estoque (unidades FIFO) | ✅ | ✅ |
 | — | Webhook Shopee (Push) | ✅ | ⬜ |
-| — | Shopee Ads (Gestão de Anúncios Pagos) | ✅ | ⬜ |
+| — | Carteira Shopee | ✅ | Removida (10/08/2026) |
+| — | Anúncios Shopee (contraído p/ syncListings+updateSku) | ✅ | Removida (10/08/2026) |
+| — | Shopee Ads (Gestão de Anúncios Pagos) | ✅ | Removida (10/08/2026) |
 | — | Pareamento SKU (Anúncio Shopee ↔ Estoque) | ✅ | ✅ |
 
 > **Estado real de hoje:** o app roda em produção (deploy automático, ver
@@ -133,7 +135,7 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > margem (`PricingService`). Fases 0–4 e 8 validadas — 0, 1 e 8 por
 > cálculo/smoke, 2–4 por conferência manual do usuário com dados reais
 > (09/08/2026); restam pendentes de validação ativa Status Online,
-> DataStore/DataClient, Webhook Shopee e Shopee Ads (ver tabela acima), além
+> DataStore/DataClient e Webhook Shopee (ver tabela acima), além
 > da fase 7 (Endurecimento — código entregue em 10/08/2026, validação final
 > do usuário ainda pendente). **Pareamento SKU validado em 10/08/2026**
 > (usuário): UI renderiza dados reais, coluna `SKU` de `ANUNCIOS_SHOPEE` tem
@@ -189,8 +191,8 @@ usuário no app real.**
 ### Fase 5 — Anúncios
 
 **Removida em 09/08/2026** — página sem utilidade excluída do projeto;
-substituída na prática pelo domínio ativo **Anúncios Shopee** (com spec
-`Approved`/`Implemented`). Critérios de aceite originais não se aplicam mais:
+substituída na prática pela contração **Anúncios Shopee**
+(`syncListings`/`updateSku`, a partir de 10/08/2026 — ver tabela acima). Critérios de aceite originais não se aplicam mais:
 - ~~Pausar e reativar um anúncio de teste real funciona nos dois canais.~~
 - ~~O estado é confirmado por releitura (`get_item` / `shopee_get_item`),
       nunca só pela resposta do update.~~
@@ -216,7 +218,7 @@ commits `a41a0c7`→`1b76c28`):
 - ✅ Teste de contrato contra a Tiops — teste global 30 ações vs `list_actions`/`describe_action`, registro por serviço em `docs/referencia/CONTRATOS_CONFIRMADOS.md`; feature `shopee_ads_terminate_campaign` removida (404 real).
 - ✅ Estado de carregamento e vazio em todas as telas — tokens `.empty-state`/`.loading-state` em `Styles.html`, aplicados em todas as views.
 
-Validação ⬜ (usuário): Status Online + Speed Meter, Shopee Ads, DataStore/DataClient, Webhook Shopee (inativo — requer app na Shopee Open Platform).
+Validação ⬜ (usuário): Status Online + Speed Meter, DataStore/DataClient, Webhook Shopee (inativo — requer app na Shopee Open Platform). As páginas Carteira Shopee, Anúncios Shopee e Shopee Ads foram removidas em 10/08/2026 (decisão do usuário) — não fazem mais parte da validação.
 
 ### Fase 8 — Calculadora PrecificaPro
 
@@ -228,19 +230,21 @@ como lição permanente, na tabela de riscos (seção 6).
 
 ### Shopee Ads — Gestão de Anúncios Pagos
 
-**Critério de aceite:**
-- [ ] A página "Shopee Ads" aparece no menu Vendas.
-- [ ] Ao carregar, exibe saldo de créditos Shopee (verde >R$50, amarelo <R$50, vermelho =R$0).
-- [ ] Lista campanhas com métricas: impressões, cliques, CTR, CVR, ROAS, vendas.
-- [ ] ROAS colorido: >2 verde, 1–2 amarelo, <1 vermelho.
-- [ ] Ação pausar: confirmação → campanha fica PAUSED na Shopee.
-- [ ] Ação retomar: confirmação → campanha fica ACTIVE.
-- [ ] Ação encerrar: confirmação dupla → campanha TERMINATED (irreversível).
-- [ ] Toggle "Campanhas Ads" ↔ "Visitas / Conversão" funciona.
-- [ ] Métricas de visitas mostram itens, visitas, cliques, conversão.
-- [ ] Cache: segunda carga em <5s (cache 5min campanhas).
-- [ ] Sync: botão "Sincronizar Campanhas" atualiza dados via Tiops.
-- [ ] Erro Tiops: exibe mensagem de erro, não tela em branco.
+**Removida em 10/08/2026** — página e automações excluídas (decisão do
+usuário: sem utilidade para o projeto). Critérios de aceite originais não se
+aplicam mais:
+- ~~A página "Shopee Ads" aparece no menu Vendas.~~
+- ~~Ao carregar, exibe saldo de créditos Shopee (verde >R$50, amarelo <R$50, vermelho =R$0).~~
+- ~~Lista campanhas com métricas: impressões, cliques, CTR, CVR, ROAS, vendas.~~
+- ~~ROAS colorido: >2 verde, 1–2 amarelo, <1 vermelho.~~
+- ~~Ação pausar: confirmação → campanha fica PAUSED na Shopee.~~
+- ~~Ação retomar: confirmação → campanha fica ACTIVE.~~
+- ~~Ação encerrar: confirmação dupla → campanha TERMINATED (irreversível).~~
+- ~~Toggle "Campanhas Ads" ↔ "Visitas / Conversão" funciona.~~
+- ~~Métricas de visitas mostram itens, visitas, cliques, conversão.~~
+- ~~Cache: segunda carga em <5s (cache 5min campanhas).~~
+- ~~Sync: botão "Sincronizar Campanhas" atualiza dados via Tiops.~~
+- ~~Erro Tiops: exibe mensagem de erro, não tela em branco.~~
 
 ---
 

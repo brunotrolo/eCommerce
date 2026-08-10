@@ -335,7 +335,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 #### Validação pós-criação
 - [ ] Testar nova página: carregamento, chamadas API, navegação
-- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, Anúncios, NFe Entrada, Entrada Produtos, Estoque, Catálogo
+- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, NFe Entrada, Entrada Produtos, Estoque, Catálogo, Parear SKU
 - [ ] Verificar que `FormatterService` está acessível em todas as páginas
 - [ ] Verificar que `DebugConsole` funciona em todas as páginas
 
@@ -364,11 +364,14 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 Ver `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
 `docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md` para a lista completa
-(regras usadas hoje pelo domínio Anúncios Shopee,
-`src/03_services/anunciosShopee/AnunciosShopeeService.js`).
+(regras usadas hoje pela contração Anúncios Shopee —
+`src/03_services/anunciosShopee/AnunciosShopeeService.js`,
+apenas `syncListings`/`updateSku` desde 10/08/2026; a página foi removida,
+mas o domínio segue como fonte de `item_sku` para a baixa de estoque).
 Resumo crítico:
 - **Nunca confiar na resposta de um update/pause/activate para confirmar
-  estado** — sempre reler com `get_item`/`shopee_get_item` depois.
+  estado** — sempre reler com `get_item`/`shopee_get_item` depois (ex.: o
+  `updateSku` dorme 500ms e relê antes de gravar em Sheets).
 - Shopee: `shopee_update_price` usa `price_list`, nunca `price` solto.
   `logistic_id`, nunca `logistics_channel_id`.
 - Mercado Livre: nunca enviar `title` (usa `family_name`); `pause_item`/

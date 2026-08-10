@@ -38,10 +38,8 @@ segurança para navegar antes do boot terminar.
    | `nfeEntradaProdutos.produtos` | `nfeEntradaProdutos.getProdutos` | `{ forceFresh: true }` |
    | `manualEntrada.listEntries` | `manualEntrada.listEntries` | `{ limit: 500, forceFresh: true }` |
    | `manualSaida.listExits` | `manualSaida.listExits` | `{ limit: 500, forceFresh: true }` |
-   | `carteiraShopee.snapshot` | `carteiraShopee.getWalletSnapshot` | `{ forceFresh: true }` |
-   | `anunciosShopee.listings` | `anunciosShopee.getListings` | `{ forceFresh: true }` |
-   | `shopeeAds.campanhas` | `shopeeAds.getCampaigns` | `{ forceFresh: true }` |
-   | `shopeeAds.balance` | `shopeeAds.getBalance` | `{ forceFresh: true }` |
+   (removidas em 10/08/2026 junto com as páginas: `carteiraShopee.snapshot`,
+   `anunciosShopee.listings`, `shopeeAds.campanhas`, `shopeeAds.balance`).
 
    `forceFresh` remove a key do `CacheService` no backend antes da releitura
    (services que NÃO honram `forceFresh`: sem cache server = sempre fresh;
@@ -58,9 +56,7 @@ segurança para navegar antes do boot terminar.
    | `nfeEntradaProdutos` | `nfeEntradaProdutos.produtos {}` |
    | `manualEntrada` | `manualEntrada.listEntries {limit:500}` |
    | `manualSaida` | `manualSaida.listExits {limit:500}` |
-   | `carteiraShopee` | `carteiraShopee.snapshot {}` |
-   | `anunciosShopee` | `anunciosShopee.listings {}` |
-   | `shopeeAds` | `shopeeAds.campanhas {}` + `shopeeAds.balance {}` |
+   | `produtoSkuMap` | `produtoSkuMap.sugestoes {}` |
    | `dashboard` | fora do mapa (crítico cobre) |
 
    As chaves acima foram confirmadas como as que as views leem/gravam
@@ -77,8 +73,9 @@ segurança para navegar antes do boot terminar.
 
 ## Critérios de aceite
 
-- [x] Boot dispara as 13 chaves, todas com `forceFresh: true` (dados reais
-      do Sheets em todo reload).
+- [x] Boot dispara as 8 chaves, todas com `forceFresh: true` (dados reais
+      do Sheets em todo reload). Carteira Shopee, Anúncios Shopee e Shopee
+      Ads saíram do boot em 10/08/2026 (páginas removidas).
 - [x] `navigate()` dispara `preFetch` das chaves da rota destino (quando a
       rota estiver no mapa), sem await/bloqueio.
 - [x] Rota sem entrada no mapa não dispara nada.
@@ -88,9 +85,9 @@ segurança para navegar antes do boot terminar.
 
 ## Regressão
 
-- Carregar app → confirmar no DebugConsole que apenas 5 chamadas de boot
-  acontecem (chaves críticas).
-- Navegar para Shopee Ads → confirmar `shopeeAds.campanhas` e
-  `shopeeAds.balance` disparadas na navegação (não no boot).
+- Carregar app → confirmar no DebugConsole que o boot dispara apenas as 8
+  chaves listadas (chaves críticas).
+- Navegar para Parear SKU → confirmar `produtoSkuMap.sugestoes` disparada na
+  navegação (não no boot).
 - Navegar para Dashboard a partir de outra aba → Tabela instantânea via
   cache (nothing novo disparado).

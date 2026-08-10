@@ -63,16 +63,7 @@
             <li role="none">
               <button class="nav-dropdown-item" data-route="manualSaida" role="menuitem">Saída Manual</button>
             </li>
-            <li role="none">
-              <button class="nav-dropdown-item" data-route="carteiraShopee" role="menuitem">Carteira Shopee</button>
-            </li>
-            <li role="none">
-              <button class="nav-dropdown-item" data-route="anunciosShopee" role="menuitem">Anúncios Shopee</button>
-            </li>
-            <li role="none">
-              <button class="nav-dropdown-item" data-route="shopeeAds" role="menuitem">Shopee Ads</button>
-            </li>
-          </ul>
+            </ul>
         </div>
 
         <!-- Elementos à direita -->
@@ -104,9 +95,6 @@
     <?!= include('ui/manualEntrada/ManualEntradaListView'); ?>
     <?!= include('ui/manualSaida/ManualSaidaView'); ?>
     <?!= include('ui/manualSaida/ManualSaidaListView'); ?>
-    <?!= include('ui/carteiraShopee/CarteiraShopeeView'); ?>
-    <?!= include('ui/anunciosShopee/AnunciosShopeeView'); ?>
-    <?!= include('ui/shopeeAds/ShopeeAdsView'); ?>
     <?!= include('ui/produtoSkuMap/ProdutoSkuMapView'); ?>
 
       <calculator-widget></calculator-widget>
@@ -126,9 +114,6 @@
         estoque: 'estoque-widget',
         manualEntrada: 'manual-entrada-list-widget',
         manualSaida: 'manual-saida-list-widget',
-        carteiraShopee: 'carteira-shopee-widget',
-        anunciosShopee: 'anuncios-shopee-widget',
-        shopeeAds: 'shopee-ads-widget',
         produtoSkuMap: 'produto-sku-map-widget'
       };
 
@@ -140,12 +125,6 @@
         nfeEntradaProdutos: [{ key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: {} }],
         manualEntrada: [{ key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } }],
         manualSaida: [{ key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500 } }],
-        carteiraShopee: [{ key: 'carteiraShopee.snapshot', action: 'carteiraShopee.getWalletSnapshot', params: {} }],
-        anunciosShopee: [{ key: 'anunciosShopee.listings', action: 'anunciosShopee.getListings', params: {} }],
-        shopeeAds: [
-          { key: 'shopeeAds.campanhas', action: 'shopeeAds.getCampaigns', params: {} },
-          { key: 'shopeeAds.balance', action: 'shopeeAds.getBalance', params: {} }
-        ],
         produtoSkuMap: [{ key: 'produtoSkuMap.sugestoes', action: 'produtoSkuMap.getSugestoes', params: {} }]
       };
 
@@ -346,11 +325,7 @@
           { key: 'nfeEntrada.recent', action: 'nfeEntrada.getRecent', params: { limit: 20, forceFresh: true } },
           { key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: { forceFresh: true } },
           { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500, forceFresh: true } },
-          { key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500, forceFresh: true } },
-          { key: 'carteiraShopee.snapshot', action: 'carteiraShopee.getWalletSnapshot', params: { forceFresh: true } },
-          { key: 'anunciosShopee.listings', action: 'anunciosShopee.getListings', params: { forceFresh: true } },
-          { key: 'shopeeAds.campanhas', action: 'shopeeAds.getCampaigns', params: { forceFresh: true } },
-          { key: 'shopeeAds.balance', action: 'shopeeAds.getBalance', params: { forceFresh: true } }
+          { key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500, forceFresh: true } }
         ]);
       }
 

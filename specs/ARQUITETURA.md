@@ -57,9 +57,12 @@ Cada domínio expõe `describe()` (ações + schema, no espírito do
 `pricing`, `orders`, `dashboard`, `nfeEntrada`, `nfeEntradaProdutos`,
 `calculator`, `logging`, `catalog`, `system`, `manualEntrada`, `manualSaida`,
 `estoque`, `estoqueBaixa`, `ordersImport`, `pushNotification`,
-`carteiraShopee`, `anunciosShopee`, `shopeeAds`, `sku`. (`listings` e
+`anunciosShopee`, `produtoSkuMap`, `sku`. (`listings` e
 `inventoryPricing` foram removidos em 09/08/2026 — sucedidos por
-`anunciosShopee`/`carteiraShopee`.)
+`anunciosShopee`/`carteiraShopee`; `carteiraShopee` e `shopeeAds` foram
+removidos em 10/08/2026 junto com as páginas, e `anunciosShopee` foi
+contraído para `syncListings`/`updateSku` — o repository segue sendo a fonte
+de `item_sku` para a baixa de estoque de pedidos.)
 
 Convenção de namespace: um identificador global por arquivo
 (`var NomeService = (function(){...})();`), sempre `var` no top-level
@@ -104,7 +107,7 @@ domínios. Uma dependência não listada aqui é proibida sem decisão explícit
 | `dashboard` | `OrdersService` | leitura de pedidos |
 | `pushNotification` | `OrdersImportService` | orquestração de sync (unidirecional) |
 | `estoqueBaixa` | — (motor puro + repos) | — |
-| `anunciosShopee`, `carteiraShopee`, `shopeeAds` | — (Tiops + repos) | — |
+| `anunciosShopee` | — (Tiops + repos) | — |
 
 **Importante:** não há ciclos hoje. `ordersImport ↔ pushNotification` é
 unidirecional (`push → sync`); a referência comentada a
@@ -161,9 +164,7 @@ clique do usuário):
 ```
 config.getConfig, dashboard.getSummary, nfeEntrada.getRecent,
 nfeEntradaProdutos.getProdutos, catalog.getProducts, orders.listUnified,
-estoque.getItems, manualEntrada.listEntries, manualSaida.listExits,
-anunciosShopee.getListings, carteiraShopee.getWalletSnapshot,
-shopeeAds.getCampaigns, shopeeAds.getBalance
+estoque.getItems, manualEntrada.listEntries, manualSaida.listExits
 ```
 
 Cada `*View.html` segue o mesmo padrão de skip-fetch: render do cache

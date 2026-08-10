@@ -3,6 +3,10 @@
 ## Status
 Implemented (2026-08-10)
 
+> Nota (10/08/2026): `ShopeeAdsView`, `AnunciosShopeeView` e
+> `CarteiraShopeeView` foram **removidas** (páginas excluídas) — as menções
+> abaixo ficam como histórico do estado em que foram padronizadas.
+
 ## Objetivo
 Item 3 da Fase 7 (Endurecimento): um único padrão de feedback de erro em
 **todas** as views — os helpers globais de `ui/shared/UiHelpers.html`

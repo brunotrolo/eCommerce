@@ -46,8 +46,9 @@ src/01_adapters     → TiopsClient (único cliente HTTP para a Tiops), DriveAda
 src/02_repositories → Properties/Cache/Sheets/Config (únicos que tocam serviços nativos do GAS)
 src/03_services     → Pricing, Orders, OrdersImport, Dashboard, Catalog,
                       NFeEntrada, NFeEntradaProdutos, ManualEntrada, ManualSaida,
-                      Estoque, EstoqueBaixa, CarteiraShopee, AnunciosShopee,
-                      ShopeeAds, Calculator, Sku, PushNotification (inativo), Status
+                      Estoque, EstoqueBaixa, AnunciosShopee (contraído p/
+                      syncListings+updateSku), ProdutoSkuMap, Calculator, Sku,
+                      PushNotification (inativo), Status
 src/04_gateway      → ServiceRegistry + Router (doGet/doPost/apiDispatch)
 ui/shared           → Design tokens, DataClient (único arquivo de dados do
                       cliente: cache + API), UiHelpers, Formatter,
@@ -65,8 +66,8 @@ docs/referencia/    → playbooks de payload validados + análise da API Tiops
 
 O app pré-busca em paralelo, ao carregar (`ui/shared/DataClient.html`), os
 dados de praticamente todas as páginas (Config, Dashboard, NFe Entrada,
-Entrada Produtos, Catálogo, Pedidos, Estoque, Manual Entrada/Saída,
-Anúncios Shopee, Carteira Shopee, Shopee Ads) — todas com `forceFresh: true`
+Entrada Produtos, Catálogo, Pedidos, Estoque, Manual Entrada/Saída) — todas
+com `forceFresh: true`
 (reload = dados reais do Google Sheets; a navegação entre abas na mesma
 sessão usa o cache client-side em memória, zero rede no clique). Ver lista
 completa e detalhes em `specs/ARQUITETURA.md` §2. Cada página já mostra dado do cache

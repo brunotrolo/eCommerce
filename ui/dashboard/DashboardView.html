@@ -73,8 +73,7 @@
       'estoque.sincronizar': 'Estoque (NFs + Entradas)',
       'estoque.sincronizarPrecosCatalogo': 'Precos do Catalogo',
       'anunciosShopee.syncListings': 'Anuncios Shopee',
-      'ordersImport.importShopeeOrders': 'Pedidos Shopee',
-      'carteiraShopee.syncWallet': 'Carteira Shopee'
+      'ordersImport.importShopeeOrders': 'Pedidos Shopee'
     };
 
     class DashboardWidget extends HTMLElement {
@@ -155,8 +154,6 @@
           dc.invalidate('dashboard.summary');
           dc.invalidate('estoque.Items.DISPONIVEL');
           dc.invalidate('estoque.Items.TODOS');
-          dc.invalidate('anunciosShopee.listings');
-          dc.invalidate('carteiraShopee.snapshot');
           self._load(shadow, true);
         }
 

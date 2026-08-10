@@ -1,28 +1,20 @@
 /**
- * AnunciosShopeeService — Gestão de anúncios da loja Shopee via Tiops:
+ * AnunciosShopeeService — ações de sustentação do pareamento de SKU e da aba
+ * ANUNCIOS_SHOPEE (fonte de item_sku p/ pedidos). A página "Anúncios Shopee"
+ * foi removida em 10/08/2026 (decisão do usuário); restam apenas:
  *   - syncListings: sincroniza todos os anúncios (batch 100) e grava em Sheets
- *   - getListings: leitura cacheada (TTL 30min) para a UI
- *   - getItemDetail: detalhes completos de um item (+ SKUs + vendas 30d)
- *   - updatePrice / updateStock: escreve na Shopee e CONFIRMA por releitura
- *   - pauseItem / activateItem / deleteItem: controle de status (unlist)
- *   - getSalesMetrics / getSKUs: métricas e variações
+ *                    (usado pelo botão "Sincronizar anúncios" do Parear SKU)
+ *   - updateSku: grava o item_sku na Shopee e CONFIRMA por releitura
+ *               (usado pelo pareamento e pelo sentinela SEM_ESTOQUE)
  *
- * Contratos confirmados em docs/referencia/CONTRATOS_CONFIRMADOS.md (2026-08-05):
+ * Contratos confirmados em docs/referencia/CONTRATOS_CONFIRMADOS.md:
  *   - shopee_list_items: page_size + offset -> response.item[]
  *   - shopee_get_items_batch: item_id_list[] -> response.item_list[] (lote)
- *   - shopee_get_item: item_id -> response.item_list[0]
- *   - shopee_get_models: item_id -> response.model[] (vazio sem variação)
- *   - shopee_update_price: price_list [{model_id, original_price, price}]
- *   - shopee_update_stock: stock_list [{model_id, seller_stock [{location_id:"BRZ", stock}]}]
- *   - shopee_unlist_item: item_id + unlist (true=pausar, false=ativar)
- *   - shopee_delete_item: item_id (IRREVERSÍVEL)
+ *   - shopee_get_item: item_id -> response.item_list[0] (releitura)
+ *   - shopee_update_item: item_id (uint64 NUMBER) + item_sku
  *   - shopee_sales_by_item: item_id + period -> total_orders/total_quantity
- *
- * Regras de negócio documentadas no código abaixo.
  */
 var AnunciosShopeeService = (function () {
-  var CACHE_KEY = 'anuncios_shopee_listings';
-  var CACHE_TTL_SECONDS = 1800; // 30 min
   var PAGE_SIZE = 100; // máx. itens por chamada list_items / batch
   var CONFIRM_DELAY_MS = 500; // releitura obrigatória pós-update
   var PERIODO_PADRAO = '30d';
@@ -32,7 +24,7 @@ var AnunciosShopeeService = (function () {
       name: 'anunciosShopee',
       actions: {
         syncListings: {
-          description: 'Sincroniza todos os anúncios Shopee via TIOPS, atualiza abas ANUNCIOS_* (upsert + históricos + performance) e invalida cache.',
+          description: 'Sincroniza todos os anúncios Shopee via TIOPS, atualiza a aba ANUNCIOS_SHOPEE (upsert + históricos + performance) e invalida cache.',
           params: {
             forceFresh: { type: 'boolean', required: false, default: false },
             categoria: { type: 'string', required: false }
@@ -42,96 +34,6 @@ var AnunciosShopeeService = (function () {
             synced: 'object',
             resumo: 'object',
             errors: 'array'
-          }
-        },
-        getListings: {
-          description: 'Lista de anúncios (cache 30min; senão, lê do Sheets).',
-          params: {
-            fromCache: { type: 'boolean', required: false, default: true }
-          },
-          returns: {
-            lista: 'array',
-            resumo: 'object',
-            atualizadoEm: 'string',
-            fromCache: 'boolean'
-          }
-        },
-        getItemDetail: {
-          description: 'Detalhes completos de um item: base, variações (SKUs) e vendas 30d.',
-          params: {
-            itemId: { type: 'string', required: true }
-          },
-          returns: 'object'
-        },
-        updatePrice: {
-          description: 'Atualiza preço de um ou mais itens. Confirma por releitura antes de gravar em Sheets.',
-          params: {
-            itemIds: { type: 'array', required: true },
-            priceList: { type: 'array', required: true, description: '[{itemId, preco}] ou [{itemId, variacoes:[{modelId, preco}]}]' }
-          },
-          returns: {
-            success: 'boolean',
-            atualizado: 'number',
-            falhas: 'array'
-          }
-        },
-        updateStock: {
-          description: 'Atualiza estoque de um ou mais itens. Confirma por releitura antes de gravar em Sheets.',
-          params: {
-            itemIds: { type: 'array', required: true },
-            stockList: { type: 'array', required: true, description: '[{itemId, quantidade}] ou [{itemId, modelos:[{modelId, quantidade}]}]' }
-          },
-          returns: {
-            success: 'boolean',
-            atualizado: 'number',
-            falhas: 'array'
-          }
-        },
-        pauseItem: {
-          description: 'Pausa um anúncio (unlist=true) e confirma por releitura.',
-          params: {
-            itemId: { type: 'string', required: true }
-          },
-          returns: {
-            success: 'boolean',
-            itemId: 'string',
-            novoStatus: 'string'
-          }
-        },
-        activateItem: {
-          description: 'Ativa um anúncio pausado (unlist=false) e confirma por releitura.',
-          params: {
-            itemId: { type: 'string', required: true }
-          },
-          returns: {
-            success: 'boolean',
-            itemId: 'string',
-            novoStatus: 'string'
-          }
-        },
-        deleteItem: {
-          description: 'Deleta um anúncio (IRREVERSÍVEL). Marca STATUS=deletado após confirmação.',
-          params: {
-            itemId: { type: 'string', required: true }
-          },
-          returns: {
-            success: 'boolean',
-            itemId: 'string',
-            novoStatus: 'string'
-          }
-        },
-        getSalesMetrics: {
-          description: 'Métricas de vendas de um item (periodo) ou agregado de todos.',
-          params: {
-            itemId: { type: 'string', required: false },
-            periodo: { type: 'string', required: false, default: '30d' }
-          },
-          returns: 'object'
-        },
-        getSKUs: {
-          description: 'Lista SKUs de variação de um item.',
-          params: {
-            itemId: { type: 'string', required: true }
           }
         },
         updateSku: {
@@ -239,26 +141,6 @@ var AnunciosShopeeService = (function () {
     return rows;
   }
 
-  function fetchSales_(shopId, itemId) {
-    try {
-      var result = callTiops_('shopee_sales_by_item', { item_id: itemId, period: PERIODO_PADRAO, shopId: shopId });
-      var resp = result;
-      if (resp && resp.response) resp = resp.response;
-      if (resp && resp.data) resp = resp.data;
-      if (!resp || typeof resp !== 'object') {
-        return { total_orders: 0, total_quantity: 0, total_revenue: 0 };
-      }
-      return {
-        total_orders: num_(resp.total_orders),
-        total_quantity: num_(resp.total_quantity),
-        total_revenue: num_(resp.total_revenue)
-      };
-    } catch (e) {
-      logSalesFailure_(itemId, e);
-      return { total_orders: 0, total_quantity: 0, total_revenue: 0 };
-    }
-  }
-
   /** Batch fetchSales via callBatch + UrlFetchApp.fetchAll. Retorna mapa itemId → {total_orders, total_quantity, total_revenue}. */
   function fetchSalesBatch_(shopId, itemIds) {
     var defaultSales = { total_orders: 0, total_quantity: 0, total_revenue: 0 };
@@ -302,22 +184,12 @@ var AnunciosShopeeService = (function () {
         service: 'anunciosShopee',
         action: 'fetchSales',
         status: 'ERROR',
-        caller: 'AnunciosShopeeService.fetchSales_',
+        caller: 'AnunciosShopeeService.fetchSalesBatch_',
         summary: 'shopee_sales_by_item falhou para o item ' + itemId,
         errorMessage: (error && error.message) ? error.message : String(error)
       });
     } catch (logErr) {
       console.error('[AnunciosShopee] Falha ao logar erro de vendas: ' + (logErr.message || logErr));
-    }
-  }
-
-  function fetchModels_(shopId, itemId) {
-    try {
-      var result = callTiops_('shopee_get_models', { item_id: itemId, shopId: shopId });
-      var resp = result && result.response ? result.response : result;
-      return (resp && resp.model) || [];
-    } catch (e) {
-      return [];
     }
   }
 
@@ -349,22 +221,6 @@ var AnunciosShopeeService = (function () {
       return num_(item.stock_info_v2.summary_info.total_available_stock);
     } catch (e) {
       return 0;
-    }
-  }
-
-  function getModelStock_(model) {
-    try {
-      return num_(model.stock_info_v2.summary_info.total_available_stock);
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  function getBrandName_(item) {
-    try {
-      return (item.brand && item.brand.original_brand_name) ? String(item.brand.original_brand_name) : '';
-    } catch (e) {
-      return '';
     }
   }
 
@@ -531,8 +387,6 @@ var AnunciosShopeeService = (function () {
       errors.push('SYNC_NO_ITEMS');
     }
 
-    if (errors.length === 0) CacheRepository.remove(CACHE_KEY);
-
     return {
       success: errors.length === 0,
       synced: synced,
@@ -582,243 +436,6 @@ var AnunciosShopeeService = (function () {
     }
   }
 
-  // ─── getListings (cache 30min) ────────────────────────────────────
-  function getListings(params) {
-    params = params || {};
-    var fromCache = params.fromCache !== false;
-    if (params.forceFresh) CacheRepository.remove(CACHE_KEY);
-
-    if (fromCache) {
-      var cached = CacheRepository.get(CACHE_KEY);
-      if (cached && cached.lista) return cached;
-    }
-
-    var sheetId = ConfigService.getSheetId();
-    var rows = AnunciosShopeeRepository.getAllSlim(sheetId);
-    var resumo = buildResumo_(rows);
-    var perf = AnunciosShopeeRepository.getPerformance(sheetId);
-    var data = {
-      lista: rows,
-      resumo: resumo,
-      atualizadoEm: (perf && perf.DATA_SINCRONIZACAO) || '',
-      fromCache: false
-    };
-    if (rows.length > 0) {
-      try {
-        CacheRepository.set(CACHE_KEY, { lista: rows, resumo: resumo, atualizadoEm: data.atualizadoEm, fromCache: true }, CACHE_TTL_SECONDS);
-      } catch (e) {
-        console.warn('[AnunciosShopeeService] Falha ao gravar cache — entregando direto do Sheets: ' + e.message);
-      }
-    }
-    return data;
-  }
-
-  // ─── getItemDetail ────────────────────────────────────────────────
-  function getItemDetail(params) {
-    params = params || {};
-    var itemId = String(params.itemId || '').trim();
-    if (!itemId) throw new Error('PARAM_REQUIRED: itemId');
-    var shopId = getShopId_();
-
-    var result = callTiops_('shopee_get_item', { item_id: itemId, shopId: shopId });
-    var item = (result && result.response && result.response.item_list && result.response.item_list[0]) || null;
-    if (!item) throw new Error('ITEM_NOT_FOUND: ' + itemId);
-
-    var base = buildItemRow_(item);
-    var sales = fetchSales_(shopId, itemId);
-    var models = fetchModels_(shopId, itemId);
-
-    var skus = [];
-    var nivel = 'sem_variacao';
-    if (models.length > 0) {
-      nivel = '1_nivel';
-      for (var i = 0; i < models.length; i++) {
-        skus.push({
-          modelId: String(models[i].model_id),
-          nomeSKU: models[i].model_name || '',
-          preco: round2_(models[i].normal_price),
-          estoque: getModelStock_(models[i])
-        });
-      }
-    }
-
-    base.VENDAS_30D = sales.total_quantity;
-    base.TIPO_VARIACAO = nivel;
-
-    return {
-      itemId: itemId,
-      base: base,
-      skus: skus,
-      vendas: {
-        pedidos: sales.total_orders,
-        quantidade: sales.total_quantity,
-        receita: round2_(sales.total_revenue)
-      }
-    };
-  }
-
-  // ─── updatePrice / updateStock ────────────────────────────────────
-  function updatePrice(params) {
-    params = params || {};
-    var priceList = params.priceList || [];
-    if (priceList.length === 0) throw new Error('PARAM_REQUIRED: priceList');
-    var shopId = getShopId_();
-    var sheetId = ConfigService.getSheetId();
-    var atualizado = 0;
-    var falhas = [];
-
-    for (var i = 0; i < priceList.length; i++) {
-      var entry = priceList[i];
-      var itemId = String(entry.itemId || '').trim();
-      if (!itemId) continue;
-      try {
-        var result = updateSinglePrice_(shopId, sheetId, itemId, entry);
-        if (result.success) atualizado++;
-        else falhas.push({ itemId: itemId, motivo: result.motivo });
-      } catch (e) {
-        falhas.push({ itemId: itemId, motivo: e.message });
-      }
-    }
-
-    if (falhas.length === 0) CacheRepository.remove(CACHE_KEY);
-    return { success: falhas.length === 0, atualizado: atualizado, falhas: falhas };
-  }
-
-  function updateSinglePrice_(shopId, sheetId, itemId, entry) {
-    var oldRow = AnunciosShopeeRepository.getItem(sheetId, itemId);
-    var oldPrice = oldRow ? num_(oldRow.PRECO) : 0;
-    var nome = oldRow ? String(oldRow.NOME || '') : '';
-
-    var priceList;
-    if (entry.variacoes && entry.variacoes.length > 0) {
-      priceList = [];
-      for (var v = 0; v < entry.variacoes.length; v++) {
-        priceList.push({
-          model_id: num_(entry.variacoes[v].modelId),
-          original_price: oldPrice,
-          price: num_(entry.variacoes[v].preco)
-        });
-      }
-    } else {
-      priceList = [{ model_id: 0, original_price: oldPrice, price: num_(entry.preco) }];
-    }
-
-    var result = callTiops_('shopee_update_price', {
-      item_id: itemId,
-      price_list: priceList,
-      shopId: shopId
-    });
-
-    // releitura obrigatória (500ms) — nunca confiar na resposta do update
-    Utilities.sleep(CONFIRM_DELAY_MS);
-    var fresh = callTiops_('shopee_get_item', { item_id: itemId, shopId: shopId });
-    var freshItem = (fresh.response && fresh.response.item_list && fresh.response.item_list[0]) || null;
-    var confirmedPrice = freshItem ? getPriceInfo_(freshItem).current_price : -1;
-    var expected = priceList.length > 0 ? priceList[0].price : num_(entry.preco);
-
-    if (confirmedPrice < 0 || Math.abs(confirmedPrice - expected) > 0.009) {
-      return { success: false, motivo: 'Falha ao confirmar mudança. Tente novamente.' };
-    }
-
-    AnunciosShopeeRepository.patchMain(sheetId, itemId, {
-      PRECO: confirmedPrice,
-      ORIGINAL_PRICE: getPriceInfo_(freshItem).original_price,
-      DADOS_JSON: JSON.stringify(freshItem),
-      DATA_SINCRONIZACAO: nowBR_()
-    });
-    AnunciosShopeeRepository.logPrecoChange(sheetId, {
-      ITEM_ID: itemId,
-      NOME_ITEM: nome,
-      PRECO_ANTIGO: oldPrice,
-      PRECO_NOVO: confirmedPrice,
-      DATA_MUDANCA: nowBR_(),
-      USUARIO: 'Manual',
-      REFERENCIA: 'manual'
-    });
-    return { success: true };
-  }
-
-  function updateStock(params) {
-    params = params || {};
-    var stockList = params.stockList || [];
-    if (stockList.length === 0) throw new Error('PARAM_REQUIRED: stockList');
-    var shopId = getShopId_();
-    var sheetId = ConfigService.getSheetId();
-    var atualizado = 0;
-    var falhas = [];
-
-    for (var i = 0; i < stockList.length; i++) {
-      var entry = stockList[i];
-      var itemId = String(entry.itemId || '').trim();
-      if (!itemId) continue;
-      try {
-        var result = updateSingleStock_(shopId, sheetId, itemId, entry);
-        if (result.success) atualizado++;
-        else falhas.push({ itemId: itemId, motivo: result.motivo });
-      } catch (e) {
-        falhas.push({ itemId: itemId, motivo: e.message });
-      }
-    }
-
-    if (falhas.length === 0) CacheRepository.remove(CACHE_KEY);
-    return { success: falhas.length === 0, atualizado: atualizado, falhas: falhas };
-  }
-
-  function updateSingleStock_(shopId, sheetId, itemId, entry) {
-    var oldRow = AnunciosShopeeRepository.getItem(sheetId, itemId);
-    var oldStock = oldRow ? num_(oldRow.ESTOQUE) : 0;
-    var nome = oldRow ? String(oldRow.NOME || '') : '';
-
-    var stockList;
-    if (entry.modelos && entry.modelos.length > 0) {
-      stockList = [];
-      for (var m = 0; m < entry.modelos.length; m++) {
-        stockList.push({
-          model_id: num_(entry.modelos[m].modelId),
-          seller_stock: [{ location_id: 'BRZ', stock: num_(entry.modelos[m].quantidade) }]
-        });
-      }
-    } else {
-      stockList = [{
-        model_id: 0,
-        seller_stock: [{ location_id: 'BRZ', stock: num_(entry.quantidade) }]
-      }];
-    }
-
-    var result = callTiops_('shopee_update_stock', {
-      item_id: itemId,
-      stock_list: stockList,
-      shopId: shopId
-    });
-
-    Utilities.sleep(CONFIRM_DELAY_MS);
-    var fresh = callTiops_('shopee_get_item', { item_id: itemId, shopId: shopId });
-    var freshItem = (fresh.response && fresh.response.item_list && fresh.response.item_list[0]) || null;
-    var confirmedStock = freshItem ? getTotalStock_(freshItem) : -1;
-    var expected = stockList[0].seller_stock[0].stock;
-
-    if (confirmedStock < 0 || confirmedStock !== expected) {
-      return { success: false, motivo: 'Falha ao confirmar mudança. Tente novamente.' };
-    }
-
-    AnunciosShopeeRepository.patchMain(sheetId, itemId, {
-      ESTOQUE: confirmedStock,
-      DADOS_JSON: JSON.stringify(freshItem),
-      DATA_SINCRONIZACAO: nowBR_()
-    });
-    AnunciosShopeeRepository.logEstoqueChange(sheetId, {
-      ITEM_ID: itemId,
-      NOME_ITEM: nome,
-      ESTOQUE_ANTIGO: oldStock,
-      ESTOQUE_NOVO: confirmedStock,
-      MUDANCA: confirmedStock - oldStock,
-      DATA_MUDANCA: nowBR_(),
-      MOTIVO: 'Ajuste Manual',
-      REFERENCIA: 'manual'
-    });
-    return { success: true };
-  }
-
   // ─── updateSku ─────────────────────────────────────────────────────
   function updateSku(params) {
     params = params || {};
@@ -855,148 +472,9 @@ var AnunciosShopeeService = (function () {
     return { success: true, itemId: itemId, sku: confirmedSku };
   }
 
-  // ─── pause / activate / delete ────────────────────────────────────
-  function setUnlistStatus_(itemId, unlist) {
-    var shopId = getShopId_();
-    var sheetId = ConfigService.getSheetId();
-    var target = unlist ? 'pausado' : 'ativo';
-
-    callTiops_('shopee_unlist_item', { item_id: itemId, unlist: unlist, shopId: shopId });
-
-    // releitura obrigatória
-    Utilities.sleep(CONFIRM_DELAY_MS);
-    var fresh = callTiops_('shopee_get_item', { item_id: itemId, shopId: shopId });
-    var freshItem = (fresh.response && fresh.response.item_list && fresh.response.item_list[0]) || null;
-    var confirmedStatus = freshItem ? mapStatus_(freshItem.item_status) : '';
-
-    if (confirmedStatus !== target) {
-      throw new Error('Falha ao confirmar mudança. Tente novamente.');
-    }
-
-    AnunciosShopeeRepository.patchMain(sheetId, itemId, {
-      STATUS: confirmedStatus,
-      DADOS_JSON: JSON.stringify(freshItem),
-      DATA_SINCRONIZACAO: nowBR_()
-    });
-    CacheRepository.remove(CACHE_KEY);
-    return { success: true, itemId: itemId, novoStatus: confirmedStatus };
-  }
-
-  function pauseItem(params) {
-    var itemId = String((params || {}).itemId || '').trim();
-    if (!itemId) throw new Error('PARAM_REQUIRED: itemId');
-    return setUnlistStatus_(itemId, true);
-  }
-
-  function activateItem(params) {
-    var itemId = String((params || {}).itemId || '').trim();
-    if (!itemId) throw new Error('PARAM_REQUIRED: itemId');
-    return setUnlistStatus_(itemId, false);
-  }
-
-  function deleteItem(params) {
-    var itemId = String((params || {}).itemId || '').trim();
-    if (!itemId) throw new Error('PARAM_REQUIRED: itemId');
-    var shopId = getShopId_();
-    var sheetId = ConfigService.getSheetId();
-
-    callTiops_('shopee_delete_item', { item_id: itemId, shopId: shopId });
-
-    // releitura: item some da Shopee — marca como deletado no Sheets
-    Utilities.sleep(CONFIRM_DELAY_MS);
-    var status = 'deletado';
-    try {
-      var fresh = callTiops_('shopee_get_item', { item_id: itemId, shopId: shopId });
-      var freshItem = (fresh.response && fresh.response.item_list && fresh.response.item_list[0]) || null;
-      if (freshItem) status = mapStatus_(freshItem.item_status);
-    } catch (e) {
-      status = 'deletado';
-    }
-
-    AnunciosShopeeRepository.patchMain(sheetId, itemId, {
-      STATUS: status,
-      DADOS_JSON: '',
-      DATA_SINCRONIZACAO: nowBR_()
-    });
-    CacheRepository.remove(CACHE_KEY);
-    return { success: true, itemId: itemId, novoStatus: status };
-  }
-
-  // ─── getSalesMetrics / getSKUs ────────────────────────────────────
-  function getSalesMetrics(params) {
-    params = params || {};
-    var periodo = params.periodo || PERIODO_PADRAO;
-
-    if (params.itemId) {
-      var shopId = getShopId_();
-      var result = callTiops_('shopee_sales_by_item', { item_id: String(params.itemId), period: periodo, shopId: shopId });
-      var resp = result && result.response ? result.response : result;
-      return {
-        vendasTotal: num_(resp.total_quantity),
-        contagemPedidos: num_(resp.total_orders),
-        avaliacaoMedia: 0,
-        comentariosTotal: 0,
-        visitas: 0,
-        conversao: '0%'
-      };
-    }
-
-    var sheetId = ConfigService.getSheetId();
-    var rows = AnunciosShopeeRepository.getAll(sheetId);
-    var vendas = 0;
-    var pedidos = 0;
-    var avaliacoes = 0;
-    var comAvaliacao = 0;
-    var comentarios = 0;
-    for (var i = 0; i < rows.length; i++) {
-      vendas += num_(rows[i].VENDAS_30D);
-      comentarios += num_(rows[i].NUM_COMENTARIOS);
-      var nota = num_(rows[i].AVALIACAO);
-      if (nota > 0) {
-        avaliacoes += nota;
-        comAvaliacao++;
-      }
-    }
-    var media = comAvaliacao > 0 ? round2_(avaliacoes / comAvaliacao) : 0;
-    return {
-      vendasTotal: vendas,
-      contagemPedidos: pedidos,
-      avaliacaoMedia: media,
-      comentariosTotal: comentarios,
-      visitas: 0,
-      conversao: '0%'
-    };
-  }
-
-  function getSKUs(params) {
-    var itemId = String((params || {}).itemId || '').trim();
-    if (!itemId) throw new Error('PARAM_REQUIRED: itemId');
-    var shopId = getShopId_();
-    var models = fetchModels_(shopId, itemId);
-    var skus = [];
-    for (var i = 0; i < models.length; i++) {
-      skus.push({
-        modelId: String(models[i].model_id),
-        nomeSKU: models[i].model_name || '',
-        preco: round2_(models[i].normal_price),
-        estoque: getModelStock_(models[i])
-      });
-    }
-    return skus;
-  }
-
   return {
     describe: describe,
     syncListings: syncListings,
-    getListings: getListings,
-    getItemDetail: getItemDetail,
-    updatePrice: updatePrice,
-    updateStock: updateStock,
-    pauseItem: pauseItem,
-    activateItem: activateItem,
-    deleteItem: deleteItem,
-    getSalesMetrics: getSalesMetrics,
-    getSKUs: getSKUs,
     updateSku: updateSku,
     // helpers expostos para smoke tests
     mapStatus_: mapStatus_,

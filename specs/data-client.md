@@ -194,7 +194,7 @@ por view:
    verdade.
 3. **Escrita sempre invalida**: após `mutateData`, o prefixo do domínio é
    invalidado automaticamente — elimina keys órfãs
-   (ex.: `carteiraShopee.summary` invalidada mas nunca usada) e o
+   (ex.: `orders.all.30` invalidada mas nunca usada) e o
    esquecimento de invalidar após update.
 4. **Convenção de keys**: todas as keys client-side começam com `dc.`.
 5. **Nenhum acesso a Sheets no cliente**: DataClient chama

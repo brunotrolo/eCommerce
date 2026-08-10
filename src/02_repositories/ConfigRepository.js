@@ -21,8 +21,7 @@ var ConfigRepository = (function () {
       'estoque.sincronizar',
       'estoque.sincronizarPrecosCatalogo',
       'anunciosShopee.syncListings',
-      'ordersImport.importShopeeOrders',
-      'carteiraShopee.syncWallet'
+      'ordersImport.importShopeeOrders'
     ])
   };
 
