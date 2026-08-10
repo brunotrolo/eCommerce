@@ -1,7 +1,7 @@
 # Spec: Hardening — Estados de carregamento e vazio (todas as telas)
 
 ## Status
-Approved
+Implemented (2026-08-10)
 
 ## Objetivo
 Item 4 da Fase 7 (Endurecimento): toda tela deve ter **estado de

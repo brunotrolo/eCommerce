@@ -539,26 +539,22 @@
         if (!btn) return;
         var act = btn.getAttribute('data-act');
         var id = btn.getAttribute('data-id');
-        withLoading(function () {
-          return apiDispatch('shopeeAds.' + (act === 'pause' ? 'pauseCampaign' : 'resumeCampaign'), { campaignId: id });
-        }).then(function (result) {
-          if (result && result.success) {
-            runSync(shadow);
-          }
+        withLoading(btn, function (success, failure) {
+          return apiDispatch('shopeeAds.' + (act === 'pause' ? 'pauseCampaign' : 'resumeCampaign'), { campaignId: id }).then(success, failure);
+        }, function () {
+          runSync(shadow);
         });
       });
     }
 
     function loadVisitMetrics(shadow) {
       var days = Number((shadow.querySelector('#filter-days') || {}).value) || 7;
-      withLoading(function () {
-        return apiDispatch('shopeeAds.getVisitMetrics', { days: days });
-      }).then(function (result) {
+      withErrorHandling(shadow, function (success, failure) {
+        return apiDispatch('shopeeAds.getVisitMetrics', { days: days }).then(success, failure);
+      }, function (result) {
         _visitas = (result && result.dados) || [];
         renderStats(shadow);
         renderPage(shadow);
-      }).catch(function (err) {
-        showError(shadow, 'Erro ao carregar métricas de visitas: ' + (err.message || err));
       });
     }
 
@@ -583,13 +579,11 @@
         return Promise.resolve();
       }
 
-      return withLoading(function () {
-        return apiDispatch('shopeeAds.getCampaigns', forceFresh ? { forceFresh: true } : {});
-      }).then(function (result) {
+      return withErrorHandling(shadow, function (success, failure) {
+        return apiDispatch('shopeeAds.getCampaigns', forceFresh ? { forceFresh: true } : {}).then(success, failure);
+      }, function (result) {
         if (ds) ds.set(cacheKey, result);
         render(result);
-      }).catch(function (err) {
-        showError(shadow, 'Erro ao carregar campanhas: ' + (err.message || err));
       });
     }
 
@@ -603,72 +597,34 @@
         return;
       }
 
-      withLoading(function () {
-        return apiDispatch('shopeeAds.getBalance', {});
-      }).then(function (saldo) {
+      withErrorHandling(shadow, function (success, failure) {
+        return apiDispatch('shopeeAds.getBalance', {}).then(success, failure);
+      }, function (saldo) {
         if (ds) ds.set(cacheKey, saldo);
         shadow.querySelector('#saldo-box').innerHTML = saldoHtml(saldo);
-      }).catch(function () {});
+      });
     }
 
     function runSync(shadow) {
       var btn = shadow.querySelector('#btn-sync');
-      btn.disabled = true;
-      btn.textContent = 'Sincronizando...';
-
-      var acao;
       if (_currentView === 'visitas') {
         var dias = Number((shadow.querySelector('#filter-days') || {}).value) || 7;
         var filtro = (shadow.querySelector('#filter-item-id') || {}).value || '';
-        var nome = btn.getAttribute('data-name');
-        acao = withLoading(function () {
-          return apiDispatch('shopeeAds.syncVisitMetrics', { days: dias, itemId: filtro });
-        }).then(function () {
-          return loadVisitMetrics(shadow);
+        withLoading(btn, function (success, failure) {
+          return apiDispatch('shopeeAds.syncVisitMetrics', { days: dias, itemId: filtro }).then(success, failure);
+        }, function () {
+          loadVisitMetrics(shadow);
         });
       } else {
-        acao = withLoading(function () {
-          return apiDispatch('shopeeAds.syncCampaigns', { forceFresh: true });
-        }).then(function () {
-          return loadCampanhas(shadow, true);
-        }).then(function () {
-          loadBalance(shadow, true);
-          if (_currentView === 'visitas') loadVisitMetrics(shadow);
+        withLoading(btn, function (success, failure) {
+          return apiDispatch('shopeeAds.syncCampaigns', { forceFresh: true }).then(success, failure);
+        }, function () {
+          loadCampanhas(shadow, true).then(function () {
+            loadBalance(shadow, true);
+            if (_currentView === 'visitas') loadVisitMetrics(shadow);
+          });
         });
       }
-
-      acao.then(function () {
-        btn.disabled = false;
-        btn.textContent = _currentView === 'visitas' ? 'Sincronizar Visitas' : 'Sincronizar Campanhas';
-      }).catch(function (err) {
-        btn.disabled = false;
-        btn.textContent = _currentView === 'visitas' ? 'Sincronizar Visitas' : 'Sincronizar Campanhas';
-        showError(shadow, 'Erro na sincronização: ' + (err.message || err));
-      });
-    }
-
-    function showError(shadow, msg) {
-      var box = shadow.querySelector('#error-box');
-      box.textContent = msg;
-      box.hidden = false;
-      setTimeout(function () { box.hidden = true; }, 8000);
-    }
-
-    function withLoading(fn) {
-      return new Promise(function (resolve, reject) {
-        try {
-          var result = fn();
-          if (result && typeof result.then === 'function') {
-            result.then(function (response) {
-              if (response && response.error) { reject(new Error(response.error)); return; }
-              var data = response ? response.data : null;
-              resolve(data);
-            }).catch(reject);
-          } else {
-            resolve(result);
-          }
-        } catch (e) { reject(e); }
-      });
     }
 
     function apiDispatch(action, params) {

@@ -57,7 +57,11 @@
 
       _load(shadow, force) {
         var dc = window.__DataClient;
-        if (dc && !force) {
+if (dc && !force) {
+          var txBody = shadow.querySelector('#tx-table tbody');
+          if (txBody) txBody.innerHTML = '<tr><td colspan="5"><div class="loading-state">Carregando transações...</div></td></tr>';
+          var payBody = shadow.querySelector('#payout-table tbody');
+          if (payBody) payBody.innerHTML = '<tr><td colspan="5"><div class="loading-state">Carregando pagamentos...</div></td></tr>';
           dc.fetchData('carteiraShopee.getWalletSnapshot', {}, { key: 'carteiraShopee.snapshot' })
             .then(function (data) {
               if (data && data.saldo) render(shadow, data);
@@ -80,8 +84,7 @@
           },
           (data) => {
             if (!data || data.error) {
-              shadow.getElementById('error-box').textContent = data && data.error ? data.error : 'Erro ao sincronizar.';
-              shadow.getElementById('error-box').hidden = false;
+              showError(shadow, data && data.error ? data.error : 'Erro ao sincronizar.');
               return;
             }
             window.__DataClient.set('carteiraShopee.snapshot', snapshotFromDados(data.dados || {}));
@@ -94,6 +97,8 @@
       }
 
       _loadTransacoes(shadow) {
+        var tb = shadow.querySelector('#tx-table tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="5"><div class="loading-state">Carregando transações...</div></td></tr>';
         window.__DataClient.fetchData('carteiraShopee.getTransacoes', { limit: 100 })
           .then(function (rows) {
             renderTransacoes(shadow, rows || []);
@@ -104,6 +109,8 @@
       }
 
       _loadPayouts(shadow) {
+        var tb = shadow.querySelector('#payout-table tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="5"><div class="loading-state">Carregando pagamentos...</div></td></tr>';
         window.__DataClient.fetchData('carteiraShopee.getPayoutHistory', { limit: 12 })
           .then(function (rows) {
             renderPayouts(shadow, rows || []);

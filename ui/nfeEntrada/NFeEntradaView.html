@@ -2,11 +2,6 @@
   <style>
     .nfe-table { margin-top: var(--space-lg); }
     .nfe-table .table { width: 100%; }
-    .nfe-empty {
-      text-align: center;
-      padding: var(--space-section) var(--space-lg);
-      color: var(--color-text-secondary);
-    }
     .nfe-table .table tbody tr { cursor: pointer; }
     .nfe-table .table tbody tr:hover { background: var(--color-surface-hover); }
     .nfe-sidebar-overlay {
@@ -57,11 +52,6 @@
       padding: var(--space-md);
     }
     .nfe-sidebar-body .table { width: 100%; }
-    .nfe-sidebar-empty {
-      text-align: center;
-      padding: var(--space-section);
-      color: var(--color-text-secondary);
-    }
     .nfe-sidebar-nfinfo {
       margin-bottom: var(--space-md);
       padding: var(--space-sm);
@@ -175,7 +165,7 @@
       <h2>NFes Importadas</h2>
       <p class="card-hint">Clique em uma NF para ver detalhes e memória de cálculo.</p>
       <div class="nfe-table" id="nfe-table-container"></div>
-      <div id="recent-hint" class="nfe-empty" hidden></div>
+      <div id="recent-hint" class="empty-state" hidden></div>
     </div>
   </div>
 
@@ -186,7 +176,7 @@
       <button class="nfe-sidebar-close" id="sidebar-close" aria-label="Fechar">&times;</button>
     </div>
     <div class="nfe-sidebar-body" id="sidebar-body">
-      <div class="nfe-sidebar-empty">Carregando...</div>
+      <div class="loading-state">Carregando...</div>
     </div>
   </aside>
 </template>
@@ -464,7 +454,7 @@
           }
 
           title.textContent = 'NF ' + numeroNf + ' — ' + (nfData ? nfData.EMITENTE_NOME : '');
-          body.innerHTML = '<div class="nfe-sidebar-empty">Carregando produtos...</div>';
+          body.innerHTML = '<div class="loading-state">Carregando produtos...</div>';
           overlay.setAttribute('open', '');
           sidebar.setAttribute('open', '');
 
@@ -472,14 +462,14 @@
             .then(function (payload) {
               var items = Array.isArray(payload) ? payload : ((payload && payload.data) || []);
               if (items.length === 0) {
-                body.innerHTML = '<div class="nfe-sidebar-empty">Nenhum produto encontrado para esta NF.</div>';
+                body.innerHTML = '<div class="empty-state">Nenhum produto encontrado para esta NF.</div>';
                 return;
               }
 
               self._renderSidebar(body, nfData, items, numeroNf);
             })
             .catch(function (err) {
-              body.innerHTML = '<div class="nfe-sidebar-empty">Erro: ' + (err.message || String(err)) + '</div>';
+              body.innerHTML = '<div class="empty-state">Erro: ' + (err.message || String(err)) + '</div>';
             });
         }
 

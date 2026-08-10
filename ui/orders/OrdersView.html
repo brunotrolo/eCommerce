@@ -237,6 +237,9 @@
           return;
         }
 
+        shadow.querySelector('#orders-table tbody').innerHTML =
+          '<tr><td colspan="10"><div class="loading-state">Carregando pedidos...</div></td></tr>';
+
         withLoading(
           shadow.getElementById('btn-refresh'),
           (success, failure) =>

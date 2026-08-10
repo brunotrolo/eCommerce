@@ -1,7 +1,7 @@
 # Spec: Hardening — Padronização de tratamento de erro nas views
 
 ## Status
-Approved
+Implemented (2026-08-10)
 
 ## Objetivo
 Item 3 da Fase 7 (Endurecimento): um único padrão de feedback de erro em

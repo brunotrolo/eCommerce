@@ -5,11 +5,6 @@
     }
     .nfe-prod-table { margin-top: var(--space-md); }
     .nfe-prod-table .table { width: 100%; }
-    .nfe-empty {
-      text-align: center;
-      padding: var(--space-section) var(--space-lg);
-      color: var(--color-text-secondary);
-    }
     .nfe-prod-table .table tbody tr { cursor: pointer; }
     .nfe-prod-table .table tbody tr:hover { background: var(--color-surface-hover); }
     .nfe-sidebar-overlay {
@@ -60,11 +55,6 @@
       padding: var(--space-md);
     }
     .nfe-sidebar-body .table { width: 100%; }
-    .nfe-sidebar-empty {
-      text-align: center;
-      padding: var(--space-section);
-      color: var(--color-text-secondary);
-    }
     .calc-section {
       margin-bottom: var(--space-md);
       padding: var(--space-md);
@@ -221,7 +211,7 @@
       <button class="nfe-sidebar-close" id="sidebar-close" aria-label="Fechar">&times;</button>
     </div>
     <div class="nfe-sidebar-body" id="sidebar-body">
-      <div class="nfe-sidebar-empty">Carregando...</div>
+<div class="loading-state">Carregando...</div>
     </div>
   </aside>
 </template>
@@ -466,7 +456,7 @@
 
               if (items.length === 0) {
                 card.hidden = false;
-                table.innerHTML = '<div class="nfe-empty">Nenhum produto encontrado.</div>';
+                table.innerHTML = '<div class="empty-state">Nenhum produto encontrado.</div>';
                 return;
               }
 
@@ -478,7 +468,7 @@
               var table = self.shadowRoot.getElementById('estoque-table');
               var card = self.shadowRoot.getElementById('estoque-card');
               card.hidden = false;
-              table.innerHTML = '<div class="nfe-empty">Erro ao carregar produtos: ' + (err.message || String(err)) + '</div>';
+              table.innerHTML = '<div class="empty-state">Erro ao carregar produtos: ' + (err.message || String(err)) + '</div>';
             });
         }
 
@@ -562,7 +552,7 @@
           var desc = (item.DESCRICAO_PRODUTO || '').toUpperCase();
 
           title.textContent = desc + ' — NF ' + nf;
-          body.innerHTML = '<div class="nfe-sidebar-empty">Carregando...</div>';
+          body.innerHTML = '<div class="loading-state">Carregando...</div>';
           overlay.setAttribute('open', '');
           sidebar.setAttribute('open', '');
 

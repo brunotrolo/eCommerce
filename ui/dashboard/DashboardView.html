@@ -39,6 +39,7 @@
 
       <div class="alert alert-error" id="error-box" hidden></div>
       <div id="result-box" hidden></div>
+      <div class="loading-state" id="loading-state" hidden>Carregando resumo...</div>
     </div>
     <div class="stat-grid" id="stat-grid"></div>
     <div class="card table-container">
@@ -100,9 +101,13 @@
         var dc = window.__DataClient;
         if (force) dc.invalidate('dashboard.summary');
         if (!force) {
+          var ls = shadow.getElementById('loading-state');
+          if (ls) ls.hidden = false;
           dc.fetchData('dashboard.getSummary', {}, { key: 'dashboard.summary' }).then(function (data) {
             if (data) render(shadow, data);
+            if (ls) ls.hidden = true;
           }).catch(function (err) {
+            if (ls) ls.hidden = true;
             showError(shadow, (err && err.message) || 'Erro ao carregar o dashboard.');
           });
           return;

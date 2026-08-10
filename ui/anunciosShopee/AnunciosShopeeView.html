@@ -284,12 +284,6 @@ function renderPage(shadow) {
       badge.textContent = 'Usando dados em cache (atualizado em ' + data.atualizadoEm + ')';
     }
 
-    function showError(shadow, msg) {
-      var el = shadow.getElementById('error-box');
-      el.textContent = msg;
-      el.hidden = false;
-    }
-
     class AnunciosShopeeWidget extends HTMLElement {
       connectedCallback() {
         var template = document.getElementById('anuncios-shopee-template');
@@ -303,6 +297,10 @@ function renderPage(shadow) {
 
         var cached = window.__DataClient && window.__DataClient.get('anunciosShopee.listings');
         if (cached) { renderAll(shadow, cached); }
+        else {
+          shadow.querySelector('#items-table tbody').innerHTML =
+            '<tr><td colspan="9"><div class="loading-state">Carregando anúncios...</div></td></tr>';
+        }
         this._load(shadow);
       }
 

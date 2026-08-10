@@ -29,17 +29,6 @@
 
     tr:hover td { background: var(--color-surface-hover); }
 
-    .empty-state {
-      text-align: center; padding: var(--space-3xl);
-      color: var(--color-text-secondary);
-    }
-    .empty-state p { margin: 0; font-size: var(--font-size-md); }
-
-    .loading {
-      text-align: center; padding: var(--space-3xl);
-      color: var(--color-text-tertiary);
-    }
-
     .badge {
       display: inline-block; padding: 2px var(--space-sm);
       border-radius: var(--radius-xs); font-size: var(--font-size-xs);
@@ -87,8 +76,11 @@
       </div>
 
       <div id="content">
-        <div class="loading">Carregando...</div>
+        <div class="loading-state">Carregando...</div>
       </div>
+
+      <div class="alert alert-error" id="error-box" hidden></div>
+      <div id="result-box" hidden></div>
     </div>
   </div>
 
@@ -173,8 +165,8 @@
           self._applyFilters();
         })
         .catch(function (e) {
-          self.shadowRoot.getElementById('content').innerHTML =
-            '<div class="empty-state"><p>Erro ao carregar: ' + e.message + '</p></div>';
+          self.shadowRoot.getElementById('content').innerHTML = '';
+          showError(self.shadowRoot, 'Erro ao carregar: ' + (e.message || e));
         });
     }
 

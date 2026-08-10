@@ -368,6 +368,8 @@
 
         <div class="calc-divider"></div>
 
+        <div class="alert alert-error" id="error-box" hidden></div>
+
         <div class="calc-result" id="calc-result">
           <div class="calc-result-header" id="calc-result-header">Preço de Venda Sugerido</div>
           <div class="calc-price-big" id="calc-price">R$ 0,00</div>
@@ -540,7 +542,7 @@
             self._renderResult(shadow, data, marketplace, calcMode);
           })
           .catch(function () {
-            shadow.getElementById('calc-result').innerHTML = '<div class="calc-warning critical">Erro ao calcular.</div>';
+            showError(shadow, 'Erro ao calcular. Tente novamente.');
           });
       }
 
