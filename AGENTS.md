@@ -211,6 +211,21 @@ Ver `src/03_services/pricing/PricingService.js` (`calculateSuggestedPrice`/
 `calculateNetMargin`) para as fórmulas completas — motor único, nunca
 duplicar o cálculo em outro serviço.
 
+## Regra de baixa de estoque por status de pedido (fato do projeto)
+
+Pedido **não pago, cancelado ou devolvido NUNCA baixa estoque**:
+
+- Status que **nunca baixam**: `UNPAID` (não pago), `CANCELLED`/`CANCELADO`,
+  `TO_RETURN`/`DEVOLVIDO`. Regra aplicada nos dois caminhos: no backfill
+  (`EstoqueBaixaService.backfillExistingOrders`, motor FIFO compartilhado)
+  e na baixa por pedido (`OrdersImportService.processBaixaForOrder_`, cobre
+  sync individual e em lote). Quando o pedido for pago, a baixa roda no sync
+  seguinte.
+- **Reversão** de baixa existente só ocorre para cancelado/devolvido
+  (`reverterBaixa`). `UNPAID` **não reverte**: é estado pré-pagamento e pode
+  ser transitório — nunca devolver item de um pedido que já pagou/baixou
+  por causa de um refresh de status.
+
 ## Micro-frontends (UI)
 
 Cada tela em `ui/<dominio>/<Nome>View.html` é um Web Component

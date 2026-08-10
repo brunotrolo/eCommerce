@@ -108,9 +108,9 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 |---|---|---|:---:|
 | 0 | Fundação + pipeline de deploy | ✅ | ✅ |
 | 1 | Precificação | ✅ | ✅ |
-| 2 | Dashboard | ✅ | ⬜ |
-| 3 | Pedidos | ✅ | ⬜ |
-| 4 | Catálogo | ✅ | ⬜ |
+| 2 | Dashboard | ✅ | ✅ |
+| 3 | Pedidos | ✅ | ✅ |
+| 4 | Catálogo | ✅ | ✅ |
 | 5 | Anúncios | ✅ | ⬜ |
 | 6 | Preço & Estoque | ✅ | ⬜ |
 | 7 | Endurecimento | ⬜ | ⬜ |
@@ -125,9 +125,12 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > `specs/ARQUITETURA.md` § CI e Deploy). O fluxo funcional ativo é o domínio
 > **Estoque**: 157 unidades rastreadas unitariamente (FIFO), alimentado por
 > NFe + Manual, com preços sincronizáveis com o catálogo via motor único de
-> margem (`PricingService`). Fases 0, 1 e 8 validadas por cálculo/smoke; as
-> demais dependem de dado real dos marketplaces via Tiops e/ou acesso ao
-> editor Apps Script — pendente de validação manual ativa (ver tabela acima).
+> margem (`PricingService`). Fases 0–4 e 8 validadas — 0, 1 e 8 por
+> cálculo/smoke, 2–4 por conferência manual do usuário com dados reais
+> (09/08/2026); restam pendentes de validação ativa Status Online,
+> DataStore/DataClient, Webhook Shopee e Shopee Ads (ver tabela acima), além
+> da fase 7 (Endurecimento), que só entra depois que o restante estiver
+> validado.
 >
 > **Webhook Shopee:** código implementado e testado
 > (`PushNotificationService.js`), mas **inativo** — a Tiops detém as
@@ -155,23 +158,23 @@ e o caso de margem inviável.
 ### Fase 2 — Dashboard
 
 **Critério de aceite:**
-- [ ] Os números conferem com os apps oficiais no mesmo dia.
-- [ ] Segunda carga em menos de 5 min vem do cache (confirmar por log/tempo).
-- [ ] Falha da Tiops mostra mensagem de erro na tela, não tela em branco.
+- [x] Os números conferem com os apps oficiais no mesmo dia.
+- [x] Segunda carga em menos de 5 min vem do cache (confirmar por log/tempo).
+- [x] Falha da Tiops mostra mensagem de erro na tela, não tela em branco.
 
 ### Fase 3 — Pedidos
 
 **Critério de aceite:**
-- [ ] Um pedido real de cada canal confere com o app oficial (ID, data, valor, status).
-- [ ] O Dashboard continua correto depois de passar a consumir `OrdersService`.
-- [ ] Canal sem pedido no período devolve lista vazia, não erro.
+- [x] Um pedido real de cada canal confere com o app oficial (ID, data, valor, status).
+- [x] O Dashboard continua correto depois de passar a consumir `OrdersService`.
+- [x] Canal sem pedido no período devolve lista vazia, não erro.
 
 ### Fase 4 — Catálogo
 
 Critérios de aceite todos cobertos (agrupamento por código, preço sugerido
 via `PricingService`, memória de cálculo, ordenação, margem líquida real,
-lista vazia sem erro) — pendente só marcar "Validado" na tabela acima após
-uso real confirmar.
+lista vazia sem erro). **Validado em 09/08/2026 por conferência manual do
+usuário no app real.**
 
 ### Fase 5 — Anúncios
 
