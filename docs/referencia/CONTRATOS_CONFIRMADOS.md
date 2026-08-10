@@ -55,6 +55,7 @@ Sondagem via MCP Tiops (`shopId` = `1880105398`). Item sem variação usa `model
 | `shopee_get_models` | `item_id` | `response.tier_variation[]`, `response.model[]` (cada model: `model_id`, `model_name`, `normal_price`, `stock_info_v2`) — vazio para item sem variação |
 | `shopee_update_price` | `item_id`, `price_list:[{model_id, original_price, price}]` | `response.success_list[].original_price`, `failure_list` |
 | `shopee_update_stock` | `item_id`, `stock_list:[{model_id, seller_stock:[{location_id:"BRZ", stock:N}]}]` | `response.success_list[].stock`, `failure_list` |
+| `shopee_update_item` | `item_id` (**number uint64 — string é rejeitado**: `cannot unmarshal string into Go struct field UpdateItemRequest.item_id of type uint64`), `item_sku` (campos no topo) | `response` ecoa o item completo com `item_sku` atualizado. Warning informativo: `gtin is a mandatory field for some category` (não bloqueia). **Sempre relevar com `shopee_get_item`** |
 | `shopee_unlist_item` | `item_id`, `unlist: bool` (default true = pausar) | `response.success_list[].unlist` |
 | `shopee_delete_item` | `item_id` | success/error |
 | `shopee_sales_by_item` | `item_id`, `period` (e.g. "30d") | `total_orders`, `total_quantity`, `total_revenue`, `avg_price`, `orders[]` — **⚠️ payload FLAT, SEM wrapper `{data:...}`** (única ação confirmada até hoje com esse shape; `TiopsClient.call` cobre isso desde 2026-08-08) |
@@ -135,6 +136,7 @@ Varredura de TODAS as chamadas Tiops em `src/` (31 chamadas, 30 ações únicas,
 | `shopee_get_item` | `AnunciosShopeeService` :610 | ✅ sondagem real 2026-08-05 |
 | `shopee_update_price` | `AnunciosShopeeService` :693 | ✅ sondagem real 2026-08-05 (usa `price_list[]`, releitura pós-update) |
 | `shopee_update_stock` | `AnunciosShopeeService` :775 | ✅ sondagem real 2026-08-05 (`location_id: "BRZ"`, releitura pós-update) |
+| `shopee_update_item` | `AnunciosShopeeService` :834 (updateSku) | ✅ sondagem real 2026-08-10 (no-op item 58264575830, shopId 1880105398; `item_id` uint64 — string rejeitada; releitura pós-update) |
 | `shopee_unlist_item` | `AnunciosShopeeService` :815 | ✅ sondagem real 2026-08-05 (releitura pós-pause; nunca em item real) |
 | `shopee_delete_item` | `AnunciosShopeeService` :854 | ✅ sondagem real 2026-08-05 (releitura pós-delete) |
 | `shopee_list_orders` | `OrdersImportService` :197 | ✅ catálogo (num pedido 08-10; usado com `order_status`) |

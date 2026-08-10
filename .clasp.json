@@ -37,6 +37,7 @@
     "src/03_services/carteiraShopee/CarteiraShopeeService.js",
     "src/03_services/anunciosShopee/AnunciosShopeeRepository.js",
     "src/03_services/anunciosShopee/AnunciosShopeeService.js",
+    "src/03_services/produtoSkuMap/ProdutoSkuMapService.js",
     "src/03_services/shopeeAds/ShopeeAdsRepository.js",
     "src/03_services/shopeeAds/ShopeeAdsService.js",
     "src/03_services/dashboard/DashboardService.js",

@@ -195,18 +195,18 @@ aceite originais não se aplicam mais:
 - ~~O preço novo aparece no app oficial do canal.~~
 - ~~Caminho de erro (item inexistente, preço inválido) tratado na UI.~~
 
-### Fase 7 — Endurecimento (a fazer)
+### Fase 7 — Endurecimento (código ✅ 10/08/2026 — validação ⬜ usuário)
 
 Só entra depois que 0–4 e 8 estiverem **validadas** (5 e 6 foram removidas
-em 09/08/2026 — não bloqueiam mais). Escopo:
+em 09/08/2026 — não bloqueiam mais). Entregue (código, specs Implemented,
+commits `a41a0c7`→`1b76c28`):
 
-- Log de operações de escrita em `SheetsRepository` (o que mudou, quando, resultado).
-- Padronização do tratamento de erro em todos os widgets (hoje cada view trata do seu jeito).
-- Teste de contrato contra a Tiops: para cada ação usada, confirmar via
-  `list_actions`/`describe_action` que nome e params ainda batem.
-- Estado de carregamento e vazio em todas as telas.
+- ✅ Log de operações de escrita em `SheetsRepository` (o que mudou, quando, resultado) — audit de UPDATE em `AnunciosShopeeRepository`.
+- ✅ Padronização do tratamento de erro em todos os widgets — helpers únicos de `UiHelpers.html` (`withLoading`/`showError`/`showSuccess`/`withErrorHandling`/`withTimeout`); zero helpers locais nas views.
+- ✅ Teste de contrato contra a Tiops — teste global 30 ações vs `list_actions`/`describe_action`, registro por serviço em `docs/referencia/CONTRATOS_CONFIRMADOS.md`; feature `shopee_ads_terminate_campaign` removida (404 real).
+- ✅ Estado de carregamento e vazio em todas as telas — tokens `.empty-state`/`.loading-state` em `Styles.html`, aplicados em todas as views.
 
-Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.md`).
+Validação ⬜ (usuário): Status Online + Speed Meter, Shopee Ads, DataStore/DataClient, Webhook Shopee (inativo — requer app na Shopee Open Platform).
 
 ### Fase 8 — Calculadora PrecificaPro
 

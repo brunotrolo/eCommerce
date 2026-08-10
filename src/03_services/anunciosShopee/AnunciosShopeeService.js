@@ -133,6 +133,19 @@ var AnunciosShopeeService = (function () {
           params: {
             itemId: { type: 'string', required: true }
           }
+        },
+        updateSku: {
+          description: 'Grava o item_sku de um anúncio na Shopee e confirma por releitura antes de gravar em Sheets. Suporta o sentinela SEM_ESTOQUE (item sem controle de estoque unitário).',
+          params: {
+            itemId: { type: 'string', required: true },
+            sku: { type: 'string', required: true }
+          },
+          returns: {
+            success: 'boolean',
+            itemId: 'string',
+            sku: 'string',
+            motivo: 'string (quando falha)'
+          }
         }
       }
     };
@@ -806,6 +819,42 @@ var AnunciosShopeeService = (function () {
     return { success: true };
   }
 
+  // ─── updateSku ─────────────────────────────────────────────────────
+  function updateSku(params) {
+    params = params || {};
+    var itemId = String(params.itemId || '').trim();
+    var sku = String(params.sku || '').trim();
+    if (!itemId) return { success: false, motivo: 'PARAM_REQUIRED: itemId' };
+    if (!sku) return { success: false, motivo: 'PARAM_REQUIRED: sku' };
+    var shopId = getShopId_();
+    var sheetId = ConfigService.getSheetId();
+
+    // Contrato confirmado 10/08/2026: item_id precisa ser number (uint64) —
+    // string é rejeitado pela Tiops neste endpoint (diferente de price/stock).
+    var result = callTiops_('shopee_update_item', {
+      item_id: Number(itemId),
+      item_sku: sku,
+      shopId: shopId
+    });
+
+    // releitura obrigatória (500ms) — nunca confiar na resposta do update
+    Utilities.sleep(CONFIRM_DELAY_MS);
+    var fresh = callTiops_('shopee_get_item', { item_id: itemId, shopId: shopId });
+    var freshItem = (fresh.response && fresh.response.item_list && fresh.response.item_list[0]) || null;
+    var confirmedSku = freshItem ? String(freshItem.item_sku || '').trim() : '';
+
+    if (!freshItem || confirmedSku !== sku) {
+      return { success: false, motivo: 'Falha ao confirmar mudança. Tente novamente.' };
+    }
+
+    AnunciosShopeeRepository.patchMain(sheetId, itemId, {
+      SKU: confirmedSku,
+      DADOS_JSON: JSON.stringify(freshItem),
+      DATA_SINCRONIZACAO: nowBR_()
+    });
+    return { success: true, itemId: itemId, sku: confirmedSku };
+  }
+
   // ─── pause / activate / delete ────────────────────────────────────
   function setUnlistStatus_(itemId, unlist) {
     var shopId = getShopId_();
@@ -948,6 +997,7 @@ var AnunciosShopeeService = (function () {
     deleteItem: deleteItem,
     getSalesMetrics: getSalesMetrics,
     getSKUs: getSKUs,
+    updateSku: updateSku,
     // helpers expostos para smoke tests
     mapStatus_: mapStatus_,
     buildItemRow_: buildItemRow_,

@@ -703,6 +703,7 @@ var OrdersImportService = (function () {
   var CANCELLED_STATUSES = ['CANCELLED', 'IN_CANCEL'];
   var RETURN_STATUSES = ['TO_RETURN', 'RETURNED'];
   var UNPAID_STATUS = 'UNPAID';
+  var SEM_ESTOQUE_SKU_ = 'SEM_ESTOQUE';
 
   /**
    * Processa baixa de estoque para um pedido recém-inserido ou revertido.
@@ -732,6 +733,10 @@ var OrdersImportService = (function () {
       var sku = p.substring(0, colonIdx).trim();
       var qty = parseInt(p.substring(colonIdx + 1), 10) || 1;
       if (!sku) continue;
+      // Sentinela do pareamento: item_sku=SEM_ESTOQUE = item sem controle de
+      // estoque unitário (decidido na ferramenta de pareamento) — nunca gera
+      // pendência nem custo na baixa.
+      if (sku === SEM_ESTOQUE_SKU_) continue;
       totalSkusNoPedido++;
 
       var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;

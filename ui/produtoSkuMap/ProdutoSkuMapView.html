@@ -1,0 +1,338 @@
+<!--
+  ProdutoSkuMapView — ferramenta de pareamento Anúncio Shopee ↔ Produto de Estoque.
+  Lê produtoSkuMap.getSugestoes (pendentes da aba ANUNCIOS_SHOPEE com SKU vazio)
+  e escreve via anunciosShopee.updateSku (grava item_sku na Shopee + releitura).
+  Spec: specs/produto-anuncio-map.md
+-->
+<template id="produto-sku-map-view">
+  <style>
+    :host {
+      display: block;
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: var(--space-md);
+    }
+
+    .top-bar .title {
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .top-bar .actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .anuncio-card {
+      display: flex;
+      gap: var(--space-md);
+      padding: var(--space-md);
+      align-items: flex-start;
+    }
+
+    .anuncio-card img {
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      background: var(--color-surface-raised);
+      flex-shrink: 0;
+    }
+
+    .anuncio-card .info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .anuncio-card .nome {
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      margin: 0 0 4px;
+      line-height: 1.4;
+    }
+
+    .anuncio-card .item-id {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-secondary);
+      margin: 0 0 var(--space-sm);
+      font-family: var(--font-mono, monospace);
+    }
+
+    .anuncio-card .candidatos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: var(--space-sm);
+    }
+
+    .anuncio-card .candidato {
+      font-size: var(--font-size-xs);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+    }
+
+    .anuncio-card .score {
+      opacity: 0.75;
+      margin-left: 4px;
+    }
+
+    .anuncio-card .manual {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: var(--space-sm);
+    }
+
+    .anuncio-card .manual input {
+      flex: 1;
+      min-width: 140px;
+      max-width: 260px;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border, var(--color-surface-raised));
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-size: var(--font-size-xs);
+    }
+
+    .anuncio-card .manual .sugestao-manual {
+      font-size: var(--font-size-xs);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+    }
+
+    .anuncio-card .sem-estoque {
+      font-size: var(--font-size-xs);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+    }
+  </style>
+
+  <div id="error-box" class="alert alert-error" style="display:none;" role="alert"></div>
+  <div id="result-box" class="alert alert-success" style="display:none;" role="status"></div>
+
+  <div class="top-bar">
+    <h2 class="title">Pareamento de SKU (Shopee ↔ Estoque)</h2>
+    <div class="actions">
+      <button class="btn btn-secondary" id="btn-sync">Sincronizar anúncios</button>
+      <button class="btn" id="btn-refresh">Atualizar</button>
+    </div>
+  </div>
+
+  <div id="loading-state" class="loading-state" hidden>Carregando pareamentos...</div>
+  <div id="content" hidden>
+    <div id="resumo" class="card" style="padding: var(--space-md); margin-bottom: var(--space-md);">
+      <span id="resumo-pendentes"></span>
+      <span class="badge badge-info" id="resumo-par"></span>
+    </div>
+
+    <div id="pendentes-list"></div>
+
+    <div id="empty-state" class="empty-state" hidden>
+      <strong>Todos os anúncios estão pareados.</strong>
+      <span>Nenhum anúncio da Shopee com SKU vazio. Quando um anúncio novo for criado sem item_sku, ele aparece aqui.</span>
+    </div>
+  </div>
+
+  <template id="anuncio-card-tpl">
+    <div class="card anuncio-card">
+      <img alt="" />
+      <div class="info">
+        <p class="nome"></p>
+        <p class="item-id"></p>
+        <div class="candidatos"></div>
+        <div class="manual">
+          <input type="text" placeholder="Buscar produto por código ou descrição..." list="manual-list" />
+          <datalist id="manual-list"></datalist>
+          <button class="btn btn-secondary sugestao-manual">Parear manual</button>
+        </div>
+        <button class="btn btn--ghost sem-estoque">Marcar sem estoque</button>
+      </div>
+    </div>
+  </template>
+</template>
+
+<script>
+  (function () {
+    var TAG = 'produto-sku-map-widget';
+    var TPL = document.getElementById('produto-sku-map-view');
+    if (!TPL) return;
+    if (customElements.get(TAG)) return;
+
+    var CACHE_KEY = 'produtoSkuMap.sugestoes';
+
+    function v(root, id) {
+      return root.getElementById(id);
+    }
+
+    customElements.define(TAG, class extends HTMLElement {
+      constructor() {
+        super();
+        var shadow = this.attachShadow({ mode: 'open' });
+        shadow.appendChild(TPL.content.cloneNode(true));
+        if (window.__DESIGN_SHEET__) {
+          shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__];
+        }
+        this.shadow = shadow;
+        this._data = null;
+      }
+
+      connectedCallback() {
+        var shadow = this.shadow;
+        v(shadow, 'btn-refresh').addEventListener('click', () => this._refresh());
+        v(shadow, 'btn-sync').addEventListener('click', () => this._sync());
+        this._load();
+      }
+
+      _load() {
+        var shadow = this.shadow;
+        var dc = window.__DataClient;
+        if (!dc) { showError(shadow, 'DataClient indisponível.'); return; }
+        v(shadow, 'content').hidden = true;
+        v(shadow, 'empty-state').hidden = true;
+        v(shadow, 'loading-state').hidden = false;
+        dc.fetchData('produtoSkuMap.getSugestoes', {}, { key: CACHE_KEY })
+          .then((data) => {
+            this._data = data || { pendentes: [], produtos: [], total: 0 };
+            v(shadow, 'loading-state').hidden = true;
+            this._render();
+          })
+          .catch((e) => {
+            v(shadow, 'loading-state').hidden = true;
+            showError(shadow, 'Erro ao carregar: ' + (e && e.message ? e.message : e));
+          });
+      }
+
+      _refresh() {
+        var dc = window.__DataClient;
+        if (dc && dc.invalidate) dc.invalidate(CACHE_KEY);
+        this._load();
+      }
+
+      _sync() {
+        var shadow = this.shadow;
+        var dc = window.__DataClient;
+        var btn = v(shadow, 'btn-sync');
+        if (window.withLoading) {
+          withLoading(btn, (success, failure) => {
+            dc.mutateData('anunciosShopee.syncListings', {})
+              .then(success)
+              .catch(failure);
+          }, () => {
+            showSuccess(shadow, 'Anúncios sincronizados. Pareamentos atualizados.');
+            this._refresh();
+          });
+        } else {
+          showError(shadow, 'UiHelpers indisponível.');
+        }
+      }
+
+      _render() {
+        var shadow = this.shadow;
+        var data = this._data || { pendentes: [], produtos: [], total: 0 };
+        v(shadow, 'content').hidden = false;
+        v(shadow, 'resumo-pendentes').textContent = data.pendentes.length + ' anúncio(s) aguardando pareamento.';
+        v(shadow, 'resumo-par').textContent = (data.produtos ? data.produtos.length : 0) + ' produtos no estoque';
+
+        var list = v(shadow, 'pendentes-list');
+        list.innerHTML = '';
+        v(shadow, 'empty-state').hidden = data.pendentes.length > 0;
+
+        var tpl = v(shadow, 'anuncio-card-tpl');
+        for (var i = 0; i < data.pendentes.length; i++) {
+          this._mountCard(tpl, list, data.pendentes[i], data.produtos || []);
+        }
+      }
+
+      _mountCard(tpl, parent, item, produtos) {
+        var node = tpl.content.cloneNode(true);
+        var img = node.querySelector('img');
+        var nome = node.querySelector('.nome');
+        var idEl = node.querySelector('.item-id');
+        var candidatos = node.querySelector('.candidatos');
+        var manualInput = node.querySelector('input');
+        var datalist = node.querySelector('datalist');
+        var manualBtn = node.querySelector('.sugestao-manual');
+        var semEstoqueBtn = node.querySelector('.sem-estoque');
+
+        nome.textContent = item.nomeAnuncio;
+        idEl.textContent = 'Item ' + item.itemId;
+        if (item.imagemUrl) { img.src = item.imagemUrl; img.alt = item.nomeAnuncio; }
+
+        for (var c = 0; c < item.candidatos.length; c++) {
+          var cand = item.candidatos[c];
+          var btn = document.createElement('button');
+          btn.className = 'btn btn-secondary candidato';
+          btn.textContent = cand.codigoProduto + ' — ' + cand.descricaoProduto;
+          var score = document.createElement('span');
+          score.className = 'score';
+          score.textContent = cand.score + '%';
+          btn.appendChild(score);
+          (function (itemId, codigo) {
+            btn.addEventListener('click', function () {
+              this._parear(itemId, btn, codigo);
+            }.bind(this));
+          }).call(this, item.itemId, cand.codigoProduto);
+          candidatos.appendChild(btn);
+        }
+
+        for (var p = 0; p < produtos.length; p++) {
+          var op = document.createElement('option');
+          op.value = produtos[p].codigoProduto + ' — ' + produtos[p].descricaoProduto;
+          datalist.appendChild(op);
+        }
+        manualBtn.addEventListener('click', function () {
+          var raw = manualInput.value;
+          var codigo = this._codigoDe(raw);
+          if (!codigo) {
+            showError(this.shadow, 'Escolha um produto na busca (código — descrição).');
+            return;
+          }
+          this._parear(item.itemId, manualBtn, codigo);
+        }.bind(this));
+        semEstoqueBtn.addEventListener('click', function () {
+          this._parear(item.itemId, semEstoqueBtn, 'SEM_ESTOQUE');
+        }.bind(this));
+        parent.appendChild(node);
+      }
+
+      _codigoDe(raw) {
+        var r = String(raw || '').trim();
+        if (!r) return '';
+        return r.split('—')[0].trim();
+      }
+
+      _parear(itemId, btn, sku) {
+        var shadow = this.shadow;
+        var dc = window.__DataClient;
+        if (!dc || !window.withLoading) {
+          showError(shadow, 'Dependências ausentes (DataClient/UiHelpers).');
+          return;
+        }
+        var label = sku === 'SEM_ESTOQUE' ? 'Marcando sem estoque...' : 'Gravando SKU...';
+        withLoading(btn, (success, failure) => {
+          dc.mutateData('anunciosShopee.updateSku', { itemId: itemId, sku: sku })
+            .then(success)
+            .catch(failure);
+        }, () => {
+          var msg = sku === 'SEM_ESTOQUE'
+            ? 'Anúncio marcado como sem estoque.'
+            : 'Pareado com sucesso — SKU ' + sku + ' gravado na Shopee.';
+          showSuccess(shadow, msg);
+          this._refresh();
+        }, label);
+      }
+    });
+  })();
+</script>

@@ -305,6 +305,7 @@ var EstoqueBaixaService = (function () {
     var CANCELLED_STATUSES = ['CANCELLED', 'CANCELADO'];
     var UNPAID_STATUSES = ['UNPAID'];
     var RETURN_STATUSES = ['TO_RETURN', 'RETURNED', 'DEVOLVIDO'];
+    var SEM_ESTOQUE_SKU_ = 'SEM_ESTOQUE';
 
     var processados = 0, baixados = 0, erros = 0, jaProcessados = 0;
     var totalSkusBaixados = 0;
@@ -372,6 +373,9 @@ var EstoqueBaixaService = (function () {
         var sku = p.substring(0, colonIdx).trim();
         var qty = parseInt(p.substring(colonIdx + 1), 10) || 1;
         if (!sku) continue;
+        // Sentinela do pareamento: item_sku=SEM_ESTOQUE = item sem controle de
+        // estoque unitário — nunca gera pendência nem custo na baixa.
+        if (sku === SEM_ESTOQUE_SKU_) continue;
         totalSkusNoPedido++;
 
         var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;

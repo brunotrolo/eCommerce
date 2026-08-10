@@ -44,6 +44,9 @@
             <li role="none">
               <button class="nav-dropdown-item" data-route="catalog" role="menuitem">Catálogo</button>
             </li>
+            <li role="none">
+              <button class="nav-dropdown-item" data-route="produtoSkuMap" role="menuitem">Parear SKU</button>
+            </li>
           </ul>
         </div>
 
@@ -104,6 +107,7 @@
     <?!= include('ui/carteiraShopee/CarteiraShopeeView'); ?>
     <?!= include('ui/anunciosShopee/AnunciosShopeeView'); ?>
     <?!= include('ui/shopeeAds/ShopeeAdsView'); ?>
+    <?!= include('ui/produtoSkuMap/ProdutoSkuMapView'); ?>
 
       <calculator-widget></calculator-widget>
     <manual-entrada-widget></manual-entrada-widget>
@@ -124,7 +128,8 @@
         manualSaida: 'manual-saida-list-widget',
         carteiraShopee: 'carteira-shopee-widget',
         anunciosShopee: 'anuncios-shopee-widget',
-        shopeeAds: 'shopee-ads-widget'
+        shopeeAds: 'shopee-ads-widget',
+        produtoSkuMap: 'produto-sku-map-widget'
       };
 
       // Preload lazy por aba (P2): disparado no navigate(), fire-and-forget.
@@ -140,7 +145,8 @@
         shopeeAds: [
           { key: 'shopeeAds.campanhas', action: 'shopeeAds.getCampaigns', params: {} },
           { key: 'shopeeAds.balance', action: 'shopeeAds.getBalance', params: {} }
-        ]
+        ],
+        produtoSkuMap: [{ key: 'produtoSkuMap.sugestoes', action: 'produtoSkuMap.getSugestoes', params: {} }]
       };
 
       function navigate(route) {
