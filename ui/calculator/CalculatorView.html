@@ -535,16 +535,13 @@
         }
 
         var self = this;
-        google.script.run
-          .withSuccessHandler(function (response) {
-            var outer = response.data || response;
-            var data = outer.data || outer;
+        window.__DataClient.fetchData('calculator.calculate', params, { cache: false })
+          .then(function (data) {
             self._renderResult(shadow, data, marketplace, calcMode);
           })
-          .withFailureHandler(function () {
+          .catch(function () {
             shadow.getElementById('calc-result').innerHTML = '<div class="calc-warning critical">Erro ao calcular.</div>';
-          })
-          .apiDispatch('calculator.calculate', params);
+          });
       }
 
       _renderResult(shadow, data, marketplace, calcMode) {

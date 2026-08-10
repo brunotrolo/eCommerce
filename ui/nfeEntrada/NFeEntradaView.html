@@ -282,28 +282,25 @@
 
             var folderId = '1tGl8zs9GOUA1L_i2FJNoimTl00_55qKu';
 
-            google.script.run
-              .withSuccessHandler(function (result) {
+            window.__DataClient.mutateData('nfeEntrada.syncAndUpdateSheets', { driveFolder: folderId })
+              .then(function (result) {
                 btn.disabled = false;
                 btn.textContent = 'Sincronizar com Drive';
                 status.textContent = '';
 
-                if (!result || result.error) {
-                  showError(self.shadowRoot, (result && result.error) || 'Resposta vazia do servidor');
+                if (!result) {
+                  showError(self.shadowRoot, 'Resposta vazia do servidor');
                   return;
                 }
                 self._showResult(result);
-                var ds = window.__DataStore;
-                if (ds) ds.invalidate('nfeEntrada.recent');
                 self._loadRecent();
               })
-              .withFailureHandler(function (err) {
+              .catch(function (err) {
                 btn.disabled = false;
                 btn.textContent = 'Sincronizar com Drive';
                 status.textContent = '';
                 showError(self.shadowRoot, err.message || String(err));
-              })
-              .apiDispatch('nfeEntrada.syncAndUpdateSheets', { driveFolder: folderId });
+              });
           });
 
           overlay.addEventListener('click', function () { self._closeSidebar(); });
@@ -323,7 +320,7 @@
             box.hidden = true;
             return;
           }
-          var data = result.data || {};
+          var data = result.data || result || {};
           var inserted = data.inserted || 0;
           var duplicated = data.duplicated || 0;
           var errCount = (data.errors || []).length;
@@ -347,41 +344,34 @@
 
         _loadRecent() {
           var self = this;
-          var ds = window.__DataStore;
-          if (ds && ds.has('nfeEntrada.recent')) {
-            var cached = ds.get('nfeEntrada.recent');
-            var rows = cached.data || cached;
-            if (Array.isArray(rows) && rows.length > 0) {
-              self.shadowRoot.getElementById('recent-card').hidden = false;
-              self._rawRows = rows;
-              self._renderTable(rows);
+          var dc = window.__DataClient;
+          var recentCard = this.shadowRoot.getElementById('recent-card');
+          var hint = this.shadowRoot.getElementById('recent-hint');
+
+          var cached = dc.get('nfeEntrada.recent');
+          if (cached) {
+            var crows = cached.data || cached;
+            if (Array.isArray(crows) && crows.length > 0) {
+              recentCard.hidden = false;
+              self._rawRows = crows;
+              self._renderTable(crows);
             }
-            return;
           }
-          google.script.run
-            .withSuccessHandler(function (result) {
-              var recentCard = self.shadowRoot.getElementById('recent-card');
-              var hint = self.shadowRoot.getElementById('recent-hint');
+
+          dc.run('nfeEntrada.getRecent', { limit: 20 }, {
+            success: function (resp) {
+              var env = (resp && resp.data) || resp || {};
               hint.hidden = true;
 
-              if (!result || result.error) {
-                recentCard.hidden = false;
-                hint.textContent = (result && result.error) || 'getRecent retornou resposta vazia.';
-                hint.hidden = false;
-                console.error('[NFeEntrada] getRecent erro:', result);
-                return;
-              }
-
-              var data = result.data || {};
-              if (data.sheetIdConfigured === false) {
+              if (env.sheetIdConfigured === false) {
                 recentCard.hidden = false;
                 hint.textContent = 'Sheet ID da NFe Entrada não configurado. Use o menu "NFe Entrada → Configurar Sheet ID" no editor do Apps Script e recarregue.';
                 hint.hidden = false;
                 return;
               }
 
-              var rows = data.data || [];
-              if (ds) ds.set('nfeEntrada.recent', data);
+              var rows = env.data || [];
+              dc.set('nfeEntrada.recent', env);
               if (rows.length === 0) {
                 recentCard.hidden = false;
                 hint.textContent = 'Nenhuma NF-e importada ainda. Clique em "Sincronizar com Drive".';
@@ -392,16 +382,14 @@
               recentCard.hidden = false;
               self._rawRows = rows;
               self._renderTable(rows);
-            })
-            .withFailureHandler(function (err) {
+            },
+            failure: function (err) {
               console.error('[NFeEntrada] getRecent failure:', err);
-              var recentCard = self.shadowRoot.getElementById('recent-card');
-              var hint = self.shadowRoot.getElementById('recent-hint');
               recentCard.hidden = false;
               hint.textContent = 'Falha ao ler as últimas NFes: ' + ((err && err.message) || String(err));
               hint.hidden = false;
-            })
-            .apiDispatch('nfeEntrada.getRecent', { limit: 20 });
+            }
+          });
         }
 
         _renderTable(rows) {
@@ -490,15 +478,9 @@
           overlay.setAttribute('open', '');
           sidebar.setAttribute('open', '');
 
-          google.script.run
-            .withSuccessHandler(function (result) {
-              if (!result || result.error) {
-                body.innerHTML = '<div class="nfe-sidebar-empty">' + ((result && result.error) || 'Erro ao carregar produtos.') + '</div>';
-                return;
-              }
-
-              var data = result.data || {};
-              var items = (data && data.data) || [];
+          window.__DataClient.fetchData('nfeEntradaProdutos.getEstoqueByNf', { numeroNf: numeroNf }, { cache: false })
+            .then(function (payload) {
+              var items = Array.isArray(payload) ? payload : ((payload && payload.data) || []);
               if (items.length === 0) {
                 body.innerHTML = '<div class="nfe-sidebar-empty">Nenhum produto encontrado para esta NF.</div>';
                 return;
@@ -506,10 +488,9 @@
 
               self._renderSidebar(body, nfData, items, numeroNf);
             })
-            .withFailureHandler(function (err) {
+            .catch(function (err) {
               body.innerHTML = '<div class="nfe-sidebar-empty">Erro: ' + (err.message || String(err)) + '</div>';
-            })
-            .apiDispatch('nfeEntradaProdutos.getEstoqueByNf', { numeroNf: numeroNf });
+            });
         }
 
         _renderSidebar(body, nfData, items, numeroNf) {
@@ -575,20 +556,13 @@
         }
 
         _updateStatus(numeroNf, codigoProduto, status) {
-          google.script.run
-            .withSuccessHandler(function (result) {
-              var data = result.data || result;
-              if (data.error) {
-                console.error('[NFeEntrada] updateStatus error:', data.error);
-              }
-            })
-            .withFailureHandler(function (err) {
+          window.__DataClient.mutateData('nfeEntradaProdutos.updateStatus', {
+            numeroNf: numeroNf,
+            codigoProduto: codigoProduto,
+            status: status
+          }, { noLoading: true })
+            .catch(function (err) {
               console.error('[NFeEntrada] updateStatus failure:', err);
-            })
-            .apiDispatch('nfeEntradaProdutos.updateStatus', {
-              numeroNf: numeroNf,
-              codigoProduto: codigoProduto,
-              status: status
             });
         }
       }

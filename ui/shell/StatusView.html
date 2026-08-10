@@ -100,8 +100,8 @@
         var self = this;
         var t0 = Date.now();
         _logStatusView('fetch iniciado, t0=' + t0);
-        google.script.run
-          .withSuccessHandler(function (resp) {
+        window.__DataClient.run('system.getStatus', {}, {
+          success: function (resp) {
             var t1 = Date.now();
             var gasMs = t1 - t0;
             var cpuMs = t1 - _pageLoadTime;
@@ -111,23 +111,23 @@
               gasMs: gasMs,
               cpuMs: cpuMs
             });
-            var data = resp && resp.data ? resp.data : resp;
+            var data = window.__DataClient.unwrap(resp);
             _logStatusView('data extraido', {
               dataKeys: data ? Object.keys(data) : null,
               isOnline: data && data.isOnline,
               lastUpdate: data && data.lastUpdate
             });
             self._render(data, gasMs, cpuMs);
-          })
-          .withFailureHandler(function (err) {
+          },
+          failure: function (err) {
             var t1 = Date.now();
             _logStatusView('fetch FAILURE', {
               error: err ? (err.message || String(err)) : 'unknown',
               gasMs: t1 - t0
             });
             self._render(null, 0, 0);
-          })
-          .apiDispatch('system.getStatus', {});
+          }
+        });
       }
 
       _render(data, gasMs, cpuMs) {

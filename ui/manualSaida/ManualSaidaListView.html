@@ -153,20 +153,16 @@
     _loadData() {
       var self = this;
       var cacheKey = 'manualSaida.listExits';
-      var ds = window.__DataStore;
+      var dc = window.__DataClient;
 
-      var cached = ds && ds.get(cacheKey);
+      var cached = dc.get(cacheKey);
       if (cached) {
         self._entries = cached.exits || cached.data && cached.data.exits || [];
         self._applyFilters();
-        return;
       }
 
-      self.shadowRoot.getElementById('content').innerHTML = '<div class="loading">Carregando...</div>';
-
-      google.script.run
-        .withSuccessHandler(function (result) {
-          if (ds) ds.set(cacheKey, result);
+      dc.fetchData('manualSaida.listExits', { limit: 500 }, { key: cacheKey })
+        .then(function (result) {
           if (result && result.data) {
             self._entries = result.data.exits || [];
           } else if (result && result.exits) {
@@ -176,11 +172,10 @@
           }
           self._applyFilters();
         })
-        .withFailureHandler(function (e) {
+        .catch(function (e) {
           self.shadowRoot.getElementById('content').innerHTML =
             '<div class="empty-state"><p>Erro ao carregar: ' + e.message + '</p></div>';
-        })
-        .apiDispatch('manualSaida.listExits', { limit: 500 });
+        });
     }
 
     _applyFilters() {

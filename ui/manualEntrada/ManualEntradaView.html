@@ -252,16 +252,9 @@
       var select = this._el('product-select');
       select.innerHTML = '<option value="">Carregando produtos...</option>';
 
-      google.script.run
-        .withSuccessHandler(function (resp) {
-          var rows = [];
-          if (resp && resp.data && resp.data.data) {
-            rows = resp.data.data;
-          } else if (resp && resp.data) {
-            rows = resp.data;
-          } else if (resp) {
-            rows = resp;
-          }
+      window.__DataClient.fetchData('nfeEntradaProdutos.getProdutos', {}, { cache: false })
+        .then(function (rows) {
+          rows = rows || [];
 
           var grouped = {};
           for (var i = 0; i < rows.length; i++) {
@@ -302,24 +295,20 @@
             select.appendChild(opt);
           }
         })
-        .withFailureHandler(function (e) {
-          select.innerHTML = '<option value="">Erro ao carregar: ' + (e.message || 'desconhecido') + '</option>';
-        })
-        .apiDispatch('nfeEntradaProdutos.getProdutos', {});
+        .catch(function (e) {
+            select.innerHTML = '<option value="">Erro ao carregar: ' + (e.message || 'desconhecido') + '</option>';
+          });
     }
 
     _loadSuppliers() {
       var self = this;
-      google.script.run
-        .withSuccessHandler(function (resp) {
-          var envelope = (resp && resp.data) || resp || {};
-          var data = envelope.data || envelope;
-          self._suppliers = data.suppliers || [];
+      window.__DataClient.fetchData('manualEntrada.getSupplierHistory', {})
+        .then(function (data) {
+          self._suppliers = (data && data.suppliers) || [];
         })
-        .withFailureHandler(function (e) {
+        .catch(function (e) {
           showError(self.shadowRoot, 'Erro ao carregar fornecedores: ' + ((e && e.message) || 'desconhecido'));
-        })
-        .apiDispatch('manualEntrada.getSupplierHistory', {});
+        });
     }
 
     _bindEvents() {
@@ -464,30 +453,27 @@
 
       this._el('btn-confirm').disabled = true;
 
-      google.script.run
-        .withSuccessHandler(function (resp) {
-          var envelope = (resp && resp.data) || resp || {};
-          var result = envelope.data || envelope;
-          if (result.error) {
+      window.__DataClient.mutateData('manualEntrada.addEntry', params)
+        .then(function (result) {
+          if (result && result.error) {
             showError(self.shadowRoot, result.error);
             self._el('btn-confirm').disabled = false;
-          } else {
-            var msg = 'Entrada registrada com sucesso!';
-            if (result.warnings && result.warnings.length > 0) {
-              msg += ' Aviso: ' + result.warnings.join(', ');
-            }
-            showSuccess(self.shadowRoot, msg);
-            self.close();
-            if (typeof self._onSaveCallback === 'function') {
-              self._onSaveCallback();
-            }
+            return;
+          }
+          var msg = 'Entrada registrada com sucesso!';
+          if (result.warnings && result.warnings.length > 0) {
+            msg += ' Aviso: ' + result.warnings.join(', ');
+          }
+          showSuccess(self.shadowRoot, msg);
+          self.close();
+          if (typeof self._onSaveCallback === 'function') {
+            self._onSaveCallback();
           }
         })
-        .withFailureHandler(function (e) {
-          showError(self.shadowRoot, 'Erro: ' + e.message);
+        .catch(function (e) {
+          showError(self.shadowRoot, 'Erro: ' + (e.message || 'desconhecido'));
           self._el('btn-confirm').disabled = false;
-        })
-        .apiDispatch('manualEntrada.addEntry', params);
+        });
     }
 
     _resetForm() {

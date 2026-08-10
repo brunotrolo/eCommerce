@@ -88,7 +88,7 @@
           shadow.getElementById('sync-overlay').classList.remove('open');
         });
 
-        var cached = window.__DataStore && window.__DataStore.get('dashboard.summary');
+        var cached = window.__DataClient.snapshot('dashboard.getSummary', {}, { key: 'dashboard.summary' });
         if (cached) {
           render(shadow, cached);
         }
@@ -97,10 +97,10 @@
 
       _load(shadow, force) {
         var self = this;
-        if (force && window.__DataStore) window.__DataStore.invalidate('dashboard.summary');
-        var ds = window.__DataStore;
-        if (ds && !force) {
-          ds.getOrFetch('dashboard.summary', 'dashboard.getSummary', {}).then(function (data) {
+        var dc = window.__DataClient;
+        if (force) dc.invalidate('dashboard.summary');
+        if (!force) {
+          dc.fetchData('dashboard.getSummary', {}, { key: 'dashboard.summary' }).then(function (data) {
             if (data) render(shadow, data);
           }).catch(function (err) {
             showError(shadow, (err && err.message) || 'Erro ao carregar o dashboard.');
@@ -110,12 +110,9 @@
         withLoading(
           shadow.getElementById('btn-refresh'),
           (success, failure) =>
-            google.script.run
-              .withSuccessHandler(success)
-              .withFailureHandler(failure)
-              .apiDispatch('dashboard.getSummary', {}),
+            dc.run('dashboard.getSummary', {}, { success: success, failure: failure }),
           (data) => {
-            if (ds) ds.set('dashboard.summary', data);
+            dc.set('dashboard.summary', data);
             render(shadow, data);
           },
           (data) => (data.fromCache ? 'Dados em cache (ate 5 min).' : 'Dados atualizados agora.')
@@ -149,14 +146,12 @@
           btnSync.disabled = false;
           if (!erro) setProgress(100);
           setSummary(msg);
-          var ds = window.__DataStore;
-          if (ds) {
-            ds.invalidate('dashboard.summary');
-            ds.invalidate('estoque.Items.DISPONIVEL');
-            ds.invalidate('estoque.Items.TODOS');
-            ds.invalidate('anunciosShopee.listings');
-            ds.invalidate('carteiraShopee.summary');
-          }
+          var dc = window.__DataClient;
+          dc.invalidate('dashboard.summary');
+          dc.invalidate('estoque.Items.DISPONIVEL');
+          dc.invalidate('estoque.Items.TODOS');
+          dc.invalidate('anunciosShopee.listings');
+          dc.invalidate('carteiraShopee.snapshot');
           self._load(shadow, true);
         }
 
@@ -177,18 +172,18 @@
           setStatus(label);
           setStage('Etapa ' + (current + 1) + ' de ' + steps.length);
 
-          google.script.run
-            .withSuccessHandler(function (resp) {
+          window.__DataClient.run(action, {}, {
+            success: function (resp) {
               results.push({ action: action, ok: true });
               current++;
               executarPasso();
-            })
-            .withFailureHandler(function (err) {
+            },
+            failure: function (err) {
               results.push({ action: action, ok: false, error: err.message || String(err) });
               current++;
               executarPasso();
-            })
-            .apiDispatch(action, {});
+            }
+          });
         }
 
         closeBtn.disabled = true;
@@ -199,20 +194,20 @@
         setSummary('');
         setStatus('Lendo configuracao...');
 
-        google.script.run
-          .withSuccessHandler(function (resp) {
-            var data = (resp && resp.data) ? resp.data : resp;
+        window.__DataClient.run('dashboard.getSyncOrder', {}, {
+          success: function (resp) {
+            var data = window.__DataClient.unwrap(resp);
             steps = (data && data.steps) ? data.steps : [];
             if (steps.length === 0) {
               concluir('Nenhuma etapa configurada. Verifique a aba CONFIG (chave sincronizar).', true);
               return;
             }
             executarPasso();
-          })
-          .withFailureHandler(function (err) {
+          },
+          failure: function (err) {
             concluir('Erro ao ler config: ' + (err.message || err), true);
-          })
-          .apiDispatch('dashboard.getSyncOrder', {});
+          }
+        });
       }
     }
 

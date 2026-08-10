@@ -1,0 +1,332 @@
+<script>
+  // DataClient — camada ÚNICA de dados no cliente (spec data-client.md).
+  // Toda view faz fetchData/mutateData; NUNCA google.script.run direto.
+  //
+  // ARQUITETURA DE PERFORMANCE (valida para todas as páginas/componentes):
+  // 1. Cache em memória com TTL + STALE-WHILE-REVALIDATE: resposta velha
+  //    resolve imediatamente (navegação instantânea) e um refresh em
+  //    background atualiza o cache SEM bloquear a UI.
+  // 2. Dedupe: chamadas concorrentes idênticas compartilham 1 única
+  //    promise/rede (sem rajada de requests ao clicar em 3 abas).
+  // 3. Snapshot: render com o que já existe em cache, SEM esperar rede.
+  // 4. Listeners por prefixo: a view se inscreve e re-renderiza quando o
+  //    refresh em background termina — nunca re-busca sozinha.
+  // 5. Retry idempotente (1x) em falha transiente de leitura; escrita
+  //    nunca repete automaticamente.
+  // 6. Invalidação automática por prefixo de domínio após mutateData.
+  // 7. preFetch em paralelo com fire-and-forget (Promise.allSettled):
+  //    um domínio que falhar não derruba o preload dos outros.
+  (function () {
+    if (window.__DataClient) return;
+
+    var _cache = {};      // key -> { data, ts }
+    var _fetching = {};   // key -> Promise (dedupe)
+    var _listeners = {};  // prefix -> [cb(key, data|null)]
+
+    var DEFAULT_MAX_AGE = 60 * 1000;        // 60s: frescor padrão de leitura
+    var DEFAULT_TIMEOUT_MS = 90 * 1000;     // limite de segurança p/ leitura pesada
+    var DEFAULT_RETRIES = 1;                // leituras: 1 retry em falha transiente
+
+    function _domainOf(action) {
+      var idx = action.indexOf('.');
+      return idx === -1 ? action : action.substring(0, idx);
+    }
+
+    function _hash(obj) {
+      var s = JSON.stringify(obj || {});
+      var h = 0;
+      for (var i = 0; i < s.length; i++) {
+        h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      }
+      return (h >>> 0).toString(36);
+    }
+
+    function _defaultKey(action, params) {
+      var hasParams = params && Object.keys(params).length > 0;
+      return 'dc.' + action + (hasParams ? '.' + _hash(params) : '@default');
+    }
+
+    function _key(opts, action, params) {
+      return opts.key || _defaultKey(action, params);
+    }
+
+    function _safeShowError(root, message) {
+      try {
+        if (root && typeof showError === 'function') showError(root, message);
+      } catch (e) { /* best effort */ }
+    }
+
+    // Unwrap único do envelope GAS ({error?, data?, fromCache?}).
+    // 1. data.data (ninho duplo) -> data.data
+    // 2. data (objeto de negócio) -> data
+    // 3. sem data -> response cru (legacy)
+    function unwrap(response) {
+      if (!response) return null;
+      if (response.data && response.data.data !== undefined) return response.data.data;
+      if (response.data !== undefined) return response.data;
+      return response;
+    }
+
+    function hasExpired(key, maxAge) {
+      var entry = _cache[key];
+      if (!entry) return true;
+      if (!maxAge || maxAge <= 0) return false;
+      return (Date.now() - entry.ts) >= maxAge;
+    }
+
+    function _notify(key, data) {
+      var prefixes = Object.keys(_listeners);
+      for (var i = 0; i < prefixes.length; i++) {
+        var p = prefixes[i];
+        if (key.indexOf(p) === 0 || key.indexOf('dc.' + p) === 0) {
+          var cbs = _listeners[p];
+          for (var j = 0; j < cbs.length; j++) {
+            try { cbs[j](key, data); } catch (e) { /* view bug não derruba DataClient */ }
+          }
+        }
+      }
+    }
+
+    function _wire(handlers, action, params) {
+      var chain = google.script.run
+        .withSuccessHandler(handlers.success)
+        .withFailureHandler(handlers.failure);
+      chain.apiDispatch(action, params || {});
+    }
+
+    function _fetchFresh(key, action, params, opts, attempt) {
+      attempt = attempt || 0;
+      var timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+
+      return new Promise(function (resolve, reject) {
+        var settled = false;
+        var timer = setTimeout(function () {
+          if (settled) return;
+          settled = true;
+          var err = new Error('Tempo limite excedido (' + timeoutMs + 'ms). Tente novamente.');
+          _retryOrFail(resolve, reject, err, key, action, params, opts, attempt, timeoutMs);
+        }, timeoutMs);
+
+        function finish(err, data) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (err) {
+            _retryOrFail(resolve, reject, err, key, action, params, opts, attempt, timeoutMs);
+          } else {
+            resolve(data);
+          }
+        }
+
+        _wire({
+          success: function (resp) {
+            if (resp && resp.error) {
+              finish(new Error(resp.error), null);
+              return;
+            }
+            var data = unwrap(resp);
+            if (data === null) {
+              finish(new Error('Nenhuma resposta do servidor.'), null);
+              return;
+            }
+            _cache[key] = { data: data, ts: Date.now() };
+            finish(null, data);
+          },
+          failure: function (err) {
+            if (err && err.message) {
+              finish(new Error(err.message), null);
+            } else {
+              finish(new Error(String(err)), null);
+            }
+          }
+        }, action, params);
+      });
+    }
+
+    function _retryOrFail(resolve, reject, err, key, action, params, opts, attempt, timeoutMs) {
+      var retries = (opts.retries === undefined) ? DEFAULT_RETRIES : opts.retries;
+      if (attempt < retries) {
+        _cleanupFetching(key, opts);
+        resolve(_fetchFresh(key, action, params, opts, attempt + 1));
+      } else {
+        delete _fetching[key];
+        if (opts.background) {
+          // Refresh em background: mantém o stale que a UI já mostrou e
+          // avisa listeners com null (falha silenciosa, UI não quebra).
+          _notify(key, null);
+          resolve(null);
+        } else {
+          _safeShowError(opts.root, isTimeoutError_(err, timeoutMs) ? err.message : err.message);
+          reject(err);
+        }
+      }
+    }
+
+    function isTimeoutError_(err) {
+      var m = err && err.message ? err.message : '';
+      return m.indexOf('Tempo limite') === 0;
+    }
+
+    function _cleanupFetching(key, opts) {
+      // Em retry, libera a promise em voo para que o dedupe não segure a
+      // chamada nova (a view pode ter desistido do timeout anterior).
+      delete _fetching[key];
+    }
+
+    function fetchData(action, params, opts) {
+      opts = opts || {};
+      var key = _key(opts, action, params);
+      var useCache = opts.cache !== false;
+      var maxAge = opts.maxAge === undefined ? DEFAULT_MAX_AGE : opts.maxAge;
+
+      // 1) Cache fresco: resolve imediato, zero rede.
+      if (useCache && _cache[key] !== undefined && !hasExpired(key, maxAge)) {
+        return Promise.resolve(_cache[key].data);
+      }
+
+      // 2) Stale-while-revalidate: resolve o que temos e atualiza em
+      //    background (navegação instantânea + dados sempre frescos).
+      if (useCache && opts.staleWhileRevalidate !== false && _cache[key] !== undefined) {
+        var stale = _cache[key].data;
+        if (!_fetching[key]) {
+          _fetching[key] = _fetchFresh(key, action, params, { background: true, retries: 0 });
+          _fetching[key].then(
+            function (data) { delete _fetching[key]; if (data !== null) _notify(key, data); },
+            function () { delete _fetching[key]; }
+          );
+        }
+        return Promise.resolve(stale);
+      }
+
+      // 3) Cache miss: busca de verdade (dedupe + timeout + retry).
+      if (_fetching[key]) return _fetching[key];
+      var p = _fetchFresh(key, action, params, opts).then(function (data) {
+        return data;
+      }, function (err) {
+        throw err;
+      });
+      _fetching[key] = p;
+      return p;
+    }
+
+    // Resolve com o que existe em cache (ou null) SEM bater rede — render
+    // instantâneo no connectedCallback; o refresh vem por fetchData/
+    // subscribe em background.
+    function snapshot(action, params, opts) {
+      opts = opts || {};
+      var key = _key(opts, action, params);
+      var entry = _cache[key];
+      return entry ? entry.data : null;
+    }
+
+    function mutateData(action, params, opts) {
+      opts = opts || {};
+      var prefix = opts.invalidatePrefix || _domainOf(action);
+      var key = _key(opts, action, params);
+      var p = _fetchFresh(key, action, params || {}, {
+        cache: false,
+        retries: 0,
+        root: opts.root
+      }).then(function (data) {
+        invalidateByPrefix(prefix);
+        return data;
+      });
+      return p;
+    }
+
+    function subscribe(prefix, cb) {
+      if (!_listeners[prefix]) _listeners[prefix] = [];
+      if (_listeners[prefix].indexOf(cb) === -1) _listeners[prefix].push(cb);
+      return function unsubscribe() {
+        var arr = _listeners[prefix];
+        if (!arr) return;
+        var idx = arr.indexOf(cb);
+        if (idx !== -1) arr.splice(idx, 1);
+      };
+    }
+
+    function preFetch(entries) {
+      var promises = [];
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        var key = e.key || _defaultKey(e.action, e.params);
+        if (_cache[key] === undefined || hasExpired(key, e.maxAge || DEFAULT_MAX_AGE)) {
+          promises.push(fetchData(e.action, e.params || {}, { key: key, maxAge: e.maxAge, staleWhileRevalidate: e.staleWhileRevalidate }));
+        }
+      }
+      return Promise.allSettled(promises).then(function (results) {
+        try {
+          google.script.run.apiDispatch('logging.flushLogs', { force: true });
+        } catch (e) { /* best effort */ }
+        return results;
+      });
+    }
+
+    function invalidate(key) {
+      delete _cache[key];
+      delete _fetching[key];
+    }
+
+    function invalidateByPrefix(prefix) {
+      var p1 = 'dc.' + prefix;
+      var p2 = prefix;
+      var keys = Object.keys(_cache);
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i].indexOf(p1) === 0 || (p2 && keys[i].indexOf(p2) === 0)) delete _cache[keys[i]];
+      }
+      var fetching = Object.keys(_fetching);
+      for (var j = 0; j < fetching.length; j++) {
+        if (fetching[j].indexOf(p1) === 0 || (p2 && fetching[j].indexOf(p2) === 0)) delete _fetching[fetching[j]];
+      }
+      _notify(prefix, null);
+    }
+
+    function get(key) {
+      var entry = _cache[key];
+      return entry ? entry.data : null;
+    }
+
+    function has(key) {
+      return _cache[key] !== undefined;
+    }
+
+    function set(key, data) {
+      _cache[key] = { data: data, ts: Date.now() };
+      _notify(key, data);
+    }
+
+    function getTimestamp(key) {
+      var entry = _cache[key];
+      return entry ? entry.ts : null;
+    }
+
+    // Bridge para chamadas legacy com withLoading (UiHelpers):
+    // withLoading(btn, (s, f) => __DataClient.run('dom.action', params, { success: s, failure: f }), ...)
+    // Mesmo contrato de google.script.run (envelope cru, sem unwrap) — rede
+    // única passando pelo DataClient. Chamadas NOVAS devem usar fetchData/
+    // mutateData.
+    function run(action, params, opts) {
+      opts = opts || {};
+      _wire({
+        success: opts.success || function () {},
+        failure: opts.failure || function () {}
+      }, action, params);
+    }
+
+    window.__DataClient = {
+      fetchData: fetchData,
+      mutateData: mutateData,
+      snapshot: snapshot,
+      preFetch: preFetch,
+      subscribe: subscribe,
+      invalidate: invalidate,
+      invalidateByPrefix: invalidateByPrefix,
+      unwrap: unwrap,
+      run: run,
+      get: get,
+      has: has,
+      set: set,
+      getTimestamp: getTimestamp
+    };
+  })();
+</script>

@@ -49,16 +49,16 @@
           self._sync(shadow, true);
         });
 
-        var cached = window.__DataStore && window.__DataStore.get('carteiraShopee.snapshot');
+        var cached = window.__DataClient.snapshot('carteiraShopee.getWalletSnapshot', {}, { key: 'carteiraShopee.snapshot' });
         if (cached) render(shadow, cached);
 
         this._load(shadow, false);
       }
 
       _load(shadow, force) {
-        var ds = window.__DataStore;
-        if (ds && !force) {
-          ds.getOrFetch('carteiraShopee.snapshot', 'carteiraShopee.getWalletSnapshot', {})
+        var dc = window.__DataClient;
+        if (dc && !force) {
+          dc.fetchData('carteiraShopee.getWalletSnapshot', {}, { key: 'carteiraShopee.snapshot' })
             .then(function (data) {
               if (data && data.saldo) render(shadow, data);
             })
@@ -72,16 +72,10 @@
 
       _sync(shadow, force) {
         var self = this;
-        if (force && window.__DataStore) window.__DataStore.invalidate('carteiraShopee.snapshot');
         withLoading(
           shadow.getElementById('btn-sync'),
           (success, failure) => {
-            var promise = new Promise(function (resolve, reject) {
-              google.script.run
-                .withSuccessHandler(resolve)
-                .withFailureHandler(reject)
-                .apiDispatch('carteiraShopee.syncWallet', { forceFresh: !!force });
-            });
+            var promise = window.__DataClient.mutateData('carteiraShopee.syncWallet', { forceFresh: !!force });
             return withTimeout(promise, 30000).then(success).catch(failure);
           },
           (data) => {
@@ -90,9 +84,7 @@
               shadow.getElementById('error-box').hidden = false;
               return;
             }
-            if (window.__DataStore) {
-              window.__DataStore.set('carteiraShopee.snapshot', snapshotFromDados(data.dados || {}));
-            }
+            window.__DataClient.set('carteiraShopee.snapshot', snapshotFromDados(data.dados || {}));
             if (data.dados) renderSnapshot(shadow, data.dados);
             this._loadTransacoes(shadow);
             this._loadPayouts(shadow);
@@ -102,25 +94,23 @@
       }
 
       _loadTransacoes(shadow) {
-        google.script.run
-          .withSuccessHandler(function (rows) {
+        window.__DataClient.fetchData('carteiraShopee.getTransacoes', { limit: 100 })
+          .then(function (rows) {
             renderTransacoes(shadow, rows || []);
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             showError(shadow, 'Erro ao carregar transações: ' + ((err && err.message) || 'desconhecido'));
-          })
-          .apiDispatch('carteiraShopee.getTransacoes', { limit: 100 });
+          });
       }
 
       _loadPayouts(shadow) {
-        google.script.run
-          .withSuccessHandler(function (rows) {
+        window.__DataClient.fetchData('carteiraShopee.getPayoutHistory', { limit: 12 })
+          .then(function (rows) {
             renderPayouts(shadow, rows || []);
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             showError(shadow, 'Erro ao carregar payouts: ' + ((err && err.message) || 'desconhecido'));
-          })
-          .apiDispatch('carteiraShopee.getPayoutHistory', { limit: 12 });
+          });
       }
     }
 

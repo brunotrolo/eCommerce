@@ -1,83 +1,38 @@
 <script>
+  // DataStore — delegate fino para __DataClient (spec data-client.md).
+  // Código novo usa __DataClient diretamente; esta API antiga continua
+  // funcionando delegando 1:1 (mesma cache, mesmo dedupe, mesmo unwrap).
   (function () {
     if (window.__DataStore) return;
 
-    var _cache = {};
-    var _fetching = {};
-
-    function _unwrap(resp) {
-      if (!resp) return null;
-      if (resp.data && resp.data.data !== undefined) return resp.data.data;
-      if (resp.data !== undefined) return resp.data;
-      return resp;
-    }
-
-    function get(key) {
-      return _cache[key] || null;
-    }
-
-    function has(key) {
-      return _cache[key] !== undefined;
-    }
-
-    function set(key, data) {
-      _cache[key] = data;
-    }
-
-    function invalidate(key) {
-      delete _cache[key];
-    }
-
-    function getOrFetch(key, action, params) {
-      if (has(key)) {
-        return Promise.resolve(get(key));
-      }
-      if (_fetching[key]) {
-        return _fetching[key];
-      }
-      var p = new Promise(function (resolve, reject) {
-        google.script.run
-          .withSuccessHandler(function (resp) {
-            var data = _unwrap(resp);
-            set(key, data);
-            delete _fetching[key];
-            resolve(data);
-          })
-          .withFailureHandler(function (err) {
-            delete _fetching[key];
-            reject(err);
-          })
-          .apiDispatch(action, params || {});
-      });
-      _fetching[key] = p;
-      return p;
-    }
-
-    function preFetch(entries) {
-      var promises = [];
-      for (var i = 0; i < entries.length; i++) {
-        var e = entries[i];
-        if (!has(e.key)) {
-          promises.push(getOrFetch(e.key, e.action, e.params));
-        }
-      }
-      return Promise.allSettled(promises).then(function (results) {
-        // Fim determinístico da rajada: drena o buffer de logs (possivelmente
-        // < MIN_BATCH) na planilha em 1 chamada, para nada ficar pendente.
-        try {
-          google.script.run.apiDispatch('logging.flushLogs', { force: true });
-        } catch (e) { /* best effort */ }
-        return results;
-      });
+    function delegate(name) {
+      return function () {
+        var client = window.__DataClient;
+        if (client) return client[name].apply(client, arguments);
+        throw new Error('__DataClient não carregado.');
+      };
     }
 
     window.__DataStore = {
-      get: get,
-      has: has,
-      set: set,
-      invalidate: invalidate,
-      getOrFetch: getOrFetch,
-      preFetch: preFetch
+      get: delegate('get'),
+      has: delegate('has'),
+      set: delegate('set'),
+      invalidate: delegate('invalidate'),
+      // Compat legacy: getOrFetch resolvia {error} em falha (nunca cacheia o
+      // erro). Chamadas novas devem usar __DataClient.fetchData (rejeita).
+      getOrFetch: function (key, action, params) {
+        var client = window.__DataClient;
+        if (!client) return Promise.reject(new Error('__DataClient não carregado.'));
+        return client.fetchData(action, params || {}, { key: key }).then(
+          function (data) { return data; },
+          function (err) { return { error: err && err.message ? err.message : String(err) }; }
+        );
+      },
+      preFetch: function (entries) {
+        var client = window.__DataClient;
+        if (!client) return Promise.resolve([]);
+        return client.preFetch(entries);
+      }
     };
   })();
 </script>

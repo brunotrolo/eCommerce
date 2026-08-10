@@ -301,45 +301,29 @@ function renderPage(shadow) {
         var self = this;
         shadow.getElementById('btn-sync').addEventListener('click', function () { self._sync(shadow); });
 
-        var cached = window.__DataStore && window.__DataStore.get('anunciosShopee.listings');
-        if (cached) { renderAll(shadow, cached); showCacheBadge(shadow, cached); }
+        var cached = window.__DataClient && window.__DataClient.get('anunciosShopee.listings');
+        if (cached) { renderAll(shadow, cached); }
         this._load(shadow);
       }
 
       _load(shadow) {
         var self = this;
-        var ds = window.__DataStore;
-        if (!ds) { this._fetch(shadow, false); return; }
-        ds.getOrFetch('anunciosShopee.listings', 'anunciosShopee.getListings', {})
+        window.__DataClient.fetchData('anunciosShopee.getListings', {}, { key: 'anunciosShopee.listings' })
           .then(function (data) {
-            if (data && data.error) { window.__DataStore && window.__DataStore.invalidate('anunciosShopee.listings'); showError(shadow, String(data.error)); return; }
             if (!data || !data.lista) return;
             renderAll(shadow, data);
-            if (data.fromCache) showCacheBadge(shadow, data);
           })
           .catch(function (err) {
-            window.__DataStore && window.__DataStore.invalidate('anunciosShopee.listings');
+            window.__DataClient && window.__DataClient.invalidate('anunciosShopee.listings');
             showError(shadow, (err && err.message) || 'Erro ao carregar os anúncios.');
           });
       }
 
-      _fetch(shadow, force) {
-        google.script.run
-          .withSuccessHandler(function (data) {
-            if (!data || !data.lista) return;
-            renderAll(shadow, data);
-            if (window.__DataStore && force) window.__DataStore.set('anunciosShopee.listings', data);
-          })
-          .withFailureHandler(function (err) { showError(shadow, (err && err.message) || 'Erro ao carregar os anúncios.'); })
-          .apiDispatch('anunciosShopee.getListings', { fromCache: !force });
-      }
-
       _sync(shadow) {
         var self = this;
-        if (window.__DataStore) window.__DataStore.invalidate('anunciosShopee.listings');
         withLoading(
           shadow.getElementById('btn-sync'),
-          (success, failure) => google.script.run.withSuccessHandler(success).withFailureHandler(failure).apiDispatch('anunciosShopee.syncListings', { forceFresh: true }),
+          (success, failure) => window.__DataClient.mutateData('anunciosShopee.syncListings', { forceFresh: true }).then(success, failure),
           function (data) { if (data && data.success) self._load(shadow); if (data && data.resumo) shadow.getElementById('stat-grid').innerHTML = statsHtml(data.resumo); },
           function (data) { return data && data.synced ? 'Sincronizados ' + data.synced.itemsAtualizados + ' anúncios • Estoque total: ' + (data.resumo ? data.resumo.estoqueTotal : 0) : 'Sincronizados'; }
         );
@@ -370,7 +354,7 @@ function renderPage(shadow) {
         var self = this;
         withLoading(
           shadow.getElementById('btn-sync'),
-          (success, failure) => google.script.run.withSuccessHandler(success).withFailureHandler(failure).apiDispatch(action, params),
+          (success, failure) => window.__DataClient.mutateData(action, params).then(success, failure),
           function (data) { if (onSuccess) onSuccess(data); self._load(shadow); },
           successMessage
         );

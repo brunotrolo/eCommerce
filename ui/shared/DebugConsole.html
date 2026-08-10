@@ -206,17 +206,18 @@
       }
 
       loadBackendLogs() {
-        google.script.run
-          .withSuccessHandler((res) => {
-            var logs = (res && res.logs) || [];
+        window.__DataClient.run('logging.getLogs', { limit: 50 }, {
+          success: (res) => {
+            var data = window.__DataClient.unwrap(res);
+            var logs = (data && data.logs) || [];
             this.backendLogs = logs.map((log) => this._shapeLog(log));
             this.render();
-          })
-          .withFailureHandler((err) => {
+          },
+          failure: (err) => {
             this.backendLogs = [{ ACTION: 'logging.getLogs', STATUS: 'ERROR', SUMMARY: err.message || String(err) }];
             this.render();
-          })
-          .apiDispatch('logging.getLogs', { limit: 50 });
+          }
+        });
       }
 
       _shapeLog(raw) {

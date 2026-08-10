@@ -304,18 +304,13 @@
             self.shadowRoot.getElementById('error-box').hidden = true;
             self._hideResult();
 
-            google.script.run
-              .withSuccessHandler(function (result) {
-                btnProcessar.disabled = false;
-                btnProcessar.textContent = 'Processar NFes não processadas';
-                status.textContent = '';
+            window.__DataClient.mutateData('nfeEntradaProdutos.processarTodasNfs', {})
+            .then(function (data) {
+              btnProcessar.disabled = false;
+              btnProcessar.textContent = 'Processar NFes não processadas';
+              status.textContent = '';
 
-              if (result.error) {
-                showError(self.shadowRoot, result.error);
-                return;
-              }
-
-              var data = result.data || {};
+              data = data || {};
               var html = '<div class="alert alert-success">' +
                 '<strong>' + (data.totalNfProcessed || 0) + '</strong> NF(s) processada(s), ' +
                 '<strong>' + (data.totalProductsInserted || 0) + '</strong> produto(s) inserido(s).</div>';
@@ -328,16 +323,15 @@
                 html += '</div>';
               }
 
-self._showResult(html);
-                self._loadProdutos();
-                })
-                .withFailureHandler(function (err) {
-                  btnProcessar.disabled = false;
-                  btnProcessar.textContent = 'Processar NFes não processadas';
-                  status.textContent = '';
-                  showError(self.shadowRoot, err.message || String(err));
-                })
-              .apiDispatch('nfeEntradaProdutos.processarTodasNfs', {});
+              self._showResult(html);
+              self._loadProdutos();
+            })
+            .catch(function (err) {
+              btnProcessar.disabled = false;
+              btnProcessar.textContent = 'Processar NFes não processadas';
+              status.textContent = '';
+              showError(self.shadowRoot, err.message || String(err));
+            });
           });
 
           var filterIds = ['filter-nf', 'filter-codigo', 'filter-categoria', 'filter-descricao', 'filter-ncm', 'filter-status'];
@@ -353,15 +347,6 @@ self._showResult(html);
           overlay.addEventListener('click', function () { self._closeSidebar(); });
           closeBtn.addEventListener('click', function () { self._closeSidebar(); });
 
-          var cached = window.__DataStore && window.__DataStore.get('nfeEntradaProdutos.produtos');
-          if (cached) {
-            var items = (cached && cached.data) || cached || [];
-            if (Array.isArray(items) && items.length > 0) {
-              self._allItems = items;
-              self._applyFilter();
-              self.shadowRoot.getElementById('estoque-card').hidden = false;
-            }
-          }
           this._loadProdutos();
         }
 
@@ -449,56 +434,35 @@ self._showResult(html);
         }
 
         _updateStatus(numeroNf, codigoProduto, status) {
-          google.script.run
-              .withSuccessHandler(function (result) {
-                var data = result.data || result;
-                if (data.error) {
-                  console.error('[NFeProdutos] updateStatus error:', data.error);
-                } else {
-                  var ds = window.__DataStore;
-                  if (ds) ds.invalidate('nfeEntradaProdutos.produtos');
-                }
-              })
-            .withFailureHandler(function (err) {
+          window.__DataClient.mutateData('nfeEntradaProdutos.updateStatus', {
+            numeroNf: numeroNf,
+            codigoProduto: codigoProduto,
+            status: status
+          })
+            .catch(function (err) {
               console.error('[NFeProdutos] updateStatus failure:', err);
-            })
-            .apiDispatch('nfeEntradaProdutos.updateStatus', {
-              numeroNf: numeroNf,
-              codigoProduto: codigoProduto,
-              status: status
             });
         }
 
         _loadProdutos() {
           var self = this;
-          var ds = window.__DataStore;
 
-          if (ds && ds.has('nfeEntradaProdutos.produtos')) {
-            var cached = ds.get('nfeEntradaProdutos.produtos');
-            var items = (cached && cached.data) || cached || [];
-            if (Array.isArray(items) && items.length > 0) {
-              self._allItems = items;
+          var cached = window.__DataClient.get('nfeEntradaProdutos.produtos');
+          if (cached) {
+            var citems = (cached && cached.data) || cached || [];
+            if (Array.isArray(citems) && citems.length > 0) {
+              self._allItems = citems;
               self._applyFilter();
               self.shadowRoot.getElementById('estoque-card').hidden = false;
             }
-            return;
           }
 
-          google.script.run
-            .withSuccessHandler(function (result) {
+          window.__DataClient.fetchData('nfeEntradaProdutos.getProdutos', {}, { key: 'nfeEntradaProdutos.produtos' })
+            .then(function (payload) {
               var card = self.shadowRoot.getElementById('estoque-card');
               var table = self.shadowRoot.getElementById('estoque-table');
 
-              if (result.error) {
-                card.hidden = false;
-                table.innerHTML = '<div class="nfe-empty">' + result.error + '</div>';
-                return;
-              }
-
-              var data = result.data || {};
-              var items = (data && data.data) || [];
-              self._allItems = items;
-              if (ds) ds.set('nfeEntradaProdutos.produtos', items);
+              var items = Array.isArray(payload) ? payload : ((payload && payload.data) || []);
 
               if (items.length === 0) {
                 card.hidden = false;
@@ -506,16 +470,16 @@ self._showResult(html);
                 return;
               }
 
+              self._allItems = items;
               self._applyFilter();
               card.hidden = false;
             })
-            .withFailureHandler(function (err) {
+            .catch(function (err) {
               var table = self.shadowRoot.getElementById('estoque-table');
               var card = self.shadowRoot.getElementById('estoque-card');
               card.hidden = false;
               table.innerHTML = '<div class="nfe-empty">Erro ao carregar produtos: ' + (err.message || String(err)) + '</div>';
-            })
-            .apiDispatch('nfeEntradaProdutos.getProdutos', {});
+            });
         }
 
         _renderTable(table, items) {

@@ -257,10 +257,9 @@
       var select = this._el('product-select');
       select.innerHTML = '<option value="">Carregando produtos...</option>';
 
-      google.script.run
-        .withSuccessHandler(function (resp) {
-          var envelope = (resp && resp.data) || resp || {};
-          var products = envelope.products || [];
+      window.__DataClient.fetchData('manualSaida.getAvailableProducts', {}, { cache: false })
+        .then(function (payload) {
+          var products = (payload && payload.products) || payload || [];
 
           self._products = products;
           select.innerHTML = '<option value="">Selecione um produto...</option>';
@@ -275,24 +274,20 @@
             select.appendChild(opt);
           }
         })
-        .withFailureHandler(function (e) {
+        .catch(function (e) {
           select.innerHTML = '<option value="">Erro ao carregar: ' + (e.message || 'desconhecido') + '</option>';
-        })
-        .apiDispatch('manualSaida.getAvailableProducts', {});
+        });
     }
 
     _loadClientes() {
       var self = this;
-      google.script.run
-        .withSuccessHandler(function (resp) {
-          var envelope = (resp && resp.data) || resp || {};
-          var data = envelope.clientes || envelope;
-          self._clientes = data.clientes || data || [];
+      window.__DataClient.fetchData('manualSaida.getClienteHistory', {}, { cache: false })
+        .then(function (data) {
+          self._clientes = (data && data.clientes) || data || [];
         })
-        .withFailureHandler(function (e) {
+        .catch(function (e) {
           showError(self.shadowRoot, 'Erro ao carregar clientes: ' + ((e && e.message) || 'desconhecido'));
-        })
-        .apiDispatch('manualSaida.getClienteHistory', {});
+        });
     }
 
     _bindEvents() {
@@ -453,27 +448,24 @@
 
       this._el('btn-confirm').disabled = true;
 
-      google.script.run
-        .withSuccessHandler(function (resp) {
-          var envelope = (resp && resp.data) || resp || {};
-          var result = envelope.data || envelope;
-          if (result.error) {
+      window.__DataClient.mutateData('manualSaida.addExit', params)
+        .then(function (result) {
+          if (result && result.error) {
             showError(self.shadowRoot, result.error);
             self._el('btn-confirm').disabled = false;
-          } else {
-            var msg = 'Saída registrada! Estoque restante: ' + result.estoqueRestante;
-            showSuccess(self.shadowRoot, msg);
-            self.close();
-            if (typeof self._onSaveCallback === 'function') {
-              self._onSaveCallback();
-            }
+            return;
+          }
+          var msg = 'Saída registrada! Estoque restante: ' + result.estoqueRestante;
+          showSuccess(self.shadowRoot, msg);
+          self.close();
+          if (typeof self._onSaveCallback === 'function') {
+            self._onSaveCallback();
           }
         })
-        .withFailureHandler(function (e) {
-          showError(self.shadowRoot, 'Erro: ' + e.message);
+        .catch(function (e) {
+          showError(self.shadowRoot, 'Erro: ' + (e.message || 'desconhecido'));
           self._el('btn-confirm').disabled = false;
-        })
-        .apiDispatch('manualSaida.addExit', params);
+        });
     }
 
     _resetForm() {

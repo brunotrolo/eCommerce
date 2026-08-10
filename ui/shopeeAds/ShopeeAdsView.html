@@ -680,10 +680,7 @@
 
     function apiDispatch(action, params) {
       return new Promise(function (resolve, reject) {
-        google.script.run
-          .withSuccessHandler(resolve)
-          .withFailureHandler(reject)
-          .apiDispatch(action, params || {});
+        window.__DataClient.run(action, params || {}, { success: resolve, failure: reject });
       });
     }
 

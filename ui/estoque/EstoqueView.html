@@ -335,7 +335,7 @@
 
       _loadDefaultMargin(shadow) {
         var self = this;
-        var ds = window.__DataStore;
+        var dc = window.__DataClient;
 
         function apply(data) {
           if (data && typeof data.defaultMargin === 'number') {
@@ -344,19 +344,14 @@
           }
         }
 
-        if (ds && ds.has('config.config')) {
-          apply(ds.get('config.config'));
+        if (dc.has('config.config')) {
+          apply(dc.get('config.config'));
           return;
         }
 
-        google.script.run
-          .withSuccessHandler(function (response) {
-            var data = self._unwrap(response);
-            if (ds) ds.set('config.config', data);
-            apply(data);
-          })
-          .withFailureHandler(function () { /* mantém padrão de 10% */ })
-          .apiDispatch('config.getConfig', {});
+        dc.fetchData('config.getConfig', {}, { key: 'config.config' })
+          .then(apply)
+          .catch(function () { /* mantém padrão de 10% */ });
       }
 
       _el(id) {
@@ -364,13 +359,10 @@
       }
 
       _invalidateCache() {
-        var ds = window.__DataStore;
-        if (!ds) return;
-        ds.invalidate('estoque.Items.TODOS');
-        var statuses = ['DISPONIVEL', 'VENDIDO', 'DEVOLVIDO', 'QUEBRADO', 'COM_DEFEITO'];
-        for (var i = 0; i < statuses.length; i++) {
-          ds.invalidate('estoque.Items.' + statuses[i]);
-        }
+        var dc = window.__DataClient;
+        if (!dc) return;
+        dc.invalidateByPrefix('estoque.Items');
+        dc.invalidateByPrefix('estoque.getItems');
       }
 
       _load() {
@@ -378,43 +370,16 @@
         var loadingEl = this._el('loading-state');
         if (loadingEl) loadingEl.style.display = 'block';
 
-        var params = {};
-        var cacheKey = 'estoque.Items.TODOS';
-        var ds = window.__DataStore;
-
-        if (ds) {
-          ds.getOrFetch(cacheKey, 'estoque.getItems', params)
-            .then(function (resp) {
-              if (loadingEl) loadingEl.style.display = 'none';
-              var data = self._unwrap(resp);
-              self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
-              self._applyFilters();
-            })
-            .catch(function (err) {
-              if (loadingEl) loadingEl.style.display = 'none';
-              showError(self._shadow, 'Erro ao carregar estoque: ' + (err.message || err));
-            });
-        } else {
-          google.script.run
-            .withSuccessHandler(function (resp) {
-              if (loadingEl) loadingEl.style.display = 'none';
-              var data = self._unwrap(resp);
-              self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
-              self._applyFilters();
-            })
-            .withFailureHandler(function (err) {
-              if (loadingEl) loadingEl.style.display = 'none';
-              showError(self._shadow, 'Erro ao carregar estoque: ' + (err.message || err));
-            })
-            .apiDispatch('estoque.getItems', params);
-        }
-      }
-
-      _unwrap(resp) {
-        if (!resp) return null;
-        if (resp.data && resp.data.data !== undefined) return resp.data.data;
-        if (resp.data !== undefined) return resp.data;
-        return resp;
+        window.__DataClient.fetchData('estoque.getItems', {}, { key: 'estoque.Items.TODOS' })
+          .then(function (data) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            self._items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+            self._applyFilters();
+          })
+          .catch(function (err) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            showError(self._shadow, 'Erro ao carregar estoque: ' + (err.message || err));
+          });
       }
 
       _sync() {
@@ -473,36 +438,39 @@
           setStatus(item.label);
           setProgress(Math.round((passoAtual / totalPassos) * 100));
 
-          var run = google.script.run
-            .withSuccessHandler(function (resp) {
-              var data = self._unwrap(resp);
-              if (data && data.error) {
-                setStatus('Erro no passo ' + item.label);
-                concluir(data.error, true);
-                return;
+          function executarPasso(act, par) {
+            window.__DataClient.run(act, par, {
+              success: function (resp) {
+                var data = window.__DataClient.unwrap(resp);
+                if (data && data.error) {
+                  setStatus('Erro no passo ' + item.label);
+                  concluir(data.error, true);
+                  return;
+                }
+                if (data && data.itemsImported) totalImportado += data.itemsImported;
+                if (data && data.baixados) totalBaixados += data.baixados;
+                passoAtual++;
+                setStage('Passo ' + passoAtual + ' de ' + totalPassos);
+                proximo();
+              },
+              failure: function (err) {
+                setStatus('Erro');
+                concluir('Erro no passo ' + item.label + ': ' + (err.message || err), true);
               }
-              if (data && data.itemsImported) totalImportado += data.itemsImported;
-              if (data && data.baixados) totalBaixados += data.baixados;
-              passoAtual++;
-              setStage('Passo ' + passoAtual + ' de ' + totalPassos);
-              proximo();
-            })
-            .withFailureHandler(function (err) {
-              setStatus('Erro');
-              concluir('Erro no passo ' + item.label + ': ' + (err.message || err), true);
             });
+          }
           if (item.acao === 'baixas') {
-            run.apiDispatch('estoqueBaixa.reprocessarPendentes', {});
+            executarPasso('estoqueBaixa.reprocessarPendentes', {});
           } else {
-            run.apiDispatch('estoque.sincronizarPasso', item.acoes);
+            executarPasso('estoque.sincronizarPasso', item.acoes);
           }
         }
 
         abrir();
 
-        google.script.run
-          .withSuccessHandler(function (resp) {
-            var data = self._unwrap(resp);
+        window.__DataClient.run('estoque.sincronizarPreparar', {}, {
+          success: function (resp) {
+            var data = window.__DataClient.unwrap(resp);
             if (data && data.error) {
               setStatus('Erro ao preparar');
               concluir(data.error, true);
@@ -534,12 +502,12 @@
 
             setStage('Encontrado(s) ' + (totalPassos - 1) + ' passo(s) pendente(s)');
             proximo();
-          })
-          .withFailureHandler(function (err) {
+          },
+          failure: function (err) {
             setStatus('Erro ao preparar');
             concluir('Erro ao preparar sincronização: ' + (err.message || err), true);
-          })
-          .apiDispatch('estoque.sincronizarPreparar', {});
+          }
+        });
       }
 
       _syncPrecos() {
@@ -549,29 +517,23 @@
         btn.disabled = true;
         btn.textContent = 'Recalculando preços...';
 
-        google.script.run
-          .withSuccessHandler(function (resp) {
+        window.__DataClient.mutateData('estoque.sincronizarPrecosCatalogo', { targetMargin: self._margin })
+          .then(function (data) {
             btn.disabled = false;
             btn.textContent = originalText;
-            var data = self._unwrap(resp);
-            if (data && data.error) {
-              showError(self._shadow, data.error);
-            } else if (data) {
-              var msg = data.atualizados + ' item(ns) recalculado(s).';
-              if (data.semCusto > 0) {
-                msg += ' ' + data.semCusto + ' sem custo definido.';
-              }
-              showSuccess(self._shadow, msg);
-              self._invalidateCache();
-              self._load();
+            var msg = data.atualizados + ' item(ns) recalculado(s).';
+            if (data.semCusto > 0) {
+              msg += ' ' + data.semCusto + ' sem custo definido.';
             }
+            showSuccess(self._shadow, msg);
+            self._invalidateCache();
+            self._load();
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             btn.disabled = false;
             btn.textContent = originalText;
             showError(self._shadow, 'Erro ao recalcular preços: ' + (err.message || err));
-          })
-          .apiDispatch('estoque.sincronizarPrecosCatalogo', { targetMargin: self._margin });
+          });
       }
 
       _debouncedApplyFilters() {
@@ -1014,11 +976,10 @@
         var params = { estoqueId: estoqueId };
         params[field] = newVal;
 
-        google.script.run
-          .withSuccessHandler(function (resp) {
+        window.__DataClient.mutateData('estoque.updateItem', params)
+          .then(function (data) {
             input.classList.remove('saving');
             delete self._saving[estoqueId];
-            var data = self._unwrap(resp);
             if (data && data.success) {
               item[field] = newVal;
               if (data.updated > 1) {
@@ -1032,14 +993,13 @@
               self._load();
             }
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             input.classList.remove('saving');
             delete self._saving[estoqueId];
             showError(self._shadow, 'Erro ao salvar: ' + (err.message || err));
             self._invalidateCache();
             self._load();
-          })
-          .apiDispatch('estoque.updateItem', params);
+          });
       }
 
       _onStatusChange(select) {
@@ -1050,11 +1010,10 @@
         this._saving[estoqueId] = true;
         select.disabled = true;
 
-        google.script.run
-          .withSuccessHandler(function (resp) {
+        window.__DataClient.mutateData('estoque.updateItem', { estoqueId: estoqueId, status: novoStatus })
+          .then(function (data) {
             select.disabled = false;
             delete self._saving[estoqueId];
-            var data = self._unwrap(resp);
             if (data && data.success) {
               showSuccess(self._shadow, 'Status alterado para ' + novoStatus + '.');
               self._invalidateCache();
@@ -1065,14 +1024,13 @@
               self._load();
             }
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             select.disabled = false;
             delete self._saving[estoqueId];
             showError(self._shadow, 'Erro ao alterar status: ' + (err.message || err));
             self._invalidateCache();
             self._load();
-          })
-          .apiDispatch('estoque.updateItem', { estoqueId: estoqueId, status: novoStatus });
+          });
       }
 
       _fillFromCatalog(estoqueId, codigoProduto) {
@@ -1081,9 +1039,8 @@
 
         this._saving[estoqueId] = true;
 
-        google.script.run
-          .withSuccessHandler(function (resp) {
-            var data = self._unwrap(resp);
+        window.__DataClient.fetchData('estoque.getPrecosCatalogo', { codigoProduto: codigoProduto }, { cache: false })
+          .then(function (data) {
             if (!data || data.error) {
               showError(self._shadow, 'Erro: ' + (data ? data.error : 'catalogo vazio'));
               delete self._saving[estoqueId];
@@ -1107,10 +1064,9 @@
               return;
             }
 
-            google.script.run
-              .withSuccessHandler(function (resp2) {
+            window.__DataClient.mutateData('estoque.updateItem', params)
+              .then(function (data2) {
                 delete self._saving[estoqueId];
-                var data2 = self._unwrap(resp2);
                 if (data2 && data2.success) {
                   showSuccess(self._shadow, 'Precos preenchidos do catalogo. ' + (data2.updated > 1 ? data2.updated + ' itens atualizados.' : ''));
                   self._invalidateCache();
@@ -1121,19 +1077,17 @@
                   self._load();
                 }
               })
-              .withFailureHandler(function (err) {
+              .catch(function (err) {
                 delete self._saving[estoqueId];
                 showError(self._shadow, 'Erro ao salvar precos: ' + (err.message || err));
                 self._invalidateCache();
                 self._load();
-              })
-              .apiDispatch('estoque.updateItem', params);
+              });
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             delete self._saving[estoqueId];
             showError(self._shadow, 'Erro ao buscar catalogo: ' + (err.message || err));
-          })
-          .apiDispatch('estoque.getPrecosCatalogo', { codigoProduto: codigoProduto });
+          });
       }
 
       _darBaixa(codigoProduto) {
@@ -1162,11 +1116,16 @@
         var idempKey = 'MANUAL_' + codigoProduto + '_' + Date.now();
         var refOrigem = 'MANUAL#' + codigoProduto + '#' + Date.now();
 
-        google.script.run
-          .withSuccessHandler(function (resp) {
+        window.__DataClient.mutateData('estoqueBaixa.baixarPorProduto', {
+            codigoProduto: codigoProduto,
+            quantidade: qty,
+            origem: 'SAIDA_MANUAL',
+            referenciaOrigem: refOrigem,
+            idempotencyKey: idempKey
+          })
+          .then(function (data) {
             confirmBtn.disabled = false;
             cancelBtn.disabled = false;
-            var data = self._unwrap(resp);
             if (data && data.success) {
               var msg = 'Baixado(s): ' + (data.baixados || 0) + ' un.';
               if (data.faltantes > 0) msg += ' (' + data.faltantes + ' faltante(s))';
@@ -1182,18 +1141,11 @@
               showError(self._shadow, 'Erro: ' + (data ? data.error : 'desconhecido'));
             }
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             confirmBtn.disabled = false;
             cancelBtn.disabled = false;
             statusEl.textContent = 'Erro: ' + (err.message || err);
             showError(self._shadow, 'Erro ao baixar: ' + (err.message || err));
-          })
-          .apiDispatch('estoqueBaixa.baixarPorProduto', {
-            codigoProduto: codigoProduto,
-            quantidade: qty,
-            origem: 'SAIDA_MANUAL',
-            referenciaOrigem: refOrigem,
-            idempotencyKey: idempKey
           });
       }
 

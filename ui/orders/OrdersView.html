@@ -225,13 +225,13 @@
         var marketplace = shadow.getElementById('marketplace-filter').value;
         var limit = parseInt(shadow.getElementById('limit-input').value, 10) || 30;
         var cacheKey = 'orders.' + marketplace + '.' + limit;
-        var ds = window.__DataStore;
+        var dc = window.__DataClient;
         var self = this;
 
-        if (force && ds) ds.invalidate(cacheKey);
+        if (force) dc.invalidate(cacheKey);
 
-        if (!force && ds && ds.has(cacheKey)) {
-          var cached = ds.get(cacheKey);
+        if (!force && dc.has(cacheKey)) {
+          var cached = dc.get(cacheKey);
           self._orders = (cached && cached.orders) || [];
           renderRows(shadow, self._orders);
           return;
@@ -240,12 +240,9 @@
         withLoading(
           shadow.getElementById('btn-refresh'),
           (success, failure) =>
-            google.script.run
-              .withSuccessHandler(success)
-              .withFailureHandler(failure)
-              .apiDispatch('orders.listUnified', { marketplace: marketplace, limit: limit }),
+            dc.run('orders.listUnified', { marketplace: marketplace, limit: limit }, { success: success, failure: failure }),
           (data) => {
-            if (ds) ds.set(cacheKey, data);
+            dc.set(cacheKey, data);
             self._orders = data.orders || [];
             renderRows(shadow, self._orders);
           },
@@ -254,16 +251,13 @@
       }
 
       _syncShopee(shadow) {
-        var ds = window.__DataStore;
+        var dc = window.__DataClient;
         var self = this;
 
         withLoading(
           shadow.getElementById('btn-sync-shopee'),
           (success, failure) =>
-            google.script.run
-              .withSuccessHandler(success)
-              .withFailureHandler(failure)
-              .apiDispatch('ordersImport.importShopeeOrders', { mode: 'all' }),
+            dc.run('ordersImport.importShopeeOrders', { mode: 'all' }, { success: success, failure: failure }),
           (data) => {
             if (data && data.success) {
               var msg = data.message || ('Novos: ' + data.imported + ', Atualizados: ' + data.updated);
@@ -271,7 +265,7 @@
                 msg += ' (' + data.errors.length + ' erro' + (data.errors.length !== 1 ? 's' : '') + ')';
               }
               showSuccess(shadow, msg);
-              if (ds) ds.invalidate('orders.all.30');
+              dc.invalidate('orders.all.30');
               self._load(shadow, true);
             } else {
               showError(shadow, 'Erro: ' + (data && data.message ? data.message : 'Falha na importação.'));

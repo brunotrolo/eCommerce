@@ -436,10 +436,10 @@
 
       _loadConfig(shadow) {
         var self = this;
-        var ds = window.__DataStore;
+        var dc = window.__DataClient;
 
-        if (ds && ds.has('config.config')) {
-          var data = ds.get('config.config');
+        if (dc.has('config.config')) {
+          var data = dc.get('config.config');
           if (data && data.fees) {
             self._feeShopee = data.fees.shopee || DEFAULT_FEE_SHOPEE;
             self._feeML = data.fees.mercado_livre || DEFAULT_FEE_ML;
@@ -452,11 +452,8 @@
           return;
         }
 
-        google.script.run
-          .withSuccessHandler(function (response) {
-            var outer = response.data || response;
-            var data = outer.data || outer;
-            if (ds) ds.set('config.config', data);
+        dc.fetchData('config.getConfig', {}, { key: 'config.config' })
+          .then(function (data) {
             if (data && data.fees) {
               self._feeShopee = data.fees.shopee || DEFAULT_FEE_SHOPEE;
               self._feeML = data.fees.mercado_livre || DEFAULT_FEE_ML;
@@ -467,22 +464,21 @@
             }
             self._loadProducts(shadow);
           })
-          .withFailureHandler(function (err) {
+          .catch(function (err) {
             showError(shadow, (err && err.message) || 'Erro ao carregar a configuração. Usando padrões.');
             self._loadProducts(shadow);
-          })
-          .apiDispatch('config.getConfig', {});
+          });
       }
 
       _loadProducts(shadow) {
         var self = this;
         var sortBy = shadow.getElementById('sortBy').value;
         var sortOrder = this._sortOrder;
-        var ds = window.__DataStore;
+        var dc = window.__DataClient;
         var cacheKey = 'catalog.products.' + sortBy + '.' + sortOrder;
 
-        if (ds && ds.has(cacheKey)) {
-          self._products = ds.get(cacheKey) || [];
+        if (dc.has(cacheKey)) {
+          self._products = dc.get(cacheKey) || [];
           self._recalcAndRender(shadow);
           return;
         }
@@ -490,17 +486,14 @@
         withLoading(
           shadow.getElementById('btn-load-hidden'),
           function (success, failure) {
-            google.script.run
-              .withSuccessHandler(success)
-              .withFailureHandler(failure)
-              .apiDispatch('catalog.getProducts', {
-                sortBy: sortBy,
-                sortOrder: sortOrder
-              });
+            dc.run('catalog.getProducts', {
+              sortBy: sortBy,
+              sortOrder: sortOrder
+            }, { success: success, failure: failure });
           },
           function (data) {
             self._products = data.data || [];
-            if (ds) ds.set(cacheKey, self._products);
+            dc.set(cacheKey, self._products);
             self._recalcAndRender(shadow);
           },
           null
@@ -698,23 +691,16 @@
         overlay.setAttribute('open', '');
         sidebar.setAttribute('open', '');
 
-        google.script.run
-          .withSuccessHandler(function (response) {
-            var outer = response.data || response;
-            var data = outer.data || outer;
-            if (data.error) {
-              body.innerHTML = '<div class="catalog-empty">' + data.error + '</div>';
-              return;
-            }
+        window.__DataClient.fetchData('catalog.getCalculationMemory', {
+          codigoProduto: codigoProduto,
+          marketplace: marketplace,
+          targetMargin: self._margin
+        }, { cache: false })
+          .then(function (data) {
             self._renderCalcMemory(body, data);
           })
-          .withFailureHandler(function (err) {
-            body.innerHTML = '<div class="catalog-empty">Erro: ' + err.message + '</div>';
-          })
-          .apiDispatch('catalog.getCalculationMemory', {
-            codigoProduto: codigoProduto,
-            marketplace: marketplace,
-            targetMargin: self._margin
+          .catch(function (err) {
+            body.innerHTML = '<div class="catalog-empty">Erro: ' + (err.message || err) + '</div>';
           });
       }
 
@@ -762,21 +748,14 @@
         body.innerHTML = '<div class="catalog-empty">Carregando...</div>';
         overlay.setAttribute('open', '');
 
-        google.script.run
-          .withSuccessHandler(function (response) {
-            var outer = response.data || response;
-            var data = outer.data || outer;
-            if (data.error) {
-              body.innerHTML = '<div class="catalog-empty">' + data.error + '</div>';
-              return;
-            }
+        window.__DataClient.fetchData('catalog.getProductByCode', {
+          codigoProduto: codigoProduto
+        }, { cache: false })
+          .then(function (data) {
             self._renderHistory(body, data);
           })
-          .withFailureHandler(function (err) {
-            body.innerHTML = '<div class="catalog-empty">Erro: ' + err.message + '</div>';
-          })
-          .apiDispatch('catalog.getProductByCode', {
-            codigoProduto: codigoProduto
+          .catch(function (err) {
+            body.innerHTML = '<div class="catalog-empty">Erro: ' + (err.message || err) + '</div>';
           });
       }
 

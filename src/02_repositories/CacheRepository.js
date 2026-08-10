@@ -13,9 +13,18 @@ var CacheRepository = (function () {
     return raw ? JSON.parse(raw) : null;
   }
 
+  var MAX_BYTES = 90 * 1024; // CacheService limita a 100KB por item; margem p/ overhead do JSON
+
   function set(key, value, ttlSeconds) {
-    CacheService.getScriptCache().put(key, JSON.stringify(value), ttlSeconds || DEFAULT_TTL_SECONDS);
-    trackKey_(key);
+    try {
+      var json = JSON.stringify(value);
+      if (json.length * 2 > MAX_BYTES) return; // UTF-16: ~2 bytes/char — skip silencioso, não quebra o fluxo
+      CacheService.getScriptCache().put(key, json, ttlSeconds || DEFAULT_TTL_SECONDS);
+      trackKey_(key);
+    } catch (e) {
+      // Payload acima do limite do CacheService (100KB) ou falha de quota:
+      // segue sem cache — computeFn roda de novo na próxima chamada.
+    }
   }
 
   function remove(key) {

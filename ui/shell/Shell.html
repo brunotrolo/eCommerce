@@ -88,6 +88,7 @@
     <?!= include('ui/shared/UiHelpers'); ?>
     <?!= include('ui/shared/Formatter'); ?>
     <?!= include('ui/shared/DebugConsole'); ?>
+    <?!= include('ui/shared/DataClient'); ?>
     <?!= include('ui/shared/DataStore'); ?>
     <?!= include('ui/shell/StatusView'); ?>
     <?!= include('ui/dashboard/DashboardView'); ?>
@@ -152,8 +153,9 @@
         document.querySelectorAll('.app-nav button[data-route]').forEach(function (btn) {
           btn.classList.toggle('btn-active', btn.dataset.route === tag);
         });
-        if (window.__DataStore && ROUTE_PREFETCH[tag]) {
-          window.__DataStore.preFetch(ROUTE_PREFETCH[tag]);
+        var ds = window.__DataClient || window.__DataStore;
+        if (ds && ROUTE_PREFETCH[tag]) {
+          ds.preFetch(ROUTE_PREFETCH[tag]);
         }
       }
 
@@ -322,10 +324,11 @@
       navigate((window.location.hash || '#dashboard').replace('#', ''));
       performance.mark('shell-first-view-mounted');
 
-      if (window.__DataStore) {
+      var startupDs = window.__DataClient || window.__DataStore;
+      if (startupDs) {
         // Preload crítico mínimo (P2): só telas da primeira dobra; o resto
         // é lazy por aba via ROUTE_PREFETCH no navigate().
-        window.__DataStore.preFetch([
+        startupDs.preFetch([
           { key: 'config.config', action: 'config.getConfig', params: {} },
           { key: 'dashboard.summary', action: 'dashboard.getSummary', params: {} },
           { key: 'estoque.Items.TODOS', action: 'estoque.getItems', params: {} },
