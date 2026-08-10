@@ -49,13 +49,14 @@ var EstoqueService = (function () {
           returns: { success: 'boolean', itemsImported: 'number', estoque_ids: 'array', errors: 'array' }
         },
         getItems: {
-          description: 'Lista items com filtros e ordenação. Cache server-side de 60s quando sem filtros; use limit para capar o retorno (total reflete o total real).',
+          description: 'Lista items com filtros e ordenação. Cache server-side de 5min quando sem filtros (escritas invalidam; forceFresh relê do Sheets na hora); use limit para capar o retorno (total reflete o total real).',
           params: {
             codigoProduto: { type: 'string', required: false },
             status: { type: 'string', required: false },
             sortBy: { type: 'string', required: false },
             sortOrder: { type: 'string', required: false },
-            limit: { type: 'number', required: false, min: 1 }
+            limit: { type: 'number', required: false, min: 1 },
+            forceFresh: { type: 'boolean', required: false, description: 'Ignora o cache server e relê do Google Sheets' }
           },
           returns: { items: 'array', total: 'number', fromCache: 'boolean' }
         },
@@ -416,8 +417,10 @@ var EstoqueService = (function () {
     var sortBy = params.sortBy || 'data_entrada';
     var sortOrder = params.sortOrder || 'asc';
 
-    // Cache server-side (60s): só para a leitura "limpa" (sem filtro), que é
+    // Cache server-side (5min): só para a leitura "limpa" (sem filtro), que é
     // a consulta pesada e repetida pela UI. Consultas filtradas são pontuais.
+    // Escrita no app invalida 'estoque_' (dados do usuário nunca ficam
+    // velhos); forceFresh=true do botão Atualizar relê o Sheets na hora.
     var cacheKey = null;
     if (Object.keys(filters).length === 0) {
       cacheKey = 'estoque_items_' + sortBy + '_' + sortOrder;
@@ -426,7 +429,8 @@ var EstoqueService = (function () {
     var items;
     var fromCache = false;
     if (cacheKey) {
-      var cached = CacheRepository.getOrCompute(cacheKey, 60, function () {
+      if (params.forceFresh) CacheRepository.remove(cacheKey);
+      var cached = CacheRepository.getOrCompute(cacheKey, 300, function () {
         return buildItems_(sheetId, filters, sortBy, sortOrder);
       });
       items = cached.value;

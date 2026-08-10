@@ -14,7 +14,8 @@ var CatalogService = (function () {
             targetMarginShopee: { type: 'number', required: false, default: 0.25, description: 'Margem alvo Shopee (0-1)' },
             targetMarginMercadoLivre: { type: 'number', required: false, default: 0.25, description: 'Margem alvo Mercado Livre (0-1)' },
             sortBy: { type: 'string', required: false, default: 'code', enum: ['code', 'sku', 'categoria', 'description', 'unitCost', 'suggestedShopee'], description: 'Campo de ordenação' },
-            sortOrder: { type: 'string', required: false, default: 'asc', enum: ['asc', 'desc'], description: 'Ordem crescente ou decrescente' }
+            sortOrder: { type: 'string', required: false, default: 'asc', enum: ['asc', 'desc'], description: 'Ordem crescente ou decrescente' },
+            forceFresh: { type: 'boolean', required: false, description: 'Ignora o cache server e relê do Google Sheets' }
           },
           returns: {
             success: 'boolean',
@@ -52,9 +53,17 @@ var CatalogService = (function () {
 
   function getProducts(params) {
     params = params || {};
-    var cacheKey = 'catalog_products_' + JSON.stringify(params);
+    // forceFresh excluído da chave (senão cada refresh criaria key nova) e
+    // faz o cache server ser relido do Sheets na hora (botão Atualizar).
+    var forceFresh = !!params.forceFresh;
+    var effective = {};
+    Object.keys(params).forEach(function (k) {
+      if (k !== 'forceFresh') effective[k] = params[k];
+    });
+    var cacheKey = 'catalog_products_' + JSON.stringify(effective);
+    if (forceFresh) CacheRepository.remove(cacheKey);
     var result = CacheRepository.getOrCompute(cacheKey, 300, function () {
-      return computeProducts_(params);
+      return computeProducts_(effective);
     });
     return result.value;
   }

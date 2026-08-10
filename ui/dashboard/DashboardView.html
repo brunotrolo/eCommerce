@@ -110,12 +110,12 @@
         withLoading(
           shadow.getElementById('btn-refresh'),
           (success, failure) =>
-            dc.run('dashboard.getSummary', {}, { success: success, failure: failure }),
+            dc.run('dashboard.getSummary', { forceFresh: true }, { success: success, failure: failure }),
           (data) => {
             dc.set('dashboard.summary', data);
             render(shadow, data);
           },
-          (data) => (data.fromCache ? 'Dados em cache (ate 5 min).' : 'Dados atualizados agora.')
+          (data) => (data && data.fromCache ? 'Dados em cache (ate 5 min).' : 'Dados atualizados agora.')
         );
       }
 

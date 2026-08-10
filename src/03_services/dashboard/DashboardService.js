@@ -12,8 +12,10 @@ var DashboardService = (function () {
       name: 'dashboard',
       actions: {
         getSummary: {
-          description: 'Resumo unificado: pedidos recentes e vendas por canal. Cacheado por 5 min.',
-          params: {},
+          description: 'Resumo unificado: pedidos recentes e vendas por canal. Cacheado por 5 min; forceFresh relê dos dados reais na hora.',
+          params: {
+            forceFresh: { type: 'boolean', required: false, description: 'Ignora o cache server e recalcula do Google Sheets' }
+          },
           returns: {
             orders: 'array',
             salesByChannel: 'object',
@@ -31,7 +33,12 @@ var DashboardService = (function () {
     };
   }
 
-  function getSummary() {
+  function getSummary(params) {
+    params = params || {};
+    // forceFresh=true (botão Atualizar) relê do Sheets/dag na hora; o
+    // padrão serve cache de até CACHE_TTL_SECONDS (as escritas do app já
+    // invalidam 'dashboard_').
+    if (params.forceFresh) CacheRepository.remove(CACHE_KEY);
     var result = CacheRepository.getOrCompute(CACHE_KEY, CACHE_TTL_SECONDS, computeSummary_);
     return Object.assign({}, result.value, { fromCache: result.fromCache });
   }
