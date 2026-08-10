@@ -124,6 +124,7 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | — | Estoque (unidades FIFO) | ✅ | ✅ |
 | — | Webhook Shopee (Push) | ✅ | ⬜ |
 | — | Shopee Ads (Gestão de Anúncios Pagos) | ✅ | ⬜ |
+| — | Pareamento SKU (Anúncio Shopee ↔ Estoque) | ✅ | ✅ |
 
 > **Estado real de hoje:** o app roda em produção (deploy automático, ver
 > `specs/ARQUITETURA.md` § CI e Deploy). O fluxo funcional ativo é o domínio
@@ -134,8 +135,12 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > (09/08/2026); restam pendentes de validação ativa Status Online,
 > DataStore/DataClient, Webhook Shopee e Shopee Ads (ver tabela acima), além
 > da fase 7 (Endurecimento — código entregue em 10/08/2026, validação final
-> do usuário ainda pendente) e do Pareamento SKU (código entregue em
-> 10/08/2026, validação manual no app real pendente).
+> do usuário ainda pendente). **Pareamento SKU validado em 10/08/2026**
+> (usuário): UI renderiza dados reais, coluna `SKU` de `ANUNCIOS_SHOPEE` tem
+> valores reais de `CODIGO_PRODUTO` nos 43 anúncios e `getSugestoes()`
+> retorna `{ pendentes: [], total: 0 }` (critério de aceite 4; critério 1
+> coberto por smoke test; critérios 2/3 entram em uso quando houver anúncio
+> novo sem `item_sku` ou item marcado `SEM_ESTOQUE`).
 >
 > **Webhook Shopee:** código implementado e testado
 > (`PushNotificationService.js`), mas **inativo** — a Tiops detém as
