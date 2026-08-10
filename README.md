@@ -120,6 +120,8 @@ Isso cria uma versão publicada e marca um milestone no projeto.
 
 ## SaaS Stack
 
+https://x.com/Tech_by_Shweta/status/2046230955040670121?s=20
+
 ```
 📂 SaaS Stack
 ┃
