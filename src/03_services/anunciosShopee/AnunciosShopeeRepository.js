@@ -218,43 +218,7 @@ var AnunciosShopeeRepository = (function () {
     return rowsToObjects_(sheet);
   }
 
-  /** Versão enxuta: lê só colunas essenciais para a tabela (sem DADOS_JSON). */
-  var SLIM_HEADERS = ['ITEM_ID', 'SKU', 'NOME', 'PRECO', 'ESTOQUE', 'STATUS', 'VENDAS_30D', 'AVALIACAO'];
-
-  function getAllSlim(sheetId) {
-    var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
-    var lastRow = sheet.getLastRow();
-    var lastCol = sheet.getLastColumn();
-    if (lastRow < 2 || lastCol === 0) return [];
-
-    var headerOrder = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-    var headerIdx = {};
-    for (var h = 0; h < headerOrder.length; h++) {
-      headerIdx[String(headerOrder[h]).trim()] = h;
-    }
-
-    var colIndexes = [];
-    var colKeys = [];
-    for (var s = 0; s < SLIM_HEADERS.length; s++) {
-      var idx = headerIdx[SLIM_HEADERS[s]];
-      if (idx !== undefined) {
-        colIndexes.push(idx);
-        colKeys.push(SLIM_HEADERS[s]);
-      }
-    }
-    if (colIndexes.length === 0) return [];
-
-    var allValues = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
-    var rows = [];
-    for (var i = 0; i < allValues.length; i++) {
-      var obj = {};
-      for (var c = 0; c < colIndexes.length; c++) {
-        obj[colKeys[c]] = allValues[i][colIndexes[c]];
-      }
-      rows.push(obj);
-    }
-    return rows;
-  }
+  
 
   /**
    * Retorna mapa item_id → SKU a partir da aba ANUNCIOS_SHOPEE.
@@ -288,16 +252,6 @@ var AnunciosShopeeRepository = (function () {
       }
     }
     return map;
-  }
-
-  /** Linha do item (objeto) ou null. */
-  function getItem(sheetId, itemId) {
-    var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
-    var rows = rowsToObjects_(sheet);
-    for (var i = 0; i < rows.length; i++) {
-      if (String(rows[i].ITEM_ID || '').trim() === String(itemId).trim()) return rows[i];
-    }
-    return null;
   }
 
   /** Atualiza campos específicos (por header) de um item já existente. */
@@ -374,21 +328,6 @@ var AnunciosShopeeRepository = (function () {
     return appendRows_(sheetId, ESTOQUE_SHEET, ESTOQUE_HEADERS, [entry]);
   }
 
-  function getPrecoChanges(sheetId, limit) {
-    return getRecentRows_(sheetId, PRECO_SHEET, PRECO_HEADERS, limit);
-  }
-
-  function getEstoqueChanges(sheetId, limit) {
-    return getRecentRows_(sheetId, ESTOQUE_SHEET, ESTOQUE_HEADERS, limit);
-  }
-
-  function getRecentRows_(sheetId, sheetName, headers, limit) {
-    var sheet = getOrCreateSheet(sheetId, sheetName, headers);
-    var rows = rowsToObjects_(sheet);
-    rows.reverse();
-    return rows.slice(0, limit || 20);
-  }
-
   /** Snapshot de performance (linha 2) — sempre sobrescreve, 1 linha de dados. */
   function writePerformance(sheetId, perf) {
     var sheet = getOrCreateSheet(sheetId, PERFORMANCE_SHEET, PERFORMANCE_HEADERS);
@@ -424,25 +363,6 @@ var AnunciosShopeeRepository = (function () {
     return { success: true, sheetName: PERFORMANCE_SHEET };
   }
 
-  function getPerformance(sheetId) {
-    var sheet = getOrCreateSheet(sheetId, PERFORMANCE_SHEET, PERFORMANCE_HEADERS);
-    if (sheet.getLastRow() < 2) return null;
-    var colMap = getColumnMap_(sheet);
-    var lastCol = sheet.getLastColumn();
-    var values = sheet.getRange(2, 1, 1, lastCol).getValues()[0];
-    var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-    var obj = {};
-    var hasData = false;
-    for (var i = 0; i < headers.length; i++) {
-      var h = String(headers[i]).trim();
-      if (h) {
-        obj[h] = values[i];
-        if (values[i] !== '' && values[i] !== null && values[i] !== undefined) hasData = true;
-      }
-    }
-    return hasData ? obj : null;
-  }
-
   function nowBR_() {
     return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
   }
@@ -454,15 +374,10 @@ var AnunciosShopeeRepository = (function () {
     PERFORMANCE_SHEET: PERFORMANCE_SHEET,
     syncMain: syncMain,
     getAll: getAll,
-    getAllSlim: getAllSlim,
-    getItem: getItem,
     getItemSkuMap: getItemSkuMap,
     patchMain: patchMain,
     logPrecoChange: logPrecoChange,
     logEstoqueChange: logEstoqueChange,
-    getPrecoChanges: getPrecoChanges,
-    getEstoqueChanges: getEstoqueChanges,
-    writePerformance: writePerformance,
-    getPerformance: getPerformance
+    writePerformance: writePerformance
   };
 })();

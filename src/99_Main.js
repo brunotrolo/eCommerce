@@ -21,7 +21,6 @@ function onOpen() {
         SpreadsheetApp.getUi().createMenu('Utilitários')
           .addItem('Inicializar Logging', 'initLogging_')
           .addItem('Limpar Logs Antigos', 'clearOldLogs_')
-          .addItem('Remover Trigger Anúncios Shopee', 'removeAnunciosShopeeTrigger_')
       )
       .addSeparator()
       .addSubMenu(
@@ -1096,20 +1095,6 @@ function runWriteAuditSmokeTests_(testSheetId) {
   }
   Logger.log('OK — todos os smoke tests de Write Audit passaram' +
     (testSheetId ? ' (planilha de teste ' + testSheetId + ').' : ' (produção).'));
-}
-
-function removeAnunciosShopeeTrigger_() {
-  var triggers = ScriptApp.getProjectTriggers();
-  var removed = 0;
-  for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'syncAnunciosShopeeDaily') {
-      ScriptApp.deleteTrigger(triggers[i]);
-      removed++;
-    }
-  }
-  Logger.log(removed > 0
-    ? 'Trigger diário de sync de anúncios Shopee removido (' + removed + ').'
-    : 'Nenhum trigger syncAnunciosShopeeDaily encontrado — nada a remover.');
 }
 
 function runDashboardSmokeTests_() {
