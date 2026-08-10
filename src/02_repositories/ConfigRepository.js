@@ -91,6 +91,7 @@ var ConfigRepository = (function () {
       for (var i = 0; i < values.length; i++) {
         if (String(values[i][0]).trim() === chave) {
           sheet.getRange(i + 2, 2).setValue(valor);
+          logWriteAuditConfig_(chave, 'UPDATE', valor);
           return { success: true };
         }
       }
@@ -102,7 +103,21 @@ var ConfigRepository = (function () {
     else if (chave.indexOf('account_id') !== -1) desc = 'ID da conta';
     else if (chave === 'sincronizar') desc = 'JSON com ordem das acoes de sincronizacao';
     sheet.appendRow([chave, valor, desc]);
+    logWriteAuditConfig_(chave, 'INSERT', valor);
     return { success: true };
+  }
+
+  // Auditoria de escrita na aba CONFIG (aba LOGS unificada). Best effort.
+  function logWriteAuditConfig_(chave, operacao, valor) {
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME,
+      operation: 'SET_' + operacao,
+      status: 'OK',
+      stats: { rows: 1, updated: 1 },
+      caller: 'ConfigRepository',
+      rowId: String(chave || ''),
+      detail: 'Config em valor: ' + (valor === undefined ? 'undefined' : typeof valor === 'object' ? '<json>' : String(valor).substring(0, 200))
+    });
   }
 
   return {

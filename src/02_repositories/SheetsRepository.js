@@ -25,9 +25,14 @@ var SheetsRepository = (function () {
   }
 
   function appendRow(sheetName, headerRow, rowValues) {
-    var sheet = getOrCreateSheet(sheetName, headerRow);
-    sheet.appendRow(rowValues);
-    invalidateRowsCache(sheetName);
+    try {
+      var sheet = getOrCreateSheet(sheetName, headerRow);
+      sheet.appendRow(rowValues);
+      invalidateRowsCache(sheetName);
+    } catch (e) {
+      auditError_(sheetName, 'APPEND', e);
+      throw e;
+    }
   }
 
   function getRows(sheetName) {
@@ -62,27 +67,46 @@ var SheetsRepository = (function () {
   }
 
   function updateCell(sheetName, rowIndex, columnName, value) {
-    var ss = getSpreadsheet();
-    var sheet = ss.getSheetByName(sheetName);
-    if (!sheet) return false;
+    try {
+      var ss = getSpreadsheet();
+      var sheet = ss.getSheetByName(sheetName);
+      if (!sheet) return false;
 
-    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    var colIndex = -1;
-    for (var i = 0; i < headers.length; i++) {
-      if (headers[i] === columnName) {
-        colIndex = i + 1;
-        break;
+      var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      var colIndex = -1;
+      for (var i = 0; i < headers.length; i++) {
+        if (headers[i] === columnName) {
+          colIndex = i + 1;
+          break;
+        }
       }
-    }
 
-    if (colIndex === -1) {
-      colIndex = headers.length + 1;
-      sheet.getRange(1, colIndex).setValue(columnName);
-    }
+      if (colIndex === -1) {
+        colIndex = headers.length + 1;
+        sheet.getRange(1, colIndex).setValue(columnName);
+      }
 
-    sheet.getRange(rowIndex, colIndex).setValue(value);
-    invalidateRowsCache(sheetName);
-    return true;
+      sheet.getRange(rowIndex, colIndex).setValue(value);
+      invalidateRowsCache(sheetName);
+      return true;
+    } catch (e) {
+      auditError_(sheetName, 'UPDATE', e);
+      throw e;
+    }
+  }
+
+  // Auditoria de ERRO de escrita (best effort). Aba LOGS é destino, nunca
+  // origem de audit — evita recursão quando o próprio log falha.
+  function auditError_(sheetName, operation, err) {
+    if (String(sheetName || '').toUpperCase() === 'LOGS') return;
+    logWriteAudit({
+      sheet: sheetName || '',
+      operation: operation,
+      status: 'ERROR',
+      stats: {},
+      caller: 'SheetsRepository',
+      detail: (err && err.message) ? err.message : String(err)
+    });
   }
 
   /**

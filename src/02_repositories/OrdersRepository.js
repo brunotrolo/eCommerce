@@ -459,14 +459,18 @@ var OrdersRepository = (function () {
     var baixadoCol = hIdx['BAIXADO'];
     var estoqueIdsCol = hIdx['BAIXA_ESTOQUE_IDS'];
     var costCol = hIdx['TOTAL_COST'];
+    var estoqueIdsColCriada = false;
+    var costColCriada = false;
 
     if (!estoqueIdsCol) {
       estoqueIdsCol = sheet.getLastColumn() + 1;
       sheet.getRange(1, estoqueIdsCol).setValue('BAIXA_ESTOQUE_IDS');
+      estoqueIdsColCriada = true;
     }
     if (!costCol) {
       costCol = sheet.getLastColumn() + 1;
       sheet.getRange(1, costCol).setValue('TOTAL_COST');
+      costColCriada = true;
     }
 
     var orderIdCol = hIdx['ORDER_ID'];
@@ -479,6 +483,10 @@ var OrdersRepository = (function () {
         sheet.getRange(row, baixadoCol).setValue(baixado);
         sheet.getRange(row, estoqueIdsCol).setValue(estoqueIdsStr);
         sheet.getRange(row, costCol).setValue(custoTotal);
+        logWriteAuditOrder_('WRITE_BAIXA_COLUMNS', orderId, {
+          rows: 1, updated: 1,
+          colunasCriadas: (estoqueIdsColCriada ? 1 : 0) + (costColCriada ? 1 : 0)
+        });
         return;
       }
     }
@@ -504,16 +512,19 @@ var OrdersRepository = (function () {
     var baixadoCol = hIdx['BAIXADO'];
     var estoqueIdsCol = hIdx['BAIXA_ESTOQUE_IDS'];
     var costCol = hIdx['TOTAL_COST'];
+    var colunasCriadas = 0;
 
     if (!estoqueIdsCol) {
       estoqueIdsCol = lastCol + 1;
       sheet.getRange(1, estoqueIdsCol).setValue('BAIXA_ESTOQUE_IDS');
       lastCol = sheet.getLastColumn();
+      colunasCriadas++;
     }
     if (!costCol) {
       costCol = sheet.getLastColumn() + 1;
       sheet.getRange(1, costCol).setValue('TOTAL_COST');
       lastCol = sheet.getLastColumn();
+      colunasCriadas++;
     }
 
     var orderIdCol = hIdx['ORDER_ID'];
@@ -523,6 +534,11 @@ var OrdersRepository = (function () {
     for (var j = 0; j < orderIds.length; j++) {
       idSet[String(orderIds[j]).trim()] = true;
     }
+
+    logWriteAuditOrder_('PREPARE_BAIXA_BULK', '', {
+      rows: orderIds.length,
+      colunasCriadas: colunasCriadas
+    });
 
     return {
       sheet: sheet,
@@ -559,8 +575,35 @@ var OrdersRepository = (function () {
     }
 
     if (rowsWritten > 0) {
-      sheet.getRange(2, 1, prepared.allData.length, prepared.lastCol).setValues(prepared.allData);
+      try {
+        sheet.getRange(2, 1, prepared.allData.length, prepared.lastCol).setValues(prepared.allData);
+      } catch (e) {
+        logWriteAuditOrder_('FLUSH_BAIXA_BULK', '', {
+          rows: rowsWritten,
+          updated: 0,
+          error: (e && e.message) ? e.message : String(e)
+        }, 'ERROR');
+        throw e;
+      }
     }
+
+    logWriteAuditOrder_('FLUSH_BAIXA_BULK', '', {
+      rows: rowsWritten,
+      updated: rowsWritten
+    });
+  }
+
+  // Auditoria padronizada das operações de escrita de baixa (via adapter
+  // SheetsRepository.logWriteAudit → aba LOGS unificada). Best effort.
+  function logWriteAuditOrder_(operation, orderId, stats, status) {
+    SheetsRepository.logWriteAudit({
+      sheet: SHEET_NAME,
+      operation: operation,
+      status: status || 'OK',
+      stats: stats || {},
+      caller: 'OrdersRepository',
+      rowId: orderId || ''
+    });
   }
 
   return {
