@@ -111,8 +111,8 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | 2 | Dashboard | ✅ | ✅ |
 | 3 | Pedidos | ✅ | ✅ |
 | 4 | Catálogo | ✅ | ✅ |
-| 5 | Anúncios | ✅ | ⬜ |
-| 6 | Preço & Estoque | ✅ | ⬜ |
+| 5 | Anúncios | — | Removida (09/08/2026) |
+| 6 | Preço & Estoque | — | Removida (09/08/2026) |
 | 7 | Endurecimento | ⬜ | ⬜ |
 | 8 | Calculadora PrecificaPro | ✅ | ✅ |
 | — | Status Online + Speed Meter | ✅ | ⬜ |
@@ -178,22 +178,27 @@ usuário no app real.**
 
 ### Fase 5 — Anúncios
 
-**Critério de aceite:**
-- [ ] Pausar e reativar um anúncio de teste real funciona nos dois canais.
-- [ ] O estado é confirmado por releitura (`get_item` / `shopee_get_item`),
-      nunca só pela resposta do update.
-- [ ] Anúncio inexistente devolve erro tratado na UI.
+**Removida em 09/08/2026** — página sem utilidade excluída do projeto;
+substituída na prática pelo domínio ativo **Anúncios Shopee** (com spec
+`Approved`/`Implemented`). Critérios de aceite originais não se aplicam mais:
+- ~~Pausar e reativar um anúncio de teste real funciona nos dois canais.~~
+- ~~O estado é confirmado por releitura (`get_item` / `shopee_get_item`),
+      nunca só pela resposta do update.~~
+- ~~Anúncio inexistente devolve erro tratado na UI.~~
 
 ### Fase 6 — Preço & Estoque
 
-**Critério de aceite:**
-- [ ] Fluxo completo calcular → aplicar → reler → confirmar, num item de teste.
-- [ ] O preço novo aparece no app oficial do canal.
-- [ ] Caminho de erro (item inexistente, preço inválido) tratado na UI.
+**Removida em 09/08/2026** — página e serviço legacy excluídos; as regras de
+preço/estoque seguem em `PricingService`/`EstoqueService`. Critérios de
+aceite originais não se aplicam mais:
+- ~~Fluxo completo calcular → aplicar → reler → confirmar, num item de teste.~~
+- ~~O preço novo aparece no app oficial do canal.~~
+- ~~Caminho de erro (item inexistente, preço inválido) tratado na UI.~~
 
 ### Fase 7 — Endurecimento (a fazer)
 
-Só entra depois que 0–6 estiverem **validadas**. Escopo:
+Só entra depois que 0–4 e 8 estiverem **validadas** (5 e 6 foram removidas
+em 09/08/2026 — não bloqueiam mais). Escopo:
 
 - Log de operações de escrita em `SheetsRepository` (o que mudou, quando, resultado).
 - Padronização do tratamento de erro em todos os widgets (hoje cada view trata do seu jeito).
