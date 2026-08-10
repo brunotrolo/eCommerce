@@ -6,7 +6,8 @@
  * Ações Tiops usadas:
  *   shopee_ads_balance — saldo de créditos
  *   shopee_ads_campaigns — listar campanhas
- *   shopee_ads_pause_campaign / resume_campaign / terminate_campaign — ações
+ *   shopee_ads_pause_campaign / resume_campaign — ações (terminate não existe
+ *   no catálogo Tiops — feature Encerrar removida em 10/08/2026)
  *   shopee_ads_campaign_daily — performance por campanha (campaign_id_list)
  *   shopee_ads_hourly_performance — performance horária
  *   shopee_ads_recommended_keywords / edit_keywords / delete_keywords — keywords
@@ -62,11 +63,6 @@ var ShopeeAdsService = (function () {
           description: 'Retoma uma campanha pausada.',
           params: { campaignId: { type: 'string', required: true } },
           returns: { success: 'boolean', status: 'string' }
-        },
-        terminateCampaign: {
-          description: 'Encerra uma campanha permanentemente.',
-          params: { campaignId: { type: 'string', required: true } },
-          returns: { success: 'boolean' }
         },
         getKeywords: {
           description: 'Keywords recomendadas para uma campanha.',
@@ -398,13 +394,6 @@ var ShopeeAdsService = (function () {
     return { success: true, status: 'ACTIVE' };
   }
 
-  function terminateCampaign(params) {
-    var result = callTiops_('shopee_ads_terminate_campaign', { campaign_id: Number(params.campaignId) });
-    invalidateCache_();
-    LoggingService.logAction('shopeeAds', 'terminateCampaign', { campaignId: params.campaignId });
-    return { success: true };
-  }
-
   function getKeywords(params) {
     var result = callTiops_('shopee_ads_recommended_keywords', { campaign_id: Number(params.campaignId) });
     return { keywords: result.keywords || result.data || [] };
@@ -586,7 +575,6 @@ var ShopeeAdsService = (function () {
     getHourlyPerformance: getHourlyPerformance,
     pauseCampaign: pauseCampaign,
     resumeCampaign: resumeCampaign,
-    terminateCampaign: terminateCampaign,
     getKeywords: getKeywords,
     updateKeywords: updateKeywords,
     deleteKeywords: deleteKeywords,

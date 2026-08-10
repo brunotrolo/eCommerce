@@ -350,9 +350,6 @@
       } else if (st === 'PAUSED') {
         acoes += '<button class="btn btn-secondary" data-act="resume" data-id="' + esc(r.CAMPANHA_ID) + '">Retomar</button> ';
       }
-      if (st !== 'TERMINATED') {
-        acoes += '<button class="btn btn--danger" data-act="terminate" data-id="' + esc(r.CAMPANHA_ID) + '" data-nome="' + esc(r.NOME) + '">Encerrar</button>';
-      }
       return '<tr>' +
         '<td>' + esc(r.NOME) + '</td>' +
         '<td>' + esc(r.TIPO) + '</td>' +
@@ -542,12 +539,8 @@
         if (!btn) return;
         var act = btn.getAttribute('data-act');
         var id = btn.getAttribute('data-id');
-        if (act === 'terminate') {
-          var nome = btn.getAttribute('data-nome');
-          if (!confirm('Encerrar permanentemente a campanha "' + nome + '"?')) return;
-        }
         withLoading(function () {
-          return apiDispatch('shopeeAds.' + (act === 'pause' ? 'pauseCampaign' : act === 'resume' ? 'resumeCampaign' : 'terminateCampaign'), { campaignId: id });
+          return apiDispatch('shopeeAds.' + (act === 'pause' ? 'pauseCampaign' : 'resumeCampaign'), { campaignId: id });
         }).then(function (result) {
           if (result && result.success) {
             runSync(shadow);
