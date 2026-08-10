@@ -77,6 +77,7 @@ tabela lista os domínios adicionados depois, todos com spec
 | Carteira Shopee | `src/03_services/carteiraShopee/CarteiraShopeeService.js` | Saldo, extrato e histórico de repasses da carteira Shopee. |
 | Anúncios Shopee | `src/03_services/anunciosShopee/AnunciosShopeeService.js` | Sincroniza, lista, atualiza preço/estoque de anúncios Shopee direto pela Tiops. |
 | Shopee Ads | `src/03_services/shopeeAds/ShopeeAdsService.js` | Gestão de campanhas de anúncios pagos: saldo, campanhas, performance, pausar/retomar/encerrar, visitas/conversão. |
+| Pareamento SKU (Anúncio Shopee ↔ Estoque) | `src/03_services/produtoSkuMap/ProdutoSkuMapService.js` | Sugere produtos de estoque para anúncios Shopee sem SKU (score por similaridade), pareia individualmente via `shopee_update_item` (`AnunciosShopeeService.updateSku`), marcador `SEM_ESTOQUE` respeitado na baixa FIFO. |
 
 ### Motores internos (sem página própria)
 
@@ -86,7 +87,10 @@ tabela lista os domínios adicionados depois, todos com spec
 
 ### Specs em Draft, sem código ainda
 
-- `specs/produto-anuncio-map.md` — Draft, sem implementação (única spec de domínio que sobreviveu à consolidação de 09/08/2026 — ver `specs/ARQUITETURA.md` — por ser trabalho futuro, não histórico). Não pular a aprovação antes de codar (regra nº 1 do `AGENTS.md`). `specs/estoque-baixa-shopee.md` foi removida em 09/08/2026: a baixa automática de estoque por pedido Shopee que ela desenhava já está implementada (`OrdersImportService.processBaixaForOrder_` → `EstoqueBaixaService.baixarPorProduto`/`reverterBaixa`), por um caminho diferente do que a spec assumia.
+(nenhuma — todas as specs ativas estão `Approved`/`Implemented`. A única spec
+com Draft histórico era `produto-anuncio-map.md`, implementada em 10/08/2026
+— ver "Pareamento SKU" na tabela de domínios acima e
+`specs/ARQUITETURA.md`.)
 
 ### Removidos
 
@@ -113,7 +117,7 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | 4 | Catálogo | ✅ | ✅ |
 | 5 | Anúncios | — | Removida (09/08/2026) |
 | 6 | Preço & Estoque | — | Removida (09/08/2026) |
-| 7 | Endurecimento | ⬜ | ⬜ |
+| 7 | Endurecimento | ✅ | ⬜ |
 | 8 | Calculadora PrecificaPro | ✅ | ✅ |
 | — | Status Online + Speed Meter | ✅ | ⬜ |
 | — | DataStore (cache client-side) | ✅ | ⬜ |
@@ -129,8 +133,9 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > cálculo/smoke, 2–4 por conferência manual do usuário com dados reais
 > (09/08/2026); restam pendentes de validação ativa Status Online,
 > DataStore/DataClient, Webhook Shopee e Shopee Ads (ver tabela acima), além
-> da fase 7 (Endurecimento), que só entra depois que o restante estiver
-> validado.
+> da fase 7 (Endurecimento — código entregue em 10/08/2026, validação final
+> do usuário ainda pendente) e do Pareamento SKU (código entregue em
+> 10/08/2026, validação manual no app real pendente).
 >
 > **Webhook Shopee:** código implementado e testado
 > (`PushNotificationService.js`), mas **inativo** — a Tiops detém as
