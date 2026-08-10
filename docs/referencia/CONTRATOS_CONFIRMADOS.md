@@ -106,17 +106,57 @@ com `campaign_id_list` de todas as campanhas) e agrega `metrics_list`
 sombrando `broad_gmv`+`direct_gmv` (receita) e `broad_order`+`direct_order`
 (conversões).
 
-## Ainda não confirmados
+## Teste de contrato global — confirmado em 2026-08-10
 
-Estas ações são usadas pelo código mas **não** tiveram nome e schema
-verificados contra o catálogo (`list_actions`/`describe_action`):
+Varredura de TODAS as chamadas Tiops em `src/` (31 chamadas, 30 ações únicas,
+4 serviços) contra o catálogo real: `list_actions` (568 ações) +
+`describe_action` em cada nome. Nenhuma ação foi assumida de memória.
 
-| Ação | Usada em |
-|---|---|
-| `list_orders`, `get_order` (ML) | `OrdersService` |
-| `shopee_list_orders`, `shopee_get_order_detail` | `OrdersService` |
-| `shopee_get_shop_income` | `DashboardService` |
-| `low_stock_items` | `DashboardService` |
-| `list_items`, `shopee_list_items` | `AnunciosShopeeService` (sucessor de `ListingsService`, removido 09/08/2026) |
-| `pause_item`, `activate_item` | `AnunciosShopeeService` (idem) |
-| `shopee_update_price`, `shopee_update_stock` | `AnunciosShopeeService` (sucessor de `InventoryPricingService`, removido) |
+| Ação | Serviço (linha do call) | Status |
+|---|---|---|
+| `shopee_ads_balance` | `ShopeeAdsService` :156 | ✅ catálogo |
+| `shopee_ads_campaigns` | `ShopeeAdsService` :176 | ✅ catálogo |
+| `shopee_ads_campaign_daily` | `ShopeeAdsService` :199 | ✅ sondagem real em 2026-08-09 (aba acima) |
+| `shopee_ads_hourly_performance` | `ShopeeAdsService` :380 | ✅ catálogo |
+| `shopee_ads_pause_campaign` | `ShopeeAdsService` :388 | ✅ catálogo (schema do describe é genérico; resume, abaixo, confirma `campaign_id`) |
+| `shopee_ads_resume_campaign` | `ShopeeAdsService` :395 | ✅ catálogo (`campaign_id` obrigatório) |
+| `shopee_ads_terminate_campaign` | `ShopeeAdsService` :402 | ❌ **404 — ação NÃO existe no catálogo** (ver divergência abaixo) |
+| `shopee_ads_recommended_keywords` | `ShopeeAdsService` :409 | ✅ catálogo |
+| `shopee_ads_edit_keywords` | `ShopeeAdsService` :414 | ✅ catálogo |
+| `shopee_ads_delete_keywords` | `ShopeeAdsService` :423 | ✅ catálogo |
+| `shopee_ads_gms_items` | `ShopeeAdsService` :432 | ✅ catálogo |
+| `shopee_ads_recommended_items` | `ShopeeAdsService` :437 | ✅ catálogo |
+| `shopee_ads_roi_target` | `ShopeeAdsService` :442 | ✅ catálogo |
+| `list_items` (ML) | `ShopeeAdsService` :451 | ✅ catálogo (`limit`, `offset`, `status`, `account_id`/`meliUserId`) |
+| `shopee_list_items` | `AnunciosShopeeService` :201 | ✅ sondagem real 2026-08-05 |
+| `shopee_get_items_batch` | `AnunciosShopeeService` :222 | ✅ sondagem real 2026-08-05 |
+| `shopee_sales_by_item` | `AnunciosShopeeService` :231, :883 | ✅ sondagem real 2026-08-05 (payload FLAT, sem `{data}`) |
+| `shopee_get_models` | `AnunciosShopeeService` :303 | ✅ sondagem real 2026-08-05 |
+| `shopee_get_item` | `AnunciosShopeeService` :610 | ✅ sondagem real 2026-08-05 |
+| `shopee_update_price` | `AnunciosShopeeService` :693 | ✅ sondagem real 2026-08-05 (usa `price_list[]`, releitura pós-update) |
+| `shopee_update_stock` | `AnunciosShopeeService` :775 | ✅ sondagem real 2026-08-05 (`location_id: "BRZ"`, releitura pós-update) |
+| `shopee_unlist_item` | `AnunciosShopeeService` :815 | ✅ sondagem real 2026-08-05 (releitura pós-pause; nunca em item real) |
+| `shopee_delete_item` | `AnunciosShopeeService` :854 | ✅ sondagem real 2026-08-05 (releitura pós-delete) |
+| `shopee_list_orders` | `OrdersImportService` :197 | ✅ catálogo (num pedido 08-10; usado com `order_status`) |
+| `shopee_get_order_detail` | `OrdersImportService` :220 | ✅ catálogo |
+| `shopee_get_escrow_detail_batch` | `OrdersImportService` :240 | ✅ catálogo |
+| `shopee_get_order` | `OrdersImportService` :918 | ✅ catálogo |
+| `shopee_get_wallet_transactions` | `CarteiraShopeeService` :160 | ✅ sondagem real 2026-08-05 |
+| `shopee_get_escrow_list` | `CarteiraShopeeService` :202 | ✅ sondagem real 2026-08-05 |
+| `shopee_get_income_overview` | `CarteiraShopeeService` :283 | ✅ sondagem real 2026-08-05 |
+
+**Divergência AUSENTE (1):** `shopee_ads_terminate_campaign` não existe no
+catálogo (404 na API real). A ação "Encerrar campanha" (irreversível) do
+`ShopeeAdsView` chamava essa ação — ou seja, essa feature nunca executou de
+fato e retorna erro ao usuário. Candidato mais próximo no catálogo:
+`shopee_ads_edit_campaign` (existe, mas o schema do describe não expõe
+parâmetros) — **não trocar por adivinhação**: verificar o schema com a Tiops
+(ou sondagem real) antes de alterar o código, ou remover a feature do UI se
+encerrar campanha não for um fluxo necessário.
+
+**Obsoletas — removidas da seção "Ainda não confirmados" (2026-08-10):**
+`list_orders`/`get_order` (ML), `shopee_get_shop_income`, `low_stock_items`,
+`pause_item`/`activate_item` não têm nenhuma chamada em `src/` — os serviços
+que as usavam (`OrdersService`, `DashboardService`, `ListingsService`,
+`InventoryPricingService`) foram removidos em 09/08/2026; hoje leem direto
+da Google Sheets. Se reaparecerem no código, reconfirmar antes de usar.
