@@ -1,0 +1,376 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1432" height="1666" viewBox="0 0 1432 1666" font-family="Arial, Helvetica, sans-serif">
+
+<defs>
+  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#0b0f2e"/>
+    <stop offset="55%" stop-color="#171233"/>
+    <stop offset="100%" stop-color="#241a3d"/>
+  </linearGradient>
+  <linearGradient id="titleFill" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#60a5fa"/>
+    <stop offset="50%" stop-color="#c084fc"/>
+    <stop offset="100%" stop-color="#f472b6"/>
+  </linearGradient>
+  <linearGradient id="cta" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#4338ca"/>
+    <stop offset="100%" stop-color="#7c3aed"/>
+  </linearGradient>
+</defs>
+<rect width="1432" height="1666" fill="url(#bg)"/>
+
+<circle cx="663" cy="308" r="2" fill="#ffffff" opacity="0.44"/>
+<circle cx="148" cy="1097" r="1" fill="#ffffff" opacity="0.31"/>
+<circle cx="118" cy="1039" r="1" fill="#ffffff" opacity="0.17"/>
+<circle cx="888" cy="856" r="1" fill="#ffffff" opacity="0.26"/>
+<circle cx="1128" cy="869" r="1" fill="#ffffff" opacity="0.52"/>
+<circle cx="253" cy="457" r="1" fill="#ffffff" opacity="0.41"/>
+<circle cx="812" cy="101" r="1" fill="#ffffff" opacity="0.17"/>
+<circle cx="272" cy="593" r="2" fill="#ffffff" opacity="0.21"/>
+<circle cx="241" cy="1169" r="1" fill="#ffffff" opacity="0.4"/>
+<circle cx="1396" cy="370" r="1" fill="#ffffff" opacity="0.41"/>
+<circle cx="1308" cy="384" r="1" fill="#ffffff" opacity="0.19"/>
+<circle cx="128" cy="1155" r="1" fill="#ffffff" opacity="0.43"/>
+<circle cx="1016" cy="1393" r="2" fill="#ffffff" opacity="0.5"/>
+<circle cx="953" cy="1199" r="2" fill="#ffffff" opacity="0.31"/>
+<circle cx="508" cy="1626" r="1" fill="#ffffff" opacity="0.46"/>
+<circle cx="499" cy="167" r="1" fill="#ffffff" opacity="0.39"/>
+<circle cx="703" cy="1493" r="2" fill="#ffffff" opacity="0.28"/>
+<circle cx="149" cy="241" r="2" fill="#ffffff" opacity="0.22"/>
+<circle cx="700" cy="311" r="2" fill="#ffffff" opacity="0.34"/>
+<circle cx="1368" cy="158" r="1" fill="#ffffff" opacity="0.3"/>
+<circle cx="717" cy="1217" r="2" fill="#ffffff" opacity="0.41"/>
+<circle cx="934" cy="140" r="1" fill="#ffffff" opacity="0.58"/>
+<circle cx="970" cy="1427" r="1" fill="#ffffff" opacity="0.18"/>
+<circle cx="634" cy="1325" r="2" fill="#ffffff" opacity="0.28"/>
+<circle cx="790" cy="1369" r="1" fill="#ffffff" opacity="0.16"/>
+<circle cx="945" cy="727" r="1" fill="#ffffff" opacity="0.42"/>
+<circle cx="1011" cy="120" r="1" fill="#ffffff" opacity="0.5"/>
+<circle cx="264" cy="1512" r="1" fill="#ffffff" opacity="0.33"/>
+<circle cx="1016" cy="165" r="1" fill="#ffffff" opacity="0.35"/>
+<circle cx="1125" cy="569" r="1" fill="#ffffff" opacity="0.52"/>
+<circle cx="1126" cy="570" r="2" fill="#ffffff" opacity="0.59"/>
+<circle cx="1398" cy="779" r="1" fill="#ffffff" opacity="0.22"/>
+<circle cx="360" cy="309" r="1" fill="#ffffff" opacity="0.45"/>
+<circle cx="24" cy="993" r="1" fill="#ffffff" opacity="0.27"/>
+<circle cx="8" cy="298" r="2" fill="#ffffff" opacity="0.39"/>
+<circle cx="1248" cy="1159" r="1" fill="#ffffff" opacity="0.58"/>
+<circle cx="1414" cy="1055" r="1" fill="#ffffff" opacity="0.36"/>
+<circle cx="1393" cy="1634" r="2" fill="#ffffff" opacity="0.33"/>
+<circle cx="807" cy="212" r="2" fill="#ffffff" opacity="0.44"/>
+<circle cx="127" cy="390" r="1" fill="#ffffff" opacity="0.59"/>
+<circle cx="902" cy="332" r="1" fill="#ffffff" opacity="0.3"/>
+<circle cx="107" cy="209" r="1" fill="#ffffff" opacity="0.41"/>
+<circle cx="1098" cy="207" r="1" fill="#ffffff" opacity="0.43"/>
+<circle cx="144" cy="425" r="2" fill="#ffffff" opacity="0.22"/>
+<circle cx="516" cy="711" r="1" fill="#ffffff" opacity="0.36"/>
+<circle cx="236" cy="999" r="2" fill="#ffffff" opacity="0.37"/>
+<circle cx="638" cy="175" r="1" fill="#ffffff" opacity="0.2"/>
+<circle cx="701" cy="1516" r="1" fill="#ffffff" opacity="0.37"/>
+<circle cx="1417" cy="330" r="1" fill="#ffffff" opacity="0.24"/>
+<circle cx="1081" cy="740" r="1" fill="#ffffff" opacity="0.46"/>
+<circle cx="55" cy="1552" r="1" fill="#ffffff" opacity="0.59"/>
+<circle cx="186" cy="1425" r="1" fill="#ffffff" opacity="0.38"/>
+<circle cx="342" cy="728" r="1" fill="#ffffff" opacity="0.39"/>
+<circle cx="1029" cy="675" r="1" fill="#ffffff" opacity="0.43"/>
+<circle cx="399" cy="1650" r="1" fill="#ffffff" opacity="0.52"/>
+<circle cx="464" cy="409" r="2" fill="#ffffff" opacity="0.31"/>
+<circle cx="59" cy="57" r="1" fill="#ffffff" opacity="0.36"/>
+<circle cx="396" cy="1418" r="1" fill="#ffffff" opacity="0.35"/>
+<circle cx="715" cy="746" r="1" fill="#ffffff" opacity="0.25"/>
+<circle cx="464" cy="962" r="1" fill="#ffffff" opacity="0.3"/>
+<circle cx="988" cy="1278" r="1" fill="#ffffff" opacity="0.37"/>
+<circle cx="1337" cy="704" r="1" fill="#ffffff" opacity="0.53"/>
+<circle cx="245" cy="795" r="1" fill="#ffffff" opacity="0.37"/>
+<circle cx="365" cy="888" r="1" fill="#ffffff" opacity="0.19"/>
+<circle cx="810" cy="948" r="2" fill="#ffffff" opacity="0.48"/>
+<circle cx="173" cy="1484" r="1" fill="#ffffff" opacity="0.23"/>
+<circle cx="260" cy="56" r="1" fill="#ffffff" opacity="0.42"/>
+<circle cx="953" cy="1651" r="1" fill="#ffffff" opacity="0.43"/>
+<circle cx="1220" cy="971" r="1" fill="#ffffff" opacity="0.22"/>
+<circle cx="1122" cy="268" r="1" fill="#ffffff" opacity="0.16"/>
+<text x="716.0" y="58" text-anchor="middle" font-size="20" font-weight="700" letter-spacing="6" fill="#a5b4fc">THE ULTIMATE</text>
+<text x="716.0" y="118" text-anchor="middle" font-size="72" font-weight="800" fill="url(#titleFill)">SaaS Stack</text>
+<text x="716.0" y="152" text-anchor="middle" font-size="18" fill="#c7d2fe">Everything you need to build, scale and grow your SaaS product.</text>
+<text x="386.0" y="55" font-size="16" fill="#f472b6">&#10022;</text>
+<text x="1046.0" y="55" font-size="12" fill="#f472b6">&#10022;</text>
+<text x="456.0" y="110" font-size="10" fill="#f472b6">&#10022;</text>
+<text x="986.0" y="115" font-size="14" fill="#f472b6">&#10022;</text>
+<rect x="40" y="190" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="40" y="190" width="320" height="44" rx="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="40" y="220" width="320" height="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="58" y="205" width="14" height="14" rx="4" fill="#3b82f6"/>
+<text x="82" y="217" font-size="17" font-weight="700" fill="#f5f3ff">Frontend</text>
+<circle cx="68" cy="251" r="5" fill="#3b82f6"/>
+<text x="86" y="256" font-size="15" fill="#e0e7ff">React</text>
+<circle cx="68" cy="289" r="5" fill="#3b82f6"/>
+<text x="86" y="294" font-size="15" fill="#e0e7ff">NextJS</text>
+<circle cx="68" cy="327" r="5" fill="#3b82f6"/>
+<text x="86" y="332" font-size="15" fill="#e0e7ff">Vue</text>
+<circle cx="68" cy="365" r="5" fill="#3b82f6"/>
+<text x="86" y="370" font-size="15" fill="#e0e7ff">TailwindCSS</text>
+<circle cx="68" cy="403" r="5" fill="#3b82f6"/>
+<text x="86" y="408" font-size="15" fill="#e0e7ff">Shadcn UI</text>
+<rect x="384" y="190" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="384" y="190" width="320" height="44" rx="14" fill="#22c55e" opacity="0.16"/>
+<rect x="384" y="220" width="320" height="14" fill="#22c55e" opacity="0.16"/>
+<rect x="402" y="205" width="14" height="14" rx="4" fill="#22c55e"/>
+<text x="426" y="217" font-size="17" font-weight="700" fill="#f5f3ff">Backend</text>
+<circle cx="412" cy="251" r="5" fill="#22c55e"/>
+<text x="430" y="256" font-size="15" fill="#e0e7ff">NodeJS</text>
+<circle cx="412" cy="289" r="5" fill="#22c55e"/>
+<text x="430" y="294" font-size="15" fill="#e0e7ff">Django</text>
+<circle cx="412" cy="327" r="5" fill="#22c55e"/>
+<text x="430" y="332" font-size="15" fill="#e0e7ff">Laravel</text>
+<circle cx="412" cy="365" r="5" fill="#22c55e"/>
+<text x="430" y="370" font-size="15" fill="#e0e7ff">FastAPI</text>
+<circle cx="412" cy="403" r="5" fill="#22c55e"/>
+<text x="430" y="408" font-size="15" fill="#e0e7ff">Express</text>
+<rect x="728" y="190" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="728" y="190" width="320" height="44" rx="14" fill="#a855f7" opacity="0.16"/>
+<rect x="728" y="220" width="320" height="14" fill="#a855f7" opacity="0.16"/>
+<rect x="746" y="205" width="14" height="14" rx="4" fill="#a855f7"/>
+<text x="770" y="217" font-size="17" font-weight="700" fill="#f5f3ff">Database</text>
+<circle cx="756" cy="251" r="5" fill="#a855f7"/>
+<text x="774" y="256" font-size="15" fill="#e0e7ff">PostgreSQL</text>
+<circle cx="756" cy="289" r="5" fill="#a855f7"/>
+<text x="774" y="294" font-size="15" fill="#e0e7ff">MySQL</text>
+<circle cx="756" cy="327" r="5" fill="#a855f7"/>
+<text x="774" y="332" font-size="15" fill="#e0e7ff">MongoDB</text>
+<circle cx="756" cy="365" r="5" fill="#a855f7"/>
+<text x="774" y="370" font-size="15" fill="#e0e7ff">Redis</text>
+<circle cx="756" cy="403" r="5" fill="#a855f7"/>
+<text x="774" y="408" font-size="15" fill="#e0e7ff">Supabase</text>
+<rect x="1072" y="190" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="1072" y="190" width="320" height="44" rx="14" fill="#ec4899" opacity="0.16"/>
+<rect x="1072" y="220" width="320" height="14" fill="#ec4899" opacity="0.16"/>
+<rect x="1090" y="205" width="14" height="14" rx="4" fill="#ec4899"/>
+<text x="1114" y="217" font-size="17" font-weight="700" fill="#f5f3ff">Auth</text>
+<circle cx="1100" cy="251" r="5" fill="#ec4899"/>
+<text x="1118" y="256" font-size="15" fill="#e0e7ff">Clerk</text>
+<circle cx="1100" cy="289" r="5" fill="#ec4899"/>
+<text x="1118" y="294" font-size="15" fill="#e0e7ff">Auth0</text>
+<circle cx="1100" cy="327" r="5" fill="#ec4899"/>
+<text x="1118" y="332" font-size="15" fill="#e0e7ff">Firebase Auth</text>
+<circle cx="1100" cy="365" r="5" fill="#ec4899"/>
+<text x="1118" y="370" font-size="15" fill="#e0e7ff">Supabase Auth</text>
+<circle cx="1100" cy="403" r="5" fill="#ec4899"/>
+<text x="1118" y="408" font-size="15" fill="#e0e7ff">NextAuth</text>
+<rect x="40" y="482" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="40" y="482" width="320" height="44" rx="14" fill="#22c55e" opacity="0.16"/>
+<rect x="40" y="512" width="320" height="14" fill="#22c55e" opacity="0.16"/>
+<rect x="58" y="497" width="14" height="14" rx="4" fill="#22c55e"/>
+<text x="82" y="509" font-size="17" font-weight="700" fill="#f5f3ff">Payments</text>
+<circle cx="68" cy="543" r="5" fill="#22c55e"/>
+<text x="86" y="548" font-size="15" fill="#e0e7ff">Stripe</text>
+<circle cx="68" cy="581" r="5" fill="#22c55e"/>
+<text x="86" y="586" font-size="15" fill="#e0e7ff">Paddle</text>
+<circle cx="68" cy="619" r="5" fill="#22c55e"/>
+<text x="86" y="624" font-size="15" fill="#e0e7ff">Dodo Payments</text>
+<circle cx="68" cy="657" r="5" fill="#22c55e"/>
+<text x="86" y="662" font-size="15" fill="#e0e7ff">Lemon Squeezy</text>
+<circle cx="68" cy="695" r="5" fill="#22c55e"/>
+<text x="86" y="700" font-size="15" fill="#e0e7ff">Polar</text>
+<rect x="384" y="482" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="384" y="482" width="320" height="44" rx="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="384" y="512" width="320" height="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="402" y="497" width="14" height="14" rx="4" fill="#3b82f6"/>
+<text x="426" y="509" font-size="17" font-weight="700" fill="#f5f3ff">Emails</text>
+<circle cx="412" cy="543" r="5" fill="#3b82f6"/>
+<text x="430" y="548" font-size="15" fill="#e0e7ff">Resend</text>
+<circle cx="412" cy="581" r="5" fill="#3b82f6"/>
+<text x="430" y="586" font-size="15" fill="#e0e7ff">SendGrid</text>
+<circle cx="412" cy="619" r="5" fill="#3b82f6"/>
+<text x="430" y="624" font-size="15" fill="#e0e7ff">Mailgun</text>
+<circle cx="412" cy="657" r="5" fill="#3b82f6"/>
+<text x="430" y="662" font-size="15" fill="#e0e7ff">Postmark</text>
+<circle cx="412" cy="695" r="5" fill="#3b82f6"/>
+<text x="430" y="700" font-size="15" fill="#e0e7ff">Amazon SES</text>
+<rect x="728" y="482" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="728" y="482" width="320" height="44" rx="14" fill="#f97316" opacity="0.16"/>
+<rect x="728" y="512" width="320" height="14" fill="#f97316" opacity="0.16"/>
+<rect x="746" y="497" width="14" height="14" rx="4" fill="#f97316"/>
+<text x="770" y="509" font-size="17" font-weight="700" fill="#f5f3ff">Storage</text>
+<circle cx="756" cy="543" r="5" fill="#f97316"/>
+<text x="774" y="548" font-size="15" fill="#e0e7ff">AWS</text>
+<circle cx="756" cy="581" r="5" fill="#f97316"/>
+<text x="774" y="586" font-size="15" fill="#e0e7ff">Cloudflare</text>
+<circle cx="756" cy="619" r="5" fill="#f97316"/>
+<text x="774" y="624" font-size="15" fill="#e0e7ff">Google Cloud Storage</text>
+<circle cx="756" cy="657" r="5" fill="#f97316"/>
+<text x="774" y="662" font-size="15" fill="#e0e7ff">Supabase Storage</text>
+<circle cx="756" cy="695" r="5" fill="#f97316"/>
+<text x="774" y="700" font-size="15" fill="#e0e7ff">Uploadcare</text>
+<rect x="1072" y="482" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="1072" y="482" width="320" height="44" rx="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="1072" y="512" width="320" height="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="1090" y="497" width="14" height="14" rx="4" fill="#3b82f6"/>
+<text x="1114" y="509" font-size="17" font-weight="700" fill="#f5f3ff">Deployment</text>
+<circle cx="1100" cy="543" r="5" fill="#3b82f6"/>
+<text x="1118" y="548" font-size="15" fill="#e0e7ff">Vercel</text>
+<circle cx="1100" cy="581" r="5" fill="#3b82f6"/>
+<text x="1118" y="586" font-size="15" fill="#e0e7ff">Netlify</text>
+<circle cx="1100" cy="619" r="5" fill="#3b82f6"/>
+<text x="1118" y="624" font-size="15" fill="#e0e7ff">Railway</text>
+<circle cx="1100" cy="657" r="5" fill="#3b82f6"/>
+<text x="1118" y="662" font-size="15" fill="#e0e7ff">Render</text>
+<circle cx="1100" cy="695" r="5" fill="#3b82f6"/>
+<text x="1118" y="700" font-size="15" fill="#e0e7ff">AWS</text>
+<rect x="40" y="774" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="40" y="774" width="320" height="44" rx="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="40" y="804" width="320" height="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="58" y="789" width="14" height="14" rx="4" fill="#3b82f6"/>
+<text x="82" y="801" font-size="17" font-weight="700" fill="#f5f3ff">Domains and DNS</text>
+<circle cx="68" cy="835" r="5" fill="#3b82f6"/>
+<text x="86" y="840" font-size="15" fill="#e0e7ff">Namecheap</text>
+<circle cx="68" cy="873" r="5" fill="#3b82f6"/>
+<text x="86" y="878" font-size="15" fill="#e0e7ff">Hostinger</text>
+<circle cx="68" cy="911" r="5" fill="#3b82f6"/>
+<text x="86" y="916" font-size="15" fill="#e0e7ff">Cloudflare DNS</text>
+<circle cx="68" cy="949" r="5" fill="#3b82f6"/>
+<text x="86" y="954" font-size="15" fill="#e0e7ff">Google Domains</text>
+<circle cx="68" cy="987" r="5" fill="#3b82f6"/>
+<text x="86" y="992" font-size="15" fill="#e0e7ff">SiteGround</text>
+<rect x="384" y="774" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="384" y="774" width="320" height="44" rx="14" fill="#ec4899" opacity="0.16"/>
+<rect x="384" y="804" width="320" height="14" fill="#ec4899" opacity="0.16"/>
+<rect x="402" y="789" width="14" height="14" rx="4" fill="#ec4899"/>
+<text x="426" y="801" font-size="17" font-weight="700" fill="#f5f3ff">Analytics</text>
+<circle cx="412" cy="835" r="5" fill="#ec4899"/>
+<text x="430" y="840" font-size="15" fill="#e0e7ff">Google Analytics</text>
+<circle cx="412" cy="873" r="5" fill="#ec4899"/>
+<text x="430" y="878" font-size="15" fill="#e0e7ff">Plausible</text>
+<circle cx="412" cy="911" r="5" fill="#ec4899"/>
+<text x="430" y="916" font-size="15" fill="#e0e7ff">PostHog</text>
+<circle cx="412" cy="949" r="5" fill="#ec4899"/>
+<text x="430" y="954" font-size="15" fill="#e0e7ff">Mixpanel</text>
+<circle cx="412" cy="987" r="5" fill="#ec4899"/>
+<text x="430" y="992" font-size="15" fill="#e0e7ff">DataFast</text>
+<rect x="728" y="774" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="728" y="774" width="320" height="44" rx="14" fill="#f97316" opacity="0.16"/>
+<rect x="728" y="804" width="320" height="14" fill="#f97316" opacity="0.16"/>
+<rect x="746" y="789" width="14" height="14" rx="4" fill="#f97316"/>
+<text x="770" y="801" font-size="17" font-weight="700" fill="#f5f3ff">Monitoring</text>
+<circle cx="756" cy="835" r="5" fill="#f97316"/>
+<text x="774" y="840" font-size="15" fill="#e0e7ff">Sentry</text>
+<circle cx="756" cy="873" r="5" fill="#f97316"/>
+<text x="774" y="878" font-size="15" fill="#e0e7ff">LogRocket</text>
+<circle cx="756" cy="911" r="5" fill="#f97316"/>
+<text x="774" y="916" font-size="15" fill="#e0e7ff">Datadog</text>
+<circle cx="756" cy="949" r="5" fill="#f97316"/>
+<text x="774" y="954" font-size="15" fill="#e0e7ff">NewRelic</text>
+<circle cx="756" cy="987" r="5" fill="#f97316"/>
+<text x="774" y="992" font-size="15" fill="#e0e7ff">UptimeRobot</text>
+<rect x="1072" y="774" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="1072" y="774" width="320" height="44" rx="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="1072" y="804" width="320" height="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="1090" y="789" width="14" height="14" rx="4" fill="#3b82f6"/>
+<text x="1114" y="801" font-size="17" font-weight="700" fill="#f5f3ff">DevOps</text>
+<circle cx="1100" cy="835" r="5" fill="#3b82f6"/>
+<text x="1118" y="840" font-size="15" fill="#e0e7ff">Docker</text>
+<circle cx="1100" cy="873" r="5" fill="#3b82f6"/>
+<text x="1118" y="878" font-size="15" fill="#e0e7ff">Kubernetes</text>
+<circle cx="1100" cy="911" r="5" fill="#3b82f6"/>
+<text x="1118" y="916" font-size="15" fill="#e0e7ff">GitHub Actions</text>
+<circle cx="1100" cy="949" r="5" fill="#3b82f6"/>
+<text x="1118" y="954" font-size="15" fill="#e0e7ff">CI/CD</text>
+<circle cx="1100" cy="987" r="5" fill="#3b82f6"/>
+<text x="1118" y="992" font-size="15" fill="#e0e7ff">Terraform</text>
+<rect x="40" y="1066" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="40" y="1066" width="320" height="44" rx="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="40" y="1096" width="320" height="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="58" y="1081" width="14" height="14" rx="4" fill="#3b82f6"/>
+<text x="82" y="1093" font-size="17" font-weight="700" fill="#f5f3ff">Search</text>
+<circle cx="68" cy="1127" r="5" fill="#3b82f6"/>
+<text x="86" y="1132" font-size="15" fill="#e0e7ff">Algolia</text>
+<circle cx="68" cy="1165" r="5" fill="#3b82f6"/>
+<text x="86" y="1170" font-size="15" fill="#e0e7ff">Meilisearch</text>
+<circle cx="68" cy="1203" r="5" fill="#3b82f6"/>
+<text x="86" y="1208" font-size="15" fill="#e0e7ff">Elasticsearch</text>
+<circle cx="68" cy="1241" r="5" fill="#3b82f6"/>
+<text x="86" y="1246" font-size="15" fill="#e0e7ff">Typesense</text>
+<circle cx="68" cy="1279" r="5" fill="#3b82f6"/>
+<text x="86" y="1284" font-size="15" fill="#e0e7ff">OpenSearch</text>
+<rect x="384" y="1066" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="384" y="1066" width="320" height="44" rx="14" fill="#a855f7" opacity="0.16"/>
+<rect x="384" y="1096" width="320" height="14" fill="#a855f7" opacity="0.16"/>
+<rect x="402" y="1081" width="14" height="14" rx="4" fill="#a855f7"/>
+<text x="426" y="1093" font-size="17" font-weight="700" fill="#f5f3ff">AI Integration</text>
+<circle cx="412" cy="1127" r="5" fill="#a855f7"/>
+<text x="430" y="1132" font-size="15" fill="#e0e7ff">OpenAI API</text>
+<circle cx="412" cy="1165" r="5" fill="#a855f7"/>
+<text x="430" y="1170" font-size="15" fill="#e0e7ff">Anthropic API</text>
+<circle cx="412" cy="1203" r="5" fill="#a855f7"/>
+<text x="430" y="1208" font-size="15" fill="#e0e7ff">Replicate</text>
+<circle cx="412" cy="1241" r="5" fill="#a855f7"/>
+<text x="430" y="1246" font-size="15" fill="#e0e7ff">HuggingFace</text>
+<circle cx="412" cy="1279" r="5" fill="#a855f7"/>
+<text x="430" y="1284" font-size="15" fill="#e0e7ff">Gemini API</text>
+<rect x="728" y="1066" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="728" y="1066" width="320" height="44" rx="14" fill="#a855f7" opacity="0.16"/>
+<rect x="728" y="1096" width="320" height="14" fill="#a855f7" opacity="0.16"/>
+<rect x="746" y="1081" width="14" height="14" rx="4" fill="#a855f7"/>
+<text x="770" y="1093" font-size="17" font-weight="700" fill="#f5f3ff">Integrations</text>
+<circle cx="756" cy="1127" r="5" fill="#a855f7"/>
+<text x="774" y="1132" font-size="15" fill="#e0e7ff">Zapier</text>
+<circle cx="756" cy="1165" r="5" fill="#a855f7"/>
+<text x="774" y="1170" font-size="15" fill="#e0e7ff">Make</text>
+<circle cx="756" cy="1203" r="5" fill="#a855f7"/>
+<text x="774" y="1208" font-size="15" fill="#e0e7ff">n8n</text>
+<circle cx="756" cy="1241" r="5" fill="#a855f7"/>
+<text x="774" y="1246" font-size="15" fill="#e0e7ff">Pabbly</text>
+<circle cx="756" cy="1279" r="5" fill="#a855f7"/>
+<text x="774" y="1284" font-size="15" fill="#e0e7ff">Webhooks</text>
+<rect x="1072" y="1066" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="1072" y="1066" width="320" height="44" rx="14" fill="#ef4444" opacity="0.16"/>
+<rect x="1072" y="1096" width="320" height="14" fill="#ef4444" opacity="0.16"/>
+<rect x="1090" y="1081" width="14" height="14" rx="4" fill="#ef4444"/>
+<text x="1114" y="1093" font-size="17" font-weight="700" fill="#f5f3ff">Security</text>
+<circle cx="1100" cy="1127" r="5" fill="#ef4444"/>
+<text x="1118" y="1132" font-size="15" fill="#e0e7ff">SSL</text>
+<circle cx="1100" cy="1165" r="5" fill="#ef4444"/>
+<text x="1118" y="1170" font-size="15" fill="#e0e7ff">Cloudflare</text>
+<circle cx="1100" cy="1203" r="5" fill="#ef4444"/>
+<text x="1118" y="1208" font-size="15" fill="#e0e7ff">WAF</text>
+<circle cx="1100" cy="1241" r="5" fill="#ef4444"/>
+<text x="1118" y="1246" font-size="15" fill="#e0e7ff">Rate Limiting</text>
+<circle cx="1100" cy="1279" r="5" fill="#ef4444"/>
+<text x="1118" y="1284" font-size="15" fill="#e0e7ff">Secrets Management</text>
+<rect x="40" y="1358" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="40" y="1358" width="320" height="44" rx="14" fill="#f97316" opacity="0.16"/>
+<rect x="40" y="1388" width="320" height="14" fill="#f97316" opacity="0.16"/>
+<rect x="58" y="1373" width="14" height="14" rx="4" fill="#f97316"/>
+<text x="82" y="1385" font-size="17" font-weight="700" fill="#f5f3ff">Marketing</text>
+<circle cx="68" cy="1419" r="5" fill="#f97316"/>
+<text x="86" y="1424" font-size="15" fill="#e0e7ff">Search Console</text>
+<circle cx="68" cy="1457" r="5" fill="#f97316"/>
+<text x="86" y="1462" font-size="15" fill="#e0e7ff">Outrank</text>
+<circle cx="68" cy="1495" r="5" fill="#f97316"/>
+<text x="86" y="1500" font-size="15" fill="#e0e7ff">Buffer</text>
+<circle cx="68" cy="1533" r="5" fill="#f97316"/>
+<text x="86" y="1538" font-size="15" fill="#e0e7ff">Analytics</text>
+<circle cx="68" cy="1571" r="5" fill="#f97316"/>
+<text x="86" y="1576" font-size="15" fill="#e0e7ff">Kit</text>
+<rect x="384" y="1358" width="320" height="268" rx="14" fill="#141233" stroke="#2e2a55" stroke-width="1.5"/>
+<rect x="384" y="1358" width="320" height="44" rx="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="384" y="1388" width="320" height="14" fill="#3b82f6" opacity="0.16"/>
+<rect x="402" y="1373" width="14" height="14" rx="4" fill="#3b82f6"/>
+<text x="426" y="1385" font-size="17" font-weight="700" fill="#f5f3ff">Customer Support</text>
+<circle cx="412" cy="1419" r="5" fill="#3b82f6"/>
+<text x="430" y="1424" font-size="15" fill="#e0e7ff">Intercom</text>
+<circle cx="412" cy="1457" r="5" fill="#3b82f6"/>
+<text x="430" y="1462" font-size="15" fill="#e0e7ff">Crisp</text>
+<circle cx="412" cy="1495" r="5" fill="#3b82f6"/>
+<text x="430" y="1500" font-size="15" fill="#e0e7ff">Zendesk</text>
+<circle cx="412" cy="1533" r="5" fill="#3b82f6"/>
+<text x="430" y="1538" font-size="15" fill="#e0e7ff">Tawk</text>
+<circle cx="412" cy="1571" r="5" fill="#3b82f6"/>
+<text x="430" y="1576" font-size="15" fill="#e0e7ff">HelpScout</text>
+<rect x="728" y="1358" width="664" height="268" rx="14" fill="url(#cta)"/>
+<text x="1060.0" y="1428" text-anchor="middle" font-size="26" font-weight="800" fill="#ffffff">BUILD.</text>
+<text x="1060.0" y="1463" text-anchor="middle" font-size="26" font-weight="800" fill="#ffffff">LAUNCH.</text>
+<text x="1060.0" y="1498" text-anchor="middle" font-size="26" font-weight="800" fill="#fde68a">SCALE.</text>
+<text x="1060.0" y="1533" text-anchor="middle" font-size="26" font-weight="800" fill="#fde68a">REPEAT.</text>
+<text x="1060.0" y="1573" text-anchor="middle" font-size="13" fill="#e0e7ff">The right stack makes</text>
+<text x="1060.0" y="1591" text-anchor="middle" font-size="13" fill="#e0e7ff">all the difference.</text>
+<text x="1060.0" y="1403" text-anchor="middle" font-size="30">&#128640;</text>
+</svg>
