@@ -583,7 +583,7 @@ var NFeEntradaService = (function () {
   function getRecent(params) {
     var sheetId = ConfigService.getNfeEntradaSheetId();
     if (!sheetId || (typeof sheetId === 'object' && sheetId.error)) {
-      return { data: [], sheetIdConfigured: false };
+      return { rows: [], sheetIdConfigured: false };
     }
     var limit = params.limit || 20;
 
@@ -601,13 +601,13 @@ var NFeEntradaService = (function () {
         limit: limit,
         rows: rows.length
       });
-      return { data: rows, sheetIdConfigured: true };
+      return { rows: rows, sheetIdConfigured: true };
     } catch (e) {
       traceError_('getRecent:error', 'Falha ao ler NFE_ENTRADA', {
         sheetId: String(sheetId),
         error: e.message || String(e)
       });
-      return { error: 'Falha ao ler a aba NFE_ENTRADA: ' + (e.message || String(e)), data: [] };
+      return { error: 'Falha ao ler a aba NFE_ENTRADA: ' + (e.message || String(e)), rows: [] };
     }
   }
 

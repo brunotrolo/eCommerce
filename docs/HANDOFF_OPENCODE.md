@@ -240,28 +240,31 @@ Status 🟢 aparece, timing funciona, debug logs visíveis no Debug Console.
 
 ---
 
-### DataStore — Cache Client-side para Navegação Instantânea
+### DataClient — Arquivo Único de Dados (cache + API)
 
 ```
 CONTEXTO
-DataStore (ui/shared/DataStore.html) é um cache client-side que pré-busca
-dados pesados ao carregar o app, permitindo navegação instantânea entre
-páginas sem novas chamadas ao servidor. Exposto em window.__DataStore com
-get/set/has/invalidate/getOrFetch/preFetch.
+DataClient (ui/shared/DataClient.html) é o arquivo ÚNICO de dados do
+cliente, exposto em window.__DataClient (a antiga DataStore.html foi
+consolidada nele e removida). API: fetchData (cache TTL 60s + SWR, dedupe,
+retry 1x), mutateData (escrita, invalida domínio por prefixo), snapshot
+(render do cache sem rede), get/has/set/invalidate/getOrFetch, preFetch,
+subscribe. Toda view usa __DataClient — nunca google.script.run direto.
 
-Pré-fetch no Shell.html dispara: dashboard.getSummary, nfeEntrada.getRecent,
-nfeEntradaProdutos.getProdutos, config.getConfig, catalog.getProducts.
+No boot o Shell dispara o preFetch de TODAS as rotas com forceFresh:true —
+reload = dados reais do Google Sheets (o backend remove a key do
+CacheService e relê). Navegação entre abas na mesma sessão é instantânea
+(cache client-side em memória).
 
-Views modificadas: Dashboard, NFeEntrada, NFeEntradaProdutos, Catalog —
-todas checam cache primeiro no connectedCallback.
+Views: todas as *View.html usam window.__DataClient.
 
 SKILL
 Ative /gas-ops para deploy.
 
 TAREFA
-1. Verifique que DataStore.html está incluído em Shell.html (antes dos
+1. Verifique que DataClient.html está incluído em Shell.html (antes dos
    includes de views).
-2. Confirme que o pré-fetch dispara 5 chamadas ao carregar o app.
+2. Confirme que o pré-fetch do boot dispara as 13 ações com forceFresh:true.
 3. Navegue entre Dashboard, NFe Entrada, Entrada Produtos e Catálogo —
    confirme que a segunda visita é instantânea (sem loading).
 4. Clique "Atualizar" em Dashboard e confirme que os dados são buscados
@@ -270,10 +273,11 @@ TAREFA
    na aba "Chamadas".
 
 RESTRIÇÕES
-- DataStore é só cache client-side, não armazena nada no servidor.
+- DataClient é só cache client-side, não armazena nada no servidor.
 - Views devem funcionar normalmente mesmo sem cache (fallback para fetch).
-- Não usar DataStore para dados parametrizados (Orders, Listings) — estes
-  continuam buscando no servidor a cada troca de filtro.
+- Dados parametrizados (Orders, Listings) continuam buscando no servidor a
+  cada troca de filtro.
+- Service novo com cache server-side DEVE honrar params.forceFresh.
 
 ACEITE
 Navegação entre páginas é instantânea na segunda visita; prefetch funciona;

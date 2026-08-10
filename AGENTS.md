@@ -221,20 +221,31 @@ constrói um único `CSSStyleSheet` a partir dele, exposto em
 `shadow.adoptedStyleSheets = [window.__DESIGN_SHEET__]` — nunca duplicar CSS
 nem usar cor/espaçamento/sombra fora dos tokens de `Styles.html`.
 
-## DataStore — cache client-side para navegação instantânea
+## DataClient — arquivo ÚNICO de dados no cliente (cache + API)
 
-`ui/shared/DataStore.html` expõe `window.__DataStore` com:
-- `get(key)` / `has(key)` / `set(key, data)` / `invalidate(key)`
-- `getOrFetch(key, action, params)` — retorna cache se existe, senão busca
+`ui/shared/DataClient.html` é a camada única de dados do cliente, exposta em
+`window.__DataClient` (a antiga `DataStore.html` foi consolidada nele e
+removida — nenhuma view referencia `__DataStore`). API completa:
+- Leituras: `fetchData(action, params, opts)` (cache TTL 60s +
+  stale-while-revalidate, dedupe, retry 1x) e `snapshot(action, params, opts)`
+  (resolve do cache SEM rede, render imediato)
+- Escrita: `mutateData(action, params, opts)` — sem cache; invalida o
+  domínio por prefixo automaticamente
+- Cache manual: `get(key)` / `has(key)` / `set(key, data)` /
+  `invalidate(key)` / `getOrFetch(key, action, params)` (legacy)
 - `preFetch([{key, action, params}])` — busca múltiplos em paralelo no startup
+- `subscribe(prefix, cb)` — re-render quando refresh em background completa
+
+**Regra de frescor (obrigatória): reload = dados REAIS do Google Sheets.**
+O preFetch do boot dispara TODAS as rotas com `forceFresh: true`; o backend
+(`params.forceFresh`) remove a key do `CacheService` e relê o Sheets. A
+navegação entre abas não perde velocidade porque usa o cache client-side em
+memória (dados acabaram de ser lidos no boot — zero rede no clique).
+Qualquer service NOVO com leitura cacheada DEVE honrar `params.forceFresh`.
 
 **Padrão para views:** no `connectedCallback`, checar cache primeiro (render
 imediato), depois buscar fresh em background. Botões "Atualizar" devem chamar
 `invalidate()` antes de fetch.
-
-**Pre-fetch no Shell.html:** dispara `dashboard.getSummary`,
-`nfeEntrada.getRecent`, `nfeEntradaProdutos.getProdutos`, `config.getConfig` e
-`catalog.getProducts` ao carregar o app.
 
 ## StatusView — indicador de status online
 
@@ -281,7 +292,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 | `ui/shared/UiHelpers.html` | Funções `withLoading()` — usada por todos os widgets |
 | `ui/shared/Formatter.html` | Formatação de valores — usada por todos os widgets |
 | `ui/shared/DebugConsole.html` | Console de debug — afeta todas as chamadas |
-| `ui/shared/DataStore.html` | Cache client-side de dados — usado por todas as views para navegação instantânea |
+| `ui/shared/DataClient.html` | Cache client-side de dados (único arquivo) — usado por todas as views para navegação instantânea |
 | `ui/shell/StatusView.html` | Indicador de status online + speed meter — afeta nav bar |
 | `src/00_config/FormatterService.js` | Formatter server-side |
 | `src/03_services/logging/LoggingService.js` | Log de ações — afeta todos os serviços |

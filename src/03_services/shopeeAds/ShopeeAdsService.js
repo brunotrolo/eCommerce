@@ -146,8 +146,11 @@ var ShopeeAdsService = (function () {
 
   // --- Ações ---
 
-  function getBalance() {
-    var cached = getFromCache_(cacheKey_('balance'), CACHE_TTL_BALANCE);
+  function getBalance(params) {
+    params = params || {};
+    var cacheKey = cacheKey_('balance');
+    if (params.forceFresh) CacheRepository.remove(cacheKey);
+    var cached = getFromCache_(cacheKey, CACHE_TTL_BALANCE);
     if (cached) return cached;
 
     var result = callTiops_('shopee_ads_balance', {});

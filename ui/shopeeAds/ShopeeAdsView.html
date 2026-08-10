@@ -570,7 +570,7 @@
     }
 
     function loadCampanhas(shadow, forceFresh) {
-      var ds = window.__DataStore;
+      var ds = window.__DataClient;
       var cacheKey = 'shopeeAds.campanhas';
       if (forceFresh && ds) ds.invalidate(cacheKey);
 
@@ -601,7 +601,7 @@
     }
 
     function loadBalance(shadow, forceFresh) {
-      var ds = window.__DataStore;
+      var ds = window.__DataClient;
       var cacheKey = 'shopeeAds.balance';
       if (forceFresh && ds) ds.invalidate(cacheKey);
 

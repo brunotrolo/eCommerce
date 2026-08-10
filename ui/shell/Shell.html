@@ -89,7 +89,6 @@
     <?!= include('ui/shared/Formatter'); ?>
     <?!= include('ui/shared/DebugConsole'); ?>
     <?!= include('ui/shared/DataClient'); ?>
-    <?!= include('ui/shared/DataStore'); ?>
     <?!= include('ui/shell/StatusView'); ?>
     <?!= include('ui/dashboard/DashboardView'); ?>
     <?!= include('ui/orders/OrdersView'); ?>
@@ -153,7 +152,7 @@
         document.querySelectorAll('.app-nav button[data-route]').forEach(function (btn) {
           btn.classList.toggle('btn-active', btn.dataset.route === tag);
         });
-        var ds = window.__DataClient || window.__DataStore;
+        var ds = window.__DataClient;
         if (ds && ROUTE_PREFETCH[tag]) {
           ds.preFetch(ROUTE_PREFETCH[tag]);
         }
@@ -324,26 +323,28 @@
       navigate((window.location.hash || '#dashboard').replace('#', ''));
       performance.mark('shell-first-view-mounted');
 
-      var startupDs = window.__DataClient || window.__DataStore;
+      var startupDs = window.__DataClient;
       if (startupDs) {
         // Preload total no boot: TODAS as rotas com dados de Sheets são
         // aquecidas em paralelo na abertura do app (fire-and-forget com
-        // allSettled). Ao navegar, a view encontra o cache pronto e renderiza
-        // instantâneo; o refresh em background (SWR) mantém a frescura.
+        // allSettled). forceFresh em TODAS: cada reload recarrega os dados
+        // reais do Google Sheets (regra: reload = fresco). A navegação entre
+        // abas segue instantânea porque o cache client-side deste boot
+        // reutiliza o que já foi lido — zero rede no clique.
         startupDs.preFetch([
-          { key: 'config.config', action: 'config.getConfig', params: {} },
-          { key: 'dashboard.summary', action: 'dashboard.getSummary', params: {} },
-          { key: 'estoque.Items.TODOS', action: 'estoque.getItems', params: {} },
-          { key: 'catalog.products.code.asc', action: 'catalog.getProducts', params: { sortBy: 'code', sortOrder: 'asc' } },
-          { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30 } },
-          { key: 'nfeEntrada.recent', action: 'nfeEntrada.getRecent', params: { limit: 20 } },
-          { key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: {} },
-          { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500 } },
-          { key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500 } },
-          { key: 'carteiraShopee.snapshot', action: 'carteiraShopee.getWalletSnapshot', params: {} },
-          { key: 'anunciosShopee.listings', action: 'anunciosShopee.getListings', params: {} },
-          { key: 'shopeeAds.campanhas', action: 'shopeeAds.getCampaigns', params: {} },
-          { key: 'shopeeAds.balance', action: 'shopeeAds.getBalance', params: {} }
+          { key: 'config.config', action: 'config.getConfig', params: { forceFresh: true } },
+          { key: 'dashboard.summary', action: 'dashboard.getSummary', params: { forceFresh: true } },
+          { key: 'estoque.Items.TODOS', action: 'estoque.getItems', params: { forceFresh: true } },
+          { key: 'catalog.products.code.asc', action: 'catalog.getProducts', params: { sortBy: 'code', sortOrder: 'asc', forceFresh: true } },
+          { key: 'orders.all.30', action: 'orders.listUnified', params: { marketplace: 'all', limit: 30, forceFresh: true } },
+          { key: 'nfeEntrada.recent', action: 'nfeEntrada.getRecent', params: { limit: 20, forceFresh: true } },
+          { key: 'nfeEntradaProdutos.produtos', action: 'nfeEntradaProdutos.getProdutos', params: { forceFresh: true } },
+          { key: 'manualEntrada.listEntries', action: 'manualEntrada.listEntries', params: { limit: 500, forceFresh: true } },
+          { key: 'manualSaida.listExits', action: 'manualSaida.listExits', params: { limit: 500, forceFresh: true } },
+          { key: 'carteiraShopee.snapshot', action: 'carteiraShopee.getWalletSnapshot', params: { forceFresh: true } },
+          { key: 'anunciosShopee.listings', action: 'anunciosShopee.getListings', params: { forceFresh: true } },
+          { key: 'shopeeAds.campanhas', action: 'shopeeAds.getCampaigns', params: { forceFresh: true } },
+          { key: 'shopeeAds.balance', action: 'shopeeAds.getBalance', params: { forceFresh: true } }
         ]);
       }
 

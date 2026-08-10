@@ -573,6 +573,7 @@ var AnunciosShopeeService = (function () {
   function getListings(params) {
     params = params || {};
     var fromCache = params.fromCache !== false;
+    if (params.forceFresh) CacheRepository.remove(CACHE_KEY);
 
     if (fromCache) {
       var cached = CacheRepository.get(CACHE_KEY);

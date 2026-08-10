@@ -6,31 +6,51 @@
 
 ## Problema
 
-O `Shell.html` dispara o preload de **13 chaves** do DataStore no boot
-(`window.__DataStore.preFetch(...)`), incluindo telas que o usuário talvez
-não visite (carteira, anúncios, ads). Em rotas de rede lentas (decisão de
-mercado: clareza da fonte de dados > latência de cache) essas chamadas são
-feitas mesmo sem necessidade, alongando o primeiro paint e a fila do
-esperado por outras abas.
+O `Shell.html` dispara o preload no boot via `window.__DataClient.preFetch(...)`
+abrangendo TODAS as rotas com dados de Sheets (13 chaves), incluindo telas que
+o usuário talvez não visite (carteira, anúncios, ads). Para o requisito do
+usuário "**reload = dados reais do Google Sheets**", todas as 13 entradas
+carregam com `forceFresh: true` — clareza da fonte de dados primeiro;
+navegação entre abas continua instantânea porque o cache client-side em
+memória guarda o que o boot leu.
 
 ## Objetivo
 
-Preload crítico mínimo no boot (5 chaves, todas de telas da primeira dobra)
-+ preload **lazy por aba** disparado na navegação, fire-and-forget, sem
-bloquear a renderização da aba destino.
+No boot, ler os dados reais do Sheets de TODAS as rotas em paralelo
+(`forceFresh: true`), de modo que qualquer aba abra sem rede (render do
+cache client-side) e SEM nunca exibir dados velhos após reload. O preload
+**lazy por aba** (`ROUTE_PREFETCH`, sem `forceFresh`) permanece como
+segurança para navegar antes do boot terminar.
 
 ## Decisões
 
-1. **Boot:** `preFetch` reduzido para 5 entradas:
+1. **Boot — preFetch com 13 entradas, todas com `forceFresh: true`** (fonte:
+   `ui/shell/Shell.html` — atualizada 09/08/2026):
+
    | key | action | params |
    |---|---|---|
-   | `config.config` | `config.getConfig` | `{}` |
-   | `dashboard.summary` | `dashboard.getSummary` | `{}` |
-   | `estoque.Items.TODOS` | `estoque.getItems` | `{}` |
-   | `catalog.products.code.asc` | `catalog.getProducts` | `{ sortBy: 'code', sortOrder: 'asc' }` |
-   | `orders.all.30` | `orders.getRecent` | `{ limit: 30 }` |
+   | `config.config` | `config.getConfig` | `{ forceFresh: true }` |
+   | `dashboard.summary` | `dashboard.getSummary` | `{ forceFresh: true }` |
+   | `estoque.Items.TODOS` | `estoque.getItems` | `{ forceFresh: true }` |
+   | `catalog.products.code.asc` | `catalog.getProducts` | `{ sortBy: 'code', sortOrder: 'asc', forceFresh: true }` |
+   | `orders.all.30` | `orders.listUnified` | `{ marketplace: 'all', limit: 30, forceFresh: true }` |
+   | `nfeEntrada.recent` | `nfeEntrada.getRecent` | `{ limit: 20, forceFresh: true }` |
+   | `nfeEntradaProdutos.produtos` | `nfeEntradaProdutos.getProdutos` | `{ forceFresh: true }` |
+   | `manualEntrada.listEntries` | `manualEntrada.listEntries` | `{ limit: 500, forceFresh: true }` |
+   | `manualSaida.listExits` | `manualSaida.listExits` | `{ limit: 500, forceFresh: true }` |
+   | `carteiraShopee.snapshot` | `carteiraShopee.getWalletSnapshot` | `{ forceFresh: true }` |
+   | `anunciosShopee.listings` | `anunciosShopee.getListings` | `{ forceFresh: true }` |
+   | `shopeeAds.campanhas` | `shopeeAds.getCampaigns` | `{ forceFresh: true }` |
+   | `shopeeAds.balance` | `shopeeAds.getBalance` | `{ forceFresh: true }` |
 
-2. **Mapa `ROUTE_PREFETCH`** (tag da rota → lista `{key, action, params}`):
+   `forceFresh` remove a key do `CacheService` no backend antes da releitura
+   (services que NÃO honram `forceFresh`: sem cache server = sempre fresh;
+   outros DEVS devem honrar — regra em `specs/data-client.md`).
+
+2. **Mapa `ROUTE_PREFETCH`** (tag da rota → lista `{key, action, params}`,
+   SEM `forceFresh` — só cobre o caso de navegar antes do boot terminar;
+   dedupe torna o re-fetch livre):
+
    | Rota | Entradas de preload |
    |---|---|
    | `orders` | `orders.all.30` (`orders.listUnified`) |
@@ -44,25 +64,27 @@ bloquear a renderização da aba destino.
    | `dashboard` | fora do mapa (crítico cobre) |
 
    As chaves acima foram confirmadas como as que as views leem/gravam
-   (grep de `__DataStore` nas views em 09/08/2026).
+   (grep de `__DataClient` nas views em 09/08/2026).
 
 3. **Disparo:** dentro de `navigate()`, após trocar a rota:
-   `window.__DataStore.preFetch(ROUTE_PREFETCH[tag])` — `preFetch` já ignora
+   `window.__DataClient.preFetch(ROUTE_PREFETCH[tag])` — `preFetch` já ignora
    chaves cacheadas e deduplica chamadas em voo (`_fetching`); resultado
    fire-and-forget via `Promise.allSettled` (não atrapalha a aba).
 
 4. **Views inalteradas:** nenhuma view precisa de mudança — todas já fazem
-   `getOrFetch` com fallback de cache (render imediato + fresh em
+   `fetchData`/`snapshot` com fallback de cache (render imediato + fresh em
    background), então a ausência do preload ativo não quebra nada.
 
 ## Critérios de aceite
 
-- [x] Boot dispara apenas as 5 chaves críticas.
+- [x] Boot dispara as 13 chaves, todas com `forceFresh: true` (dados reais
+      do Sheets em todo reload).
 - [x] `navigate()` dispara `preFetch` das chaves da rota destino (quando a
       rota estiver no mapa), sem await/bloqueio.
 - [x] Rota sem entrada no mapa não dispara nada.
-- [x] Nenhuma view alterada; navegação para todas as 9 telas continua igual.
-- [x] `Formatters`/`UiHelpers`/`DataStore` includes intactos (nada removido).
+- [x] Nenhuma view alterada para a navegação; aba troca instantânea no cache
+      client-side (mesma sessão, acabou de ler no boot).
+- [x] Includes: `DataStore.html` removido — `DataClient.html` único.
 
 ## Regressão
 

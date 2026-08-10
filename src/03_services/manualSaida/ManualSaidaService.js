@@ -139,7 +139,6 @@ var ManualSaidaService = (function () {
 
     var result = ManualSaidaProdutosRepository.appendRow(sheetId, rowData);
 
-    CacheRepository.invalidateByPattern('frontend_');
     CacheRepository.invalidateByPattern('catalog_');
     CacheRepository.invalidateByPattern('estoque_');
     CacheRepository.invalidateByPattern('dashboard_');

@@ -49,8 +49,9 @@ src/03_services     → Pricing, Orders, OrdersImport, Dashboard, Catalog,
                       Estoque, EstoqueBaixa, CarteiraShopee, AnunciosShopee,
                       ShopeeAds, Calculator, Sku, PushNotification (inativo), Status
 src/04_gateway      → ServiceRegistry + Router (doGet/doPost/apiDispatch)
-ui/shared           → Design tokens, DataStore (cache client-side), UiHelpers,
-                      Formatter, DebugConsole, DesignSystemLoader
+ui/shared           → Design tokens, DataClient (único arquivo de dados do
+                      cliente: cache + API), UiHelpers, Formatter,
+                      DebugConsole, DesignSystemLoader
 ui/shell            → Shell (navbar + rotas) + StatusView (indicador online)
 ui/<dominio>        → Widgets (Web Components com Shadow DOM)
 specs/              → ARQUITETURA.md (doc vivo) + spec de domínios novos em
@@ -60,13 +61,15 @@ docs/referencia/    → playbooks de payload validados + análise da API Tiops
 .opencode/command/  → mesmas regras acionáveis por /comando no OpenCode
 ```
 
-### DataStore — navegação instantânea
+### DataClient — arquivo único de dados (navegação instantânea + reload fresco)
 
-O app pré-busca em paralelo, ao carregar (`ui/shared/DataStore.html`), os
+O app pré-busca em paralelo, ao carregar (`ui/shared/DataClient.html`), os
 dados de praticamente todas as páginas (Config, Dashboard, NFe Entrada,
 Entrada Produtos, Catálogo, Pedidos, Estoque, Manual Entrada/Saída,
-Anúncios Shopee, Carteira Shopee, Shopee Ads) — ver lista completa e
-detalhes em `specs/ARQUITETURA.md` §2. Cada página já mostra dado do cache
+Anúncios Shopee, Carteira Shopee, Shopee Ads) — todas com `forceFresh: true`
+(reload = dados reais do Google Sheets; a navegação entre abas na mesma
+sessão usa o cache client-side em memória, zero rede no clique). Ver lista
+completa e detalhes em `specs/ARQUITETURA.md` §2. Cada página já mostra dado do cache
 ao ser aberta, sem esperar round-trip.
 
 ### Status Online + Speed Meter

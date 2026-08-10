@@ -519,6 +519,8 @@ var NFeEntradaProdutosService = (function () {
 
     try {
       var result = NFeEntradaProdutosRepository.updateStatus(sheetId, numeroNf, codigoProduto, status);
+      CacheRepository.invalidateByPattern('catalog_');
+      CacheRepository.invalidateByPattern('dashboard_');
       trace_('updateStatus:ok', 'Produto ' + codigoProduto + ' da NF ' + numeroNf + ' → ' + status, {
         numeroNf: numeroNf, codigoProduto: codigoProduto, status: status
       });

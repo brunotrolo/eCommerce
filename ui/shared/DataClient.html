@@ -300,6 +300,17 @@
       return entry ? entry.ts : null;
     }
 
+    // Compat legacy (antiga DataStore): busca com fetchData e resolve
+    // {error} em falha (nunca cacheia o erro). Código novo deve usar
+    // fetchData/mutateData diretamente.
+    function getOrFetch(key, action, params, opts) {
+      opts = opts || {};
+      return fetchData(action, params || {}, { key: key, maxAge: opts.maxAge }).then(
+        function (data) { return data; },
+        function (err) { return { error: err && err.message ? err.message : String(err) }; }
+      );
+    }
+
     // Bridge para chamadas legacy com withLoading (UiHelpers):
     // withLoading(btn, (s, f) => __DataClient.run('dom.action', params, { success: s, failure: f }), ...)
     // Mesmo contrato de google.script.run (envelope cru, sem unwrap) — rede
@@ -326,6 +337,7 @@
       get: get,
       has: has,
       set: set,
+      getOrFetch: getOrFetch,
       getTimestamp: getTimestamp
     };
   })();

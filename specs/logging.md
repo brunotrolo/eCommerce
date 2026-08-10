@@ -36,7 +36,7 @@ semântica atual (flush ao fim de execução).
      `Router` via `flushLogsForced_`, na ação `logging.flushLogs` chamada
      pelo cliente ao fim do `preFetch`, e no início de `logging.getLogs`):
      grava buffer + pendências em 1 `setValues` e limpa.
-3. **Fim determinístico da rajada:** o cliente (`DataStore.preFetch`) chama
+3. **Fim determinístico da rajada:** o cliente (`DataClient.preFetch`) chama
    `logging.flushLogs {force:true}` após `Promise.allSettled` — nada fica
    pendente no boot.
 4. Garantia de não-perda: pendências < `MIN_BATCH_SIZE` nunca são perdidas —
@@ -89,7 +89,7 @@ semântica atual (flush ao fim de execução).
   - `flushLogsForced_` no `Router` (doGet action, doPost action e push
     ACK); NÃO no `ServiceRegistry.dispatch` (que é usado também pelo
     `google.script.run` — forçar ali quebraria o coalescing do preload).
-  - `DataStore.preFetch` faz `logging.flushLogs {force:true}` após
+  - `DataClient.preFetch` faz `logging.flushLogs {force:true}` após
     `allSettled`.
   - `getLogs` drena pendências antes de ler a planilha.
   - Erros de cache são silenciosos (`best effort`): fallback máximo é

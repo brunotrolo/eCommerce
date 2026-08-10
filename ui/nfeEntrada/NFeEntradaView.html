@@ -265,9 +265,9 @@
 
           this._hideResults();
 
-          var cached = window.__DataStore && window.__DataStore.get('nfeEntrada.recent');
+          var cached = window.__DataClient && window.__DataClient.get('nfeEntrada.recent');
           if (cached) {
-            var rows = cached.data || cached;
+            var rows = (Array.isArray(cached) && cached) || cached.rows || cached.data;
             if (Array.isArray(rows) && rows.length > 0) {
               this.shadowRoot.getElementById('recent-card').hidden = false;
               this._renderTable(rows);
@@ -362,7 +362,7 @@
                 return;
               }
 
-              var rows = env.data || [];
+              var rows = (Array.isArray(env) && env) || env.rows || env.data || [];
               if (rows.length === 0) {
                 recentCard.hidden = false;
                 hint.textContent = 'Nenhuma NF-e importada ainda. Clique em "Sincronizar com Drive".';

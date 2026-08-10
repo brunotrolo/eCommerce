@@ -138,22 +138,25 @@ step e sem duplicação de CSS:
 (`ui/shared/Styles.html` + Shadow DOM) por Tailwind via CDN ou qualquer
 outra solução — ver §4.
 
-### Cache client-side e pré-carregamento (`window.__DataStore`)
+### Cache client-side e pré-carregamento (`window.__DataClient`)
 
-`ui/shared/DataStore.html` é o cache singleton do cliente: `_cache` em
-memória + `_fetching` (mapa de promises em voo, evita corrida se duas
-partes da UI pedem a mesma chave ao mesmo tempo).
+`ui/shared/DataClient.html` é o arquivo ÚNICO de dados do cliente: `_cache`
+em memória + `_fetching` (mapa de promises em voo, evita corrida se duas
+partes da UI pedem a mesma chave ao mesmo tempo) + unwrap único do envelope
++ dedupe + SWR. (A antiga `DataStore.html` foi consolidada nele e removida.)
 
-API: `get(key)`, `has(key)`, `set(key, data)`, `invalidate(key)`,
-`getOrFetch(key, action, params)` (retorna a promise em voo se já existe,
-senão chama `google.script.run.apiDispatch(action, params)`), `preFetch(entries)`
-(dispara todas as entradas ainda não cacheadas em paralelo via
-`Promise.allSettled`).
+API: `fetchData(action, params, opts)` (cache TTL 60s + stale-while-
+revalidate), `mutateData` (escrita, invalida o domínio por prefixo),
+`snapshot` (render do cache sem rede), `get(key)`, `has(key)`, `set(key, data)`,
+`invalidate(key)`, `getOrFetch(key, action, params)` (legacy),
+`preFetch(entries)` (paralelo via `Promise.allSettled`), `subscribe(prefix, cb)`.
 
-No boot, `Shell.html` chama `preFetch([...])` com as ações mais usadas do
-app — isso é o que garante que, ao abrir cada página, os dados já estejam
-disponíveis (sincronismo em background com a planilha, sem esperar o clique
-do usuário):
+No boot, `Shell.html` chama `preFetch([...])` com TODAS as ações de Sheets,
+todas com `forceFresh: true` (reload = dados reais do Google Sheets; o
+backend remove a key do `CacheService` e relê) — isso é o que garante que,
+ao abrir cada página na mesma sessão, os dados já estejam disponíveis no
+cache client-side (sincronismo em background com a planilha, sem esperar o
+clique do usuário):
 
 ```
 config.getConfig, dashboard.getSummary, nfeEntrada.getRecent,
@@ -163,13 +166,12 @@ anunciosShopee.getListings, carteiraShopee.getWalletSnapshot,
 shopeeAds.getCampaigns, shopeeAds.getBalance
 ```
 
-Cada `*View.html` segue o mesmo padrão de skip-fetch: se `!force && ds.has(cacheKey)`,
-renderiza direto do `DataStore` sem round-trip a `google.script.run`; um
-botão "Sincronizar" explícito passa `force=true` para buscar de novo e
-reescrever o cache. Ao adicionar uma tela nova, replicar esse padrão (ver
-`ui/orders/OrdersView.html`/`ui/shopeeAds/ShopeeAdsView.html` como
-referência) e adicionar a ação principal dela ao array de `preFetch` do
-`Shell.html`.
+Cada `*View.html` segue o mesmo padrão de skip-fetch: render do cache
+client-side (`fetchData` resolve na hora / `snapshot` antes do network) e o
+refresh em background mantém a frescura; botões "Atualizar" chamam
+`invalidate()` antes de re-buscar. Ao adicionar uma tela nova, usar o
+`DataClient` (nunca `google.script.run` direto) e adicionar a ação principal
+dela ao array de `preFetch` do `Shell.html` com `forceFresh: true`.
 
 ---
 

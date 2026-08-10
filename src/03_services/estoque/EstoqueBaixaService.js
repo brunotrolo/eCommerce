@@ -504,6 +504,10 @@ var EstoqueBaixaService = (function () {
 
     OrdersRepository.flushBaixaBulk(pedData, updatesMap);
 
+    CacheRepository.invalidateByPattern('catalog_');
+    CacheRepository.invalidateByPattern('estoque_');
+    CacheRepository.invalidateByPattern('dashboard_');
+
     var durationMs = new Date().getTime() - t0;
     var summary = 'Backfill concluído — processados: ' + processados + ', baixados: ' + baixados + ', erros: ' + erros + ', já processados: ' + jaProcessados + ', SKUs baixados: ' + totalSkusBaixados + ', SKUs sem estoque: ' + totalSkusPulados;
 

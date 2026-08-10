@@ -118,15 +118,18 @@ var ManualEntradaService = (function () {
 
     var result = ManualEntradaProdutosRepository.appendRow(sheetId, rowData);
 
+    if (result.success) {
+      // Entrada registrada no Sheets: caches derivados ficam obsoletos,
+      // independentemente do desfecho da importação para o estoque.
+      CacheRepository.invalidateByPattern('catalog_');
+      CacheRepository.invalidateByPattern('estoque_');
+      CacheRepository.invalidateByPattern('dashboard_');
+    }
+
     var estoqueImportado = null;
     if (result.success) {
       try {
         estoqueImportado = EstoqueService.importarDeManualEntrada({ logId: logId });
-        if (estoqueImportado && estoqueImportado.success && estoqueImportado.itemsImported > 0) {
-          CacheRepository.invalidateByPattern('catalog_');
-          CacheRepository.invalidateByPattern('estoque_');
-          CacheRepository.invalidateByPattern('dashboard_');
-        }
       } catch (e) {
         estoqueImportado = { error: 'Falha ao incluir no estoque: ' + (e.message || String(e)) };
       }

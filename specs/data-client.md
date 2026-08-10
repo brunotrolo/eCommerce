@@ -13,12 +13,32 @@ assinaturas incompatíveis de `withLoading` — o que causava páginas que
 "aparecem e outras não" (ex.: resposta `{error}` interpretada como lista
 vazia) e política de cache divergente por tela.
 
-O DataClient substitui o `DataStore` client-side (`ui/shared/DataStore.html`
-mantém a API antiga delegando ao DataClient, para não quebrar código
-existente). Ele NÃO cria acesso a Sheets no cliente: toda leitura/escrita
-continua passando por `google.script.run.apiDispatch` → Router →
-ServiceRegistry → Repositories. Ele é a fonte única de unwrap, erro, cache,
-dedupe de chamadas em voo e invalidação.
+`DataClient.html` é o **único** arquivo de dados do cliente — a antiga
+`DataStore.html` foi consolidada nele e removida (todas as views usam
+`window.__DataClient`). Ele NÃO cria acesso a Sheets no cliente: toda
+leitura/escrita continua passando por `google.script.run.apiDispatch` →
+Router → ServiceRegistry → Repositories. Ele é a fonte única de unwrap,
+erro, cache, dedupe de chamadas em voo e invalidação.
+
+## Regra de frescor: reload = dados reais do Sheets
+
+Todo reload do Web App NO boot dispara o preload com `forceFresh: true` em
+TODAS as ações de leitura que usam cache server-side (`CacheRepository`).
+Consequências:
+
+- **Reload** (`F5` / abertura): cada domínio cacheado lê o Google Sheets
+  real na hora (os services interpretam `params.forceFresh` removendo a key
+  do `CacheService` antes de ler).
+- **Navegação entre abas** na mesma sessão: continua instantânea — o boot
+  já carregou tudo; a view renderiza do cache client-side em memória (zero
+  rede no clique). `ROUTE_PREFETCH` (sem `forceFresh`) só cobre o caso de
+  navegar antes do boot terminar.
+- Domínios **sem** cache server (orders, nfeEntrada, nfeEntradaProdutos,
+  manualEntrada, manualSaida, config) já leem o Sheets a cada chamada —
+  nada muda para eles.
+- Qualquer novo service que use `CacheRepository.get`/`set` em leitura DEVE
+  aceitar `forceFresh` (remove a key antes do get) e documentar no
+  `describe()` — senão o reload não garante frescor real.
 
 ## Contrato da API
 
@@ -146,12 +166,14 @@ por view:
    repetir efeito colateral.
 7. **Escrita invalida o domínio inteiro**: `mutateData` → `invalidateByPrefix`
    automático; dados velhos nunca sobrevivem a uma escrita.
-8. **preFetch total no boot**: o Shell dispara no startup TODAS as rotas
-   com dados de Sheets em paralelo (`allSettled`) — ao navegar, a view
-   encontra o cache pronto e renderiza instantâneo; o SWR mantém a
-   frescura. `ROUTE_PREFETCH` por aba continua como segurança quando o
-   usuário navega antes do boot terminar (dedupe torna o re-fetch livre).
-   `logging.flushLogs` roda 1x no fim da rajada.
+8. **preFetch total no boot com forceFresh**: o Shell dispara no startup
+   TODAS as rotas com dados de Sheets em paralelo (`allSettled`), todas com
+   `forceFresh: true` — reload = dados reais do Sheets (ver seção "Regra de
+   frescor"). Ao navegar, a view encontra o cache client-side pronto (sessão
+   atual = acabou de ser lido) e renderiza instantâneo; o SWR mantém a
+   frescura. `ROUTE_PREFETCH` por aba (SEM forceFresh) continua como
+   segurança quando o usuário navega antes do boot terminar (dedupe torna o
+   re-fetch livre). `logging.flushLogs` roda 1x no fim da rajada.
 9. **Server-side cache é otimização, não requisito**: `CacheRepository.set`
    tem guard de 100KB (skip silencioso, nunca lança). Payload grande
    (catálogo, estoque, produtos) é comprimido com **gzip + base64**
@@ -232,21 +254,21 @@ por view:
 
 - `ui/shared/UiHelpers.html` — `showError`/`showSuccess` (incluído antes do
   DataClient no Shell.html).
-- `ui/shared/DataStore.html` — mantém compat: delega `getOrFetch`/`preFetch`
-  ao DataClient (sem duplicar unwrap).
 - `google.script.run.apiDispatch` — único ponto de rede (Router GAS).
 - Nenhuma ação Tiops nova (DataClient é agnóstico de action).
 
 ## Notas de Implementação
 
-- Arquivo novo `ui/shared/DataClient.html` (Web Component NÃO — script
-  global, mesmo padrão do DataStore).
-- `DataStore.html` vira delegate fino: `window.__DataStore` expõe a mesma
-  API chamando `window.__DataClient` por baixo (sem `_unwrap` próprio).
+- Arquivo único `ui/shared/DataClient.html` (Web Component NÃO — script
+  global, carregado antes das views no Shell.html). A antiga
+  `DataStore.html` foi removida: `get`/`has`/`set`/`invalidate`/`preFetch`/
+  `getOrFetch` foram absorvidos pelo DataClient (mesma API, mesmo cache).
 - Views migradas em ondas; cada onda = 1 commit. Onda 1: views que já usam
   `getOrFetch` (Estoque, NFeEntrada, NFeEntradaProdutos, CarteiraShopee
   parcial). Onda 2: cache manual (Dashboard, Catalog, AnunciosShopee,
   Orders, ManualEntrada, ManualSaida, NFeEntradaView etc.). Onda 3: sem
-  cache (Calculator, Status, Shell, ShopeeAds).
+  cache (Calculator, Status, Shell, ShopeeAds). Onda 4 (09/08/2026):
+  consolidação — `DataStore.html` removido, Shell/views migradas para
+  `window.__DataClient`, `preFetch` com `forceFresh` no boot.
 - `.clasp.json`/Shell.html: DataClient é HTML (não entra no filePushOrder JS;
   entra no include do Shell.html antes das views).

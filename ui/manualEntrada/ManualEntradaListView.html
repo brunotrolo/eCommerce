@@ -127,7 +127,7 @@
         var modal = self.shadowRoot.getElementById('modal-widget');
         if (modal) {
           modal.setOnSaveCallback(function () {
-            var ds = window.__DataStore;
+            var ds = window.__DataClient;
             if (ds) ds.invalidate('manualEntrada.listEntries');
             self._loadData();
           });

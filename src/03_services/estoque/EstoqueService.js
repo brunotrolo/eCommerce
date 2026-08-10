@@ -532,6 +532,8 @@ var EstoqueService = (function () {
       atualizarAlertasBulk_(sheetId, itemsByProductMap, codigos);
     }
 
+    invalidarCachesFluxo_();
+
     return {
       success: result.success,
       updated: result.updated || 0,
