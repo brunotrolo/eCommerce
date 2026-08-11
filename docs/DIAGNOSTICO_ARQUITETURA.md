@@ -197,3 +197,26 @@ grep -n "runSmokeTests_\|appendRow\|setValues" src/99_Main.js
   `FormatterService.parseDateTime`; registrado em `PLANO.md` §6 (riscos).
 - Contrato do motor FIFO: `reverterBaixa` devolve `custoTotal` das unidades
   revertidas (consumido pelos 3 fluxos compartilhados).
+
+## 9. Estado da implementação (atualização 11/08/2026)
+
+A seção §5 foi escrita em 09/08; a sequência recomendada (1→2→3, depois 4)
+foi executada. Status atual de cada item:
+
+| # | Item (§5) | Status | Onde / commit |
+|---|-----------|--------|---------------|
+| 1 | Flush de logs agrupado | ✅ implementado | `LoggingService.js` — buffer com coalescing `MIN_BATCH_SIZE=5` + pendências em `CacheService` (TTL 6h, nunca perdidas) + 1 `setValues` por dreno; `flushLogs()` não-forçado no `finally` do `ServiceRegistry.dispatch`. Commit `a607d1d` |
+| 2 | Cache server + limite no `getItems` | ✅ implementado | `EstoqueService.getItems` — `CacheRepository.getOrCompute(cacheKey, 300, …)` só na leitura sem filtros; `forceFresh` remove a key (botão Atualizar relê o Sheets); `limit` capa o retorno com `total` real; escritas invalidam `estoque_/catalog_/dashboard_`. Commits `a607d1d` + `9637f71` (TTL 5min) |
+| 3 | Regra de acoplamento + DAG | ✅ feito (docs) | `AGENTS.md` + `specs/ARQUITETURA.md` §1 (verificada em 09/08/2026) |
+| 4 | Separar smoke tests destrutivos | ✅ implementado | Menu GAS "Testes (Seguros)" × "Testes (Destrutivos)" (`runSafeSmokeTests_` / `runDestructiveSmokeTests_`). Commit `d4d5564` |
+| 5 | Lazy-load no preload do Shell | ✅ implementado | `ROUTE_PREFETCH` por aba no `navigate()` (Shell.html); boot mantém preFetch das 9 rotas com `forceFresh` (design do DataClient, AGENTS.md). Commit `d4d5564` |
+| 6 | Smoke anti-drift Catálogo × Pricing | ✅ implementado | `runAntiDriftSmokeTests_` (menu Testes (Seguros) → Anti-Drift Catálogo×Pricing). Commit `d4d5564` |
+| 7 | Unit tests locais (Node/Jest) | ⬜ backlog | Exige decisão do usuário: adiciona infra Node ao repo e muda o CI/workflow (AGENTS.md proíbe alterar workflow sem decisão explícita) |
+
+Decisões da Fase 9 (auditoria da baixa FIFO, §8) também fechadas: Tiers 1–3
+entregues (`eef9a37`, `aa19870`/`e3c0c56`, `4f6b68c` — J2a coberto pelo J1,
+J2b FIFO estrito sem código, J2c trigger diário 06h via menu Agendamento);
+Tier 4 (backlog evolutivo) decidido como "nada agora" — permanece em
+`PLANO.md` Fase 9. **Validação real pendente (usuário):** smoke das suítes
+no editor GAS, `reprocessarPendentes` em produção e o agendamento diário
+(autorização única do trigger).

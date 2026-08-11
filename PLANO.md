@@ -121,7 +121,8 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | 8 | Calculadora PrecificaPro | ✅ | ✅ |
 | 9 | Auditoria de regressões — Estoque FIFO (Tier 1) | ✅ (11/08/2026) | ⬜ |
 | 9 | Auditoria — Tier 2 (J1: revisão de envio — excedente de baixa parcial) | ✅ (11/08/2026) | ⬜ |
-| — | Auditoria — Tiers 3–4 (decisões J2) | ⬜ planejado | ⬜ aguarda decisão |
+| 9 | Auditoria — Tier 3 (J2: decisões + trigger diário 06h) | ✅ (11/08/2026) | ⬜ |
+| — | Auditoria — Tier 4 (backlog evolutivo — decidido: nada agora) | ⬜ backlog | ⬜ |
 | — | Status Online + Speed Meter | ✅ | ⬜ |
 | — | DataStore (cache client-side) | ✅ | ⬜ |
 | — | Estoque (unidades FIFO) | ✅ | ✅ |
@@ -243,7 +244,7 @@ com os 10 cenários Given/When/Then cobertos em `runCalculatorSmokeTests_()`
 widget dedicado descartada, bug de CSS `[hidden]`) está no log de commits e,
 como lição permanente, na tabela de riscos (seção 6).
 
-### Fase 9 — Auditoria de regressões do estoque FIFO (Tier 1 ✅ 11/08/2026, Tiers 2–4 planejados)
+### Fase 9 — Auditoria de regressões do estoque FIFO (Tiers 1–3 ✅ 11/08/2026; Tier 4 backlog)
 
 Origem: auditoria dirigida do fluxo de baixa de estoque (11/08/2026) sobre
 `EstoqueBaixaService`/`EstoqueRepository`/`OrdersImportService`/
@@ -312,9 +313,12 @@ baixadas.
   estado atual é persistido.
 - Alerta de estoque zerado/ocioso por produto (extensão de
   `_getEstoqueDisponivel`).
-- Itens de performance do diagnóstico de 09/08 (P1 dreno único de logs, P3
-  cache/limite no `getItems`) permanecem no backlog — sem relação com esta
-  auditoria.
+- Itens de performance do diagnóstico de 09/08 foram entregues depois deste
+  backlog: P1 (dreno único de logs, commit `a607d1d`) e P3/B2 (cache server
+  5min + `limit` no `getItems`, `a607d1d` + `9637f71`); B1/S2/P2 (smoke
+  destrutivos separados, anti-drift Catálogo×Pricing, lazy preload por aba no
+  Shell) em `d4d5564`. Estado completo em `docs/DIAGNOSTICO_ARQUITETURA.md`
+  §9.
 
 ### Shopee Ads — Gestão de Anúncios Pagos
 
