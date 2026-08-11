@@ -360,10 +360,19 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 Ver `docs/referencia/SHOPEE_CRIAR_ANUNCIO.md` e
 `docs/referencia/MERCADO_LIVRE_CRIAR_ANUNCIO.md` para a lista completa
-(regras usadas hoje pela contração Anúncios Shopee —
+(regras usadas hoje pelo domínio contraído Anúncios Shopee —
 `src/03_services/anunciosShopee/AnunciosShopeeService.js`,
 apenas `syncListings`/`updateSku` desde 10/08/2026; a página foi removida,
 mas o domínio segue como fonte de `item_sku` para a baixa de estoque).
+
+**`syncListings` roda dentro da cadeia "Sincronizar Tudo"** (`sincronizar` em
+ConfigRepository, passo `anunciosShopee.syncListings` no
+`DEFAULT_SYNC_STEPS` do Dashboard) e **recria a aba `ANUNCIOS_SHOPEE` se
+ausente** (`getOrCreateSheet` → `insertSheet`). Isso é por design, não side
+effect: a aba é o inventário master de anúncios Shopee consumido por
+`OrdersImportService` (restore de `ITEM_SKUS` em pedidos), pela baixa de
+estoque (`item_sku`) e pelo Parear SKU. Não remover o passo da cadeia nem a
+criação da aba sem migrar esses consumidores.
 Resumo crítico:
 - **Nunca confiar na resposta de um update/pause/activate para confirmar
   estado** — sempre reler com `get_item`/`shopee_get_item` depois (ex.: o

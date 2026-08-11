@@ -31,7 +31,7 @@ Não há bugs críticos nem necessidade de reestruturar domínios. Os achados s�
 ## 3. Pontos fortes (não mudar)
 
 ### Performance
-- **Caches server-side calibrados**: dashboard 5min, anúncios Shopee 30min, carteira Shopee 1h, shopeeAds 5–15min — via `CacheRepository.getOrCompute` com TTL por domínio.
+- **Caches server-side calibrados**: dashboard, catálogo e estoque 5min — via `CacheRepository.getOrCompute` com TTL por domínio (anúncios Shopee sem TTL próprio: a aba `ANUNCIOS_SHOPEE` é a fonte de verdade; os TTLs de carteira Shopee/shopeeAds citados na v1 não existem mais — domínios removidos em 10/08/2026).
 - **Escrita em lote** onde importa: `updateRowsBulk` / `updateRowsBulkPerRow` / `appendRows` (EstoqueRepository); `UrlFetchApp.fetchAll` + batch de escrow (OrdersImportService).
 - **Logging bufferizado**: `_logBuffer` + 1 `setValues` por flush (não um `appendRow` por log).
 

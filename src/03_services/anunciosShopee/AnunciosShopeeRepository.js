@@ -7,6 +7,9 @@
  * Nenhum serviço chama SpreadsheetApp diretamente; tudo passa por aqui.
  * Colunas são lidas/escritas por NOME (não por posição).
  * Datas sempre no padrão BR (dd/MM/yyyy HH:mm:ss) — só BR neste projeto.
+ * A aba ANUNCIOS_SHOPEE é AUTO-CRIADA pelo syncListings (getOrCreateSheet)
+ * — por design: é a fonte de item_sku consumida por OrdersImport (restore
+ * de ITEM_SKUS), pela baixa de estoque e pelo Parear SKU. Não remover.
  */
 var AnunciosShopeeRepository = (function () {
   var MAIN_SHEET = 'ANUNCIOS_SHOPEE';

@@ -3,7 +3,9 @@
  * ANUNCIOS_SHOPEE (fonte de item_sku p/ pedidos). A página "Anúncios Shopee"
  * foi removida em 10/08/2026 (decisão do usuário); restam apenas:
  *   - syncListings: sincroniza todos os anúncios (batch 100) e grava em Sheets
- *                    (usado pelo botão "Sincronizar anúncios" do Parear SKU)
+ *                    (passo da cadeia "Sincronizar Tudo" do Dashboard e botão
+ *                    "Sincronizar anúncios" do Parear SKU; recria a aba
+ *                    ANUNCIOS_SHOPEE se ausente — por design)
  *   - updateSku: grava o item_sku na Shopee e CONFIRMA por releitura
  *               (usado pelo pareamento e pelo sentinela SEM_ESTOQUE)
  *

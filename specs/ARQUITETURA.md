@@ -62,7 +62,10 @@ Cada domínio expõe `describe()` (ações + schema, no espírito do
 `anunciosShopee`/`carteiraShopee`; `carteiraShopee` e `shopeeAds` foram
 removidos em 10/08/2026 junto com as páginas, e `anunciosShopee` foi
 contraído para `syncListings`/`updateSku` — o repository segue sendo a fonte
-de `item_sku` para a baixa de estoque de pedidos.)
+de `item_sku` para a baixa de estoque de pedidos. `syncListings` é passo da
+cadeia "Sincronizar Tudo" (`DEFAULT_SYNC_STEPS`) e recria a aba
+`ANUNCIOS_SHOPEE` se ausente — consumida por `ordersImport`
+(restore de `ITEM_SKUS`), `produtoSkuMap` e pela baixa.)
 
 Convenção de namespace: um identificador global por arquivo
 (`var NomeService = (function(){...})();`), sempre `var` no top-level
