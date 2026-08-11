@@ -100,7 +100,7 @@ for (const f of allUi) {
   let um;
   while ((um = useRe.exec(js))) {
     const id = um[1] || um[2];
-    if (id && !globalIds.has(id) && !/^(estoque|manual-entrada(-list)?|manual-saida(-list)?)-widget$/.test(id)) {
+    if (id && !globalIds.has(id)) {
       add(`${rel(f)}: usa #${id} sem id= correspondente em nenhum template ui/`);
     }
   }
