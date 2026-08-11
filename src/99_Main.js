@@ -1157,6 +1157,32 @@ function runEstoqueBaixaSmokeTests_() {
     return totalBaixas >= totalSkusNoPedido ? 'BAIXADO' : 'PARCIAL';
   })(), 'BAIXADO');
 
+  // Cenário 10 (J2a, 11/08/2026): convergência em múltiplos ciclos — o
+  // reprocess rebaixa o que tem e o pedido só vira BAIXADO quando o
+  // agregado das rows BAIXADO alcança a quantidade vendida (PARCIAL
+  // enquanto isso). É o fluxo "rebaixar o que tem + o resto fica
+  // PENDENTE/PARCIAL, mantendo idempotência" — coberto pelo J1.
+  var ciclo1 = EstoqueBaixaService.calcularExcedente([
+    { STATUS: 'BAIXADO', QUANTIDADE: 3, ESTOQUE_IDS: 'A,B,C' }
+  ], 5);
+  expectEqual('J2a: ciclo 1 baixa 3 de 5 → faltante 2', ciclo1.faltante, 2);
+  expectEqual('J2a: ciclo 1 → pedido PARCIAL', ciclo1.totalJaBaixado >= 5 ? 'BAIXADO' : 'PARCIAL', 'PARCIAL');
+
+  var ciclo2 = EstoqueBaixaService.calcularExcedente([
+    { STATUS: 'BAIXADO', QUANTIDADE: 3, ESTOQUE_IDS: 'A,B,C' },
+    { STATUS: 'BAIXADO', QUANTIDADE: 2, ESTOQUE_IDS: 'D,E' }
+  ], 5);
+  expectEqual('J2a: ciclo 2 fecha 5/5 → faltante 0', ciclo2.faltante, 0);
+  expectEqual('J2a: ciclo 2 → pedido BAIXADO', ciclo2.totalJaBaixado >= 5 ? 'BAIXADO' : 'PARCIAL', 'BAIXADO');
+  expectEqual('J2a: ciclo 2 ids únicos 5', ciclo2.estoqueIds.join(','), 'A,B,C,D,E');
+
+  var ciclo3 = EstoqueBaixaService.calcularExcedente([
+    { STATUS: 'BAIXADO', QUANTIDADE: 3, ESTOQUE_IDS: 'A,B,C' },
+    { STATUS: 'BAIXADO', QUANTIDADE: 2, ESTOQUE_IDS: 'D,E' },
+    { STATUS: 'REVERTIDO', QUANTIDADE: 1, ESTOQUE_IDS: 'F' }
+  ], 5);
+  expectEqual('J2a: ciclo 3 com REVERTIDO não muda o agregado', ciclo3.totalJaBaixado, 5);
+
   if (failures.length) {
     Logger.log('FALHOU ESTOQUE BAIXA:\n' + failures.join('\n'));
     throw new Error(failures.length + ' Estoque Baixa smoke test(s) falharam — ver log.');

@@ -295,7 +295,7 @@ suíte Estoque Baixa (menu) e conferir a aba `ESTOQUE_BAIXAS` após um
 
 | Item | Problema | Plano | Decisão |
 |---|---|---|---|
-| **J2a** | `reprocessarPendentes` só rebaixa com estoque total; parcial enxugaria mais rápido | rebaixar o que tem + PENDENTE para o resto, mantendo idempotência | ⬜ usuário |
+| **J2a** | `reprocessarPendentes` só rebaixa com estoque total; parcial enxugaria mais rápido | rebaixar o que tem + PENDENTE para o resto, mantendo idempotência | ✅ coberto pelo J1 (11/08/2026) — motor já rebaixa o que existe (baixa parcial por design), o resto fica `PARCIAL` e converge ciclo a ciclo via chave `#R`; evidência no smoke cenário 10 |
 | **J2b** | PENDENTE rebaixa lote antigo (mapeado) antes do lote novo da compra | opção de reorder: lote novo na frente quando o antigo não sumir | ⬜ usuário |
 | **J2c** | Sync é manual ("Sincronizar Tudo"); pedidos só baixam no ciclo | avaliar trigger diário conservador (mudança de operação) | ⬜ usuário |
 

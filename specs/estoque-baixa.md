@@ -99,11 +99,13 @@ contrato do motor e o delta do J1.
   `PENDENTE_MAPEAMENTO` registra a quantidade pendente (não 0).
 
 ## Fora de Escopo
-- J2a (aceite de estoque parcial como decisão do reprocessamento) — o motor
-  já é parcial por design; a decisão de UI/operação fica na Fase 9 (decisão
-  do usuário).
-- J2b (reorder do lote novo acima do já-mapeado) — Fase 9.
-- J2c (agendamento de ciclos) — Fase 9.
+- J2a (aceite de estoque parcial como decisão do reprocessamento) — **coberto
+  pelo J1**: o motor já rebaixa o que existe (parcial por design), o resto
+  fica `PARCIAL`/`PENDENTE` e converge ciclo a ciclo via chaves `#R`,
+  mantendo idempotência. Sem código novo (evidência: smoke cenário 10).
+- J2b (reorder do lote novo acima do já-mapeado) — Fase 9 (decisão do
+  usuário).
+- J2c (agendamento de ciclos) — Fase 9 (decisão do usuário).
 - Fluxo de saída manual (Tier 1 corrigiu a baixa parcial lá para erro).
 
 ## Dependências
