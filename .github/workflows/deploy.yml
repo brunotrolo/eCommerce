@@ -23,10 +23,10 @@ jobs:
       - name: Validar sintaxe de src/**/*.js
         run: node .github/scripts/validate-js-syntax.js
 
-      - name: Auditoria de codigo morto (alias-aware: DataClient/FormatterService, ids, classes CSS, refs server, acoes describe)
+      - name: "Auditoria de codigo morto (alias-aware: DataClient/FormatterService, ids, classes CSS, refs server, acoes describe)"
         run: node .github/scripts/validate-dead-code.js
 
-      - name: Testes Node (servicos reais no sandbox GAS: formatter, pricing, baixa FIFO)
+      - name: "Testes Node (servicos reais no sandbox GAS: formatter, pricing, baixa FIFO)"
         run: node --test tests/*.test.js
 
   push:
