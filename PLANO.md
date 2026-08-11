@@ -205,6 +205,7 @@ em 09/08/2026 — não bloqueiam mais). Escopo:
 - Teste de contrato contra a Tiops: para cada ação usada, confirmar via
   `list_actions`/`describe_action` que nome e params ainda batem.
 - Estado de carregamento e vazio em todas as telas.
+- **[Adicionado 2026-08-11]** Integração obrigatória da skill `ecommerce-optimization` (advisory + gating) para otimização de anúncios Shopee/Mercado Livre — valida 4 restrições de negócio (sem buzzwords, preço com justificativa, descrição: edits menores, sem promoções inventadas) em qualquer fluxo de edição de listagem.
 
 Cada item vira uma spec própria antes de virar código (regra nº 1 do `AGENTS.md`).
 
