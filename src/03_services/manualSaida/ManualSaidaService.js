@@ -84,6 +84,15 @@ var ManualSaidaService = (function () {
 
     var produtoOrigem = _getProdutoOrigem(sheetId, params.codigoProduto);
 
+    // Pre-check FIFO: evita baixa parcial (que grava units como BAIXADO + linha
+    // em ESTOQUE_BAIXAS) seguida de erro — o estoque sumiria sem saída registrada.
+    var quantidadeInt = Math.floor(quantidade);
+    if (_getEstoqueDisponivel(sheetId, params.codigoProduto) < quantidadeInt) {
+      return {
+        error: 'Quantidade maior que o estoque disponível na aba ESTOQUE. Nenhuma saída registrada.'
+      };
+    }
+
     var now = new Date();
     var timestamp = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyyMMdd'T'HHmmss");
     var nonce = Utilities.getUuid().substring(0, 6);
@@ -131,6 +140,7 @@ var ManualSaidaService = (function () {
     }
 
     if (!baixa.success || (baixa.faltantes || 0) > 0) {
+      _rollbackBaixa_(logId);
       return { error: 'Quantidade maior que o estoque disponível na aba ESTOQUE. Nenhuma saída registrada.' };
     }
 
@@ -138,6 +148,11 @@ var ManualSaidaService = (function () {
     rowData.estoqueIds = (baixa.estoque_ids || []).join(',');
 
     var result = ManualSaidaProdutosRepository.appendRow(sheetId, rowData);
+
+    if (!result.success) {
+      _rollbackBaixa_(logId);
+      return { error: 'Falha ao registrar a saída manual. Baixa de estoque revertida — nenhuma saída registrada.' };
+    }
 
     CacheRepository.invalidateByPattern('catalog_');
     CacheRepository.invalidateByPattern('estoque_');
@@ -399,6 +414,22 @@ var ManualSaidaService = (function () {
     }
 
     return info;
+  }
+
+  function _rollbackBaixa_(logId) {
+    try {
+      var rev = EstoqueBaixaService.reverterBaixa({ referenciaOrigem: logId, motivo: 'CANCELADO' });
+      if (rev && rev.success) {
+        LoggingService.log({
+          service: 'ManualSaida', action: 'rollbackBaixa', status: 'WARN',
+          caller: 'ManualSaidaService',
+          summary: 'Rollback da baixa ' + logId + ' (' + (rev.revertidos || 0) + ' un.)',
+          durationMs: 0, context: { logId: logId, revertidos: rev.revertidos || 0 }
+        });
+      }
+    } catch (e) {
+      console.warn('ManualSaidaService: rollback falhou para ' + logId + ' — ' + e.message);
+    }
   }
 
   function _getEstoqueDisponivel(sheetId, codigoProduto) {

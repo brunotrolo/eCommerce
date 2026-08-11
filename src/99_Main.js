@@ -1099,6 +1099,22 @@ function runEstoqueBaixaSmokeTests_() {
   var r6 = EstoqueBaixaService.reverterBaixa({});
   expectTrue('reverterBaixa sem params retorna erro', !!r6.error);
 
+  // Cenário 7: FIFO por DATA_ENTRADA usa parse BR (dd/MM/yyyy HH:mm:ss).
+  // Regressão 11/08/2026: new Date() no V8 lia MM/dd e desordenava o lote.
+  if (typeof FormatterService !== 'undefined' && FormatterService.parseDateTime) {
+    var dA = FormatterService.parseDateTime('31/12/2025 23:59:59');
+    var dB = FormatterService.parseDateTime('01/01/2026 00:00:00');
+    expectTrue('FIFO: 31/12/2025 parseia como Date', dA instanceof Date);
+    expectTrue('FIFO: 01/01/2026 parseia como Date', dB instanceof Date);
+    if (dA instanceof Date && dB instanceof Date) {
+      expectEqual('FIFO: dia BR preservado (31/12)', dA.getDate() + '/' + (dA.getMonth() + 1), '31/12');
+      expectTrue('FIFO: 31/12/2025 antes de 01/01/2026', dA.getTime() < dB.getTime());
+    }
+    expectEqual('FIFO: data inválida (31/02) → null', FormatterService.parseDateTime('31/02/2026 10:00:00'), null);
+  } else {
+    failures.push('FormatterService.parseDateTime indisponível para teste FIFO');
+  }
+
   if (failures.length) {
     Logger.log('FALHOU ESTOQUE BAIXA:\n' + failures.join('\n'));
     throw new Error(failures.length + ' Estoque Baixa smoke test(s) falharam — ver log.');

@@ -468,8 +468,8 @@ var EstoqueService = (function () {
       var valA = a[sortField];
       var valB = b[sortField];
       if (sortField === 'DATA_ENTRADA') {
-        valA = new Date(valA || 0);
-        valB = new Date(valB || 0);
+        valA = toTimestamp_(valA);
+        valB = toTimestamp_(valB);
         return sortOrder === 'asc' ? valA - valB : valB - valA;
       }
       valA = parseFloat(valA) || 0;
@@ -478,6 +478,15 @@ var EstoqueService = (function () {
     });
 
     return items;
+  }
+
+  /**
+   * DATA_ENTRADA é "dd/MM/yyyy HH:mm:ss" (BR) — new Date() no V8 lê MM/dd
+   * e desordena a ordenação por data de entrada. Parse BR validado.
+   */
+  function toTimestamp_(value) {
+    var d = FormatterService.parseDateTime(value);
+    return d ? d.getTime() : 0;
   }
 
   function updateStatusBulk(params) {

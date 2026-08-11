@@ -136,9 +136,19 @@ var EstoqueRepository = (function () {
              String(r.SKU || '').trim() === identificador;
     });
     rows.sort(function (a, b) {
-      return new Date(a.DATA_ENTRADA) - new Date(b.DATA_ENTRADA);
+      return toTimestamp_(a.DATA_ENTRADA) - toTimestamp_(b.DATA_ENTRADA);
     });
     return rows;
+  }
+
+  /**
+   * DATA_ENTRADA é "dd/MM/yyyy HH:mm:ss" (BR) — new Date() no V8 lê MM/dd
+   * e desordena o FIFO (lote errado na baixa). Parse via FormatterService,
+   * que valida dia/mês (31/02 → null → timestamp 0 = mais antigo).
+   */
+  function toTimestamp_(value) {
+    var d = FormatterService.parseDateTime(value);
+    return d ? d.getTime() : 0;
   }
 
   /**

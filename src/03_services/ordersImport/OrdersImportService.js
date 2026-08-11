@@ -794,6 +794,7 @@ var OrdersImportService = (function () {
             });
             if (revResult.revertidos > 0) {
               reverts++;
+              custoTotal = Math.max(0, custoTotal - (Number(revResult.custoTotal) || 0));
               // Remove reverted estoqueIds from accumulated list
               var revIds = (revResult.estoque_ids || []).length > 0 ? revResult.estoque_ids : [];
               // Lookup the existing baixa to get the IDs that were reverted

@@ -229,7 +229,16 @@ var EstoqueBaixaService = (function () {
 
       // Update ESTOQUE rows (batch)
       var estoqueIds = (existing.ESTOQUE_IDS || '').split(',').filter(Boolean);
+      var custoTot = 0;
       if (estoqueIds.length > 0) {
+        var byId = {};
+        var itens = EstoqueRepository.getRows(sheetId);
+        for (var i = 0; i < itens.length; i++) {
+          byId[itens[i].ESTOQUE_ID] = itens[i];
+        }
+        for (var j = 0; j < estoqueIds.length; j++) {
+          custoTot += Number((byId[estoqueIds[j]] || {}).PRECO_CUSTO_ORIGINAL) || 0;
+        }
         EstoqueRepository.updateRowsBulk(sheetId, estoqueIds, { status: targetStatus, baixado: 'N' });
       }
 
@@ -247,7 +256,12 @@ var EstoqueBaixaService = (function () {
         context: { referenciaOrigem: params.referenciaOrigem, motivo: motivo, revertidos: estoqueIds.length }
       });
 
-      return { success: true, revertidos: estoqueIds.length, custoTotal: 0, motivo: motivo };
+      return {
+        success: true,
+        revertidos: estoqueIds.length,
+        custoTotal: Math.round(custoTot * 100) / 100,
+        motivo: motivo
+      };
 
     } finally {
       lock.releaseLock();
