@@ -246,10 +246,8 @@ removida — nenhuma view referencia `__DataStore`). API completa:
   (resolve do cache SEM rede, render imediato)
 - Escrita: `mutateData(action, params, opts)` — sem cache; invalida o
   domínio por prefixo automaticamente
-- Cache manual: `get(key)` / `has(key)` / `set(key, data)` /
-  `invalidate(key)` / `getOrFetch(key, action, params)` (legacy)
+- Cache manual: `get(key)` / `invalidate(key)`
 - `preFetch([{key, action, params}])` — busca múltiplos em paralelo no startup
-- `subscribe(prefix, cb)` — re-render quando refresh em background completa
 
 **Regra de frescor (obrigatória): reload = dados REAIS do Google Sheets.**
 O preFetch do boot dispara TODAS as rotas com `forceFresh: true`; o backend
@@ -306,7 +304,6 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 | `ui/shared/DesignSystemLoader.html` | Constrói `window.__DESIGN_SHEET__` |
 | `ui/shared/UiHelpers.html` | Funções `withLoading()` — usada por todos os widgets |
 | `ui/shared/Formatter.html` | Formatação de valores — usada por todos os widgets |
-| `ui/shared/DebugConsole.html` | Console de debug — afeta todas as chamadas |
 | `ui/shared/DataClient.html` | Cache client-side de dados (único arquivo) — usado por todas as views para navegação instantânea |
 | `ui/shell/StatusView.html` | Indicador de status online + speed meter — afeta nav bar |
 | `src/00_config/FormatterService.js` | Formatter server-side |
@@ -337,7 +334,6 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 - [ ] Testar nova página: carregamento, chamadas API, navegação
 - [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, NFe Entrada, Entrada Produtos, Estoque, Catálogo, Parear SKU
 - [ ] Verificar que `FormatterService` está acessível em todas as páginas
-- [ ] Verificar que `DebugConsole` funciona em todas as páginas
 
 ### Riscos conhecidos
 

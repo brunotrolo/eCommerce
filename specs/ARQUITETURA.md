@@ -150,9 +150,8 @@ partes da UI pedem a mesma chave ao mesmo tempo) + unwrap único do envelope
 
 API: `fetchData(action, params, opts)` (cache TTL 60s + stale-while-
 revalidate), `mutateData` (escrita, invalida o domínio por prefixo),
-`snapshot` (render do cache sem rede), `get(key)`, `has(key)`, `set(key, data)`,
-`invalidate(key)`, `getOrFetch(key, action, params)` (legacy),
-`preFetch(entries)` (paralelo via `Promise.allSettled`), `subscribe(prefix, cb)`.
+`snapshot` (render do cache sem rede), `get(key)`,
+`invalidate(key)`, `preFetch(entries)` (paralelo via `Promise.allSettled`).
 
 No boot, `Shell.html` chama `preFetch([...])` com TODAS as ações de Sheets,
 todas com `forceFresh: true` (reload = dados reais do Google Sheets; o
@@ -301,7 +300,7 @@ lg `0 24px 48px -8px rgba(0,0,0,.12)`, brand `0 8px 24px rgba(0,212,164,.08)`
 **Z-index**: base 1, dropdown 100, modal 1000, tooltip 1100, notification 1200.
 
 **Classes de componente já disponíveis** (não recriar do zero):
-`.card`/`.card--elevated`, `.panel`, `.btn` (+ `.btn-secondary`,
+`.card`, `.panel`, `.btn` (+ `.btn-secondary`,
 `.btn-tertiary`, `.btn--ghost`, `.loading`), `.form-field` (+ `.error`),
 `.table`/`.table-container`, `.badge` (success/warning/error/info/
 primary/secondary/shopee/mercado-livre — sempre ícone + cor, nunca cor

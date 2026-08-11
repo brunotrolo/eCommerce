@@ -70,10 +70,10 @@ escopo global da página, carregado antes das views no Shell.html).
 - Comportamentos:
   - Dedupe: chamadas concorrentes com a mesma key compartilham a mesma
     promise em voo.
-  - Cache faltante → busca → `set(key, data)` → resolve.
+  - Cache faltante → busca → grava no cache em memória → resolve.
   - Cache fresco → resolve imediatamente.
   - Cache stale → resolve imediatamente (stale) + refresh em background
-    (notifica listeners ao completar; falha de background é silenciosa e
+    (grava o cache ao completar; falha de background é silenciosa e
     mantém o stale).
   - `opts.root` + erro primário → `showError(root, message)` automático e
     rejeita.
@@ -81,16 +81,9 @@ escopo global da página, carregado antes das views no Shell.html).
 ### `snapshot(action, params, opts)`
 
 - Descrição: resolve com o dado em cache (ou `null`) SEM bater rede —
-  render instantâneo no `connectedCallback`; fresh vem de `fetchData`/
-  `subscribe` em background.
+  render instantâneo no `connectedCallback`; fresh vem de `fetchData` em
+  background.
 - Retorno: `data | null` (síncrono).
-
-### `subscribe(prefix, cb)`
-
-- Descrição: registra callback para re-render quando refreshes em
-  background (ou `set`/invalidação com prefixo) completarem.
-- `cb(key, data)` — `data === null` = invalidação/falha de background.
-- Retorno: função unsubscribe.
 
 ### `mutateData(action, params, opts)`
 
@@ -149,24 +142,20 @@ por view:
    - `maxAge` default 60s. Cache fresco resolve imediato (zero rede).
    - Cache expirado: resolve com o dado stale IMEDIATAMENTE (navegação
      instantânea) e dispara refresh em background; quando termina, atualiza
-     o cache e notifica listeners. A UI nunca espera rede para pintar.
+     o cache. A UI nunca espera rede para pintar.
 2. **Dedupe em voo**: N chamadas concorrentes à mesma key = 1 rede, 1
    promise compartilhada (cliques rápidos entre abas não geram rajada).
 3. **Snapshot**: `snapshot(action, params, opts)` resolve o que existe em
    cache (ou null) SEM rede — render imediato no `connectedCallback`; o
-   refresh é fetchData/subscribe em background.
-4. **Listeners por prefixo**: `subscribe('estoque', cb)` — a view re-renderiza
-   quando o refresh em background completa, em vez de re-buscar sozinha.
-   Erro de background notifica `cb(key, null)` e NÃO derruba a UI já pintada
-   (o stale continua valendo até o próximo ciclo).
-5. **Timeout de segurança**: `fetchData` rejeita após 90s (default;
+   refresh é fetchData em background.
+4. **Timeout de segurança**: `fetchData` rejeita após 90s (default;
    `opts.timeoutMs` por chamada) — nenhuma página fica presa para sempre.
-6. **Retry idempotente**: leituras têm 1 retry automático em falha
+5. **Retry idempotente**: leituras têm 1 retry automático em falha
    transiente (timeout/rede). Escritas (`mutateData`) retries=0 — nunca
    repetir efeito colateral.
-7. **Escrita invalida o domínio inteiro**: `mutateData` → `invalidateByPrefix`
+6. **Escrita invalida o domínio inteiro**: `mutateData` → `invalidateByPrefix`
    automático; dados velhos nunca sobrevivem a uma escrita.
-8. **preFetch total no boot com forceFresh**: o Shell dispara no startup
+7. **preFetch total no boot com forceFresh**: o Shell dispara no startup
    TODAS as rotas com dados de Sheets em paralelo (`allSettled`), todas com
    `forceFresh: true` — reload = dados reais do Sheets (ver seção "Regra de
    frescor"). Ao navegar, a view encontra o cache client-side pronto (sessão
@@ -261,8 +250,8 @@ por view:
 
 - Arquivo único `ui/shared/DataClient.html` (Web Component NÃO — script
   global, carregado antes das views no Shell.html). A antiga
-  `DataStore.html` foi removida: `get`/`has`/`set`/`invalidate`/`preFetch`/
-  `getOrFetch` foram absorvidos pelo DataClient (mesma API, mesmo cache).
+  `DataStore.html` foi removida: `get`/`invalidate`/`preFetch`
+  foram absorvidos pelo DataClient (mesma API, mesmo cache).
 - Views migradas em ondas; cada onda = 1 commit. Onda 1: views que já usam
   `getOrFetch` (Estoque, NFeEntrada, NFeEntradaProdutos, CarteiraShopee
   parcial). Onda 2: cache manual (Dashboard, Catalog, AnunciosShopee,

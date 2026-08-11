@@ -9,19 +9,16 @@
   // 2. Dedupe: chamadas concorrentes idênticas compartilham 1 única
   //    promise/rede (sem rajada de requests ao clicar em 3 abas).
   // 3. Snapshot: render com o que já existe em cache, SEM esperar rede.
-  // 4. Listeners por prefixo: a view se inscreve e re-renderiza quando o
-  //    refresh em background termina — nunca re-busca sozinha.
-  // 5. Retry idempotente (1x) em falha transiente de leitura; escrita
+  // 4. Retry idempotente (1x) em falha transiente de leitura; escrita
   //    nunca repete automaticamente.
-  // 6. Invalidação automática por prefixo de domínio após mutateData.
-  // 7. preFetch em paralelo com fire-and-forget (Promise.allSettled):
+  // 5. Invalidação automática por prefixo de domínio após mutateData.
+  // 6. preFetch em paralelo com fire-and-forget (Promise.allSettled):
   //    um domínio que falhar não derruba o preload dos outros.
   (function () {
     if (window.__DataClient) return;
 
     var _cache = {};      // key -> { data, ts }
     var _fetching = {};   // key -> Promise (dedupe)
-    var _listeners = {};  // prefix -> [cb(key, data|null)]
 
     var DEFAULT_MAX_AGE = 60 * 1000;        // 60s: frescor padrão de leitura
     var DEFAULT_TIMEOUT_MS = 90 * 1000;     // limite de segurança p/ leitura pesada
@@ -72,19 +69,6 @@
       if (!entry) return true;
       if (!maxAge || maxAge <= 0) return false;
       return (Date.now() - entry.ts) >= maxAge;
-    }
-
-    function _notify(key, data) {
-      var prefixes = Object.keys(_listeners);
-      for (var i = 0; i < prefixes.length; i++) {
-        var p = prefixes[i];
-        if (key.indexOf(p) === 0 || key.indexOf('dc.' + p) === 0) {
-          var cbs = _listeners[p];
-          for (var j = 0; j < cbs.length; j++) {
-            try { cbs[j](key, data); } catch (e) { /* view bug não derruba DataClient */ }
-          }
-        }
-      }
     }
 
     function _wire(handlers, action, params) {
@@ -152,8 +136,7 @@
         delete _fetching[key];
         if (opts.background) {
           // Refresh em background: mantém o stale que a UI já mostrou e
-          // avisa listeners com null (falha silenciosa, UI não quebra).
-          _notify(key, null);
+          // resolve null (falha silenciosa, UI não quebra).
           resolve(null);
         } else {
           _safeShowError(opts.root, isTimeoutError_(err, timeoutMs) ? err.message : err.message);
@@ -191,7 +174,7 @@
         if (!_fetching[key]) {
           _fetching[key] = _fetchFresh(key, action, params, { background: true, retries: 0 });
           _fetching[key].then(
-            function (data) { delete _fetching[key]; if (data !== null) _notify(key, data); },
+            function () { delete _fetching[key]; },
             function () { delete _fetching[key]; }
           );
         }
@@ -210,8 +193,8 @@
     }
 
     // Resolve com o que existe em cache (ou null) SEM bater rede — render
-    // instantâneo no connectedCallback; o refresh vem por fetchData/
-    // subscribe em background.
+    // instantâneo no connectedCallback; o refresh vem por fetchData em
+    // background.
     function snapshot(action, params, opts) {
       opts = opts || {};
       var key = _key(opts, action, params);
@@ -232,17 +215,6 @@
         return data;
       });
       return p;
-    }
-
-    function subscribe(prefix, cb) {
-      if (!_listeners[prefix]) _listeners[prefix] = [];
-      if (_listeners[prefix].indexOf(cb) === -1) _listeners[prefix].push(cb);
-      return function unsubscribe() {
-        var arr = _listeners[prefix];
-        if (!arr) return;
-        var idx = arr.indexOf(cb);
-        if (idx !== -1) arr.splice(idx, 1);
-      };
     }
 
     function preFetch(entries) {
@@ -278,37 +250,11 @@
       for (var j = 0; j < fetching.length; j++) {
         if (fetching[j].indexOf(p1) === 0 || (p2 && fetching[j].indexOf(p2) === 0)) delete _fetching[fetching[j]];
       }
-      _notify(prefix, null);
     }
 
     function get(key) {
       var entry = _cache[key];
       return entry ? entry.data : null;
-    }
-
-    function has(key) {
-      return _cache[key] !== undefined;
-    }
-
-    function set(key, data) {
-      _cache[key] = { data: data, ts: Date.now() };
-      _notify(key, data);
-    }
-
-    function getTimestamp(key) {
-      var entry = _cache[key];
-      return entry ? entry.ts : null;
-    }
-
-    // Compat legacy (antiga DataStore): busca com fetchData e resolve
-    // {error} em falha (nunca cacheia o erro). Código novo deve usar
-    // fetchData/mutateData diretamente.
-    function getOrFetch(key, action, params, opts) {
-      opts = opts || {};
-      return fetchData(action, params || {}, { key: key, maxAge: opts.maxAge }).then(
-        function (data) { return data; },
-        function (err) { return { error: err && err.message ? err.message : String(err) }; }
-      );
     }
 
     // Bridge para chamadas legacy com withLoading (UiHelpers):
@@ -329,16 +275,11 @@
       mutateData: mutateData,
       snapshot: snapshot,
       preFetch: preFetch,
-      subscribe: subscribe,
       invalidate: invalidate,
       invalidateByPrefix: invalidateByPrefix,
       unwrap: unwrap,
       run: run,
-      get: get,
-      has: has,
-      set: set,
-      getOrFetch: getOrFetch,
-      getTimestamp: getTimestamp
+      get: get
     };
   })();
 </script>

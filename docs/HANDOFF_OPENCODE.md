@@ -226,7 +226,7 @@ TAREFA
 3. Confirme que o indicador mostra 🟢 (verde) quando online e 🔴
    (vermelho) quando offline.
 4. Confirme que o timing mostra "X.XXs (GAS: X.XXs | CPU: X.XXs)".
-5. Abra o Debug Console (Ctrl+E), aba "Erros (browser)", e confirme que
+5. Abra Extensões → Logger no editor Apps Script e confirme que
    os logs do StatusView aparecem (constructor, connectedCallback, fetch).
 
 RESTRIÇÕES
@@ -235,7 +235,7 @@ RESTRIÇÕES
 - Design tokens: usar --color-success e --color-error de Styles.html.
 
 ACEITE
-Status 🟢 aparece, timing funciona, debug logs visíveis no Debug Console.
+Status 🟢 aparece, timing funciona, logs visíveis no Logger do Apps Script.
 ```
 
 ---
@@ -248,8 +248,8 @@ DataClient (ui/shared/DataClient.html) é o arquivo ÚNICO de dados do
 cliente, exposto em window.__DataClient (a antiga DataStore.html foi
 consolidada nele e removida). API: fetchData (cache TTL 60s + SWR, dedupe,
 retry 1x), mutateData (escrita, invalida domínio por prefixo), snapshot
-(render do cache sem rede), get/has/set/invalidate/getOrFetch, preFetch,
-subscribe. Toda view usa __DataClient — nunca google.script.run direto.
+(render do cache sem rede), get/invalidate, preFetch.
+Toda view usa __DataClient — nunca google.script.run direto.
 
 No boot o Shell dispara o preFetch de TODAS as rotas com forceFresh:true —
 reload = dados reais do Google Sheets (o backend remove a key do
@@ -269,8 +269,8 @@ TAREFA
    confirme que a segunda visita é instantânea (sem loading).
 4. Clique "Atualizar" em Dashboard e confirme que os dados são buscados
    novamente (invalidate + fetch).
-5. Abra Debug Console e verifique que as chamadas de pré-fetch aparecem
-   na aba "Chamadas".
+5. Confirme no Logger do Apps Script que as chamadas de pré-fetch
+   aparecem.
 
 RESTRIÇÕES
 - DataClient é só cache client-side, não armazena nada no servidor.
@@ -281,7 +281,7 @@ RESTRIÇÕES
 
 ACEITE
 Navegação entre páginas é instantânea na segunda visita; prefetch funciona;
-Debug Console mostra as chamadas; fallback sem cache funciona.
+logs confirmam as chamadas; fallback sem cache funciona.
 ```
 
 ---

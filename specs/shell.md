@@ -85,7 +85,7 @@ segurança para navegar antes do boot terminar.
 
 ## Regressão
 
-- Carregar app → confirmar no DebugConsole que o boot dispara apenas as 8
+- Carregar app → confirmar nos logs que o boot dispara apenas as 8
   chaves listadas (chaves críticas).
 - Navegar para Parear SKU → confirmar `produtoSkuMap.sugestoes` disparada na
   navegação (não no boot).

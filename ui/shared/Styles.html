@@ -262,10 +262,6 @@
     margin-bottom: 0;
   }
 
-  .card--elevated {
-    box-shadow: var(--shadow-md);
-  }
-
   .card h2 {
     margin: 0 0 var(--space-md) 0;
     font-size: var(--font-size-lg);
@@ -433,11 +429,6 @@
   .form-field.error textarea {
     border-color: var(--color-error);
     background: var(--color-error-light);
-  }
-
-  .form-field.error .form-error-text {
-    color: var(--color-error-text);
-    font-size: var(--font-size-xs);
   }
 
   /* ============================================================
@@ -686,9 +677,6 @@
     box-shadow: var(--shadow-brand);
   }
 
-  .stat-card--warning { border-top-color: var(--color-warning); }
-  .stat-card--success { border-top-color: var(--color-success); }
-
   .stat-card .stat-label {
     display: block;
     font-size: var(--font-size-xs);
@@ -708,8 +696,6 @@
   }
 
   .stat-card .stat-value--primary { color: var(--color-text); }
-  .stat-card .stat-value--warning { color: var(--color-warning-text); }
-  .stat-card .stat-value--success { color: var(--color-success-text); }
 
   .stat-card .stat-meta {
     display: block;
@@ -827,61 +813,6 @@
      ============================================================ */
   .table-container {
     overflow-x: auto;
-  }
-
-  /* ============================================================
-     RESULT CARDS — resultado destacado (Mintlify pricing-card)
-     ============================================================ */
-  .result-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-top: 3px solid transparent;
-    border-radius: var(--radius-lg);
-    padding: var(--space-card);
-  }
-
-  .result-card--success {
-    border-top-color: var(--color-accent);
-    box-shadow: var(--shadow-brand);
-  }
-
-  .result-card--error {
-    border-top-color: var(--color-error);
-    background: var(--color-error-light);
-  }
-
-  .result-card h3 {
-    margin: 0 0 var(--space-md) 0;
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  .result-card .result-price {
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: var(--letter-spacing-tight);
-    margin-bottom: var(--space-sm);
-  }
-
-  .result-card .result-line {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-md);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    margin-bottom: var(--space-xs);
-  }
-
-  .result-card .result-profit {
-    font-size: var(--font-size-md);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-success-text);
-    margin-top: var(--space-sm);
-  }
-
-  .result-card .result-error {
-    font-size: var(--font-size-sm);
-    color: var(--color-error-text);
   }
 
   /* ============================================================

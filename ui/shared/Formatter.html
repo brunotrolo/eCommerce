@@ -22,19 +22,6 @@ var FormatterService = (function () {
     return s;
   }
 
-  function removeNonDigits(str) {
-    return String(str).replace(/\D/g, '');
-  }
-
-  function roundDecimal(value, decimals) {
-    if (value === null || value === undefined) return 0;
-    var n = Number(value);
-    if (isNaN(n) || !isFinite(n)) return 0;
-    decimals = decimals !== undefined ? decimals : 2;
-    var factor = Math.pow(10, decimals);
-    return Math.round(n * factor) / factor;
-  }
-
   function toNumber(value) {
     if (value === null || value === undefined) return 0;
     var n = Number(value);
@@ -156,57 +143,7 @@ var FormatterService = (function () {
     return formatted + LOCALE_CONFIG.percent.symbol;
   }
 
-  function formatNumber(value, decimals) {
-    if (value === null || value === undefined) return '';
-    var num = toNumber(value);
-    decimals = decimals !== undefined ? decimals : 2;
-
-    var isNegative = num < 0;
-    if (isNegative) num = Math.abs(num);
-
-    var fixed = num.toFixed(decimals);
-    var parts = fixed.split('.');
-    var formatted = formatWithSeparators(parts[0], parts[1], LOCALE_CONFIG.number.decimalSeparator, LOCALE_CONFIG.number.thousandsSeparator, decimals);
-
-    if (isNegative) formatted = '-' + formatted;
-    return formatted;
-  }
-
-  function formatCNPJ(cnpj) {
-    var digits = removeNonDigits(cnpj);
-    if (digits.length !== 14) return ensureString(cnpj);
-    return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
-  }
-
-  function formatCPF(cpf) {
-    var digits = removeNonDigits(cpf);
-    if (digits.length !== 11) return ensureString(cpf);
-    return digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
-  }
-
-  function formatPhone(phone) {
-    var digits = removeNonDigits(phone);
-    if (digits.length === 11) return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
-    if (digits.length === 10) return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
-    return ensureString(phone);
-  }
-
-  function formatCEP(cep) {
-    var digits = removeNonDigits(cep);
-    if (digits.length !== 8) return ensureString(cep);
-    return digits.replace(/^(\d{5})(\d{3})$/, '$1-$2');
-  }
-
-  // ─── Parsing ─────────────────────────────────────────────────────
-
-  function parseCurrency(value) {
-    if (value === null || value === undefined) return 0;
-    var str = ensureString(value).replace(/R\$/gi, '').trim().replace(/\./g, '').replace(',', '.');
-    var num = parseFloat(str);
-    return isNaN(num) ? 0 : roundDecimal(num);
-  }
-
-  function parseDate(value, format) {
+  function formatDateTime(date, format) {
     if (value === null || value === undefined) return null;
     var str = ensureString(value).trim();
     if (!str) return null;
@@ -260,48 +197,15 @@ var FormatterService = (function () {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.hours, t.minutes, t.seconds);
   }
 
-  function parsePercent(value) {
-    if (value === null || value === undefined) return 0;
-    var str = ensureString(value).trim().replace(/%/g, '').trim().replace(/\./g, '').replace(',', '.');
-    var num = parseFloat(str);
-    if (isNaN(num)) return 0;
-    if (Math.abs(num) > 1) return roundDecimal(num / 100);
-    return roundDecimal(num);
-  }
-
-  function parseNumber(value) {
-    if (value === null || value === undefined) return 0;
-    var str = ensureString(value).trim().replace(/\./g, '').replace(',', '.');
-    var num = parseFloat(str);
-    return isNaN(num) ? 0 : num;
-  }
-
-  function parseCNPJ(cnpj) { return removeNonDigits(cnpj); }
-  function parseCPF(cpf) { return removeNonDigits(cpf); }
-  function parsePhone(phone) { return removeNonDigits(phone); }
-  function parseCEP(cep) { return removeNonDigits(cep); }
-
   return {
     formatCurrency: formatCurrency,
     formatDate: formatDate,
     formatTime: formatTime,
     formatDateTime: formatDateTime,
     formatPercent: formatPercent,
-    formatNumber: formatNumber,
-    formatCNPJ: formatCNPJ,
-    formatCPF: formatCPF,
-    formatPhone: formatPhone,
-    formatCEP: formatCEP,
-    parseCurrency: parseCurrency,
     parseDate: parseDate,
     parseTime: parseTime,
-    parseDateTime: parseDateTime,
-    parsePercent: parsePercent,
-    parseNumber: parseNumber,
-    parseCNPJ: parseCNPJ,
-    parseCPF: parseCPF,
-    parsePhone: parsePhone,
-    parseCEP: parseCEP
+    parseDateTime: parseDateTime
   };
 })();
 </script>

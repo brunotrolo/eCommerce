@@ -48,7 +48,7 @@ semântica atual (flush ao fim de execução).
 ## Casos de Borda
 - Rajada com 1 dispatch (clique isolado na UI): flush coalescente → 1
   entrada no buffer; fica pendente no cache e é drenada no próximo flush
-  forçado (`getLogs` do DebugConsole drena antes de ler).
+  forçado (`getLogs` drena antes de ler).
 - Rajada com 14 dispatches (preload): ~14 bufferizações na mesma execução +
   1 gravação em lote (no crossing do `MIN_BATCH_SIZE`) e o dreno final
   forçado pelo `preFetch`.
