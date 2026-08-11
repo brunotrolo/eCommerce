@@ -73,6 +73,11 @@ contrato do motor e o delta do J1.
   SKU único x5 com baixa de 2 fica `PARCIAL`, nunca `BAIXADO` (o `backfill`
   somava `totalBaixas` em unidades contra `totalSkusNoPedido` em entradas —
   corrigido no J1).
+- **Sync de pedidos novos** (`OrdersImportService.processBaixaForOrder_`):
+  mesmo gate por unidades + crédito de baixas pré-existentes agregadas
+  (`jaExistia` credita `totalJaBaixado` da referência, não 1 por entrada) —
+  pedido novo com baixa parcial nunca é marcado `BAIXADO`; permanece o
+  papel de 1ª tentativa, com a convergência do excedente no backfill.
 - Retentativa parcial de novo (faltou 1 de 3): pedido permanece `PARCIAL` até
   convergir — nunca `BAIXADO` incompleto.
 - Row `REVERTIDO` na mesma referência: ignorada na agregação (unidade voltou

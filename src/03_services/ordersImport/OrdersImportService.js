@@ -737,10 +737,24 @@ var OrdersImportService = (function () {
       // estoque unitário (decidido na ferramenta de pareamento) — nunca gera
       // pendência nem custo na baixa.
       if (sku === SEM_ESTOQUE_SKU_) continue;
-      totalSkusNoPedido++;
+      // J1 (11/08/2026): conta UNIDADES (qty), não entradas — senão uma
+      // baixa parcial de um SKU x5 (2 de 5) marcaria o pedido como BAIXADO
+      // e o backfill o pularia, deixando o excedente sem rebaixada.
+      totalSkusNoPedido += qty;
 
       var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
       var idempKey = refOrigem;
+
+      // J1: agrega rows BAIXADO pré-existentes da referência — quando uma
+      // baixa parcial anterior existe, o gate precisa creditar essas
+      // unidades (senão o pedido vira BAIXADO incompleto ou PENDENTE).
+      var excedenteRef = { totalJaBaixado: 0 };
+      if (typeof EstoqueBaixaService.calcularExcedente === 'function') {
+        excedenteRef = EstoqueBaixaService.calcularExcedente(
+          EstoqueBaixasRepository.getRows(ConfigService.getSheetId(), { referenciaOrigem: refOrigem }),
+          qty
+        );
+      }
 
       // Regra de negócio: pedido cancelado, devolvido OU NÃO PAGO (UNPAID)
       // nunca baixa estoque (o item só sai do estoque quando há pagamento).
@@ -762,7 +776,10 @@ var OrdersImportService = (function () {
             idempotencyKey: idempKey
           });
           if (result.baixados > 0 || result.jaExistia) {
-            baixas++;
+            // J1: conta UNIDADES baixadas — novas (result.baixados) ou já
+            // existentes na referência (aggregate, ex.: baixa parcial que
+            // voltou num sync posterior sem estoque suficiente).
+            baixas += result.jaExistia ? excedenteRef.totalJaBaixado : result.baixados;
             custoTotal += Number(result.custoTotal) || 0;
             if (result.estoque_ids && result.estoque_ids.length > 0) {
               allEstoqueIds = allEstoqueIds.concat(result.estoque_ids);

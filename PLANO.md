@@ -283,8 +283,10 @@ status contava entradas de SKU em vez de unidades. **Entregue:**
 `specs/estoque-baixa.md` + backfill com agregação de todas as rows `BAIXADO`
 da referência (soma `QUANTIDADE`, ids únicos, `REVERTIDO` ignorado) com
 retry do remanescente na chave determinística `#R<já-baixado>`; gate
-`PEDIDOS.BAIXADO` conta unidades; marcador `PENDENTE_MAPEAMENTO` grava a
-quantidade pendente real. Não alterou o motor FIFO nem a UI (`PARCIAL` já
+`PEDIDOS.BAIXADO` conta unidades (backfill **e** sync de pedidos — no sync,
+`jaExistia` credita o agregado da referência); marcador
+`PENDENTE_MAPEAMENTO` grava a quantidade pendente real. Não alterou o motor
+FIFO nem a UI (`PARCIAL` já
 existe). Smoke cenário 8/9. **Validação no app real ⬜** — rodar smoke da
 suíte Estoque Baixa (menu) e conferir a aba `ESTOQUE_BAIXAS` após um
 `reprocessarPendentes` real.
