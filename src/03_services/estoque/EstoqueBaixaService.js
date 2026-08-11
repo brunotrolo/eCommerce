@@ -122,7 +122,7 @@ var EstoqueBaixaService = (function () {
             referenciaOrigem: params.referenciaOrigem,
             origem: params.origem,
             codigoProduto: params.codigoProduto,
-            quantidade: 0,
+            quantidade: quantidade,
             estoqueIds: '',
             idempotencyKey: params.idempotencyKey,
             status: 'PENDENTE_MAPEAMENTO',
@@ -288,6 +288,27 @@ var EstoqueBaixaService = (function () {
     return backfillExistingOrders();
   }
 
+  function calcularExcedenteBaixa_(baixasRows, qty) {
+    // J1 (11/08/2026): agrega rows BAIXADO da mesma REFERENCIA_ORIGEM.
+    // Só rows com STATUS === 'BAIXADO' contam (REVERTIDO = unidade devolvida);
+    // ids são deduplicados. Devolve o que falta reprocessar.
+    var totalJaBaixado = 0;
+    var estoqueIds = [];
+    for (var i = 0; i < baixasRows.length; i++) {
+      if (String(baixasRows[i].STATUS || '').trim() !== 'BAIXADO') continue;
+      totalJaBaixado += parseInt(baixasRows[i].QUANTIDADE, 10) || 0;
+      var ids = String(baixasRows[i].ESTOQUE_IDS || '').split(',').filter(Boolean);
+      for (var j = 0; j < ids.length; j++) {
+        if (estoqueIds.indexOf(ids[j]) === -1) estoqueIds.push(ids[j]);
+      }
+    }
+    return {
+      totalJaBaixado: totalJaBaixado,
+      estoqueIds: estoqueIds,
+      faltante: Math.max(0, qty - totalJaBaixado)
+    };
+  }
+
   function backfillExistingOrders() {
     var t0 = new Date().getTime();
     var sheetId = ConfigService.getSheetId();
@@ -390,7 +411,9 @@ var EstoqueBaixaService = (function () {
         // Sentinela do pareamento: item_sku=SEM_ESTOQUE = item sem controle de
         // estoque unitário — nunca gera pendência nem custo na baixa.
         if (sku === SEM_ESTOQUE_SKU_) continue;
-        totalSkusNoPedido++;
+        // J1 (11/08/2026): conta UNIDADES (qty), não entradas — senão uma
+        // baixa parcial de um SKU x5 (2 de 5) marcaria o pedido como BAIXADO.
+        totalSkusNoPedido += qty;
 
         var refOrigem = 'SHOPEE#' + orderSn + ':' + sku;
         var idempKey = refOrigem;
@@ -405,17 +428,14 @@ var EstoqueBaixaService = (function () {
 
         try {
           var baixasRef = EstoqueBaixasRepository.getRows(sheetId, { referenciaOrigem: refOrigem });
-          var bxExistente = null;
-          for (var br = baixasRef.length - 1; br >= 0; br--) {
-            if (String(baixasRef[br].STATUS || '').trim() === 'BAIXADO') {
-              bxExistente = baixasRef[br];
-              break;
-            }
-          }
+          var somaBaixa = calcularExcedenteBaixa_(baixasRef, qty);
 
           var result;
-          if (bxExistente) {
-            var idsRef = (bxExistente.ESTOQUE_IDS || '').split(',').filter(Boolean);
+          if (somaBaixa.totalJaBaixado >= qty) {
+            // Já baixado por completo (possivelmente em várias tentativas):
+            // agrega ids e custo de TODAS as rows BAIXADO da mesma referência
+            // (rows REVERTIDO nunca entram — unidades devolvidas ao estoque).
+            var idsRef = somaBaixa.estoqueIds;
             var custoRef = 0;
             for (var cj = 0; cj < idsRef.length; cj++) {
               var itemRef = estoqueCostMap[idsRef[cj]];
@@ -430,6 +450,21 @@ var EstoqueBaixaService = (function () {
               jaExistia: true,
               viaReferencia: true
             };
+          } else if (somaBaixa.totalJaBaixado > 0) {
+            // Baixa parcial anterior (J1, 11/08/2026): reprocessa SÓ o que
+            // falta, com chave derivada determinística '#R<já-baixado>' —
+            // nunca colide com a tentativa original nem entre retentativas
+            // de valores distintos; idempotente se o mesmo ciclo repetir.
+            result = baixarPorProduto({
+              codigoProduto: sku,
+              quantidade: somaBaixa.faltante,
+              origem: 'PEDIDO_SHOPEE',
+              referenciaOrigem: refOrigem,
+              idempotencyKey: refOrigem + '#R' + somaBaixa.totalJaBaixado
+            });
+            if (result.baixados > 0 || result.jaExistia) {
+              result.preBaixado = somaBaixa.totalJaBaixado;
+            }
           } else {
             result = baixarPorProduto({
               codigoProduto: sku,
@@ -455,6 +490,7 @@ var EstoqueBaixaService = (function () {
           } else if (result.baixados > 0) {
             totalBaixas += result.baixados;
             totalSkusBaixados += result.baixados;
+            if (result.preBaixado) totalBaixas += result.preBaixado;
             orderEstoqueIds = orderEstoqueIds.concat(result.estoque_ids || []);
             orderCustoTotal += Number(result.custoTotal) || 0;
             LoggingService.log({
@@ -462,7 +498,7 @@ var EstoqueBaixaService = (function () {
               caller: 'EstoqueBaixaService',
               summary: 'Baixa OK: ' + orderSn + ' → SKU ' + sku + ' x' + result.baixados + ' (estoque_ids: ' + (result.estoque_ids || []).join(',') + ')',
               durationMs: 0,
-              context: { orderSn: orderSn, sku: sku, baixados: result.baixados, estoque_ids: result.estoque_ids, faltantes: result.faltantes }
+              context: { orderSn: orderSn, sku: sku, baixados: result.baixados, preBaixado: result.preBaixado || 0, estoque_ids: result.estoque_ids, faltantes: result.faltantes }
             });
           } else {
             totalSkusPulados++;
@@ -539,6 +575,7 @@ var EstoqueBaixaService = (function () {
     reverterBaixa: reverterBaixa,
     getBaixaStatus: getBaixaStatus,
     reprocessarPendentes: reprocessarPendentes,
-    backfillExistingOrders: backfillExistingOrders
+    backfillExistingOrders: backfillExistingOrders,
+    calcularExcedente: calcularExcedenteBaixa_
   };
 })();

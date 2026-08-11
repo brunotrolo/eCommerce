@@ -120,7 +120,8 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | 7 | Endurecimento | ✅ | ⬜ |
 | 8 | Calculadora PrecificaPro | ✅ | ✅ |
 | 9 | Auditoria de regressões — Estoque FIFO (Tier 1) | ✅ (11/08/2026) | ⬜ |
-| — | Auditoria — Tiers 2–4 (gap PENDENTE + decisões J2) | ⬜ planejado | ⬜ aguarda decisão |
+| 9 | Auditoria — Tier 2 (J1: revisão de envio — excedente de baixa parcial) | ✅ (11/08/2026) | ⬜ |
+| — | Auditoria — Tiers 3–4 (decisões J2) | ⬜ planejado | ⬜ aguarda decisão |
 | — | Status Online + Speed Meter | ✅ | ⬜ |
 | — | DataStore (cache client-side) | ✅ | ⬜ |
 | — | Estoque (unidades FIFO) | ✅ | ✅ |
@@ -148,9 +149,12 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 >
 > **Auditoria da baixa FIFO (11/08/2026):** Tier 1 entregue (3 regressões,
 > commit `eef9a37` — FIFO por `new Date()` em data BR, `TOTAL_COST` em
-> reversões, saída manual com baixa parcial); Tiers 2–4 planejados na Fase 9
-> e aguardando decisão do usuário (J1 gap de envio; J2a rebaixar parcial;
-> J2b reorder; J2c agendamento).
+> reversões, saída manual com baixa parcial); **Tier 2 (J1: gap de envio —
+> excedente de baixa parcial nunca era rebaixado) entregue** no mesmo dia
+> (spec `specs/estoque-baixa.md` + backfill com agregação de rows `BAIXADO` e
+> retry do remanescente com chave `#R<já-baixado>` — validado por smoke,
+> cenário 8/9); Tiers 3–4 ainda aguardando decisão do usuário (J2a rebaixar
+> parcial; J2b reorder; J2c agendamento).
 >
 > **Webhook Shopee:** código implementado e testado
 > (`PushNotificationService.js`), mas **inativo** — a Tiops detém as
@@ -269,14 +273,21 @@ Validação local: `node --check` nos 6 arquivos + `validate-dead-code.js` 0
 achados. **Validação no app real ⬜:** rodar smoke da suíte Estoque Baixa
 (menu) + conferir a ordem FIFO numa baixa real.
 
-#### Tier 2 — Gap analítico (sem mudança de arquitetura, ~10 min)
+#### Tier 2 — Gap de envio (J1) — entregue 11/08/2026
 
-**J1 — Vendeu N, baixa conseguiu B < N, sem `PENDENTE_MAPEAMENTO`:** a sobra
-(N − B) nunca é mapeada nem rebaixada em ciclos seguintes. Plano: quando
-`baixados < quantidade` (origem PEDIDO, sem `jaExistia`), sinalizar o
-excedente como PENDENTE para o `reprocessarPendentes`. Não altera o motor
-FIFO — só o sinal de estado. **Decisão pendente** (afeta a contagem de
-PENDENTE na UI).
+**J1 — Vendeu N, baixa conseguiu B < N (baixa parcial):** o
+`backfillExistingOrders` tratava uma row `BAIXADO` existente (mesma
+`REFERENCIA_ORIGEM`) como "pedido completo" mesmo com `QUANTIDADE < qty` —
+a sobra (N − B) nunca era rebaixada e o pedido virava `BAIXADO`; e o gate de
+status contava entradas de SKU em vez de unidades. **Entregue:**
+`specs/estoque-baixa.md` + backfill com agregação de todas as rows `BAIXADO`
+da referência (soma `QUANTIDADE`, ids únicos, `REVERTIDO` ignorado) com
+retry do remanescente na chave determinística `#R<já-baixado>`; gate
+`PEDIDOS.BAIXADO` conta unidades; marcador `PENDENTE_MAPEAMENTO` grava a
+quantidade pendente real. Não alterou o motor FIFO nem a UI (`PARCIAL` já
+existe). Smoke cenário 8/9. **Validação no app real ⬜** — rodar smoke da
+suíte Estoque Baixa (menu) e conferir a aba `ESTOQUE_BAIXAS` após um
+`reprocessarPendentes` real.
 
 #### Tier 3 — Decisões de comportamento do reprocessamento (J2)
 

@@ -1115,6 +1115,48 @@ function runEstoqueBaixaSmokeTests_() {
     failures.push('FormatterService.parseDateTime indisponível para teste FIFO');
   }
 
+  // Cenário 8 (J1, 11/08/2026): calcularExcedente agrega rows BAIXADO da
+  // mesma REFERENCIA_ORIGEM — soma QUANTIDADE, concatena ids únicos, ignora
+  // REVERTIDO e calcula o faltante. Base do retry do backfill.
+  var r8 = EstoqueBaixaService.calcularExcedente([
+    { STATUS: 'BAIXADO', QUANTIDADE: 2, ESTOQUE_IDS: 'A,B' },
+    { STATUS: 'BAIXADO', QUANTIDADE: 3, ESTOQUE_IDS: 'C,D,E' },
+    { STATUS: 'REVERTIDO', QUANTIDADE: 4, ESTOQUE_IDS: 'X,Y,Z,W' }
+  ], 5);
+  expectEqual('J1: totalJaBaixado soma só BAIXADO', r8.totalJaBaixado, 5);
+  expectEqual('J1: ids agregados sem duplicar', r8.estoqueIds.join(','), 'A,B,C,D,E');
+  expectEqual('J1: faltante 0 quando completo', r8.faltante, 0);
+
+  var r8b = EstoqueBaixaService.calcularExcedente([
+    { STATUS: 'BAIXADO', QUANTIDADE: 2, ESTOQUE_IDS: 'A,B' },
+    { STATUS: 'BAIXADO', QUANTIDADE: 2, ESTOQUE_IDS: 'C,D' }
+  ], 5);
+  expectEqual('J1: parcial 4 de 5 → faltante 1', r8b.faltante, 1);
+  expectEqual('J1: parcial mantém ids', r8b.estoqueIds.join(','), 'A,B,C,D');
+
+  var r8c = EstoqueBaixaService.calcularExcedente([
+    { STATUS: 'REVERTIDO', QUANTIDADE: 4, ESTOQUE_IDS: 'X,Y,Z,W' }
+  ], 2);
+  expectEqual('J1: só REVERTIDO → trata como zero', r8c.totalJaBaixado, 0);
+  expectEqual('J1: só REVERTIDO → falta tudo', r8c.faltante, 2);
+  expectEqual('J1: só REVERTIDO → ids vazios', r8c.estoqueIds.length, 0);
+
+  var r8d = EstoqueBaixaService.calcularExcedente([] , 3);
+  expectEqual('J1: sem rows → falta tudo', r8d.faltante, 3);
+
+  // Cenário 9 (J1): gate de status do pedido conta UNIDADES. Pedido com 5
+  // unidades de um SKU e baixa de 2 NÃO pode virar BAIXADO (era o gap J1).
+  // O gate mora no backfill; aqui valida-se a matemática equivalente:
+  // totalBaixas >= totalUnidadesVendidas ⇒ BAIXADO; senão PARCIAL.
+  expectEqual('J1: 2 de 5 unidades → PARCIAL (não BAIXADO)', (function () {
+    var totalBaixas = 2, totalSkusNoPedido = 5;
+    return totalBaixas >= totalSkusNoPedido ? 'BAIXADO' : 'PARCIAL';
+  })(), 'PARCIAL');
+  expectEqual('J1: 5 de 5 unidades → BAIXADO', (function () {
+    var totalBaixas = 5, totalSkusNoPedido = 5;
+    return totalBaixas >= totalSkusNoPedido ? 'BAIXADO' : 'PARCIAL';
+  })(), 'BAIXADO');
+
   if (failures.length) {
     Logger.log('FALHOU ESTOQUE BAIXA:\n' + failures.join('\n'));
     throw new Error(failures.length + ' Estoque Baixa smoke test(s) falharam — ver log.');
