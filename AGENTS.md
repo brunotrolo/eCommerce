@@ -428,6 +428,7 @@ mesmos arquivos são acionados pelos comandos `/nome` definidos em
 | `design-tokens-guard` | ao escrever ou revisar CSS/HTML em `ui/**` |
 | `gas-ops` | antes de `clasp push` / `clasp deploy` |
 | `gas-app-designer` | ao construir uma tela nova |
+| `ecommerce-optimization` | **antes de otimizar anúncios Shopee/Mercado Livre** — valida contra 4 restrições (sem buzzwords, preço com justificativa, descrição: edits menores, sem promoções inventadas) |
 | `handoff-prompt` | só no Claude Code: gerar prompt de execução p/ o OpenCode |
 
 ## Definition of Done (vale para qualquer tarefa)

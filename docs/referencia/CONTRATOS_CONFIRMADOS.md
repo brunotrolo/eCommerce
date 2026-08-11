@@ -162,3 +162,22 @@ encerrar campanha não for um fluxo necessário.
 que as usavam (`OrdersService`, `DashboardService`, `ListingsService`,
 `InventoryPricingService`) foram removidos em 09/08/2026; hoje leem direto
 da Google Sheets. Se reaparecerem no código, reconfirmar antes de usar.
+
+## Ecommerce Optimization Ações — confirmado em 2026-08-11
+
+Skill de suporte `ecommerce-optimization` (ver `.claude/skills/ecommerce-optimization/SKILL.md`) que valida e orienta otimizações de anúncios Shopee/Mercado Livre.
+**A skill é advisory + gating, não executa mudanças sozinha.** Ações Tiops usadas por referência (quando e se skill recomenda integração futura):
+
+| Ação | Contexto | Status |
+|---|---|---|
+| `shopee_get_item`, `shopee_update_item`, `shopee_update_price`, `shopee_update_stock` | Pre-flight checks antes de otimização (validar estado atual do item) | ✅ confirmadas em seção "Anuncios Shopee" acima |
+| `ml_get_item`, `ml_update_item` (via `update_item` ML) | Pre-flight checks antes de otimização (validar estado atual do item) | ✅ confirmadas em seção anterior |
+| `shopee_list_items`, `get_items` (ML) | Listar itens para diagnóstico de buzzwords/preço/descrição em lote | ✅ confirmadas em seções anteriores |
+
+**Importante:** a skill valida **contra estas regras de negócio** (não Tiops API):
+1. Sem buzzwords em títulos (detecta palavras de `docs/MARKETING_BUZZWORDS.md`)
+2. Preço requer justificativa (escalation se delta >15% ou manual override)
+3. Descrição: intervenções menores only (>70% content overlap via Jaccard)
+4. Promoções data-driven ou user-requested (nunca inventadas)
+
+Essas regras são **ortogonais** às validações de contrato Tiops — a skill **não faz chamadas Tiops**; apenas analisa conteúdo e recomenda. Se integração futura exigir chamadas (e.g., aplicar mudanças validadas), as ações serão `shopee_update_item`/`ml_update_item` com pre-flight check (post-flight verify obrigatória).

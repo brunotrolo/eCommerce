@@ -217,6 +217,7 @@ commits `a41a0c7`→`1b76c28`):
 - ✅ Padronização do tratamento de erro em todos os widgets — helpers únicos de `UiHelpers.html` (`withLoading`/`showError`/`showSuccess`); zero helpers locais nas views. (`withErrorHandling`/`withTimeout` existiam aqui mas foram removidos em 10/08/2026 — órfãos sem chamadores.)
 - ✅ Teste de contrato contra a Tiops — teste global 30 ações vs `list_actions`/`describe_action`, registro por serviço em `docs/referencia/CONTRATOS_CONFIRMADOS.md`; feature `shopee_ads_terminate_campaign` removida (404 real).
 - ✅ Estado de carregamento e vazio em todas as telas — tokens `.empty-state`/`.loading-state` em `Styles.html`, aplicados em todas as views.
+- ✅ **[Adicionado 2026-08-11]** Integração da skill `ecommerce-optimization` (advisory + gating) para otimização de anúncios Shopee/Mercado Livre — valida 4 restrições de negócio (sem buzzwords, preço com justificativa, descrição: edits menores, sem promoções inventadas) em fluxos de edição de listagem.
 
 Validação ⬜ (usuário): Status Online + Speed Meter, DataStore/DataClient, Webhook Shopee (inativo — requer app na Shopee Open Platform). As páginas Carteira Shopee, Anúncios Shopee e Shopee Ads foram removidas em 10/08/2026 (decisão do usuário) — não fazem mais parte da validação.
 
