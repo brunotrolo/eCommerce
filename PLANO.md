@@ -250,7 +250,9 @@ Origem: auditoria dirigida do fluxo de baixa de estoque (11/08/2026) sobre
 `EstoqueBaixaService`/`EstoqueRepository`/`OrdersImportService`/
 `ManualSaidaService`/`EstoqueService` — sem relato de bug do usuário, achados
 por análise estática e boas práticas de datas. Evidências completas em
-`docs/DIAGNOSTICO_ARQUITETURA.md` §8.
+`docs/DIAGNOSTICO_ARQUITETURA.md` §8. **Testes automatizados das regressões
+desta auditoria + taxas/formatação agora rodam no CI** (`tests/*.test.js` via
+`node --test`, harness em `tests/helpers/` — item 7 do DIAGNOSTICO §9).
 
 #### Tier 1 — Bugs de regressão (código ✅ commit `eef9a37`, validação ⬜ usuário)
 

@@ -26,6 +26,9 @@ jobs:
       - name: Auditoria de codigo morto (alias-aware: DataClient/FormatterService, ids, classes CSS, refs server, acoes describe)
         run: node .github/scripts/validate-dead-code.js
 
+      - name: Testes Node (servicos reais no sandbox GAS: formatter, pricing, baixa FIFO)
+        run: node --test tests/*.test.js
+
   push:
     needs: validate
     runs-on: ubuntu-latest

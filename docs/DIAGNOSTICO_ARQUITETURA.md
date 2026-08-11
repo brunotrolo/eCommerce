@@ -211,7 +211,7 @@ foi executada. Status atual de cada item:
 | 4 | Separar smoke tests destrutivos | ✅ implementado | Menu GAS "Testes (Seguros)" × "Testes (Destrutivos)" (`runSafeSmokeTests_` / `runDestructiveSmokeTests_`). Commit `d4d5564` |
 | 5 | Lazy-load no preload do Shell | ✅ implementado | `ROUTE_PREFETCH` por aba no `navigate()` (Shell.html); boot mantém preFetch das 9 rotas com `forceFresh` (design do DataClient, AGENTS.md). Commit `d4d5564` |
 | 6 | Smoke anti-drift Catálogo × Pricing | ✅ implementado | `runAntiDriftSmokeTests_` (menu Testes (Seguros) → Anti-Drift Catálogo×Pricing). Commit `d4d5564` |
-| 7 | Unit tests locais (Node/Jest) | ⬜ backlog | Exige decisão do usuário: adiciona infra Node ao repo e muda o CI/workflow (AGENTS.md proíbe alterar workflow sem decisão explícita) |
+| 7 | Unit tests locais (Node/Jest) | ✅ implementado | Harness Node sem deps: shims GAS em `tests/helpers/gas-shim.js` + `load-services.js` executa o `src/` REAL na ordem do `filePushOrder` dentro de `vm`; suítes em `tests/{formatter,pricing,estoque-baixa}.test.js` (31 testes, `node --test`). CI roda no `ci.yml` e antes do push no `deploy.yml` |
 
 Decisões da Fase 9 (auditoria da baixa FIFO, §8) também fechadas: Tiers 1–3
 entregues (`eef9a37`, `aa19870`/`e3c0c56`, `4f6b68c` — J2a coberto pelo J1,

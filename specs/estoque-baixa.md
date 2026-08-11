@@ -135,3 +135,7 @@ contrato do motor e o delta do J1.
 - `validateParams`/validações do engine inalteradas; lock do motor inalterado.
 - Smoke: cenário 8 da suíte Estoque Baixa em `src/99_Main.js` (agregação,
   `REVERTIDO` excluído, dedupe e faltante).
+- Testes Node no CI: `tests/estoque-baixa.test.js` (harness em
+  `tests/helpers/`, rodado por `node --test` nos workflows `ci.yml` e
+  `deploy.yml`) cobre os mesmos casos de borda da agregação contra o código
+  real de `src/` dentro do sandbox.
