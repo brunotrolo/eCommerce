@@ -96,40 +96,4 @@
   function UiHelpers_showError(root, message) {
     showError(root, message);
   }
-
-  // withErrorHandling(root, invoke, onSuccess): para chamadas google.script.run
-  // SEM botão (load inicial, refresh). Erro sempre visível, nunca silencioso.
-  function withErrorHandling(root, invoke, onSuccess) {
-    return invoke(function (response) {
-      if (response && response.error) {
-        showError(root, response.error);
-        return;
-      }
-      var data = response ? response.data : null;
-      if (data === null && response && !response.error) {
-        showError(root, 'Nenhuma resposta do servidor.');
-        return;
-      }
-      if (onSuccess) onSuccess(data);
-    }, function (err) {
-      showError(root, (err && err.message) || 'Erro de comunicação com o servidor.');
-    });
-  }
-
-  // withTimeout(promise, timeoutMs): rejeita se não resolver dentro do prazo.
-  // Útil para chamadas que podem travar (sync de carteira, relatórios grandes).
-  function withTimeout(promise, timeoutMs) {
-    return new Promise(function (resolve, reject) {
-      var timer = setTimeout(function () {
-        reject(new Error('Tempo limite excedido (' + timeoutMs + 'ms). Tente novamente.'));
-      }, timeoutMs);
-      promise.then(function (value) {
-        clearTimeout(timer);
-        resolve(value);
-      }, function (err) {
-        clearTimeout(timer);
-        reject(err);
-      });
-    });
-  }
 </script>

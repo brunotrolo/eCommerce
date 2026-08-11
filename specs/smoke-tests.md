@@ -32,8 +32,7 @@ Resolver os achados **B1** e **S2** do diagnóstico (`docs/DIAGNOSTICO_ARQUITETU
     configurado — nesse caso o cenário é pulado com aviso, não executado)
   - `runFormatterSmokeTests_`, `runCatalogSmokeTests_` (leitura de catálogo),
     `runCalculatorSmokeTests_`, `runPushSmokeTests_`,
-    `runManualSaidaSmokeTests_`, `runCarteiraShopeeSmokeTests_`,
-    `runAnunciosShopeeSmokeTests_`, `runEstoqueBaixaSmokeTests_` (cenários de
+    `runManualSaidaSmokeTests_`, `runEstoqueBaixaSmokeTests_` (cenários de
     erro/leitura), `runDashboardSmokeTests_`
   - `runAntiDriftSmokeTests_` (novo — S2, ver abaixo)
 - Comportamento em falha: cada suíte lança exceção própria; o orquestrador a

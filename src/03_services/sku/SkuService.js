@@ -118,13 +118,6 @@ var SkuService = (function () {
           },
           returns: { skus: 'array' }
         },
-        backfill: {
-          description: 'Gera SKUs para todos os itens existentes que não possuem SKU',
-          params: {
-            dryRun: { type: 'boolean', required: false, default: false, description: 'Se true, apenas mostra o que seria feito' }
-          },
-          returns: { processed: 'number', generated: 'number', skipped: 'number' }
-        },
         getAllExisting: {
           description: 'Retorna todos os SKUs já utilizados',
           params: {},
@@ -166,87 +159,6 @@ var SkuService = (function () {
       skus.push(result.sku);
     }
     return { skus: skus };
-  }
-
-  function backfill(params) {
-    var dryRun = params.dryRun === true;
-    var existingSkus = getAllExistingSkus_();
-    var processed = 0;
-    var generated = 0;
-    var skipped = 0;
-
-    var sheetsToProcess = [
-      { name: SHEETS.NFE, sheetId: ConfigService.getNfeEntradaProdutosSheetId ? ConfigService.getNfeEntradaProdutosSheetId() : null },
-      { name: SHEETS.MANUAL_ENTRADA, sheetId: ConfigService.getManualEntradaProdutosSheetId ? ConfigService.getManualEntradaProdutosSheetId() : null },
-      { name: SHEETS.MANUAL_SAIDA, sheetId: ConfigService.getManualSaidaProdutosSheetId ? ConfigService.getManualSaidaProdutosSheetId() : null },
-      { name: SHEETS.ESTOQUE, sheetId: ConfigService.getEstoqueSheetId ? ConfigService.getEstoqueSheetId() : null }
-    ];
-
-    for (var s = 0; s < sheetsToProcess.length; s++) {
-      var sheet = sheetsToProcess[s];
-      if (!sheet.sheetId) continue;
-
-      try {
-        var rows = SheetsRepository.getRows(sheet.name);
-        var updates = [];
-
-        for (var i = 0; i < rows.length; i++) {
-          var row = rows[i];
-          var currentSku = row.SKU || '';
-          var codigo = row.CODIGO_PRODUTO || '';
-          var descricao = row.DESCRICAO_PRODUTO || '';
-          var ncm = row.NCM || '';
-
-          processed++;
-
-          if (currentSku) {
-            skipped++;
-            continue;
-          }
-
-          if (!descricao && !codigo) {
-            skipped++;
-            continue;
-          }
-
-          var result = generate({
-            descricaoProduto: descricao || codigo,
-            ncm: ncm
-          });
-
-          var newSku = result.sku;
-          var attempts = 0;
-          while (existingSkus.indexOf(newSku) !== -1 && attempts < 100) {
-            var prefix = newSku.replace(/-\d{3}$/, '');
-            var nextSeq = getNextSequence_(prefix);
-            newSku = prefix + '-' + padNumber_(nextSeq, 3);
-            attempts++;
-          }
-
-          if (existingSkus.indexOf(newSku) === -1) {
-            existingSkus.push(newSku);
-            generated++;
-
-            if (!dryRun) {
-              updates.push({
-                rowIndex: i + 2,
-                sku: newSku
-              });
-            }
-          }
-        }
-
-        if (!dryRun && updates.length > 0) {
-          for (var u = 0; u < updates.length; u++) {
-            SheetsRepository.updateCell(sheet.name, updates[u].rowIndex, 'SKU', updates[u].sku);
-          }
-        }
-      } catch (e) {
-        console.warn('[SkuService] Erro ao processar aba ' + sheet.name + ': ' + e.message);
-      }
-    }
-
-    return { processed: processed, generated: generated, skipped: skipped };
   }
 
   function getAllExisting() {
@@ -366,7 +278,6 @@ var SkuService = (function () {
     generate: generate,
     resolve: resolve,
     batchGenerate: batchGenerate,
-    backfill: backfill,
     getAllExisting: getAllExisting,
     getCategoryLabel: getCategoryLabel,
     getCategoryByCodigo: getCategoryByCodigo

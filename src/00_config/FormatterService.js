@@ -50,10 +50,6 @@ var FormatterService = (function () {
     return String(str).replace(/\D/g, '');
   }
 
-  function removeNonAlpha(str) {
-    return String(str).replace(/[^a-zA-Z0-9]/g, '');
-  }
-
   function roundDecimal(value, decimals) {
     if (value === null || value === undefined) return 0;
     var n = Number(value);

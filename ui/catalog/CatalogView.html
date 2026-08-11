@@ -334,8 +334,6 @@
   (function () {
     if (customElements.get('catalog-widget')) return;
 
-    var SORT_LABELS = { code: 'Código', sku: 'SKU', categoria: 'Categoria', description: 'Descrição', unitCost: 'Custo', suggestedShopee: 'Preço Shopee' };
-
     function formatBRL(value) {
       return FormatterService.formatCurrency(value);
     }

@@ -3,6 +3,9 @@
 ## Status
 Implemented (2026-08-10)
 
+> Nota (10/08/2026): `withErrorHandling` do `UiHelpers.html` foi removido
+> (órfão sem chamadores) — a menção no Contrato abaixo fica como histórico.
+
 ## Objetivo
 Item 4 da Fase 7 (Endurecimento): toda tela deve ter **estado de
 carregamento** (primeira carga) e **estado vazio** (lista/dados sem

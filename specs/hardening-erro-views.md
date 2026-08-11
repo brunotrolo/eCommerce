@@ -6,6 +6,9 @@ Implemented (2026-08-10)
 > Nota (10/08/2026): `ShopeeAdsView`, `AnunciosShopeeView` e
 > `CarteiraShopeeView` foram **removidas** (páginas excluídas) — as menções
 > abaixo ficam como histórico do estado em que foram padronizadas.
+> `withErrorHandling`/`withTimeout` do `UiHelpers.html` também foram
+> removidos (órfãos sem chamadores, 10/08/2026) — as menções ficam como
+> histórico.
 
 ## Objetivo
 Item 3 da Fase 7 (Endurecimento): um único padrão de feedback de erro em

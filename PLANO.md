@@ -214,7 +214,7 @@ em 09/08/2026 — não bloqueiam mais). Entregue (código, specs Implemented,
 commits `a41a0c7`→`1b76c28`):
 
 - ✅ Log de operações de escrita em `SheetsRepository` (o que mudou, quando, resultado) — audit de UPDATE em `AnunciosShopeeRepository`.
-- ✅ Padronização do tratamento de erro em todos os widgets — helpers únicos de `UiHelpers.html` (`withLoading`/`showError`/`showSuccess`/`withErrorHandling`/`withTimeout`); zero helpers locais nas views.
+- ✅ Padronização do tratamento de erro em todos os widgets — helpers únicos de `UiHelpers.html` (`withLoading`/`showError`/`showSuccess`); zero helpers locais nas views. (`withErrorHandling`/`withTimeout` existiam aqui mas foram removidos em 10/08/2026 — órfãos sem chamadores.)
 - ✅ Teste de contrato contra a Tiops — teste global 30 ações vs `list_actions`/`describe_action`, registro por serviço em `docs/referencia/CONTRATOS_CONFIRMADOS.md`; feature `shopee_ads_terminate_campaign` removida (404 real).
 - ✅ Estado de carregamento e vazio em todas as telas — tokens `.empty-state`/`.loading-state` em `Styles.html`, aplicados em todas as views.
 

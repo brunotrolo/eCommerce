@@ -97,8 +97,7 @@
       <button class="btn" id="dbg-close" aria-label="Fechar">×</button>
     </div>
     <div class="dbg-tabs">
-      <button class="dbg-tab" data-tab="calls" data-active="true">Chamadas</button>
-      <button class="dbg-tab" data-tab="backend" data-active="false">Logs (backend)</button>
+      <button class="dbg-tab" data-tab="backend" data-active="true">Logs (backend)</button>
       <button class="dbg-tab" data-tab="front" data-active="false">Erros (browser)</button>
     </div>
     <div class="dbg-body" id="dbg-body"></div>
@@ -115,13 +114,7 @@
     if (window.__debugConsoleReady_) return;
     window.__debugConsoleReady_ = true;
 
-    window.__debugEvents_ = window.__debugEvents_ || [];
     window.__debugErrors_ = window.__debugErrors_ || [];
-
-    window.__debugCapture_ = function (evt) {
-      window.__debugEvents_.unshift(evt);
-      if (window.__debugEvents_.length > 200) window.__debugEvents_.pop();
-    };
 
     window.addEventListener('error', function (e) {
       window.__debugErrors_.unshift({
@@ -157,7 +150,7 @@
           this.shadowRoot.adoptedStyleSheets = [window.__DESIGN_SHEET__];
         }
         this.backendLogs = [];
-        this.activeTab = 'calls';
+        this.activeTab = 'backend';
       }
 
       connectedCallback() {
@@ -199,7 +192,6 @@
       }
 
       clear() {
-        window.__debugEvents_ = [];
         window.__debugErrors_ = [];
         this.backendLogs = [];
         this.render();
@@ -240,9 +232,7 @@
         body.innerHTML = '';
 
         var items = [];
-        if (this.activeTab === 'calls') {
-          items = window.__debugEvents_ || [];
-        } else if (this.activeTab === 'backend') {
+        if (this.activeTab === 'backend') {
           items = this.backendLogs;
         } else {
           items = window.__debugErrors_ || [];
@@ -251,9 +241,7 @@
         if (!items.length) {
           var empty = document.createElement('div');
           empty.className = 'dbg-empty';
-          if (this.activeTab === 'calls') {
-            empty.textContent = 'Nenhuma chamada registrada. Faça uma ação no app.';
-          } else if (this.activeTab === 'backend') {
+          if (this.activeTab === 'backend') {
             empty.textContent = 'Clique "Atualizar logs" para buscar do servidor.';
           } else {
             empty.textContent = 'Nenhum erro no browser.';
@@ -269,8 +257,6 @@
       }
 
       _renderRow(item) {
-        var self = this;
-        var isCall = item.action && item.durationMs !== undefined;
         var isApiError = item.result && item.result.error;
         var isBrowserError = item.kind && (item.kind.indexOf('onerror') !== -1 || item.kind.indexOf('rejection') !== -1);
         var isError = isApiError || isBrowserError || String(item.STATUS || '').toUpperCase() === 'ERROR';
@@ -283,31 +269,16 @@
 
         var action = document.createElement('span');
         action.className = 'dbg-action';
-        if (isCall) {
-          action.textContent = item.action;
-        } else if (item.ACTION) {
-          action.textContent = item.ACTION;
-        } else {
-          action.textContent = item.kind || '—';
-        }
+        action.textContent = item.ACTION || item.kind || '—';
 
         var status = document.createElement('span');
-        if (isCall) {
-          status.className = isApiError ? 'dbg-status--ERROR' : 'dbg-status--OK';
-          status.textContent = isApiError ? 'ERROR' : 'OK';
-        } else {
-          status.className = item.STATUS === 'ERROR' ? 'dbg-status--ERROR' : 'dbg-status--OK';
-          status.textContent = item.STATUS || '';
-        }
+        status.className = item.STATUS === 'ERROR' ? 'dbg-status--ERROR' : 'dbg-status--OK';
+        status.textContent = item.STATUS || '';
 
         var info = document.createElement('span');
         info.style.color = 'var(--color-text-tertiary)';
         info.style.fontSize = 'var(--font-size-2xs)';
-        if (isCall) {
-          info.textContent = item.durationMs + 'ms · ' + (item.ts || '');
-        } else {
-          info.textContent = (item.SERVICE || '') + ' · ' + (item.ENVIRONMENT || '') + ' · ' + (item.UPDATED_AT || '');
-        }
+        info.textContent = (item.SERVICE || '') + ' · ' + (item.ENVIRONMENT || '') + ' · ' + (item.UPDATED_AT || '');
 
         meta.appendChild(action);
         meta.appendChild(status);
@@ -316,22 +287,12 @@
 
         var sum = document.createElement('div');
         sum.className = 'dbg-sum';
-        if (isCall) {
-          var paramsStr = JSON.stringify(item.params || {});
-          if (paramsStr.length > 120) paramsStr = paramsStr.substring(0, 120) + '...';
-          sum.textContent = '→ ' + paramsStr;
-        } else {
-          sum.textContent = item.SUMMARY || item.message || '—';
-        }
+        sum.textContent = item.SUMMARY || item.message || '—';
         row.appendChild(sum);
 
         var detail = document.createElement('div');
         detail.className = 'dbg-detail';
-        if (isCall) {
-          var resultStr = JSON.stringify(item.result || {}, null, 2);
-          if (resultStr.length > 2000) resultStr = resultStr.substring(0, 2000) + '\n... (truncado)';
-          detail.textContent = 'PARAMS:\n' + JSON.stringify(item.params || {}, null, 2) + '\n\nRESULT:\n' + resultStr;
-        } else if (item.CONTEXT) {
+        if (item.CONTEXT) {
           detail.textContent = typeof item.CONTEXT === 'string' ? item.CONTEXT : JSON.stringify(item.CONTEXT, null, 2);
         } else if (item.stack) {
           detail.textContent = item.stack;
@@ -350,7 +311,6 @@
         var payload = {
           exportedAt: _fmtBrTs_(new Date()),
           url: window.location.href,
-          calls: (window.__debugEvents_ || []).slice(0, 50),
           backend: this.backendLogs.slice(0, 50),
           errors: window.__debugErrors_ || []
         };

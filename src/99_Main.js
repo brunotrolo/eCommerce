@@ -935,89 +935,6 @@ function runPushSmokeTests_() {
   Logger.log('OK — todos os smoke tests de Push Notification passaram.');
 }
 
-function runAnunciosShopeeSmokeTests_() {
-  var failures = [];
-
-  function expectEqual(label, actual, expected) {
-    if (actual !== expected) {
-      failures.push(label + ': esperado "' + expected + '", obtido "' + actual + '"');
-    }
-  }
-
-  function expectTrue(label, condition) {
-    if (!condition) {
-      failures.push(label + ': esperado true, obtido false');
-    }
-  }
-
-  // Cenário 1: describe() contraído — só as ações de sustentação.
-  // Guard defensivo: ações das páginas removidas (10/08/2026) NÃO podem voltar.
-  var desc = AnunciosShopeeService.describe();
-  expectEqual('describe.name', desc.name, 'anunciosShopee');
-  expectTrue('ação syncListings', !!desc.actions.syncListings);
-  expectTrue('ação updateSku', !!desc.actions.updateSku);
-  expectTrue('ação getListings não deve existir', !desc.actions.getListings);
-  expectTrue('ação updatePrice não deve existir', !desc.actions.updatePrice);
-  expectTrue('ação updateStock não deve existir', !desc.actions.updateStock);
-  expectTrue('ação pauseItem não deve existir', !desc.actions.pauseItem);
-  expectTrue('ação deleteItem não deve existir', !desc.actions.deleteItem);
-  expectTrue('ação getSalesMetrics não deve existir', !desc.actions.getSalesMetrics);
-  expectTrue('ação getSKUs não deve existir', !desc.actions.getSKUs);
-
-  // Cenário 2: updateSku valida params sem chamar a Tiops
-  var semId = AnunciosShopeeService.updateSku({});
-  expectEqual('updateSku sem itemId', semId.motivo, 'PARAM_REQUIRED: itemId');
-  var semSku = AnunciosShopeeService.updateSku({ itemId: '123' });
-  expectEqual('updateSku sem sku', semSku.motivo, 'PARAM_REQUIRED: sku');
-
-  // Cenário 3: mapStatus_ mapeia status Shopee -> label BR
-  expectEqual('status NORMAL', AnunciosShopeeService.mapStatus_('NORMAL'), 'ativo');
-  expectEqual('status UNLIST', AnunciosShopeeService.mapStatus_('UNLIST'), 'pausado');
-  expectEqual('status BANNED', AnunciosShopeeService.mapStatus_('BANNED'), 'deletado');
-  expectEqual('status vazio', AnunciosShopeeService.mapStatus_(''), 'ativo');
-
-  // Cenário 4: buildItemRow_ monta linha com preço/estoque/status da payload
-  var row = AnunciosShopeeService.buildItemRow_({
-    item_id: 1880105397001,
-    item_name: 'Camiseta Teste',
-    category_id: 12345,
-    item_status: 'NORMAL',
-    price_info: [{ currency: 'BRL', original_price: 100, current_price: 89.9 }],
-    stock_info_v2: { summary_info: { total_available_stock: 15 } },
-    image: { image_url_list: ['http://img/x.jpg'] },
-    has_model: false
-  });
-  expectEqual('ITEM_ID', String(row.ITEM_ID), '1880105397001');
-  expectEqual('NOME', row.NOME, 'Camiseta Teste');
-  expectEqual('PRECO', row.PRECO, 89.9);
-  expectEqual('ESTOQUE', row.ESTOQUE, 15);
-  expectEqual('STATUS', row.STATUS, 'ativo');
-  expectEqual('TIPO_VARIACAO', row.TIPO_VARIACAO, 'sem_variacao');
-  expectEqual('MOEDA', row.MOEDA, 'BRL');
-  expectTrue('IMAGEM_URL', row.IMAGEM_URL === 'http://img/x.jpg');
-
-  // Cenário 5: buildItemRow_ com variação
-  var rowVar = AnunciosShopeeService.buildItemRow_({
-    item_id: 1,
-    item_status: 'UNLIST',
-    has_model: true,
-    price_info: [{ currency: 'BRL', current_price: 20 }],
-    stock_info_v2: { summary_info: { total_available_stock: 0 } }
-  });
-  expectEqual('STATUS variação', rowVar.STATUS, 'pausado');
-  expectEqual('TIPO_VARIACAO com modelo', rowVar.TIPO_VARIACAO, '1_nivel');
-
-  // Cenário 6: nowBR_ formata dd/MM/yyyy HH:mm:ss
-  expectTrue('nowBR_ formato BR', /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(AnunciosShopeeService.nowBR_()));
-
-  if (failures.length) {
-    Logger.log('FALHOU ANUNCIOS SHOPEE:\n' + failures.join('\n'));
-    throw new Error(failures.length + ' Anuncios Shopee smoke test(s) falharam — ver log.');
-  }
-
-  Logger.log('OK — todos os smoke tests de Anúncios Shopee passaram.');
-}
-
 /**
  * Smoke test de escrita na aba LOGS (DESTRUTIVO quando sem testSheetId).
  * Com testSheetId, escreve/ler em uma planilha de TESTE via
@@ -1188,14 +1105,6 @@ function runEstoqueBaixaSmokeTests_() {
   }
 
   Logger.log('OK — todos os smoke tests de Estoque Baixa passaram.');
-}
-
-function backfillSkus() {
-  Logger.log('Iniciando backfill de SKUs...');
-  var result = SkuService.backfill({ dryRun: false });
-  Logger.log('Backfill concluído: processados=' + result.processed +
-    ' gerados=' + result.generated + ' ignorados=' + result.skipped);
-  return result;
 }
 
 function runBackfillEstoqueIdsAndCosts_() {

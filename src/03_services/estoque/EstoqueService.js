@@ -188,11 +188,6 @@ var EstoqueService = (function () {
     CacheRepository.invalidateByPattern('dashboard_');
   }
 
-  function verificarAlertaEstoqueBaixo_(sheetId, codigoProduto) {
-    var items = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto);
-    return items.length === 1;
-  }
-
   function atualizarAlertas_(sheetId, codigoProduto) {
     var items = EstoqueRepository.getItemsDisponivelPorProduto(sheetId, codigoProduto);
     var pending = [];

@@ -74,27 +74,6 @@ var TiopsClient = (function () {
     throw new Error(errMsg);
   }
 
-  function sanitizeParams_(params) {
-    if (!params || typeof params !== 'object') return params;
-    var clean = {};
-    var keys = Object.keys(params);
-    for (var i = 0; i < keys.length; i++) {
-      var val = params[keys[i]];
-      if (typeof val === 'string' && val.length > 200) {
-        clean[keys[i]] = val.substring(0, 200) + '...[truncated]';
-      } else if (typeof val !== 'function') {
-        clean[keys[i]] = val;
-      }
-    }
-    return clean;
-  }
-
-  function snippet_(text, maxLen) {
-    if (!text) return '';
-    if (text.length <= maxLen) return text;
-    return text.substring(0, maxLen) + '...[truncated]';
-  }
-
   function safeParse_(text) {
     try {
       return JSON.parse(text);

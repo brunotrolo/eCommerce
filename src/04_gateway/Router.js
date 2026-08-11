@@ -96,21 +96,7 @@ function handlePushResponse_(body, e) {
 
 /** Ponto único de dispatch, chamado por doGet/doPost e por google.script.run. */
 function apiDispatch(action, params) {
-  var startTime = Date.now();
   var result = ServiceRegistry.dispatch(action, params);
-  var durationMs = Date.now() - startTime;
-
-  if (typeof window !== 'undefined' && window.__debugCapture_) {
-    try {
-      window.__debugCapture_({
-        action: action,
-        params: params || {},
-        result: result,
-        durationMs: durationMs,
-        ts: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss')
-      });
-    } catch (e) { /* ignore */ }
-  }
 
   return result;
 }
