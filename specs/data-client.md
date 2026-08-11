@@ -113,6 +113,21 @@ escopo global da página, carregado antes das views no Shell.html).
   `dc.<dominio>...`.
 - Retorno: `void`.
 
+### `has(key)` (cache manual)
+
+- Descrição: `true` se existe entrada em memória para a key (mesmo que
+  velha/expirada). Usado por views legacy para decidir render imediato vs
+  fetch (padrão `has` → `get`).
+- Retorno: `boolean` (síncrono).
+
+### `set(key, data)` (cache manual)
+
+- Descrição: grava `data` direto no cache em memória (timestamp now).
+  Aditivo ao `fetchData` — usado por bridges legacy (`dc.run` + `withLoading`)
+  que recebem o envelope fora do fluxo normal de cache e precisam popular a
+  key para o próximo `has`/`snapshot`/`get`.
+- Retorno: `void`.
+
 ### `preFetch(entries)`
 
 - Descrição: busca N entradas em paralelo no startup (substitui o preFetch
@@ -225,8 +240,8 @@ por view:
   Then o fetch refaz a busca (invalidação por prefixo `estoque`).
 - Given 15 views migradas
   Then nenhuma view contém `_unwrap` próprio, `google.script.run` direto
-  (fora DataClient/transição sinalizada), cache manual `has/get/set` ou
-  `withLoading` local duplicado.
+  (fora DataClient/transição sinalizada) ou `withLoading` local duplicado.
+  Cache manual `has/get/set` é permitido (primitivas públicas do DataClient).
 - Given o backend caindo (failure handler)
   Then todas as views mostram o erro padronizado em `#error-box` (via root).
 

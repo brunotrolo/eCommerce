@@ -246,7 +246,7 @@ removida — nenhuma view referencia `__DataStore`). API completa:
   (resolve do cache SEM rede, render imediato)
 - Escrita: `mutateData(action, params, opts)` — sem cache; invalida o
   domínio por prefixo automaticamente
-- Cache manual: `get(key)` / `invalidate(key)`
+- Cache manual: `get(key)` / `has(key)` / `set(key, data)` / `invalidate(key)`
 - `preFetch([{key, action, params}])` — busca múltiplos em paralelo no startup
 
 **Regra de frescor (obrigatória): reload = dados REAIS do Google Sheets.**

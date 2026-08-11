@@ -257,6 +257,14 @@
       return entry ? entry.data : null;
     }
 
+    function has(key) {
+      return _cache[key] !== undefined;
+    }
+
+    function set(key, data) {
+      _cache[key] = { data: data, ts: Date.now() };
+    }
+
     // Bridge para chamadas legacy com withLoading (UiHelpers):
     // withLoading(btn, (s, f) => __DataClient.run('dom.action', params, { success: s, failure: f }), ...)
     // Mesmo contrato de google.script.run (envelope cru, sem unwrap) — rede
@@ -279,7 +287,9 @@
       invalidateByPrefix: invalidateByPrefix,
       unwrap: unwrap,
       run: run,
-      get: get
+      get: get,
+      has: has,
+      set: set
     };
   })();
 </script>
