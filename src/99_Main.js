@@ -44,6 +44,12 @@ function onOpen() {
           .addItem('Write Audit', 'runDestructiveSmokeTests_')
           .addItem('Backfill Estoque IDs+Cost', 'runBackfillEstoqueIdsAndCosts_')
       )
+      .addSeparator()
+      .addSubMenu(
+        SpreadsheetApp.getUi().createMenu('Agendamento')
+          .addItem('Agendar Sync Diário (06h)', 'agendarSyncDiario_')
+          .addItem('Rodar Sync Diário Agora', 'runSyncDiario_')
+      )
       .addToUi();
   } catch (e) {
     // Silently ignore when run from editor (no UI context)
@@ -564,6 +570,66 @@ function setupDailyCleanupTrigger_() {
 function clearOldLogs_() {
   var result = LoggingService.clearOldLogs();
   Logger.log('Limpeza de logs: ' + result.deleted + ' registros removidos.');
+}
+
+// J2c (11/08/2026): sync diário conservador — 1x/dia às 06h (fuso da
+// planilha) roda o import de pedidos + reprocessamento de baixa de estoque.
+// O agendamento é idempotente: deleta qualquer trigger existente do handler
+// antes de recriar (rodar o menu item de novo não duplica execuções).
+function agendarSyncDiario_() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'runSyncDiario_') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+
+  ScriptApp.newTrigger('runSyncDiario_')
+    .timeBased()
+    .everyDays(1)
+    .atHour(6)
+    .create();
+
+  Logger.log('Sync diário agendado (06h): ordersImport + reprocess de estoque.');
+  return { ok: true, message: 'Sync diário agendado para 06:00 (fuso da planilha).' };
+}
+
+// Job diário: import Shopee + reprocess de baixa. Cada passo roda em
+// try/catch próprio — falha de um não aborta o outro.
+function runSyncDiario_() {
+  var t0 = Date.now();
+  var result = { ordersImport: null, reprocessar: null, erros: [] };
+
+  try {
+    result.ordersImport = OrdersImportService.importShopeeOrders({});
+  } catch (e) {
+    result.erros.push('ordersImport: ' + e.message);
+    LoggingService.log({ service: 'syncDiario', action: 'ordersImport', status: 'ERROR', caller: 'syncDiario', summary: e.message, durationMs: 0, context: { error: e.message } });
+  }
+
+  try {
+    result.reprocessar = EstoqueBaixaService.reprocessarPendentes();
+  } catch (e) {
+    result.erros.push('estoqueBaixa.reprocessarPendentes: ' + e.message);
+    LoggingService.log({ service: 'syncDiario', action: 'reprocessarPendentes', status: 'ERROR', caller: 'syncDiario', summary: e.message, durationMs: 0, context: { error: e.message } });
+  }
+
+  var durationMs = Date.now() - t0;
+  var ok = result.erros.length === 0;
+  LoggingService.log({
+    service: 'syncDiario', action: 'run', status: ok ? 'OK' : 'WARN',
+    caller: 'syncDiario',
+    summary: 'Sync diário concluído em ' + durationMs + 'ms' + (ok ? '' : ' — erros: ' + result.erros.join('; ')),
+    durationMs: durationMs,
+    context: {
+      ordersImport: result.ordersImport ? { imported: result.ordersImport.imported, updated: result.ordersImport.updated, baixas: result.ordersImport.baixasRealizadas, faltantesEstoque: result.ordersImport.faltantesEstoque, pendentesMapeamento: result.ordersImport.pendentesMapeamento } : null,
+      reprocessar: result.reprocessar ? { processados: result.reprocessar.processados, baixados: result.reprocessar.baixados, erros: result.reprocessar.erros, jaProcessados: result.reprocessar.jaProcessados } : null,
+      erros: result.erros
+    }
+  });
+
+  Logger.log('Sync diário: ' + (ok ? 'OK' : 'WARN ' + result.erros.join('; ')) + ' (' + durationMs + 'ms)');
+  return result;
 }
 
 function debugNfeSync_() {

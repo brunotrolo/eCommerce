@@ -98,14 +98,28 @@ contrato do motor e o delta do J1.
 - Given estoque zerado na 1ª tentativa, When a baixa rodar, Then o marcador
   `PENDENTE_MAPEAMENTO` registra a quantidade pendente (não 0).
 
+## Agendamento diário (J2c, 11/08/2026)
+- Trigger **1x/dia às 06h** (fuso da planilha) criado pelo menu do editor
+  (Agendamento → "Agendar Sync Diário (06h)"), handler `runSyncDiario_` em
+  `src/99_Main.js` — executável também a qualquer hora pelo menu ("Rodar
+  Sync Diário Agora").
+- O job roda em try/catch separados: `OrdersImportService.importShopeeOrders`
+  e `EstoqueBaixaService.reprocessarPendentes` — falha de um não aborta o
+  outro; resultado completo logado em `LOGS` (action `syncDiario.run`).
+- Agendamento é idempotente: delete/recreate do trigger do handler (rodar o
+  item de menu de novo não duplica execuções diárias).
+- O disparo manual (botão na EstoqueView + Sincronizar Tudo) permanece
+  inalterado.
+
 ## Fora de Escopo
 - J2a (aceite de estoque parcial como decisão do reprocessamento) — **coberto
   pelo J1**: o motor já rebaixa o que existe (parcial por design), o resto
   fica `PARCIAL`/`PENDENTE` e converge ciclo a ciclo via chaves `#R`,
   mantendo idempotência. Sem código novo (evidência: smoke cenário 10).
-- J2b (reorder do lote novo acima do já-mapeado) — Fase 9 (decisão do
-  usuário).
-- J2c (agendamento de ciclos) — Fase 9 (decisão do usuário).
+- J2b (reorder do lote novo acima do já-mapeado) — **decisão 11/08/2026:
+  manter FIFO estrito**, sem código.
+- J2c (agendamento de ciclos) — **implementado** (ver "Agendamento diário"
+  acima).
 - Fluxo de saída manual (Tier 1 corrigiu a baixa parcial lá para erro).
 
 ## Dependências

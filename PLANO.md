@@ -151,10 +151,12 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > commit `eef9a37` — FIFO por `new Date()` em data BR, `TOTAL_COST` em
 > reversões, saída manual com baixa parcial); **Tier 2 (J1: gap de envio —
 > excedente de baixa parcial nunca era rebaixado) entregue** no mesmo dia
-> (spec `specs/estoque-baixa.md` + backfill com agregação de rows `BAIXADO` e
-> retry do remanescente com chave `#R<já-baixado>` — validado por smoke,
-> cenário 8/9); Tiers 3–4 ainda aguardando decisão do usuário (J2a rebaixar
-> parcial; J2b reorder; J2c agendamento).
+> (spec `specs/estoque-baixa.md` + backfill com agregação de rows `BAIXADO`
+> e retry do remanescente com chave `#R<já-baixado>`, gate por unidades no
+> backfill e no sync — validado por smoke, cenários 8-10); **Tier 3**
+> fechado: J2a coberto pelo J1, J2b decidido (FIFO estrito), J2c
+> implementado (trigger diário 06h via menu Agendamento); **Tier 4** ficou
+> backlog (decisão do usuário: nada agora).
 >
 > **Webhook Shopee:** código implementado e testado
 > (`PushNotificationService.js`), mas **inativo** — a Tiops detém as
@@ -296,8 +298,8 @@ suíte Estoque Baixa (menu) e conferir a aba `ESTOQUE_BAIXAS` após um
 | Item | Problema | Plano | Decisão |
 |---|---|---|---|
 | **J2a** | `reprocessarPendentes` só rebaixa com estoque total; parcial enxugaria mais rápido | rebaixar o que tem + PENDENTE para o resto, mantendo idempotência | ✅ coberto pelo J1 (11/08/2026) — motor já rebaixa o que existe (baixa parcial por design), o resto fica `PARCIAL` e converge ciclo a ciclo via chave `#R`; evidência no smoke cenário 10 |
-| **J2b** | PENDENTE rebaixa lote antigo (mapeado) antes do lote novo da compra | opção de reorder: lote novo na frente quando o antigo não sumir | ⬜ usuário |
-| **J2c** | Sync é manual ("Sincronizar Tudo"); pedidos só baixam no ciclo | avaliar trigger diário conservador (mudança de operação) | ⬜ usuário |
+| **J2b** | PENDENTE rebaixa lote antigo (mapeado) antes do lote novo da compra | opção de reorder: lote novo na frente quando o antigo não sumir | ✅ decidido 11/08/2026: **manter FIFO estrito** (sem código) — coerência de custo/contabilidade; reavaliar se o lote antigo não girar na prática |
+| **J2c** | Sync é manual ("Sincronizar Tudo"); pedidos só baixam no ciclo | avaliar trigger diário conservador (mudança de operação) | ✅ implementado 11/08/2026: menu **Agendamento → Agendar Sync Diário (06h)** — 1x/dia (fuso da planilha), `ordersImport` + `reprocessarPendentes` em try/catch separados; idempotente (deleta trigger existente do handler); botão manual continua |
 
 Critério de aceite do Tier 3: após uma semana de uso real, zero divergências
 entre `ESTOQUE`/`ESTOQUE_BAIXAS`/`PEDIDOS` (BAIXADO/PARCIAL/PENDENTE
