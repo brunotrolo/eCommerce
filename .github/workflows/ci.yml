@@ -22,3 +22,6 @@ jobs:
 
       - name: Validar sintaxe de src/**/*.js
         run: node .github/scripts/validate-js-syntax.js
+
+      - name: Auditoria de codigo morto (alias-aware: DataClient/FormatterService, ids, classes CSS, refs server, acoes describe)
+        run: node .github/scripts/validate-dead-code.js
