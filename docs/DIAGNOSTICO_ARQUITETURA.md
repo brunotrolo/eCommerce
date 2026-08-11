@@ -137,3 +137,63 @@ grep -n "preFetch\|getSummary\|getItems\|getProducts" ui/shell/Shell.html
 # Smoke destrutivo
 grep -n "runSmokeTests_\|appendRow\|setValues" src/99_Main.js
 ```
+
+## 8. Segundo diagnóstico — 11/08/2026: auditoria do domínio Estoque (baixa FIFO)
+
+> **Data:** 11/08/2026 — **Método:** análise de código-fonte dirigida ao fluxo
+> de baixa (grep + leitura), sem execução de runtime.
+> **Resultado:** 3 regressões corrigidas em `eef9a37` (Tier 1); plano dos
+> Tiers 2–4 em `PLANO.md` § Fase 9 — aguardando decisão do usuário.
+
+### 8.1 Bugs de regressão (corrigidos — Tier 1)
+
+#### R1 (crítico) — FIFO desordenado por `new Date()` em data BR
+- **Onde:** sort em `EstoqueRepository.getItemsDisponivelPorProduto` e
+  `EstoqueService` (filtro de `DATA_ENTRADA`) usavam
+  `new Date("dd/MM/yyyy HH:mm:ss")`.
+- **Problema:** V8/GAS interpreta `MM/dd/yyyy`; `31/12/2025` vira `NaN`
+  (ordem arbitrária) e `12/01/2026` troca dia/mês — a baixa FIFO pegava
+  **lote errado**.
+- **Fix:** `FormatterService.parseDateTime` (dia/mês BR validado; `31/02` →
+  `null` → timestamp 0 = mais antigo). Smoke: `runEstoqueBaixaSmokeTests_`
+  cenário 7.
+
+#### R2 — `TOTAL_COST` acumulado não era reduzido em reversões
+- **Onde:** `OrdersImportService.processBaixaForOrder_` revertia cancelado/
+  devolvido removendo só os IDs de `ESTOQUE_BAIXAS`.
+- **Fix:** `reverterBaixa` calcula `custoTotal` das units revertidas (mesma
+  fórmula do `baixarPorProduto` — `PRECO_CUSTO_ORIGINAL`) e o consome com
+  `Math.max(0, …)`.
+
+#### R3 — Saída manual: baixa parcial + erro = estoque sumia sem registro
+- **Onde:** `ManualSaidaService.addExit` — `baixarPorProduto` com estoque
+  insuficiente baixava parcial (units → `BAIXADO`, linha em
+  `ESTOQUE_BAIXAS`) e o serviço retornava "Nenhuma saída registrada".
+- **Fix:** pre-check de disponibilidade (`_getEstoqueDisponivel`) antes da
+  baixa + `_rollbackBaixa_` em baixa parcial e em falha de `appendRow`.
+
+### 8.2 Achados estruturais (Tiers 2–3 — decisão pendente, plano na Fase 9)
+
+#### A1 — Gap de envio: vendeu N, baixou B < N, excedente nunca mapeado
+- `baixarPorProduto` expõe `faltantes` mas nada persiste o excedente;
+  `reprocessarPendentes` só conhece `PENDENTE_MAPEAMENTO` → a unidade
+  perdida na primeira tentativa fica para sempre sem baixa (J1).
+
+#### A2 — `reprocessarPendentes` exige estoque total (não rebaixa parcial)
+- Checagem de suficiência com tudo-ou-nada; rebaixar parcial enxugaria
+  estoque ocioso mais rápido (J2a).
+
+#### A3 — Reorder: lote antigo mapeado bloqueia lote novo
+- Sem opção de preferir o lote novo da compra quando o antigo não sumiu
+  (J2b).
+
+#### A4 — Sync somente manual
+- "Sincronizar Tudo" é o único gatilho; não há agendamento de ciclos de
+  import/baixa (J2c — mudança de operação, decisão do usuário).
+
+### 8.3 Regras permanentes derivadas
+
+- **Nunca** `new Date(string BR)` no backend — sempre
+  `FormatterService.parseDateTime`; registrado em `PLANO.md` §6 (riscos).
+- Contrato do motor FIFO: `reverterBaixa` devolve `custoTotal` das unidades
+  revertidas (consumido pelos 3 fluxos compartilhados).

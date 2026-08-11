@@ -119,6 +119,8 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 | 6 | Preço & Estoque | — | Removida (09/08/2026) |
 | 7 | Endurecimento | ✅ | ⬜ |
 | 8 | Calculadora PrecificaPro | ✅ | ✅ |
+| 9 | Auditoria de regressões — Estoque FIFO (Tier 1) | ✅ (11/08/2026) | ⬜ |
+| — | Auditoria — Tiers 2–4 (gap PENDENTE + decisões J2) | ⬜ planejado | ⬜ aguarda decisão |
 | — | Status Online + Speed Meter | ✅ | ⬜ |
 | — | DataStore (cache client-side) | ✅ | ⬜ |
 | — | Estoque (unidades FIFO) | ✅ | ✅ |
@@ -143,6 +145,12 @@ Duas colunas de status, porque **código escrito ≠ funcionando**:
 > retorna `{ pendentes: [], total: 0 }` (critério de aceite 4; critério 1
 > coberto por smoke test; critérios 2/3 entram em uso quando houver anúncio
 > novo sem `item_sku` ou item marcado `SEM_ESTOQUE`).
+>
+> **Auditoria da baixa FIFO (11/08/2026):** Tier 1 entregue (3 regressões,
+> commit `eef9a37` — FIFO por `new Date()` em data BR, `TOTAL_COST` em
+> reversões, saída manual com baixa parcial); Tiers 2–4 planejados na Fase 9
+> e aguardando decisão do usuário (J1 gap de envio; J2a rebaixar parcial;
+> J2b reorder; J2c agendamento).
 >
 > **Webhook Shopee:** código implementado e testado
 > (`PushNotificationService.js`), mas **inativo** — a Tiops detém as
@@ -229,6 +237,70 @@ com os 10 cenários Given/When/Then cobertos em `runCalculatorSmokeTests_()`
 widget dedicado descartada, bug de CSS `[hidden]`) está no log de commits e,
 como lição permanente, na tabela de riscos (seção 6).
 
+### Fase 9 — Auditoria de regressões do estoque FIFO (Tier 1 ✅ 11/08/2026, Tiers 2–4 planejados)
+
+Origem: auditoria dirigida do fluxo de baixa de estoque (11/08/2026) sobre
+`EstoqueBaixaService`/`EstoqueRepository`/`OrdersImportService`/
+`ManualSaidaService`/`EstoqueService` — sem relato de bug do usuário, achados
+por análise estática e boas práticas de datas. Evidências completas em
+`docs/DIAGNOSTICO_ARQUITETURA.md` §8.
+
+#### Tier 1 — Bugs de regressão (código ✅ commit `eef9a37`, validação ⬜ usuário)
+
+1. **FIFO desordenado por `new Date()` em data BR** — `DATA_ENTRADA` é
+   `dd/MM/yyyy HH:mm:ss`; o V8 lê `MM/dd/yyyy` (silencioso) → a baixa pegava
+   **lote errado**. Fix: `FormatterService.parseDateTime` (valida dia/mês,
+   `31/02` → null → timestamp 0 = mais antigo) em
+   `EstoqueRepository.getItemsDisponivelPorProduto` e no sort `DATA_ENTRADA`
+   do `EstoqueService`. Smoke novo na suíte Estoque Baixa (cenário 7).
+2. **`TOTAL_COST` não refletia reversões** — cancelado/devolvido revertia as
+   unidades (IDs removidos) mas o custo acumulado do pedido ficava
+   superestimado. Fix: `reverterBaixa` calcula e retorna `custoTotal` das
+   unidades revertidas (mesma fórmula do `baixarPorProduto`);
+   `processBaixaForOrder_` subtrai com `Math.max(0, …)`.
+3. **Saída manual corrompia estoque em falha** — baixa **parcial** gravava
+   units como `BAIXADO` + linha em `ESTOQUE_BAIXAS` e o serviço ainda
+   retornava "Nenhuma saída registrada" (estoque sumia sem registro). Fix:
+   pre-check de disponibilidade antes da baixa + rollback idempotente
+   (`_rollbackBaixa_` → `reverterBaixa`) também quando `appendRow` falha;
+   WARN em `LoggingService`.
+
+Validação local: `node --check` nos 6 arquivos + `validate-dead-code.js` 0
+achados. **Validação no app real ⬜:** rodar smoke da suíte Estoque Baixa
+(menu) + conferir a ordem FIFO numa baixa real.
+
+#### Tier 2 — Gap analítico (sem mudança de arquitetura, ~10 min)
+
+**J1 — Vendeu N, baixa conseguiu B < N, sem `PENDENTE_MAPEAMENTO`:** a sobra
+(N − B) nunca é mapeada nem rebaixada em ciclos seguintes. Plano: quando
+`baixados < quantidade` (origem PEDIDO, sem `jaExistia`), sinalizar o
+excedente como PENDENTE para o `reprocessarPendentes`. Não altera o motor
+FIFO — só o sinal de estado. **Decisão pendente** (afeta a contagem de
+PENDENTE na UI).
+
+#### Tier 3 — Decisões de comportamento do reprocessamento (J2)
+
+| Item | Problema | Plano | Decisão |
+|---|---|---|---|
+| **J2a** | `reprocessarPendentes` só rebaixa com estoque total; parcial enxugaria mais rápido | rebaixar o que tem + PENDENTE para o resto, mantendo idempotência | ⬜ usuário |
+| **J2b** | PENDENTE rebaixa lote antigo (mapeado) antes do lote novo da compra | opção de reorder: lote novo na frente quando o antigo não sumir | ⬜ usuário |
+| **J2c** | Sync é manual ("Sincronizar Tudo"); pedidos só baixam no ciclo | avaliar trigger diário conservador (mudança de operação) | ⬜ usuário |
+
+Critério de aceite do Tier 3: após uma semana de uso real, zero divergências
+entre `ESTOQUE`/`ESTOQUE_BAIXAS`/`PEDIDOS` (BAIXADO/PARCIAL/PENDENTE
+coerentes com o status de pagamento) e `TOTAL_COST` igual à soma das units
+baixadas.
+
+#### Tier 4 — Backlog evolutivo (não bloqueia nada)
+
+- Histórico/auditoria de baixa por unit (quem vendeu, quando) — hoje só o
+  estado atual é persistido.
+- Alerta de estoque zerado/ocioso por produto (extensão de
+  `_getEstoqueDisponivel`).
+- Itens de performance do diagnóstico de 09/08 (P1 dreno único de logs, P3
+  cache/limite no `getItems`) permanecem no backlog — sem relação com esta
+  auditoria.
+
 ### Shopee Ads — Gestão de Anúncios Pagos
 
 **Removida em 10/08/2026** — página e automações excluídas (decisão do
@@ -282,3 +354,4 @@ Contratos da Tiops já verificados contra a API real ficam em
 | Fonte externa (vídeo/artigo) sobre taxa de marketplace desatualizada ou errada | sempre validar contra pedidos `COMPLETED` reais da conta antes de mudar a calculadora — caso concreto: vídeo alegando tabela Shopee escalonada (idêntica à do ML) foi contradito por 11 pedidos reais (ver histórico do git e `ConfigService.js`) |
 | `[hidden]` não esconder elemento com `display` explícito na mesma classe | sempre adicionar `.classe[hidden] { display: none; }` (maior especificidade) ao criar `.form-row`/`.field` que alterna visibilidade — bug real encontrado na calculadora (PR #21) |
 | Widget novo criado mas nunca montado no Shell (`<tag>` ausente) | conferir `ui/shell/Shell.html` tem tanto o `include()` quanto a tag `<widget-x>` antes de considerar uma UI "pronta" — aconteceu duas vezes: `PricingView.html` (PR #18) e `EstoquePrecoBulkView.html` (achado e removido em auditoria de 09/08/2026, ficou com include mas sem `<tag>` desde a criação; tinha ainda um bug de prefixo de ação — `estoque.simularMudancaPreco` em vez de `estoquePreco.simularMudancaPreco` — nunca teria funcionado mesmo se estivesse acessível) |
+| `new Date()` em string de data BR (`dd/MM/yyyy HH:mm:ss`) | nunca usar `new Date` em strings BR no backend — o V8 lê `MM/dd` silenciosamente (e `31/12` vira NaN); sempre `FormatterService.parseDateTime`, que valida dia/mês e devolve `null` para data inválida — bug real no FIFO de 11/08/2026: baixa pegava lote errado |
