@@ -433,17 +433,19 @@ var EstoqueRepository = (function () {
       }
     }
 
-    var updateRows = rowsToUpdate.map(function (idx) { return allRows[idx]; });
-    var firstRow = Math.min.apply(null, rowNumbers);
-    sheet.getRange(firstRow, 1, updateRows.length, lastCol).setValues(updateRows);
+    // as linhas-alvo já foram mutadas in-place em allRows (loop acima) —
+    // grava a grade inteira de volta para preservar as POSIÇÕES originais
+    // (setValues contíguo a partir de firstRow corrompia linhas intermediárias
+    // quando as alvos não eram vizinhas: E1, E3 -> E2 virava cópia de E3).
+    sheet.getRange(2, 1, lastRow - 1, lastCol).setValues(allRows);
 
     SheetsRepository.logWriteAudit({
       sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
-      stats: { rows: updateRows.length, updated: updateRows.length },
+      stats: { rows: rowNumbers.length, updated: rowNumbers.length },
       caller: 'EstoqueRepository', detail: 'updateRowsBulk'
     });
 
-    return { success: true, updated: updateRows.length };
+    return { success: true, updated: rowNumbers.length };
   }
 
   /**
@@ -496,17 +498,17 @@ var EstoqueRepository = (function () {
 
     if (rowNumbers.length === 0) return { success: true, updated: 0 };
 
-    var updateRows = rowNumbers.map(function (rn) { return allRows[rn - 2]; });
-    var firstRow = Math.min.apply(null, rowNumbers);
-    sheet.getRange(firstRow, 1, updateRows.length, lastCol).setValues(updateRows);
+    // Mesmo padrão do updateRowsBulk: escreve a grade inteira de volta para
+    // preservar posições (allRows já foi mutado in-place linha a linha).
+    sheet.getRange(2, 1, lastRow - 1, lastCol).setValues(allRows);
 
     SheetsRepository.logWriteAudit({
       sheet: SHEET_NAME, operation: 'UPDATE', status: 'OK',
-      stats: { rows: updateRows.length, updated: updateRows.length },
+      stats: { rows: rowNumbers.length, updated: rowNumbers.length },
       caller: 'EstoqueRepository', detail: 'updateRowsBulkPerRow'
     });
 
-    return { success: true, updated: updateRows.length };
+    return { success: true, updated: rowNumbers.length };
   }
 
   function countByStatus(sheetId, codigoProduto) {    var rows = getRows(sheetId, { codigoProduto: codigoProduto });

@@ -32,6 +32,22 @@ function loadServices() {
     }
   }
 
+  // Re-executa um único arquivo de produção na sandbox (mesma ordem global).
+  // Usado entre testes para zerar caches module-level das IIFEs (ex.:
+  // OrdersRepository._sheetCache, que sobrevive a _resetGASState e vazaria
+  // dados do teste anterior para o seguinte).
+  sandbox.__reloadFile = (rel) => {
+    if (!clasp.filePushOrder.includes(rel)) {
+      throw new Error(`__reloadFile: ${rel} não está no filePushOrder`);
+    }
+    const code = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+    try {
+      vm.runInContext(code, sandbox, { filename: rel });
+    } catch (e) {
+      throw new Error(`Falha ao recarregar ${rel}: ${e.message}`);
+    }
+  };
+
   return sandbox;
 }
 

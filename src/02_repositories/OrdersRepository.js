@@ -495,7 +495,8 @@ var OrdersRepository = (function () {
   /**
    * Batch: lê todas as linhas para update em memória + write único.
    * Retorna {headers, rows, orderIdCol, baixadoCol, estoqueIdsCol, costCol, idSet}
-   * pronto para update in-memory + setValues.
+   * pronto para update in-memory + setValues. idSet é null quando orderIds é
+   * vazio (backfill: atualiza todos os pedidos em updatesMap no flush).
    */
   function prepareBaixaBulk(orderIds) {
     var sheet = getOrCreateSheet();
@@ -530,9 +531,12 @@ var OrdersRepository = (function () {
     var orderIdCol = hIdx['ORDER_ID'];
     var allData = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
-    var idSet = {};
-    for (var j = 0; j < orderIds.length; j++) {
-      idSet[String(orderIds[j]).trim()] = true;
+    var idSet = null;
+    if (orderIds && orderIds.length > 0) {
+      idSet = {};
+      for (var j = 0; j < orderIds.length; j++) {
+        idSet[String(orderIds[j]).trim()] = true;
+      }
     }
 
     logWriteAuditOrder_('PREPARE_BAIXA_BULK', '', {
@@ -563,7 +567,11 @@ var OrdersRepository = (function () {
 
     for (var i = 0; i < prepared.allData.length; i++) {
       var orderId = String(prepared.allData[i][prepared.orderIdCol - 1]).trim();
-      if (!prepared.idSet[orderId]) continue;
+      // idSet null (prepareBaixaBulk([])/sem filtro) = atualiza todos os
+      // pedidos em updatesMap — é o caminho do backfill em lote, onde nenhum
+      // pedido seria persistido se o filtro fosse aplicado (regressão
+      // silenciosa desde 3b5cb5b, 08/08/2026).
+      if (prepared.idSet && !prepared.idSet[orderId]) continue;
 
       var upd = updatesMap[orderId];
       if (!upd) continue;

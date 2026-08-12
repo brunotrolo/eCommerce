@@ -11,6 +11,8 @@ var ConfigRepository = (function () {
   var DEFAULTS = {
     shopee_fee_pct: 0.20,
     shopee_fee_fixed: 0,
+    shopee_commission_pct_cartao: 0.18,
+    shopee_commission_pct_pix: 0.12,
     ml_fee_pct: 0.14,
     ml_fee_fixed: 6,
     default_margin_pct: 0.25,
