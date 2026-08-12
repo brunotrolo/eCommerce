@@ -332,7 +332,7 @@ quebrar telas existentes. **Nunca altere sem validação completa:**
 
 #### Validação pós-criação
 - [ ] Testar nova página: carregamento, chamadas API, navegação
-- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, NFe Entrada, Entrada Produtos, Estoque, Catálogo, Parear SKU
+- [ ] Testar **TODAS** as páginas existentes: Dashboard, Calculadora, Pedidos, NFe Entrada, Entrada Produtos, Estoque, Catálogo
 - [ ] Verificar que `FormatterService` está acessível em todas as páginas
 
 ### Riscos conhecidos
@@ -374,9 +374,9 @@ legado `anunciosShopee.syncListings` que possa estar gravado na aba CONFIG)
 e **recria a aba `ANUNCIOS_SHOPEE` se ausente** (`getOrCreateSheet` →
 `insertSheet`). Isso é por design, não side effect: a aba é o inventário
 master de anúncios Shopee consumido por `OrdersImportService` (restore de
-`ITEM_SKUS` em pedidos), pela baixa de estoque (`item_sku`), pelo Parear SKU
-e pelo `CatalogService` (vendas por SKU). Não remover o passo da cadeia nem
-a criação da aba sem migrar esses consumidores.
+`ITEM_SKUS` em pedidos), pela baixa de estoque (`item_sku`) e pelo
+`CatalogService` (vendas por SKU). Não remover o passo da cadeia nem a
+criação da aba sem migrar esses consumidores.
 Resumo crítico:
 - **Nunca confiar na resposta de um update/pause/activate para confirmar
   estado** — sempre reler com `get_item`/`shopee_get_item` depois (ex.: o

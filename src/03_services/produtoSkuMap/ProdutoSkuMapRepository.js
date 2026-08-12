@@ -6,8 +6,10 @@
  *   - ANUNCIOS_HISTORICO_ESTOQUE (append-only)
  *   - ANUNCIOS_PERFORMANCE (1 linha snapshot sobrescrita a cada sync)
  * Antigo AnunciosShopeeRepository (domínio anunciosShopee removido em
- * 12/08/2026): o domínio foi absorvido pelo produtoSkuMap (Parear SKU), única
- * página remanescente que consome estas abas.
+ * 12/08/2026): absorvido pelo domínio produtoSkuMap. Sem página de UI desde
+ * 12/08/2026 (ProdutoSkuMapView removida) — consumido por Dashboard
+ * (cadeia Sincronizar Tudo), OrdersImportService, CatalogService e
+ * EstoqueBaixaService.
  *
  * Regra de leitura (mudança deliberada na migração): leituras (getAll/
  * getItemSkuMap) NUNCA criam a aba — se ela não existir, devolvem []/{},

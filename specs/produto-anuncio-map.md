@@ -11,6 +11,13 @@ Implemented
 > `syncListings`/`updateSku` passam a viver em `ProdutoSkuMapService` e o
 > `AnunciosShopeeRepository` vira `ProdutoSkuMapRepository` (leituras sem
 > criar aba); `src/03_services/anunciosShopee/` removido.
+> **Página removida 12/08/2026** (`ui/produtoSkuMap/ProdutoSkuMapView.html`
+> deletada + rota/dropdown/include/preFetch do Shell removidos): o
+> pareamento manual sai do frontend por decisão do usuário — `getSugestoes`
+> e `updateSku` seguem como ações do backend (úteis via API/script e smoke
+> tests). O passo `produtoSkuMap.syncListings` é **garantido** na cadeia
+> "Sincronizar Tudo" por `DashboardService.getSyncOrder()` (insere após
+> `estoque.sincronizarPrecosCatalogo` mesmo se a aba CONFIG não o listar).
 
 ## Objetivo
 
@@ -22,14 +29,15 @@ lógica própria de sincronização e poderia divergir do dado real na Shopee).
 O `item_sku` nasce vazio nos anúncios e o usuário precisa decidir, uma vez,
 qual `CODIGO_PRODUTO` cada anúncio representa (ou declarar que o anúncio não
 tem controle de estoque unitário — ex. itens de casa/cozinha sem NFe
-correspondente). Esta spec cobre **a ferramenta de apoio a essa decisão**
-(sugestão por similaridade de texto + tela de confirmação + escrita via `produtoSkuMap.updateSku` — ação absorvida na
-consolidação de 12/08/2026) **e o guard de
-sentinela na baixa de estoque** (`SEM_ESTOQUE`), sem o qual pedidos de itens
-sem estoque gerariam pendências eternas.
-
-Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
-é criado sem `item_sku` definido.
+correspondente). Esta spec cobria **a ferramenta de apoio a essa decisão**
+(sugestão por similaridade de texto + tela de confirmação + escrita via
+`produtoSkuMap.updateSku`) e **o guard de sentinela na baixa de estoque**
+(`SEM_ESTOQUE`), sem o qual pedidos de itens sem estoque gerariam
+pendências eternas. **A UI foi removida em 12/08/2026** — `getSugestoes` e
+`updateSku` seguem como ações de backend (via API/script e smoke tests); o
+`syncListings` continua rodando automaticamente na cadeia "Sincronizar
+Tudo". O usuário pode parear diretamente na Shopee (`item_sku` na própria
+plataforma) ou via chamada direta à ação.
 
 ## Fatos confirmados (10/08/2026) — corrigem as premissas da versão Draft
 
@@ -121,20 +129,19 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
 ## Casos de Borda
 
 - **Anúncio sem candidato razoável** (score 0 em todos — típico dos itens
-  "Art House"/"Casita") → `candidatos` vazio; a UI destaca a ação
-  "Marcar sem estoque" e oferece busca manual.
+  "Art House"/"Casita") → `candidatos` vazio; sem UI desde 12/08/2026, o
+  usuário pode marcar `SEM_ESTOQUE` diretamente na Shopee ou via chamada à
+  ação `produtoSkuMap.updateSku`.
 - **Mesmo `CODIGO_PRODUTO` sugerido para dois anúncios** → permitido (vários
   anúncios podem apontar para o mesmo produto físico).
 - **Aba `ANUNCIOS_SHOPEE` nunca sincronizada** → `{ pendentes: [], total: 0 }`,
-  não erro. A UI oferece botão de sync (`produtoSkuMap.syncListings`) para
-  trazer o `item_sku` real antes de parear.
+  não erro. O `syncListings` é garantido na cadeia "Sincronizar Tudo" e
+  traz o `item_sku` real antes de qualquer consulta.
 - **`item_sku` preenchido diretamente na Shopee pelo usuário** (caso real:
-  `PERF-DEL-001`) → some da lista após o próximo `syncListings`; a ferramenta
-  não precisa saber disso e nunca sobrescreve um SKU existente (só lista
-  pendentes).
-- **`updateSku` falha na releitura** → `{ success: false, motivo }`; a UI
-  exibe o erro (padrão `withLoading`/`showError`) e o item continua pendente
-  na próxima chamada — sem meio-termo.
+  `PERF-DEL-001`) → some da lista após o próximo `syncListings`; a ação
+  nunca sobrescreve um SKU existente (só lista pendentes).
+- **`updateSku` falha na releitura** → `{ success: false, motivo }`; sem
+  meio-termo — o item continua pendente na próxima chamada.
 
 ## Critérios de Aceite (Given/When/Then)
 
@@ -148,18 +155,19 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
      (coberto por smoke test em `runSmokeTests_`, dado puro).
 2. **Confirmar grava o SKU na Shopee e sai da lista de pendentes**
    - Given um anúncio pendente
-   - When a UI chama `produtoSkuMap.updateSku({itemId, sku:'6231'})` e a
-     releitura confirma
+   - When a ação `produtoSkuMap.updateSku({itemId, sku:'6231'})` é chamada
+     (via API/script) e a releitura confirma
    - Then `ANUNCIOS_SHOPEE.SKU='6231'` e `getSugestoes()` não inclui mais o item
 3. **Marcar sem estoque sai da lista e pedidos não geram pendência**
    - Given um anúncio sem candidato
-   - When a UI chama `produtoSkuMap.updateSku({itemId, sku:'SEM_ESTOQUE'})`
+   - When a ação `produtoSkuMap.updateSku({itemId, sku:'SEM_ESTOQUE'})` é chamada
    - Then `SKU='SEM_ESTOQUE'`, o item não aparece mais em `getSugestoes()`, e um
      pedido com esse item não cria pendência de baixa (guards
      `processBaixaForOrder_` + `backfillExistingOrders`)
 4. **Base real pareável de ponta a ponta**
    - Given a loja real (43 itens NORMAL em 10/08/2026)
-   - When o usuário percorre a tela confirmando ou marcando "sem estoque"
+   - When o usuário pareia direto na Shopee (ou via chamada à ação
+     `produtoSkuMap.updateSku`) e roda "Sincronizar Tudo"
    - Then `getSugestoes()` retorna `{ pendentes: [], total: 0 }` ao final
 
 ## Fora de Escopo (v1)
@@ -196,28 +204,27 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
    src/03_services/produtoSkuMap/ProdutoSkuMapRepository.js (ex-AnunciosShopeeRepository;
                                leituras nunca criam aba; escritas usam getOrCreateSheet)
    src/03_services/produtoSkuMap/ProdutoSkuMapService.js    (getSugestoes + syncListings + updateSku)
-   ui/produtoSkuMap/ProdutoSkuMapView.html                  (novo)
    ```
-   O domínio `anunciosShopee` (service + repository) foi removido; o inventário
-   master de anúncios Shopee continua na aba `ANUNCIOS_SHOPEE`, agora escrita
-   por `ProdutoSkuMapRepository` (mesmos headers; consumidores: baixa de
-   estoque via `item_sku`, `OrdersImportService` restore de `ITEM_SKUS` e
-   `CatalogService` vendas por SKU).
+   O domínio `anunciosShopee` (service + repository) foi removido; a view
+   `ui/produtoSkuMap/ProdutoSkuMapView.html` foi removida em 12/08/2026 (sem
+   UI no frontend). O inventário master de anúncios Shopee continua na aba
+   `ANUNCIOS_SHOPEE`, escrita por `ProdutoSkuMapRepository` (mesmos headers;
+   consumidores: baixa de estoque via `item_sku`, `OrdersImportService`
+   restore de `ITEM_SKUS` e `CatalogService` vendas por SKU).
 2. **`filePushOrder`:** `ProdutoSkuMapRepository.js` entra antes de
    `CatalogService.js` e de `OrdersImportService.js` (dependentes);
    `ProdutoSkuMapService.js` depois de `EstoqueRepository.js` e de
    `ProdutoSkuMapRepository.js` (dependências), antes de `ServiceRegistry.js`.
 3. **Registro em `ServiceRegistry.js`:** padrão defensivo `safeRef_`.
-4. **UI (`ProdutoSkuMapView.html`):** Web Component com Shadow DOM e tokens do
-   design system. Cada anúncio pendente vira um card com imagem/nome,
-   candidatos como botões de confirmação rápida (score visível), campo de
-   busca manual com picklist (fonte: `produtos` do retorno), e botão
-   "Marcar sem estoque". Escritas via `mutateData('produtoSkuMap.updateSku')`
-   com `withLoading`/`showError` (`UiHelpers.html`). Botões "Sincronizar
-   anúncios" (traz `item_sku` real da Shopee) e "Atualizar" (`invalidate` +
-   fetch). Estados vazios com `.empty-state`/`.loading-state` globais.
-5. **Rota em `Shell.html`:** grupo "Produtos" do dropdown (mesmo grupo de
-   Estoque/Catálogo — tela de configuração/manutenção).
+4. **UI removida (12/08/2026):** a `ProdutoSkuMapView.html` foi deletada e a
+   rota/dropdown/include/preFetch do `Shell.html` removidos. O pareamento
+   manual sai do frontend — `getSugestoes` e `updateSku` seguem como ações
+   de backend (via API/script). Histórico: era um Web Component com Shadow
+   DOM, cards de anúncios pendentes, candidatos por score, busca manual e
+   botão "Marcar sem estoque"; escritas via
+   `mutateData('produtoSkuMap.updateSku')`.
+5. **Rota em `Shell.html`:** **removida** em 12/08/2026 (não há mais entrada
+   "Parear SKU" no dropdown "Produtos").
 6. **Smoke tests:** `runSmokeTests_` ganha casos para `normalizarTexto` e
    `scoreSimilaridade` (cenário Delilah/6231 — critério de aceite 1), usando
    os métodos públicos exportados pelo serviço.

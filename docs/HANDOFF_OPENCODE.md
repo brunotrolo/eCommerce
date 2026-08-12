@@ -184,8 +184,9 @@ tratada.
 `ListingsService`/`ListingsView.html` foram excluídos do projeto — página
 sem utilidade, decisão do usuário (ver `PLANO.md`, seção "Removidos"). Não
 use o prompt desta fase; a funcionalidade equivalente hoje é o domínio
-**Pareamento SKU** (`ProdutoSkuMapService`/`ProdutoSkuMapView.html`, já
-implementado e validado — absorveu o domínio `anunciosShopee` em 12/08/2026).
+**Pareamento SKU** (`ProdutoSkuMapService`, já implementado e validado —
+absorveu o domínio `anunciosShopee` em 12/08/2026; a página foi removida
+do frontend na mesma data, restando só as ações de backend).
 
 ### Fase 5 — ~~Validar Preço & Estoque~~ (Removida)
 

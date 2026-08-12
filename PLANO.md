@@ -77,7 +77,7 @@ tabela lista os domínios adicionados depois, todos com spec
 | Carteira Shopee | ~~`src/03_services/carteiraShopee/CarteiraShopeeService.js`~~ | **Removida 10/08/2026** — página e automações excluídas (decisão do usuário). |
 | Anúncios Shopee (absorvido) | ~~`src/03_services/anunciosShopee/AnunciosShopeeService.js`~~ | **Absorvido 12/08/2026 pelo Pareamento SKU** — a página foi removida em 10/08/2026 (decisão do usuário); as ações de sustentação `syncListings` (cadeia "Sincronizar Tudo", recria a aba `ANUNCIOS_SHOPEE` se ausente) e `updateSku` (pareamento + sentinela `SEM_ESTOQUE`) agora vivem em `ProdutoSkuMapService`/`ProdutoSkuMapRepository`, fonte de `item_sku` para baixa/custo de pedidos. |
 | Shopee Ads | ~~`src/03_services/shopeeAds/ShopeeAdsService.js`~~ | **Removida 10/08/2026** — página e automações excluídas (decisão do usuário). |
-| Pareamento SKU (Anúncio Shopee ↔ Estoque) | `src/03_services/produtoSkuMap/ProdutoSkuMapService.js` | Sugere produtos de estoque para anúncios Shopee sem SKU (score por similaridade), pareia individualmente via `shopee_update_item` (`produtoSkuMap.updateSku`), marcador `SEM_ESTOQUE` respeitado na baixa FIFO. **Absorveu o domínio `anunciosShopee` em 12/08/2026** (`syncListings` + `updateSku`). |
+| Pareamento SKU (backend only) | `src/03_services/produtoSkuMap/ProdutoSkuMapService.js` | Sugere produtos de estoque para anúncios Shopee sem SKU (score por similaridade), pareia via `shopee_update_item` (`produtoSkuMap.updateSku`), marcador `SEM_ESTOQUE` respeitado na baixa FIFO. **Absorveu o domínio `anunciosShopee` em 12/08/2026** (`syncListings` + `updateSku`). **Página removida do frontend em 12/08/2026** (sem UI — ações via API/script; `syncListings` é garantido na cadeia "Sincronizar Tudo" por `getSyncOrder()`). |
 
 ### Motores internos (sem página própria)
 
@@ -234,7 +234,7 @@ commits `a41a0c7`→`1b76c28`):
 - ✅ Estado de carregamento e vazio em todas as telas — tokens `.empty-state`/`.loading-state` em `Styles.html`, aplicados em todas as views.
 - ✅ **[Adicionado 2026-08-11]** Integração da skill `ecommerce-optimization` (advisory + gating) para otimização de anúncios Shopee/Mercado Livre — valida 4 restrições de negócio (sem buzzwords, preço com justificativa, descrição: edits menores, sem promoções inventadas) em fluxos de edição de listagem.
 
-Validação ⬜ (usuário): Status Online + Speed Meter, DataStore/DataClient, Webhook Shopee (inativo — requer app na Shopee Open Platform). As páginas Carteira Shopee, Anúncios Shopee e Shopee Ads foram removidas em 10/08/2026 (decisão do usuário) — não fazem mais parte da validação.
+Validação ⬜ (usuário): Status Online + Speed Meter, DataStore/DataClient, Webhook Shopee (inativo — requer app na Shopee Open Platform). As páginas Carteira Shopee, Anúncios Shopee, Shopee Ads foram removidas em 10/08/2026 e a página Parear SKU em 12/08/2026 (decisão do usuário) — não fazem mais parte da validação.
 
 ### Fase 8 — Calculadora PrecificaPro
 

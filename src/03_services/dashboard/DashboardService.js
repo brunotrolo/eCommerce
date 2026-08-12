@@ -102,6 +102,17 @@ var DashboardService = (function () {
       steps.splice(insertAt, 0, 'ordersImport.importShopeeOrders');
     }
 
+    // Garantia (12/08/2026): produtoSkuMap.syncListings é passo obrigatório da
+    // cadeia — alimenta a aba ANUNCIOS_SHOPEE (item_sku) consumida pela baixa de
+    // estoque, pelo OrdersImport (restore de ITEM_SKUS) e pelo CatalogService.
+    // Insere após estoque.sincronizarPrecosCatalogo (posição canônica) mesmo se
+    // a aba CONFIG tiver lista gravada sem o passo.
+    if (steps.indexOf('produtoSkuMap.syncListings') === -1) {
+      var idxListings = steps.indexOf('estoque.sincronizarPrecosCatalogo');
+      var insertListings = idxListings >= 0 ? idxListings + 1 : 0;
+      steps.splice(insertListings, 0, 'produtoSkuMap.syncListings');
+    }
+
     return { steps: steps };
   }
 

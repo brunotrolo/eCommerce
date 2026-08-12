@@ -8,11 +8,11 @@
  * anunciosShopee (removido — a página "Anúncios Shopee" foi excluída em
  * 10/08/2026; o repository virou ProdutoSkuMapRepository):
  *   - syncListings: sincroniza todos os anúncios (batch 100) e grava em
- *     Sheets (passo da cadeia "Sincronizar Tudo" do Dashboard e botão
- *     "Sincronizar anúncios" do Parear SKU; cria a aba ANUNCIOS_SHOPEE se
- *     ausente — por design, é a fonte de item_sku para pedidos/baixa)
+ *     Sheets (passo obrigatório da cadeia "Sincronizar Tudo" do Dashboard;
+ *     cria a aba ANUNCIOS_SHOPEE se ausente — por design, é a fonte de
+ *     item_sku para pedidos/baixa)
  *   - updateSku: grava o item_sku na Shopee e CONFIRMA por releitura
- *     (usado pelo pareamento e pelo sentinela SEM_ESTOQUE)
+ *     (usado pelo sentinela SEM_ESTOQUE e para pareamento manual via API)
  *
  * Contratos confirmados em docs/referencia/CONTRATOS_CONFIRMADOS.md:
  *   - shopee_list_items: page_size + offset -> response.item[]
