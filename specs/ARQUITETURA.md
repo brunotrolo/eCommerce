@@ -103,6 +103,7 @@ domínios. Uma dependência não listada aqui é proibida sem decisão explícit
 | Domínio (consumidor) | Depende de (domínios/utilitários) | Tipo |
 |---|---|---|
 | `catalog` | `PricingService`, `SkuService` | utilitários (motor único de margem) |
+| `catalog` | `OrdersRepository`, `AnunciosShopeeRepository` | leitura de vendas de pedidos (11/08/2026) — aba PEDIDOS + mapa item_id→SKU |
 | `estoque` | `PricingService`, `CatalogService` | utilitário + leitura de catálogo |
 | `manualEntrada` | `SkuService`, `EstoqueService`, `CatalogService` | utilitário + motores designados |
 | `manualSaida` | `EstoqueBaixaService`, `CatalogService`, `SkuService` | motor FIFO + leitura catálogo |

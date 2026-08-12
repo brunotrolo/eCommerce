@@ -175,6 +175,47 @@ var CatalogService = (function () {
       }
     }
 
+    // Vendas reais por código de produto = saídas manuais + vendas de pedidos
+    // Shopee pagos (aba PEDIDOS, ITEM_SKUS). Pedido UNPAID/CANCELLED/DEVOLVIDO
+    // nunca conta como venda (mesma regra da baixa de estoque).
+    var vendasPedidosByCodigo = {};
+    try {
+      var ordersMap = OrdersRepository.getAllOrdersMap();
+      var itemSkuMap = AnunciosShopeeRepository.getItemSkuMap();
+      var produtosBySku = {};
+      var codeKeys = Object.keys(grouped);
+      for (var sk = 0; sk < codeKeys.length; sk++) {
+        var gProd = grouped[codeKeys[sk]];
+        if (gProd.sku) produtosBySku[gProd.sku] = codeKeys[sk];
+      }
+      var blockedStatuses = ['UNPAID', 'CANCELLED', 'CANCELADO', 'IN_CANCEL', 'TO_RETURN', 'RETURNED', 'DEVOLVIDO'];
+      var orderKeys = Object.keys(ordersMap);
+      for (var ok2 = 0; ok2 < orderKeys.length; ok2++) {
+        var ord = ordersMap[orderKeys[ok2]];
+        var ordStatus = String(ord.status || '').trim().toUpperCase();
+        if (blockedStatuses.indexOf(ordStatus) !== -1) continue;
+        var itemSkusRaw = String(ord.itemSkus || '').trim();
+        if (!itemSkusRaw) continue;
+        var itemParts = itemSkusRaw.split(';');
+        for (var ip = 0; ip < itemParts.length; ip++) {
+          var part = itemParts[ip].trim();
+          var colonIdx = part.indexOf(':');
+          if (colonIdx === -1) continue;
+          var skuRaw = part.substring(0, colonIdx).trim();
+          var qty = parseInt(part.substring(colonIdx + 1), 10) || 1;
+          if (!skuRaw || skuRaw === 'SEM_ESTOQUE') continue;
+          // SKU pode ser o interno (PERF-ALW-001) ou o item_id numérico da
+          // Shopee (22599564026) quando o pedido foi importado sem pareamento.
+          var codigoResolvido = produtosBySku[skuRaw] || produtosBySku[itemSkuMap[skuRaw] || ''];
+          if (!codigoResolvido) continue;
+          if (!vendasPedidosByCodigo[codigoResolvido]) vendasPedidosByCodigo[codigoResolvido] = 0;
+          vendasPedidosByCodigo[codigoResolvido] += qty;
+        }
+      }
+    } catch (e) {
+      console.warn('CatalogService: Erro ao calcular vendas de pedidos — ' + e.message);
+    }
+
     var products = [];
     var codes = Object.keys(grouped);
     for (var k = 0; k < codes.length; k++) {
@@ -182,8 +223,9 @@ var CatalogService = (function () {
       var cost = p.valorUnitarioLiquido;
 
       var estoqueSaida = saidasByCodigo[codes[k]] || 0;
+      var vendasPedidos = vendasPedidosByCodigo[codes[k]] || 0;
       p.estoqueDisponivel = Math.max(0, Math.round((p.estoqueEntrada - estoqueSaida) * 100) / 100);
-      p.quantidadeVendida = Math.round(estoqueSaida * 100) / 100;
+      p.quantidadeVendida = Math.round((estoqueSaida + vendasPedidos) * 100) / 100;
 
       if (cost < 0) {
         p.precoShopee = 0;
