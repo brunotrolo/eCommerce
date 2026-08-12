@@ -118,7 +118,7 @@ Resolver os achados **B1** e **S2** do diagnóstico (`docs/DIAGNOSTICO_ARQUITETU
 - Services lidos em runtime: `PricingService`, `CatalogService`,
   `EstoqueService`, `CalculatorService`, `NFeEntradaProdutosService`,
   `LoggingService`, `SheetsRepository`, `LoggingRepository`,
-  `EstoqueBaixaService`, `AnunciosShopeeService`, `CarteiraShopeeService`,
+  `EstoqueBaixaService`, `ProdutoSkuMapService`, `CarteiraShopeeService`,
   `FormatterService`, `PushNotificationService`, `ManualSaidaService`,
   `DashboardService`.
 - Nenhuma ação Tiops nova.

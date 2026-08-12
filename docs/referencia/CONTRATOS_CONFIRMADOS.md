@@ -20,8 +20,9 @@ conta conectada: toda ação precisa receber explicitamente `meliUserId` ou
 serviços já passam o nome de param correto por canal — verificado em
 `OrdersService` e `DashboardService` (ambos lêem direto da Google Sheets,
 sem dependência externa) e, para chamadas reais à Tiops, em
-`AnunciosShopeeService`, `ShopeeAdsService` e `CarteiraShopeeService`
-(sucessores de `ListingsService`/`InventoryPricingService`, removidos em
+`AnunciosShopeeService` foi absorvido pelo domínio Pareamento SKU em
+12/08/2026 — hoje as chamadas vivem em `ProdutoSkuMapService`; `ShopeeAdsService`
+e `CarteiraShopeeService` (sucessores de `ListingsService`/`InventoryPricingService`, removidos em
 09/08/2026 — ver `PLANO.md`, seção "Removidos").
 
 ## Observações do catálogo — confirmado em 2026-08-02
@@ -129,16 +130,16 @@ Varredura de TODAS as chamadas Tiops em `src/` (31 chamadas, 30 ações únicas,
 | `shopee_ads_recommended_items` | `ShopeeAdsService` :437 | ✅ catálogo |
 | `shopee_ads_roi_target` | `ShopeeAdsService` :442 | ✅ catálogo |
 | `list_items` (ML) | `ShopeeAdsService` :451 | ✅ catálogo (`limit`, `offset`, `status`, `account_id`/`meliUserId`) |
-| `shopee_list_items` | `AnunciosShopeeService` :201 | ✅ sondagem real 2026-08-05 |
-| `shopee_get_items_batch` | `AnunciosShopeeService` :222 | ✅ sondagem real 2026-08-05 |
-| `shopee_sales_by_item` | `AnunciosShopeeService` :231, :883 | ✅ sondagem real 2026-08-05 (payload FLAT, sem `{data}`) |
-| `shopee_get_models` | `AnunciosShopeeService` :303 | ✅ sondagem real 2026-08-05 |
-| `shopee_get_item` | `AnunciosShopeeService` :610 | ✅ sondagem real 2026-08-05 |
-| `shopee_update_price` | `AnunciosShopeeService` :693 | ✅ sondagem real 2026-08-05 (usa `price_list[]`, releitura pós-update) |
-| `shopee_update_stock` | `AnunciosShopeeService` :775 | ✅ sondagem real 2026-08-05 (`location_id: "BRZ"`, releitura pós-update) |
-| `shopee_update_item` | `AnunciosShopeeService` :834 (updateSku) | ✅ sondagem real 2026-08-10 (no-op item 58264575830, shopId 1880105398; `item_id` uint64 — string rejeitada; releitura pós-update) |
-| `shopee_unlist_item` | `AnunciosShopeeService` :815 | ✅ sondagem real 2026-08-05 (releitura pós-pause; nunca em item real) |
-| `shopee_delete_item` | `AnunciosShopeeService` :854 | ✅ sondagem real 2026-08-05 (releitura pós-delete) |
+| `shopee_list_items` | `ProdutoSkuMapService` :146 | ✅ sondagem real 2026-08-05 |
+| `shopee_get_items_batch` | `ProdutoSkuMapService` :167 | ✅ sondagem real 2026-08-05 |
+| `shopee_sales_by_item` | `ProdutoSkuMapService` :182 (build), :184 (`callBatch`) | ✅ sondagem real 2026-08-05 (payload FLAT, sem `{data}`) |
+| `shopee_get_models` | — (sem chamada em `src/` desde 12/08/2026 — ação removida com o domínio antigo) | ✅ sondagem real 2026-08-05 (histórica) |
+| `shopee_get_item` | `ProdutoSkuMapService` :489 | ✅ sondagem real 2026-08-05 |
+| `shopee_update_price` | — (sem chamada desde 12/08/2026) | ✅ sondagem real 2026-08-05 (histórica — usa `price_list[]`, releitura pós-update) |
+| `shopee_update_stock` | — (sem chamada desde 12/08/2026) | ✅ sondagem real 2026-08-05 (histórica — `location_id: "BRZ"`, releitura pós-update) |
+| `shopee_update_item` | `ProdutoSkuMapService` :481 (updateSku) | ✅ sondagem real 2026-08-10 (no-op item 58264575830, shopId 1880105398; `item_id` uint64 — string rejeitada; releitura pós-update) |
+| `shopee_unlist_item` | — (sem chamada desde 12/08/2026) | ✅ sondagem real 2026-08-05 (histórica — releitura pós-pause; nunca em item real) |
+| `shopee_delete_item` | — (sem chamada desde 12/08/2026) | ✅ sondagem real 2026-08-05 (histórica — releitura pós-delete) |
 | `shopee_list_orders` | `OrdersImportService` :197 | ✅ catálogo (num pedido 08-10; usado com `order_status`) |
 | `shopee_get_order_detail` | `OrdersImportService` :220 | ✅ catálogo |
 | `shopee_get_escrow_detail_batch` | `OrdersImportService` :240 | ✅ catálogo |

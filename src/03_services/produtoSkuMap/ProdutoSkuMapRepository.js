@@ -1,17 +1,25 @@
 /**
- * AnunciosShopeeRepository — leitura/escrita nas abas de anúncios Shopee:
- *   - ANUNCIOS_SHOPEE (inventário master, 1 linha por item, upsert por ITEM_ID)
+ * ProdutoSkuMapRepository — leitura/escrita na aba ANUNCIOS_SHOPEE (inventário
+ * master de anúncios Shopee, fonte de item_sku) e abas auxiliares:
+ *   - ANUNCIOS_SHOPEE (1 linha por item, upsert por ITEM_ID)
  *   - ANUNCIOS_HISTORICO_PRECOS (append-only)
  *   - ANUNCIOS_HISTORICO_ESTOQUE (append-only)
  *   - ANUNCIOS_PERFORMANCE (1 linha snapshot sobrescrita a cada sync)
+ * Antigo AnunciosShopeeRepository (domínio anunciosShopee removido em
+ * 12/08/2026): o domínio foi absorvido pelo produtoSkuMap (Parear SKU), única
+ * página remanescente que consome estas abas.
+ *
+ * Regra de leitura (mudança deliberada na migração): leituras (getAll/
+ * getItemSkuMap) NUNCA criam a aba — se ela não existir, devolvem []/{},
+ * sem efeito colateral no Sheets. Só as escritas (syncMain/patchMain/
+ * appendRows_) usam getOrCreateSheet, porque syncListings/updateSku são
+ * explicitamente a fonte que popula a aba.
+ *
  * Nenhum serviço chama SpreadsheetApp diretamente; tudo passa por aqui.
  * Colunas são lidas/escritas por NOME (não por posição).
  * Datas sempre no padrão BR (dd/MM/yyyy HH:mm:ss) — só BR neste projeto.
- * A aba ANUNCIOS_SHOPEE é AUTO-CRIADA pelo syncListings (getOrCreateSheet)
- * — por design: é a fonte de item_sku consumida por OrdersImport (restore
- * de ITEM_SKUS), pela baixa de estoque e pelo Parear SKU. Não remover.
  */
-var AnunciosShopeeRepository = (function () {
+var ProdutoSkuMapRepository = (function () {
   var MAIN_SHEET = 'ANUNCIOS_SHOPEE';
   var PRECO_SHEET = 'ANUNCIOS_HISTORICO_PRECOS';
   var ESTOQUE_SHEET = 'ANUNCIOS_HISTORICO_ESTOQUE';
@@ -40,6 +48,7 @@ var AnunciosShopeeRepository = (function () {
     'TAXA_CONVERSAO', 'DATA_SINCRONIZACAO'
   ];
 
+  /** Só para escritas. Leituras nunca chamam isto (ver getSheet_). */
   function getOrCreateSheet(sheetId, sheetName, headers) {
     var ss = SpreadsheetApp.openById(sheetId);
     var sheet = ss.getSheetByName(sheetName);
@@ -70,6 +79,13 @@ var AnunciosShopeeRepository = (function () {
     }
     sheet.setFrozenRows(1);
     return sheet;
+  }
+
+  /** Leitura SEM efeito colateral: null se a aba não existir. */
+  function getSheet_(sheetId, sheetName) {
+    var ss = SpreadsheetApp.openById(sheetId);
+    var sheet = ss.getSheetByName(sheetName);
+    return sheet || null;
   }
 
   function getColumnMap_(sheet) {
@@ -170,7 +186,7 @@ var AnunciosShopeeRepository = (function () {
       sheet: MAIN_SHEET, operation: 'UPSERT',
       status: errors.length > 0 ? 'ERROR' : 'OK',
       stats: { rows: atualizados + novos, inserted: novos, updated: atualizados },
-      caller: 'AnunciosShopeeRepository',
+      caller: 'ProdutoSkuMapRepository',
       detail: 'syncMain: ' + novos + ' novos, ' + atualizados + ' atualizados, ' + errors.length + ' erro(s)'
     });
     return { novos: novos, atualizados: atualizados, errors: errors };
@@ -217,20 +233,22 @@ var AnunciosShopeeRepository = (function () {
 
   /** Lê todas as linhas do inventário como objetos (chave = header). */
   function getAll(sheetId) {
-    var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
+    var sheet = getSheet_(sheetId, MAIN_SHEET);
+    if (!sheet) return [];
     return rowsToObjects_(sheet);
   }
-
-  
 
   /**
    * Retorna mapa item_id → SKU a partir da aba ANUNCIOS_SHOPEE.
    * Usado por OrdersImportService para preencher SKUs em pedidos onde
-   * a Shopee não retorna item_sku (caso da maioria dos pedidos antigos).
+   * a Shopee não retorna item_sku (caso da maioria dos pedidos antigos) e
+   * pelo CatalogService para resolver vendas de pedidos por código de
+   * produto. Leitura sem efeito colateral: aba ausente → {}.
    */
   function getItemSkuMap(sheetId) {
     sheetId = (typeof sheetId === 'string' && sheetId) ? sheetId : ConfigService.getSheetId();
-    var sheet = getOrCreateSheet(sheetId, MAIN_SHEET, MAIN_HEADERS);
+    var sheet = getSheet_(sheetId, MAIN_SHEET);
+    if (!sheet) return {};
     var lastRow = sheet.getLastRow();
     var lastCol = sheet.getLastColumn();
     if (lastRow < 2 || lastCol === 0) return {};
@@ -278,7 +296,7 @@ var AnunciosShopeeRepository = (function () {
     SheetsRepository.logWriteAudit({
       sheet: MAIN_SHEET, operation: 'UPDATE', status: 'OK',
       stats: { rows: 1, updated: 1 },
-      caller: 'AnunciosShopeeRepository', rowId: String(itemId)
+      caller: 'ProdutoSkuMapRepository', rowId: String(itemId)
     });
     return { success: true, row: rowIdx };
   }
@@ -317,7 +335,7 @@ var AnunciosShopeeRepository = (function () {
       sheet: sheetName, operation: 'APPEND',
       status: errors.length > 0 ? 'ERROR' : 'OK',
       stats: { rows: rows.length, inserted: inserted },
-      caller: 'AnunciosShopeeRepository',
+      caller: 'ProdutoSkuMapRepository',
       detail: 'appendRows_: ' + inserted + ' ok, ' + errors.length + ' erro(s)'
     });
     return { inserted: inserted, errors: errors };
@@ -361,7 +379,7 @@ var AnunciosShopeeRepository = (function () {
     SheetsRepository.logWriteAudit({
       sheet: PERFORMANCE_SHEET, operation: 'UPSERT', status: 'OK',
       stats: { rows: 1, updated: 1 },
-      caller: 'AnunciosShopeeRepository', rowId: String(perf.periodo || '')
+      caller: 'ProdutoSkuMapRepository', rowId: String(perf.periodo || '')
     });
     return { success: true, sheetName: PERFORMANCE_SHEET };
   }

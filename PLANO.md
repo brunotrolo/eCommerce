@@ -75,9 +75,9 @@ tabela lista os domínios adicionados depois, todos com spec
 | Manual Entrada | `src/03_services/manualEntrada/ManualEntradaService.js` | Entrada de estoque sem NFe (compra direta, brinde, ajuste). |
 | Manual Saída | `src/03_services/manualSaida/ManualSaidaService.js` | Saída de estoque sem venda (perda, brinde, ajuste), com baixa FIFO automática. |
 | Carteira Shopee | ~~`src/03_services/carteiraShopee/CarteiraShopeeService.js`~~ | **Removida 10/08/2026** — página e automações excluídas (decisão do usuário). |
-| Anúncios Shopee (contraído) | `src/03_services/anunciosShopee/AnunciosShopeeService.js` | **Contraído 10/08/2026** — a página foi removida; restam só as ações de sustentação: `syncListings` (roda na cadeia "Sincronizar Tudo" e recria a aba `ANUNCIOS_SHOPEE` se ausente — por design) e `updateSku` (pareamento + sentinela `SEM_ESTOQUE`), com `AnunciosShopeeRepository` mantido como fonte de `item_sku` para baixa/custo de pedidos. |
+| Anúncios Shopee (absorvido) | ~~`src/03_services/anunciosShopee/AnunciosShopeeService.js`~~ | **Absorvido 12/08/2026 pelo Pareamento SKU** — a página foi removida em 10/08/2026 (decisão do usuário); as ações de sustentação `syncListings` (cadeia "Sincronizar Tudo", recria a aba `ANUNCIOS_SHOPEE` se ausente) e `updateSku` (pareamento + sentinela `SEM_ESTOQUE`) agora vivem em `ProdutoSkuMapService`/`ProdutoSkuMapRepository`, fonte de `item_sku` para baixa/custo de pedidos. |
 | Shopee Ads | ~~`src/03_services/shopeeAds/ShopeeAdsService.js`~~ | **Removida 10/08/2026** — página e automações excluídas (decisão do usuário). |
-| Pareamento SKU (Anúncio Shopee ↔ Estoque) | `src/03_services/produtoSkuMap/ProdutoSkuMapService.js` | Sugere produtos de estoque para anúncios Shopee sem SKU (score por similaridade), pareia individualmente via `shopee_update_item` (`AnunciosShopeeService.updateSku`), marcador `SEM_ESTOQUE` respeitado na baixa FIFO. |
+| Pareamento SKU (Anúncio Shopee ↔ Estoque) | `src/03_services/produtoSkuMap/ProdutoSkuMapService.js` | Sugere produtos de estoque para anúncios Shopee sem SKU (score por similaridade), pareia individualmente via `shopee_update_item` (`produtoSkuMap.updateSku`), marcador `SEM_ESTOQUE` respeitado na baixa FIFO. **Absorveu o domínio `anunciosShopee` em 12/08/2026** (`syncListings` + `updateSku`). |
 
 ### Motores internos (sem página própria)
 
@@ -228,7 +228,7 @@ Só entra depois que 0–4 e 8 estiverem **validadas** (5 e 6 foram removidas
 em 09/08/2026 — não bloqueiam mais). Entregue (código, specs Implemented,
 commits `a41a0c7`→`1b76c28`):
 
-- ✅ Log de operações de escrita em `SheetsRepository` (o que mudou, quando, resultado) — audit de UPDATE em `AnunciosShopeeRepository`.
+- ✅ Log de operações de escrita em `SheetsRepository` (o que mudou, quando, resultado) — audit de UPDATE em `ProdutoSkuMapRepository` (ex-`AnunciosShopeeRepository`).
 - ✅ Padronização do tratamento de erro em todos os widgets — helpers únicos de `UiHelpers.html` (`withLoading`/`showError`/`showSuccess`); zero helpers locais nas views. (`withErrorHandling`/`withTimeout` existiam aqui mas foram removidos em 10/08/2026 — órfãos sem chamadores.)
 - ✅ Teste de contrato contra a Tiops — teste global 30 ações vs `list_actions`/`describe_action`, registro por serviço em `docs/referencia/CONTRATOS_CONFIRMADOS.md`; feature `shopee_ads_terminate_campaign` removida (404 real).
 - ✅ Estado de carregamento e vazio em todas as telas — tokens `.empty-state`/`.loading-state` em `Styles.html`, aplicados em todas as views.
@@ -369,7 +369,7 @@ Contratos da Tiops já verificados contra a API real ficam em
 |---|---|
 | Agente inventar nome/params de ação da Tiops | skill `tiops-contract` — confirmar em `list_actions`/`describe_action` antes de codar |
 | Dois agentes divergirem de convenção | `AGENTS.md` é fonte única; `CLAUDE.md` só aponta para ele |
-| Update de marketplace "dar OK" sem ter aplicado | releitura obrigatória — regra em `AGENTS.md`, aplicada hoje em `AnunciosShopeeService`/`EstoqueService` |
+| Update de marketplace "dar OK" sem ter aplicado | releitura obrigatória — regra em `AGENTS.md`, aplicada hoje em `ProdutoSkuMapService`/`EstoqueService` |
 | Colisão de nome no escopo global do GAS | um `var Namespace` por arquivo, pastas numeradas |
 | API key vazar em commit | só em Script Properties; skill `gas-ops` checa antes do push |
 | Fonte externa (vídeo/artigo) sobre taxa de marketplace desatualizada ou errada | sempre validar contra pedidos `COMPLETED` reais da conta antes de mudar a calculadora — caso concreto: vídeo alegando tabela Shopee escalonada (idêntica à do ML) foi contradito por 11 pedidos reais (ver histórico do git e `ConfigService.js`) |

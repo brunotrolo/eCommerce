@@ -335,7 +335,7 @@ var OrdersImportService = (function () {
 
     var skuMap = {};
     try {
-      skuMap = AnunciosShopeeRepository.getItemSkuMap(ConfigService.getSheetId());
+      skuMap = ProdutoSkuMapRepository.getItemSkuMap(ConfigService.getSheetId());
     } catch (e) {
       LoggingService.log({
         service: 'OrdersImport', action: 'skuMapLoad', status: 'WARN',
@@ -615,7 +615,7 @@ var OrdersImportService = (function () {
 
     var skuMap = {};
     try {
-      skuMap = AnunciosShopeeRepository.getItemSkuMap(ConfigService.getSheetId());
+      skuMap = ProdutoSkuMapRepository.getItemSkuMap(ConfigService.getSheetId());
     } catch (e) {
       // fallback silencioso: sem skuMap, usa item_sku da Shopee
     }
@@ -893,7 +893,7 @@ var OrdersImportService = (function () {
 
     var skuMap = {};
     try {
-      skuMap = AnunciosShopeeRepository.getItemSkuMap(sheetId);
+      skuMap = ProdutoSkuMapRepository.getItemSkuMap(sheetId);
     } catch (e) {
       return { error: 'skuMap load failed: ' + e.message };
     }

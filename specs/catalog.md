@@ -46,7 +46,7 @@ apenas via marketplace.
 - **Venda de pedido = pedido que pagou.** Pedido com status `UNPAID`, `CANCELLED`/`CANCELADO`/`IN_CANCEL`, `TO_RETURN`/`RETURNED`/`DEVOLVIDO` **não conta** — mesma regra de baixa de estoque (pedido não pago, cancelado ou devolvido não baixa estoque; logo não é venda). PEDIDO pago com baixa `PENDENTE` (sem estoque) ainda conta como vendido, pois a venda ocorreu.
 - **Resolução de SKU do pedido** para o código do produto:
   1. `SKU:qty` em `ITEM_SKUS` do pedido casa direto com o `SKU` do catálogo do produto.
-  2. Se o SKU for numérico (item_id Shopee sem SKU pareado na origem), resolve via mapa `item_id → SKU` da aba `ANUNCIOS_SHOPEE` (`AnunciosShopeeRepository.getItemSkuMap`) e então casa com o catálogo.
+  2. Se o SKU for numérico (item_id Shopee sem SKU pareado na origem), resolve via mapa `item_id → SKU` da aba `ANUNCIOS_SHOPEE` (`ProdutoSkuMapRepository.getItemSkuMap`) e então casa com o catálogo.
   3. Sentinela `SEM_ESTOQUE` = item sem controle de estoque unitário — nunca conta como venda.
 - SKUs de pedido que não resolvem para nenhum produto do catálogo são ignorados (logado), sem erro.
 - `estoqueDisponivel = estoqueEntrada - estoqueSaida` — **apenas** saídas manuais (equivalente à aba ESTOQUE, que só reflete baixa manual + FI/FIFO; vendas de pedidos baixam ESTOQUE via `EstoqueBaixaService` e não são incluídas no catálogo para não duplicar com entradas já contabilizadas). A coluna "Vendido" é a única que consolida pedidos.
@@ -70,10 +70,10 @@ apenas via marketplace.
 
 ## Dependências
 
-- Services/repos usados: `NFeEntradaProdutosRepository`, `ManualEntradaProdutosRepository`, `ManualSaidaProdutosRepository`, `OrdersRepository` (aba PEDIDOS, leitura), `AnunciosShopeeRepository` (aba ANUNCIOS_SHOPEE, leitura), `PricingService`, `SkuService`, `CacheRepository`.
+- Services/repos usados: `NFeEntradaProdutosRepository`, `ManualEntradaProdutosRepository`, `ManualSaidaProdutosRepository`, `OrdersRepository` (aba PEDIDOS, leitura), `ProdutoSkuMapRepository` (aba ANUNCIOS_SHOPEE, leitura), `PricingService`, `SkuService`, `CacheRepository`.
 - Ações Tiops: nenhuma direta (dados vêm do Sheets).
 
 ## Notas de Implementação
 
 - A agregação de pedidos roda dentro de `computeProducts_` (cache server 300s; `forceFresh` relê o Sheets).
-- Resolução de SKU numérico reutiliza `AnunciosShopeeRepository.getItemSkuMap` (mesmo mapa usado pelo `OrdersImportService`), mantendo uma única fonte de mapeamento.
+- Resolução de SKU numérico reutiliza `ProdutoSkuMapRepository.getItemSkuMap` (mesmo mapa usado pelo `OrdersImportService`), mantendo uma única fonte de mapeamento.

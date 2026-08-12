@@ -46,8 +46,9 @@ src/01_adapters     → TiopsClient (único cliente HTTP para a Tiops), DriveAda
 src/02_repositories → Properties/Cache/Sheets/Config (únicos que tocam serviços nativos do GAS)
 src/03_services     → Pricing, Orders, OrdersImport, Dashboard, Catalog,
                       NFeEntrada, NFeEntradaProdutos, ManualEntrada, ManualSaida,
-                      Estoque, EstoqueBaixa, AnunciosShopee (contraído p/
-                      syncListings+updateSku), ProdutoSkuMap, Calculator, Sku,
+                      Estoque, EstoqueBaixa, ProdutoSkuMap (absorveu
+                      AnunciosShopee em 12/08/2026 — syncListings+updateSku),
+                      Calculator, Sku,
                       PushNotification (inativo), Status
 src/04_gateway      → ServiceRegistry + Router (doGet/doPost/apiDispatch)
 ui/shared           → Design tokens, DataClient (único arquivo de dados do

@@ -42,7 +42,6 @@ var ServiceRegistry = (function () {
     estoqueBaixa: safeRef_('estoqueBaixa', function () { return typeof EstoqueBaixaService !== 'undefined' ? EstoqueBaixaService : undefined; }),
     ordersImport: safeRef_('ordersImport', function () { return typeof OrdersImportService !== 'undefined' ? OrdersImportService : undefined; }),
     pushNotification: safeRef_('pushNotification', function () { return typeof PushNotificationService !== 'undefined' ? PushNotificationService : undefined; }),
-    anunciosShopee: safeRef_('anunciosShopee', function () { return typeof AnunciosShopeeService !== 'undefined' ? AnunciosShopeeService : undefined; }),
     sku: safeRef_('sku', function () { return typeof SkuService !== 'undefined' ? SkuService : undefined; }),
     produtoSkuMap: safeRef_('produtoSkuMap', function () { return typeof ProdutoSkuMapService !== 'undefined' ? ProdutoSkuMapService : undefined; })
   };

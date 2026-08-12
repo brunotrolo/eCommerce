@@ -1,7 +1,7 @@
 <!--
   ProdutoSkuMapView — ferramenta de pareamento Anúncio Shopee ↔ Produto de Estoque.
   Lê produtoSkuMap.getSugestoes (pendentes da aba ANUNCIOS_SHOPEE com SKU vazio)
-  e escreve via anunciosShopee.updateSku (grava item_sku na Shopee + releitura).
+  e escreve via produtoSkuMap.updateSku (grava item_sku na Shopee + releitura).
   Spec: specs/produto-anuncio-map.md
 -->
 <template id="produto-sku-map-view">
@@ -226,7 +226,7 @@
         var btn = v(shadow, 'btn-sync');
         if (window.withLoading) {
           withLoading(btn, (success, failure) => {
-            dc.mutateData('anunciosShopee.syncListings', {})
+            dc.mutateData('produtoSkuMap.syncListings', {})
               .then(success)
               .catch(failure);
           }, () => {
@@ -322,7 +322,7 @@
         }
         var label = sku === 'SEM_ESTOQUE' ? 'Marcando sem estoque...' : 'Gravando SKU...';
         withLoading(btn, (success, failure) => {
-          dc.mutateData('anunciosShopee.updateSku', { itemId: itemId, sku: sku })
+          dc.mutateData('produtoSkuMap.updateSku', { itemId: itemId, sku: sku })
             .then(success)
             .catch(failure);
         }, () => {

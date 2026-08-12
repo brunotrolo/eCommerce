@@ -181,7 +181,7 @@ var CatalogService = (function () {
     var vendasPedidosByCodigo = {};
     try {
       var ordersMap = OrdersRepository.getAllOrdersMap();
-      var itemSkuMap = AnunciosShopeeRepository.getItemSkuMap();
+      var itemSkuMap = ProdutoSkuMapRepository.getItemSkuMap();
       var produtosBySku = {};
       var codeKeys = Object.keys(grouped);
       for (var sk = 0; sk < codeKeys.length; sk++) {

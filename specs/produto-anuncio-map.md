@@ -4,13 +4,13 @@
 Implemented
 
 > Implementado em 10/08/2026: `ProdutoSkuMapService`, `ProdutoSkuMapView`,
-> action `updateSku` (AnunciosShopeeService, contrato `shopee_update_item`
-> confirmado por sondagem real no mesmo dia — no-op no item 58264575830,
-> shopId 1880105398) e guard `SEM_ESTOQUE` nos 2 caminhos de baixa.
-> Revisado em 10/08/2026 com o mecanismo real (a versão anterior — Draft de
-> 09/08 — assumia premissas desatualizadas, corrigidas abaixo). Contrato Tiops
-> de `shopee_update_item` confirmado por sondagem real no mesmo dia
-> (no-op no item 58264575830, shopId 1880105398).
+> action `updateSku` (contrato `shopee_update_item` confirmado por sondagem
+> real no mesmo dia — no-op no item 58264575830, shopId 1880105398) e guard
+> `SEM_ESTOQUE` nos 2 caminhos de baixa.
+> Consolidado em 12/08/2026: domínio `anunciosShopee` absorvido —
+> `syncListings`/`updateSku` passam a viver em `ProdutoSkuMapService` e o
+> `AnunciosShopeeRepository` vira `ProdutoSkuMapRepository` (leituras sem
+> criar aba); `src/03_services/anunciosShopee/` removido.
 
 ## Objetivo
 
@@ -23,8 +23,8 @@ O `item_sku` nasce vazio nos anúncios e o usuário precisa decidir, uma vez,
 qual `CODIGO_PRODUTO` cada anúncio representa (ou declarar que o anúncio não
 tem controle de estoque unitário — ex. itens de casa/cozinha sem NFe
 correspondente). Esta spec cobre **a ferramenta de apoio a essa decisão**
-(sugestão por similaridade de texto + tela de confirmação + escrita via
-`anunciosShopee.updateSku` — ação nova criada nesta entrega) **e o guard de
+(sugestão por similaridade de texto + tela de confirmação + escrita via `produtoSkuMap.updateSku` — ação absorvida na
+consolidação de 12/08/2026) **e o guard de
 sentinela na baixa de estoque** (`SEM_ESTOQUE`), sem o qual pedidos de itens
 sem estoque gerariam pendências eternas.
 
@@ -37,7 +37,7 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
 |---|---|
 | `item_sku` vazio em **todos** os 41 anúncios | Loja tem **43** itens `NORMAL` (`shopee_list_items` total_count). Pelo menos 1 já tem `item_sku` preenchido manualmente (`PERF-DEL-001` no item 58264575830) — o usuário pode parear direto na Shopee; a ferramenta cobre só o que sobrar |
 | Coluna `ITEM_SKU` na aba | A aba usa coluna **`SKU`** (somente-leitura, reescrita a cada `syncListings` a partir do `item_sku` real — ver `getSellerSku_`) |
-| Existe `anunciosShopee.updateSku` | **Não existia** — é criado nesta entrega |
+| Existe `produtoSkuMap.updateSku` (ex-`anunciosShopee.updateSku`) | **Não existia** — criado em 10/08, migrado para `ProdutoSkuMapService` em 12/08 |
 | Existe sentinela `SEM_ESTOQUE` | **Não existia** — criada nesta entrega, com guard nos 2 caminhos de baixa (`OrdersImportService.processBaixaForOrder_` e `EstoqueBaixaService.backfillExistingOrders`) |
 | Sem tabela de mapeamento própria | Mantida (a sentinela é só um `item_sku` literal na Shopee) |
 
@@ -81,7 +81,7 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
 - **Erros esperados:** nenhum — `{ pendentes: [], produtos: [], total: 0 }` se
   a aba estiver vazia ou sem pendências.
 
-### `anunciosShopee.updateSku` (ação nova, adicionada nesta entrega)
+### `produtoSkuMap.updateSku` (ação absorvida do domínio `anunciosShopee` em 12/08/2026)
 - **Descrição:** grava o `item_sku` de um anúncio na Shopee e confirma por
   releitura antes de tocar o Sheets.
 - **Params:** `{ itemId: string (requerido), sku: string (requerido) }`.
@@ -94,7 +94,7 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
 
 1. **Sem tabela de mapeamento própria.** Todo vínculo mora na Shopee
    (`item_sku` → coluna `SKU` da aba via sync). Esta ferramenta só lê
-   `ANUNCIOS_SHOPEE` e `ESTOQUE` e escreve via `anunciosShopee.updateSku`.
+   `ANUNCIOS_SHOPEE` e `ESTOQUE` e escreve via `produtoSkuMap.updateSku`.
 2. **Sentinela `SEM_ESTOQUE`:** `item_sku = 'SEM_ESTOQUE'` marca um anúncio
    como intencionalmente sem controle de estoque unitário. Efeitos:
    - some de `getSugestoes()` (deixa de ter SKU vazio);
@@ -126,7 +126,7 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
 - **Mesmo `CODIGO_PRODUTO` sugerido para dois anúncios** → permitido (vários
   anúncios podem apontar para o mesmo produto físico).
 - **Aba `ANUNCIOS_SHOPEE` nunca sincronizada** → `{ pendentes: [], total: 0 }`,
-  não erro. A UI oferece botão de sync (`anunciosShopee.syncListings`) para
+  não erro. A UI oferece botão de sync (`produtoSkuMap.syncListings`) para
   trazer o `item_sku` real antes de parear.
 - **`item_sku` preenchido diretamente na Shopee pelo usuário** (caso real:
   `PERF-DEL-001`) → some da lista após o próximo `syncListings`; a ferramenta
@@ -148,12 +148,12 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
      (coberto por smoke test em `runSmokeTests_`, dado puro).
 2. **Confirmar grava o SKU na Shopee e sai da lista de pendentes**
    - Given um anúncio pendente
-   - When a UI chama `anunciosShopee.updateSku({itemId, sku:'6231'})` e a
+   - When a UI chama `produtoSkuMap.updateSku({itemId, sku:'6231'})` e a
      releitura confirma
    - Then `ANUNCIOS_SHOPEE.SKU='6231'` e `getSugestoes()` não inclui mais o item
 3. **Marcar sem estoque sai da lista e pedidos não geram pendência**
    - Given um anúncio sem candidato
-   - When a UI chama `anunciosShopee.updateSku({itemId, sku:'SEM_ESTOQUE'})`
+   - When a UI chama `produtoSkuMap.updateSku({itemId, sku:'SEM_ESTOQUE'})`
    - Then `SKU='SEM_ESTOQUE'`, o item não aparece mais em `getSugestoes()`, e um
      pedido com esse item não cria pendência de baixa (guards
      `processBaixaForOrder_` + `backfillExistingOrders`)
@@ -178,36 +178,41 @@ Depois do pareamento inicial, a ferramenta só reaparece quando um anúncio novo
   (releitura) — confirmados por sondagem real em 10/08/2026, registrados em
   `docs/referencia/CONTRATOS_CONFIRMADOS.md` no mesmo commit desta spec.
 - **Services/Repository existentes:**
-  - `AnunciosShopeeRepository.getAll()` (fonte dos pendentes; campos
+  - `ProdutoSkuMapRepository.getAll()` (fonte dos pendentes; campos
     `ITEM_ID`, `SKU`, `NOME`, `IMAGEM_URL` conforme `MAIN_HEADERS`).
-  - `AnunciosShopeeRepository.patchMain()` (escrita pós-confirmação).
+  - `ProdutoSkuMapRepository.patchMain()` (escrita pós-confirmação).
   - `EstoqueRepository.getRows()` (fonte dos candidatos;
     `CODIGO_PRODUTO`/`DESCRICAO_PRODUTO`).
 - **Services alterados nesta entrega:**
-  - `AnunciosShopeeService` (action `updateSku` adicionada).
+  - `ProdutoSkuMapService` (ações `syncListings`/`updateSku` — domínio
+    `anunciosShopee` absorvido em 12/08/2026).
   - `OrdersImportService.processBaixaForOrder_` (guard `SEM_ESTOQUE`).
   - `EstoqueBaixaService.backfillExistingOrders` (guard `SEM_ESTOQUE`).
 
 ## Notas de Implementação
 
-1. **Estrutura de arquivos:**
+1. **Estrutura de arquivos (após consolidação de 12/08/2026):**
    ```
-   src/03_services/anunciosShopee/AnunciosShopeeService.js   (action updateSku)
-   src/03_services/produtoSkuMap/ProdutoSkuMapService.js      (novo)
-   ui/produtoSkuMap/ProdutoSkuMapView.html                    (novo)
+   src/03_services/produtoSkuMap/ProdutoSkuMapRepository.js (ex-AnunciosShopeeRepository;
+                               leituras nunca criam aba; escritas usam getOrCreateSheet)
+   src/03_services/produtoSkuMap/ProdutoSkuMapService.js    (getSugestoes + syncListings + updateSku)
+   ui/produtoSkuMap/ProdutoSkuMapView.html                  (novo)
    ```
-   Sem repository próprio — `ProdutoSkuMapService` só lê via
-   `AnunciosShopeeRepository`/`EstoqueRepository` existentes e escreve via
-   `AnunciosShopeeService.updateSku` (mesma camada, chamada direta aceitável).
-2. **`filePushOrder`:** `ProdutoSkuMapService.js` entra depois de
-   `AnunciosShopeeService.js` e de `EstoqueRepository.js` (dependências), antes
-   de `ServiceRegistry.js`.
+   O domínio `anunciosShopee` (service + repository) foi removido; o inventário
+   master de anúncios Shopee continua na aba `ANUNCIOS_SHOPEE`, agora escrita
+   por `ProdutoSkuMapRepository` (mesmos headers; consumidores: baixa de
+   estoque via `item_sku`, `OrdersImportService` restore de `ITEM_SKUS` e
+   `CatalogService` vendas por SKU).
+2. **`filePushOrder`:** `ProdutoSkuMapRepository.js` entra antes de
+   `CatalogService.js` e de `OrdersImportService.js` (dependentes);
+   `ProdutoSkuMapService.js` depois de `EstoqueRepository.js` e de
+   `ProdutoSkuMapRepository.js` (dependências), antes de `ServiceRegistry.js`.
 3. **Registro em `ServiceRegistry.js`:** padrão defensivo `safeRef_`.
 4. **UI (`ProdutoSkuMapView.html`):** Web Component com Shadow DOM e tokens do
    design system. Cada anúncio pendente vira um card com imagem/nome,
    candidatos como botões de confirmação rápida (score visível), campo de
    busca manual com picklist (fonte: `produtos` do retorno), e botão
-   "Marcar sem estoque". Escritas via `mutateData('anunciosShopee.updateSku')`
+   "Marcar sem estoque". Escritas via `mutateData('produtoSkuMap.updateSku')`
    com `withLoading`/`showError` (`UiHelpers.html`). Botões "Sincronizar
    anúncios" (traz `item_sku` real da Shopee) e "Atualizar" (`invalidate` +
    fetch). Estados vazios com `.empty-state`/`.loading-state` globais.

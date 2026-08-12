@@ -75,7 +75,7 @@ var DashboardService = (function () {
     'nfeEntrada.syncAndUpdateSheets',
     'estoque.sincronizar',
     'estoque.sincronizarPrecosCatalogo',
-    'anunciosShopee.syncListings',
+    'produtoSkuMap.syncListings',
     'ordersImport.importShopeeOrders'
   ];
 
