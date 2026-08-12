@@ -21,10 +21,54 @@
     }
     .btn-close:hover { background: var(--color-surface-hover); }
     .btn-close:disabled { cursor: default; opacity: 0.4; }
-    .sync-status { font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--color-text); margin-bottom: var(--space-xs); }
-    .sync-stage { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-bottom: var(--space-sm); min-height: 1.2em; }
-    .progress-track { height: 8px; border-radius: var(--radius-full); background: var(--color-surface-alt); overflow: hidden; margin-bottom: var(--space-md); }
-    .progress-fill { height: 100%; width: 0%; background: var(--color-primary); border-radius: var(--radius-full); transition: width 0.25s ease; }
+    .sync-ring-wrap {
+      display: flex; justify-content: center; align-items: center;
+      margin: 0 auto var(--space-lg); position: relative;
+      width: 120px; height: 120px;
+    }
+    .sync-ring-svg { display: block; transform: rotate(-90deg); }
+    .sync-ring-track, .sync-ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; }
+    .sync-ring-track { stroke: var(--color-border-light); }
+    .sync-ring-fill {
+      stroke: var(--color-info);
+      stroke-dasharray: 339.292;
+      stroke-dashoffset: 339.292;
+      transition: stroke-dashoffset 0.3s ease;
+    }
+    .sync-ring-pct {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--font-size-xl); font-weight: var(--font-weight-bold);
+      color: var(--color-text);
+    }
+    .sync-steps {
+      list-style: none; padding: 0; margin: 0 0 var(--space-md) 0;
+      display: flex; flex-direction: column; gap: var(--space-xs);
+    }
+    .sync-step {
+      display: flex; align-items: center; gap: var(--space-sm);
+      padding: var(--space-sm);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-tertiary);
+      font-size: var(--font-size-sm);
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .sync-step.is-pending .sync-step-icon { color: var(--color-disabled); }
+    .sync-step.is-active {
+      background: var(--color-info-light);
+      color: var(--color-text);
+      font-weight: var(--font-weight-medium);
+    }
+    .sync-step.is-active .sync-step-icon {
+      color: var(--color-info);
+      animation: sync-spin 1s linear infinite;
+      display: inline-block;
+    }
+    .sync-step.is-done { color: var(--color-text-secondary); }
+    .sync-step.is-done .sync-step-icon { color: var(--color-success); }
+    .sync-step-icon { width: 1.25em; text-align: center; font-size: var(--font-size-base); }
+    .sync-step-name { flex: 1; }
+    @keyframes sync-spin { to { transform: rotate(360deg); } }
     .sync-summary { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
   </style>
   <div class="widget-grid">
@@ -57,9 +101,14 @@
         <h2>Sincronizando Dados</h2>
         <button class="btn-close" id="btn-sync-close" title="Fechar">&times;</button>
       </div>
-      <div class="sync-status" id="sync-status">Preparando...</div>
-      <div class="sync-stage" id="sync-stage"></div>
-      <div class="progress-track"><div class="progress-fill" id="sync-progress"></div></div>
+      <div class="sync-ring-wrap">
+        <svg class="sync-ring-svg" width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="sync-ring-track" cx="60" cy="60" r="54"></circle>
+          <circle class="sync-ring-fill" cx="60" cy="60" r="54"></circle>
+      </svg>
+        <div class="sync-ring-pct" id="sync-ring-pct">0%</div>
+   </div>
+      <ul class="sync-steps" id="sync-steps"></ul>
       <div class="sync-summary" id="sync-summary"></div>
     </div>
   </div>
@@ -127,28 +176,46 @@
         var self = this;
         var overlay = shadow.getElementById('sync-overlay');
         var closeBtn = shadow.getElementById('btn-sync-close');
-        var statusEl = shadow.getElementById('sync-status');
-        var stageEl = shadow.getElementById('sync-stage');
         var summaryEl = shadow.getElementById('sync-summary');
-        var fill = shadow.getElementById('sync-progress');
+        var fillCircle = shadow.querySelector('.sync-ring-fill');
+        var pctEl = shadow.getElementById('sync-ring-pct');
+        var stepsEl = shadow.getElementById('sync-steps');
         var btnSync = shadow.getElementById('btn-sync-all');
 
+        var RING_C = 339.292;
         var steps = [];
         var current = 0;
         var results = [];
         var encerrado = false;
 
-        function setStatus(t) { statusEl.textContent = t; }
-        function setStage(t) { stageEl.textContent = t; }
         function setSummary(t) { summaryEl.textContent = t; }
-        function setProgress(p) { fill.style.width = p + '%'; }
+        function setProgress(p) {
+          var pct = Math.max(0, Math.min(100, p));
+          fillCircle.style.strokeDashoffset = RING_C * (1 - pct / 100);
+          pctEl.textContent = Math.round(pct) + '%';
+        }
+        function renderSteps() {
+          stepsEl.innerHTML = steps.map(function (action, i) {
+            var label = STEP_LABELS[action] || action;
+            var cls = i < current ? 'is-done' : (i === current ? 'is-active' : 'is-pending');
+            var icon = i < current ? '\u2713' : (i === current ? '\u27F3' : '\u25CB');
+            return '<li class="sync-step ' + cls + '">' +
+                   '<span class="sync-step-icon" aria-hidden="true">' + icon +</span>' +
+                   '<span class="sync-step-name">' + label +</span>' +
+                  </li>';
+          }).join('');
+        }
 
         function concluir(msg, erro) {
           if (encerrado) return;
           encerrado = true;
           closeBtn.disabled = false;
           btnSync.disabled = false;
-          if (!erro) setProgress(100);
+          if (!erro) {
+            current = steps.length;
+            setProgress(100);
+            renderSteps();
+          }
           setSummary(msg);
           var dc = window.__DataClient;
           dc.invalidate('dashboard.summary');
@@ -160,22 +227,18 @@
         function executarPasso() {
           if (encerrado) return;
           if (current >= steps.length) {
-            setStatus('Sincronizacao concluida');
             var ok = results.filter(function (r) { return r.ok; }).length;
             var falha = results.filter(function (r) { return !r.ok; }).length;
             concluir(ok + ' etapa(s) OK' + (falha > 0 ? ', ' + falha + ' falha(s).' : '.'));
             return;
           }
 
-          var action = steps[current];
-          var label = STEP_LABELS[action] || action;
-          var pct = Math.round((current / steps.length) * 100);
-          setProgress(pct);
-          setStatus(label);
-          setStage('Etapa ' + (current + 1) + ' de ' + steps.length);
+          setProgress(Math.round((current / steps.length) * 100));
+          renderSteps();
 
+          var action = steps[current];
           window.__DataClient.run(action, {}, {
-            success: function (resp) {
+            success: function () {
               results.push({ action: action, ok: true });
               current++;
               executarPasso();
@@ -192,9 +255,8 @@
         btnSync.disabled = true;
         overlay.classList.add('open');
         setProgress(0);
-        setStage('');
-        setSummary('');
-        setStatus('Lendo configuracao...');
+        setSummary('Lendo configuracao...');
+        renderSteps();
 
         window.__DataClient.run('dashboard.getSyncOrder', {}, {
           success: function (resp) {
@@ -204,6 +266,7 @@
               concluir('Nenhuma etapa configurada. Verifique a aba CONFIG (chave sincronizar).', true);
               return;
             }
+            renderSteps();
             executarPasso();
           },
           failure: function (err) {
