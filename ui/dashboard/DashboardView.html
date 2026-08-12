@@ -200,9 +200,9 @@
             var cls = i < current ? 'is-done' : (i === current ? 'is-active' : 'is-pending');
             var icon = i < current ? '\u2713' : (i === current ? '\u27F3' : '\u25CB');
             return '<li class="sync-step ' + cls + '">' +
-                   '<span class="sync-step-icon" aria-hidden="true">' + icon +</span>' +
-                   '<span class="sync-step-name">' + label +</span>' +
-                  </li>';
+                   '<span class="sync-step-icon" aria-hidden="true">' + icon + '</span>' +
+                   '<span class="sync-step-name">' + label + '</span>' +
+                  '</li>';
           }).join('');
         }
 
