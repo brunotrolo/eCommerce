@@ -277,6 +277,7 @@ var NFeEntradaProdutosService = (function () {
     var somaDesconto = 0;
     var somaOutros = 0;
 
+    var existenteSet = NFeEntradaProdutosRepository.buildExistenteSet(nfeProdutosSheetId);
     for (var j = 0; j < produtos.length; j++) {
       var prod = produtos[j];
       var cod = prod.cProd || '';
@@ -285,7 +286,7 @@ var NFeEntradaProdutosService = (function () {
       var vProd = parseFloat(prod.vProd) || 0;
       var icmsItem = round2_(vProd * aliq);
 
-      if (NFeEntradaProdutosRepository.jaExisteProduto(nfeProdutosSheetId, numeroNf, cod)) {
+      if (existenteSet[String(numeroNf).trim() + String.fromCharCode(124) + String(cod).trim()]) {
         skippedDuplicate++;
         trace_('processarNf:skip-dup', 'Produto já existe na aba, skip: ' + cod, {
           numeroNf: numeroNf, codigo: cod
