@@ -56,18 +56,14 @@ Cada domínio expõe `describe()` (ações + schema, no espírito do
 **Domínios reais hoje** (chave de dispatch em `ServiceRegistry.js`): `config`,
 `pricing`, `orders`, `dashboard`, `nfeEntrada`, `nfeEntradaProdutos`,
 `calculator`, `logging`, `catalog`, `system`, `manualEntrada`, `manualSaida`,
-`estoque`, `estoqueBaixa`, `ordersImport`, `pushNotification`,
-`produtoSkuMap`, `sku`. (`listings` e
-`inventoryPricing` foram removidos em 09/08/2026 — sucedidos por
+`estoque`, `estoqueBaixa`, `ordersImport`, `pushNotification`, `sku`.
+(`listings` e `inventoryPricing` foram removidos em 09/08/2026 — sucedidos por
 `anunciosShopee`/`carteiraShopee`; `carteiraShopee` e `shopeeAds` foram
-removidos em 10/08/2026 junto com as páginas, `anunciosShopee` foi contraído
-em 10/08/2026 e **absorvido pelo `produtoSkuMap` em 12/08/2026**:
-`syncListings`/`updateSku` passam a viver em `ProdutoSkuMapService` e
-`AnunciosShopeeRepository` virou `ProdutoSkuMapRepository` — o repositório
-segue sendo a fonte de `item_sku` para a baixa de estoque de pedidos.
-`syncListings` é passo da cadeia "Sincronizar Tudo" (`DEFAULT_SYNC_STEPS`) e
-recria a aba `ANUNCIOS_SHOPEE` se ausente — consumida por `ordersImport`
-(restore de `ITEM_SKUS`), `catalog`, `produtoSkuMap` e pela baixa.)
+removidos em 10/08/2026 junto com as páginas; `anunciosShopee` foi contraído
+em 10/08/2026 e absorvido pelo `produtoSkuMap` em 12/08/2026; **`produtoSkuMap`
+e as abas `ANUNCIOS_SHOPEE`/`ANUNCIOS_PERFORMANCE` foram removidos em
+13/08/2026 (decisão do usuário)** — pedidos Shopee usam apenas o `item_sku`
+nativo, sem mapa `item_id → SKU`.)
 
 Convenção de namespace: um identificador global por arquivo
 (`var NomeService = (function(){...})();`), sempre `var` no top-level
@@ -105,7 +101,7 @@ domínios. Uma dependência não listada aqui é proibida sem decisão explícit
 | Domínio (consumidor) | Depende de (domínios/utilitários) | Tipo |
 |---|---|---|
 | `catalog` | `PricingService`, `SkuService` | utilitários (motor único de margem) |
-| `catalog` | `OrdersRepository`, `ProdutoSkuMapRepository` | leitura de vendas de pedidos (11/08/2026) — aba PEDIDOS + mapa item_id→SKU |
+| `catalog` | `OrdersRepository` | leitura de vendas de pedidos (11/08/2026) — aba PEDIDOS (`item_sku` nativo) |
 | `estoque` | `PricingService`, `CatalogService` | utilitário + leitura de catálogo |
 | `manualEntrada` | `SkuService`, `EstoqueService`, `CatalogService` | utilitário + motores designados |
 | `manualSaida` | `EstoqueBaixaService`, `CatalogService`, `SkuService` | motor FIFO + leitura catálogo |
@@ -113,7 +109,6 @@ domínios. Uma dependência não listada aqui é proibida sem decisão explícit
 | `dashboard` | `OrdersService` | leitura de pedidos |
 | `pushNotification` | `OrdersImportService` | orquestração de sync (unidirecional) |
 | `estoqueBaixa` | — (motor puro + repos) | — |
-| `produtoSkuMap` | — (Tiops + repos) | — |
 
 **Importante:** não há ciclos hoje. `ordersImport ↔ pushNotification` é
 unidirecional (`push → sync`); a referência comentada a

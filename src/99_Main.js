@@ -371,20 +371,6 @@ function runSmokeTests_() {
   var netPix = OrdersService.calculateNet({ escrowAmount: 120, netCommissionFee: 24, netServiceFee: 6, pixDiscount: 3, total: 120 });
   expectClose('líquido com pix (escrow)', netPix, 120);
 
-  // Pareamento de SKU (produtoSkuMap) — similaridade de texto:
-  // Given título de marketing x descrição de estoque (Delilah = 6231)
-  var tituloDelilah = 'Perfume Árabe Delilah Maison Alhambra Feminino 100ml Eau de Parfum EDP Original';
-  var tokensDelilah = ProdutoSkuMapService.normalizarTexto(tituloDelilah);
-  expectTrue('normalizarTexto remove stopwords (sem "perfume"/"100ml")', tokensDelilah.indexOf('perfume') === -1 && tokensDelilah.indexOf('100ml') === -1);
-  expectTrue('normalizarTexto remove acentuação (árabe->arabe)', tokensDelilah.indexOf('arabe') !== -1);
-  expectTrue('normalizarTexto mantém tokens de marca', tokensDelilah.indexOf('delilah') !== -1 && tokensDelilah.indexOf('alhambra') !== -1);
-
-  var score6231 = ProdutoSkuMapService.scoreSimilaridade(tituloDelilah, 'MAISON DELILAH');
-  expectTrue('score Delilah/6231 é 100% (todos os tokens curtos encontrados)', score6231 === 100);
-
-  var scoreIrrelevante = ProdutoSkuMapService.scoreSimilaridade(tituloDelilah, 'LUMINARIA ART HOUSE NORDESTINA');
-  expectTrue('score irrelevante (Art House) é 0', scoreIrrelevante === 0);
-
   if (failures.length) {
     Logger.log('FALHOU:\n' + failures.join('\n'));
     throw new Error(failures.length + ' smoke test(s) falharam — ver log.');

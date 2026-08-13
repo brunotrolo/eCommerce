@@ -22,7 +22,6 @@ var ConfigRepository = (function () {
       'nfeEntrada.syncAndUpdateSheets',
       'estoque.sincronizar',
       'estoque.sincronizarPrecosCatalogo',
-      'produtoSkuMap.syncListings',
       'ordersImport.importShopeeOrders'
     ])
   };
@@ -77,9 +76,10 @@ var ConfigRepository = (function () {
       }
     }
 
-    // Migração 12/08/2026: domínio anunciosShopee absorvido pelo produtoSkuMap.
-    // O passo antigo pode estar gravado na aba CONFIG do usuário — reescreve na
-    // leitura para não quebrar a cadeia "Sincronizar Tudo" (não altera o sheet).
+    // Migração 13/08/2026: domínios de anúncios Shopee (anunciosShopee →
+    // produtoSkuMap) foram removidos. Passos órfãos gravados na aba CONFIG são
+    // descartados na leitura para não quebrar a cadeia "Sincronizar Tudo"
+    // (não altera o sheet).
     try {
       var raw = config.sincronizar;
       if (typeof raw === 'string') raw = JSON.parse(raw);
@@ -90,15 +90,16 @@ var ConfigRepository = (function () {
     return config;
   }
 
-  var LEGACY_SYNC_STEPS_MAP = {
-    'anunciosShopee.syncListings': 'produtoSkuMap.syncListings'
+  var REMOVED_SYNC_STEPS = {
+    'anunciosShopee.syncListings': 1,
+    'produtoSkuMap.syncListings': 1
   };
 
   function migrateSyncSteps_(steps) {
     if (!Array.isArray(steps)) return steps;
     var out = [];
     for (var i = 0; i < steps.length; i++) {
-      out.push(LEGACY_SYNC_STEPS_MAP[steps[i]] || steps[i]);
+      if (!REMOVED_SYNC_STEPS[steps[i]]) out.push(steps[i]);
     }
     return out;
   }

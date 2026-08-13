@@ -55,9 +55,8 @@ segurança para navegar antes do boot terminar.
    | `nfeEntrada` | `nfeEntrada.recent {limit:20}` |
    | `nfeEntradaProdutos` | `nfeEntradaProdutos.produtos {}` |
    | `manualEntrada` | `manualEntrada.listEntries {limit:500}` |
-   | `manualSaida` | `manualSaida.listExits {limit:500}` |
-   | `produtoSkuMap` | `produtoSkuMap.sugestoes {}` |
-   | `dashboard` | fora do mapa (crítico cobre) |
+    | `manualSaida` | `manualSaida.listExits {limit:500}` |
+    | `dashboard` | fora do mapa (crítico cobre) |
 
    As chaves acima foram confirmadas como as que as views leem/gravam
    (grep de `__DataClient` nas views em 09/08/2026).
@@ -74,8 +73,9 @@ segurança para navegar antes do boot terminar.
 ## Critérios de aceite
 
 - [x] Boot dispara as 8 chaves, todas com `forceFresh: true` (dados reais
-      do Sheets em todo reload). Carteira Shopee, Anúncios Shopee e Shopee
-      Ads saíram do boot em 10/08/2026 (páginas removidas).
+      do Sheets em todo reload). Carteira Shopee, Anúncios Shopee, Shopee
+      Ads e Pareamento SKU saíram do boot (páginas/domínios removidos —
+      10/08 e 13/08/2026).
 - [x] `navigate()` dispara `preFetch` das chaves da rota destino (quando a
       rota estiver no mapa), sem await/bloqueio.
 - [x] Rota sem entrada no mapa não dispara nada.
@@ -87,7 +87,5 @@ segurança para navegar antes do boot terminar.
 
 - Carregar app → confirmar nos logs que o boot dispara apenas as 8
   chaves listadas (chaves críticas).
-- Navegar para Parear SKU → confirmar `produtoSkuMap.sugestoes` disparada na
-  navegação (não no boot).
 - Navegar para Dashboard a partir de outra aba → Tabela instantânea via
   cache (nothing novo disparado).

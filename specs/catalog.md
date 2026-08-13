@@ -46,7 +46,7 @@ apenas via marketplace.
 - **Venda de pedido = pedido que pagou.** Pedido com status `UNPAID`, `CANCELLED`/`CANCELADO`/`IN_CANCEL`, `TO_RETURN`/`RETURNED`/`DEVOLVIDO` **não conta** — mesma regra de baixa de estoque (pedido não pago, cancelado ou devolvido não baixa estoque; logo não é venda). PEDIDO pago com baixa `PENDENTE` (sem estoque) ainda conta como vendido, pois a venda ocorreu.
 - **Resolução de SKU do pedido** para o código do produto:
   1. `SKU:qty` em `ITEM_SKUS` do pedido casa direto com o `SKU` do catálogo do produto.
-  2. Se o SKU for numérico (item_id Shopee sem SKU pareado na origem), resolve via mapa `item_id → SKU` da aba `ANUNCIOS_SHOPEE` (`ProdutoSkuMapRepository.getItemSkuMap`) e então casa com o catálogo.
+  2. O SKU vem do **`item_sku` nativo da Shopee** no momento do import (domínios de anúncios Shopee removidos em 13/08/2026 — sem mapa `item_id → SKU`; pedidos antigos sem `item_sku` não resolvem e são ignorados).
   3. Sentinela `SEM_ESTOQUE` = item sem controle de estoque unitário — nunca conta como venda.
 - SKUs de pedido que não resolvem para nenhum produto do catálogo são ignorados (logado), sem erro.
 - `estoqueDisponivel = estoqueEntrada - estoqueSaida` — **apenas** saídas manuais (equivalente à aba ESTOQUE, que só reflete baixa manual + FI/FIFO; vendas de pedidos baixam ESTOQUE via `EstoqueBaixaService` e não são incluídas no catálogo para não duplicar com entradas já contabilizadas). A coluna "Vendido" é a única que consolida pedidos.
@@ -65,15 +65,15 @@ apenas via marketplace.
 - Given um produto com 4 pedidos Shopee pagos (2 unidades cada), When a tela Catálogo carrega, Then `quantidadeVendida >= 8` (ou soma idêntica à aba PEDIDOS).
 - Given produto com 5 saídas manuais e 3 vendas de pedido, When carrega, Then `quantidadeVendida = 8`.
 - Given pedido `UNPAID`/`CANCELLED`/`DEVOLVIDO`, When carrega, Then suas unidades não entram em `quantidadeVendida`.
-- Given item com SKU numérico (sem SKU pareado), When a aba ANUNCIOS_SHOPEE tem o mapeamento, Then resolve e conta no produto correto.
+- Given item com SKU numérico (sem `item_sku` no pedido), When carrega, Then não resolve para nenhum produto (ignorado, logado).
 - Given item `SEM_ESTOQUE`, When carrega, Then não é contado como venda.
 
 ## Dependências
 
-- Services/repos usados: `NFeEntradaProdutosRepository`, `ManualEntradaProdutosRepository`, `ManualSaidaProdutosRepository`, `OrdersRepository` (aba PEDIDOS, leitura), `ProdutoSkuMapRepository` (aba ANUNCIOS_SHOPEE, leitura), `PricingService`, `SkuService`, `CacheRepository`.
+- Services/repos usados: `NFeEntradaProdutosRepository`, `ManualEntradaProdutosRepository`, `ManualSaidaProdutosRepository`, `OrdersRepository` (aba PEDIDOS, leitura), `PricingService`, `SkuService`, `CacheRepository`.
 - Ações Tiops: nenhuma direta (dados vêm do Sheets).
 
 ## Notas de Implementação
 
 - A agregação de pedidos roda dentro de `computeProducts_` (cache server 300s; `forceFresh` relê o Sheets).
-- Resolução de SKU numérico reutiliza `ProdutoSkuMapRepository.getItemSkuMap` (mesmo mapa usado pelo `OrdersImportService`), mantendo uma única fonte de mapeamento.
+- Resolução de SKU usa o `item_sku` nativo gravado em `ITEM_SKUS` pelo `OrdersImportService` (fonte única desde 13/08/2026 — mapa de anúncios removido).

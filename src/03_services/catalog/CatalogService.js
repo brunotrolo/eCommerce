@@ -181,7 +181,6 @@ var CatalogService = (function () {
     var vendasPedidosByCodigo = {};
     try {
       var ordersMap = OrdersRepository.getAllOrdersMap();
-      var itemSkuMap = ProdutoSkuMapRepository.getItemSkuMap();
       var produtosBySku = {};
       var codeKeys = Object.keys(grouped);
       for (var sk = 0; sk < codeKeys.length; sk++) {
@@ -204,9 +203,9 @@ var CatalogService = (function () {
           var skuRaw = part.substring(0, colonIdx).trim();
           var qty = parseInt(part.substring(colonIdx + 1), 10) || 1;
           if (!skuRaw || skuRaw === 'SEM_ESTOQUE') continue;
-          // SKU pode ser o interno (PERF-ALW-001) ou o item_id numérico da
-          // Shopee (22599564026) quando o pedido foi importado sem pareamento.
-          var codigoResolvido = produtosBySku[skuRaw] || produtosBySku[itemSkuMap[skuRaw] || ''];
+          // SKU do pedido = item_sku nativo da Shopee (perfil interno) — casa
+          // direto com o SKU do catálogo; pedidos sem item_sku não resolvem.
+          var codigoResolvido = produtosBySku[skuRaw];
           if (!codigoResolvido) continue;
           if (!vendasPedidosByCodigo[codigoResolvido]) vendasPedidosByCodigo[codigoResolvido] = 0;
           vendasPedidosByCodigo[codigoResolvido] += qty;

@@ -30,7 +30,7 @@ var OrdersImportService = (function () {
           params: {}
         },
         restoreEmptySkus: {
-          description: 'Restaura ITEM_SKUS vazios re-buscando pedidos no Shopee e aplicando skuMap de ANUNCIOS_SHOPEE.',
+          description: 'Restaura ITEM_SKUS vazios re-buscando pedidos no Shopee (item_sku nativo do pedido).',
           params: {}
         },
         backfillEstoqueIdsAndCosts: {
@@ -155,18 +155,12 @@ var OrdersImportService = (function () {
     return Math.round(total * 100) / 100;
   }
 
-  function formatItemsDetail_(items, skuMap) {
+  function formatItemsDetail_(items) {
     if (!items || items.length === 0) return '';
-    skuMap = skuMap || {};
     var parts = [];
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
-      var sku = '';
-      if (it.item_id && skuMap[it.item_id]) {
-        sku = skuMap[it.item_id];
-      } else {
-        sku = it.item_sku || '';
-      }
+      var sku = it.item_sku || '';
       var name = it.item_name || '';
       var qty = it.model_quantity_purchased || 1;
       var price = it.model_discounted_price || 0;
@@ -175,17 +169,11 @@ var OrdersImportService = (function () {
     return parts.join('; ');
   }
 
-  function formatItemSkus_(items, skuMap) {
+  function formatItemSkus_(items) {
     if (!items || items.length === 0) return '';
-    skuMap = skuMap || {};
     var parts = [];
     for (var i = 0; i < items.length; i++) {
-      var sku = '';
-      if (items[i].item_id && skuMap[items[i].item_id]) {
-        sku = skuMap[items[i].item_id];
-      } else {
-        sku = items[i].item_sku || '';
-      }
+      var sku = items[i].item_sku || '';
       var qty = items[i].model_quantity_purchased || 1;
       if (sku) parts.push(sku + ':' + qty);
     }
@@ -272,7 +260,7 @@ var OrdersImportService = (function () {
     return escrowMap;
   }
 
-  function normalizeOrder_(detail, escrow, skuMap, costMap) {
+  function normalizeOrder_(detail, escrow, costMap) {
     if (!detail) return null;
 
     var items = detail.item_list || [];
@@ -292,8 +280,8 @@ var OrdersImportService = (function () {
       PICKUP_TIME: formatDateTime_(detail.pickup_done_time),
       UPDATE_TIME: formatDateTime_(detail.update_time),
       BUYER_USERNAME: detail.buyer_username || '',
-      ITEMS_DETAIL: formatItemsDetail_(items, skuMap),
-      ITEM_SKUS: formatItemSkus_(items, skuMap),
+      ITEMS_DETAIL: formatItemsDetail_(items),
+      ITEM_SKUS: formatItemSkus_(items),
       ITEM_COUNT: items.length,
       MESSAGE_TO_SELLER: detail.message_to_seller || '',
       CREATE_TIME: formatDateTime_(detail.create_time),
@@ -332,18 +320,6 @@ var OrdersImportService = (function () {
     var mode = params.mode || 'all';
     var forceOrderSns = params.forceOrderSns || [];
     var statuses = mode === 'operational' ? OPERATIONAL_STATUSES : ALL_STATUSES;
-
-    var skuMap = {};
-    try {
-      skuMap = ProdutoSkuMapRepository.getItemSkuMap(ConfigService.getSheetId());
-    } catch (e) {
-      LoggingService.log({
-        service: 'OrdersImport', action: 'skuMapLoad', status: 'WARN',
-        caller: 'OrdersImportService',
-        summary: 'Fallback: skuMap vazio (' + e.message + ')',
-        durationMs: 0, context: { error: e.message }
-      });
-    }
 
     var costMap = {};
     try {
@@ -477,7 +453,7 @@ var OrdersImportService = (function () {
     var toUpsert = [];
     for (var u = 0; u < allDetailSns.length; u++) {
       var orderSn = allDetailSns[u];
-      var normalized = normalizeOrder_(details[orderSn], escrowMap[orderSn], skuMap, costMap);
+      var normalized = normalizeOrder_(details[orderSn], escrowMap[orderSn], costMap);
       if (normalized) toUpsert.push(normalized);
     }
 
@@ -613,13 +589,6 @@ var OrdersImportService = (function () {
       });
     }
 
-    var skuMap = {};
-    try {
-      skuMap = ProdutoSkuMapRepository.getItemSkuMap(ConfigService.getSheetId());
-    } catch (e) {
-      // fallback silencioso: sem skuMap, usa item_sku da Shopee
-    }
-
     var costMap = {};
     try {
       costMap = getCostMap_(ConfigService.getSheetId());
@@ -627,7 +596,7 @@ var OrdersImportService = (function () {
       // fallback silencioso: sem costMap, TOTAL_COST = 0
     }
 
-    var order = normalizeOrder_(detail, escrow, skuMap, costMap);
+    var order = normalizeOrder_(detail, escrow, costMap);
     if (!order) return { success: false, error: 'normalize failed' };
 
     var map = OrdersRepository.getAllOrdersMap();
@@ -891,16 +860,6 @@ var OrdersImportService = (function () {
     var startTime = Date.now();
     var sheetId = ConfigService.getSheetId();
 
-    var skuMap = {};
-    try {
-      skuMap = ProdutoSkuMapRepository.getItemSkuMap(sheetId);
-    } catch (e) {
-      return { error: 'skuMap load failed: ' + e.message };
-    }
-    if (Object.keys(skuMap).length === 0) {
-      return { error: 'skuMap is empty — cannot restore SKUs' };
-    }
-
     var sheet = SheetsRepository.getOrCreateSheet('PEDIDOS');
     var lastRow = sheet.getLastRow();
     var lastCol = sheet.getLastColumn();
@@ -949,7 +908,7 @@ var OrdersImportService = (function () {
           continue;
         }
 
-        var newSkus = formatItemSkus_(items, skuMap);
+        var newSkus = formatItemSkus_(items);
         if (!newSkus) {
           errors++;
           continue;

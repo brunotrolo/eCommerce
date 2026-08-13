@@ -297,7 +297,7 @@ var OrdersRepository = (function () {
       if (existing) {
         if (updateAll) {
           // Protege ITEM_SKUS existente: se o novo valor é vazio, preserva o antigo
-          // Evita que reimportações/syncs apaguem SKUs quando skuMap falha ou Shopee não retorna item_sku
+          // Evita que reimportações/syncs apaguem SKUs quando a Shopee não retorna item_sku
           if (!order.ITEM_SKUS && existing.itemSkus) {
             LoggingService.log({
               service: 'OrdersRepo', action: 'upsertOrders', status: 'WARN',
