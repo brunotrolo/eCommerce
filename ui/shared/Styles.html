@@ -643,14 +643,10 @@
      ============================================================ */
   .stat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--space-card);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-2xl);
+    width: 80%;
     margin-bottom: var(--space-section);
-  }
-
-  .stat-grid > .stat-card {
-    max-width: 360px;
-    justify-self: center;
   }
 
   .stat-grid:last-child {
@@ -784,7 +780,10 @@
   .page-summary {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-lg);
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2xl);
+    width: 80%;
     margin-top: var(--space-md);
     margin-bottom: var(--space-card);
   }
@@ -805,7 +804,7 @@
   }
   .page-summary .stat-sep {
     border-left: 1px solid var(--color-border);
-    padding-left: var(--space-lg);
+    padding-left: var(--space-xl);
   }
 
   /* ============================================================
@@ -1035,6 +1034,11 @@
 
     #app-view {
       padding: var(--space-md);
+    }
+
+    .page-summary,
+    .stat-grid {
+      width: 100%;
     }
   }
 </style>
